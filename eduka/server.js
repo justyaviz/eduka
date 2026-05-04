@@ -36,8 +36,9 @@ function sendFile(response, filePath) {
 
 const server = http.createServer((request, response) => {
   const urlPath = decodeURIComponent(request.url.split("?")[0]);
-  const safePath = path.normalize(urlPath).replace(/^(\.\.[/\\])+/, "");
-  const requestedPath = path.join(root, safePath === "/" ? "index.html" : safePath);
+  const routePath = urlPath === "/" ? "index.html" : urlPath.replace(/^[/\\]+/, "");
+  const safePath = path.normalize(routePath).replace(/^(\.\.[/\\])+/, "");
+  const requestedPath = path.join(root, safePath);
 
   if (!requestedPath.startsWith(root)) {
     response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
