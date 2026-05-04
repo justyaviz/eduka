@@ -6,31 +6,30 @@
     <title>Eduka - O'quv markazlar uchun CRM</title>
     <meta
       name="description"
-      content="Eduka - o'quv markazlar uchun o'quvchilar, guruhlar, davomad, to'lovlar va hisobotlarni boshqaradigan zamonaviy CRM."
+      content="Eduka - o'quv markazlar uchun o'quvchilar, guruhlar, davomad, to'lovlar, lidlar va hisobotlarni boshqaradigan zamonaviy CRM."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="loading-screen" aria-label="Eduka yuklanmoqda">
-      <div class="loader-card">
-        <span class="loader-logo">E</span>
+    <div class="loader" aria-label="Eduka yuklanmoqda">
+      <div class="loader-box">
+        <span class="logo-mark">E</span>
         <div>
-          <strong>EDUKA</strong>
-          <p>CRM platforma yuklanmoqda</p>
+          <strong>Eduka</strong>
+          <p data-i18n="loader">CRM ishga tayyorlanmoqda</p>
         </div>
       </div>
-      <div class="loader-line"><span></span></div>
     </div>
 
     <header class="site-header">
-      <a class="brand" href="#home" aria-label="Eduka bosh sahifa">
-        <span class="brand-mark">E</span>
+      <a class="brand" href="#home" aria-label="Eduka">
+        <span class="logo-mark">E</span>
         <span>EDUKA</span>
       </a>
 
@@ -40,309 +39,236 @@
       </button>
 
       <nav class="nav-links" aria-label="Asosiy menyu">
-        <a href="#home">Bosh sahifa</a>
-        <a href="#features">Imkoniyatlar</a>
-        <a href="#pricing">Narxlar</a>
-        <a href="#gamification">Gamification</a>
-        <a href="#support">Qo'llab-quvvatlash</a>
-        <a href="#careers">Vakansiyalar</a>
+        <a href="#features" data-i18n="navFeatures">Imkoniyatlar</a>
+        <a href="#pricing" data-i18n="navPricing">Narxlar</a>
+        <a href="#gamification" data-i18n="navGame">Gamification</a>
+        <a href="#support" data-i18n="navSupport">Qo'llab-quvvatlash</a>
+        <a href="#careers" data-i18n="navCareers">Vakansiyalar</a>
       </nav>
 
       <div class="header-actions">
-        <div class="language-switcher" aria-label="Til tanlash">
-          <button class="active" type="button">UZ</button>
-          <button type="button">RU</button>
-          <button type="button">EN</button>
-        </div>
         <a class="phone-link" href="tel:+998901234567">+998 90 123 45 67</a>
-        <button class="ghost-button" type="button" data-open-login>Kirish</button>
-        <button class="primary-button" type="button" data-open-demo>Demo olish</button>
+        <div class="language-switcher" aria-label="Til tanlash">
+          <button class="active" type="button" data-lang="uz">UZ</button>
+          <button type="button" data-lang="ru">RU</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <button class="ghost-button" type="button" data-open-login data-i18n="login">Kirish</button>
+        <button class="primary-button" type="button" data-open-demo data-i18n="demo">Demo olish</button>
       </div>
     </header>
 
     <main>
       <section id="home" class="hero-section">
         <div class="hero-copy">
-          <p class="eyebrow">O'quv markazlar uchun yagona boshqaruv tizimi</p>
-          <h1>O'quv markazingizni Eduka bilan boshqaring</h1>
-          <p class="hero-text">
-            Eduka administratorlar, o'qituvchilar va menejerlarga o'quvchilar, guruhlar,
-            davomad, to'lovlar hamda hisobotlarni bir joyda tartibli boshqarishga yordam beradi.
+          <p class="eyebrow" data-i18n="heroBadge">Yangi avlod o'quv markazlari uchun CRM</p>
+          <h1 data-i18n="heroTitle">O'quv markazingizni yagona tizimda boshqaring</h1>
+          <p class="hero-text" data-i18n="heroText">
+            Eduka o'quvchilar, guruhlar, davomad, to'lovlar, qarzdorlik va lidlarni bir joyda tartiblaydi.
+            Qo'lda qilinadigan ishlarni kamaytiring, jamoangizni nazorat qiling va o'sishni aniq ko'ring.
           </p>
 
           <div class="hero-actions">
-            <button class="primary-button large" type="button" data-open-demo>Demo olish</button>
-            <a class="secondary-button large" href="#features">Imkoniyatlarni ko'rish</a>
+            <button class="primary-button large" type="button" data-open-demo data-i18n="trial">
+              Hoziroq demo oling
+            </button>
+            <a class="secondary-button large" href="#pricing" data-i18n="seePricing">Narxlarni ko'rish</a>
           </div>
 
-          <div class="trust-row" aria-label="Eduka asosiy ko'rsatkichlari">
-            <div><strong>24/7</strong><span>monitoring</span></div>
-            <div><strong>6 modul</strong><span>bitta tizimda</span></div>
-            <div><strong>15 min</strong><span>demo sozlash</span></div>
+          <div class="hero-note">
+            <span data-i18n="priceSignal">Tariflar 299 000 so'mdan boshlanadi</span>
+            <span data-i18n="betaSignal">Yangi loyiha: beta hamkorlar qabul qilinmoqda</span>
           </div>
-
-          <form id="demo" class="lead-form">
-            <label for="phone">Telefon raqam qoldiring</label>
-            <div class="lead-form-row">
-              <input id="phone" name="phone" type="tel" placeholder="+998 __ ___ __ __" required />
-              <button type="submit">Yuborish</button>
-            </div>
-            <p class="form-note">Mutaxassisimiz siz bilan bog'lanib, demo vaqtini kelishadi.</p>
-          </form>
         </div>
 
-        <div class="hero-visual" aria-label="Eduka dashboard mockup">
-          <div class="dashboard-shell">
-            <div class="dashboard-sidebar">
-              <span class="mini-logo">E</span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="dashboard-content">
-              <div class="dashboard-topbar">
+        <div class="hero-panel" aria-label="Eduka platforma ko'rinishi">
+          <div class="browser-bar">
+            <span></span><span></span><span></span>
+            <strong>app.eduka.uz</strong>
+          </div>
+          <div class="crm-preview">
+            <aside>
+              <span class="logo-mark">E</span>
+              <b data-i18n="crmMenu">Boshqaruv</b>
+              <p data-i18n="crmStudents">O'quvchilar</p>
+              <p data-i18n="crmGroups">Guruhlar</p>
+              <p data-i18n="crmFinance">Moliya</p>
+              <p data-i18n="crmReports">Hisobotlar</p>
+            </aside>
+            <div class="crm-main">
+              <div class="crm-top">
                 <div>
-                  <p>Bugungi holat</p>
+                  <small data-i18n="today">Bugungi ko'rsatkichlar</small>
                   <strong>Dashboard</strong>
                 </div>
-                <span>04 May</span>
+                <button type="button" data-open-demo data-i18n="demo">Demo olish</button>
               </div>
-              <div class="stats-grid">
-                <article>
-                  <span>O'quvchilar</span>
-                  <strong>1 248</strong>
-                  <small>+18%</small>
-                </article>
-                <article>
-                  <span>Guruhlar</span>
-                  <strong>86</strong>
-                  <small>Faol</small>
-                </article>
-                <article>
-                  <span>Tushum</span>
-                  <strong>284 mln</strong>
-                  <small>oylik</small>
-                </article>
+              <div class="metric-grid">
+                <article><span data-i18n="students">O'quvchilar</span><strong>Beta</strong></article>
+                <article><span data-i18n="payments">To'lovlar</span><strong>299K+</strong></article>
+                <article><span data-i18n="leads">Lidlar</span><strong>CRM</strong></article>
               </div>
-              <div class="dashboard-panel">
-                <div class="chart-bars">
-                  <span style="height: 42%"></span>
-                  <span style="height: 68%"></span>
-                  <span style="height: 55%"></span>
-                  <span style="height: 78%"></span>
-                  <span style="height: 61%"></span>
-                  <span style="height: 88%"></span>
+              <div class="analytics-row">
+                <div class="chart-card">
+                  <span style="height: 48%"></span>
+                  <span style="height: 70%"></span>
+                  <span style="height: 58%"></span>
+                  <span style="height: 82%"></span>
+                  <span style="height: 64%"></span>
                 </div>
-                <div class="attendance-list">
-                  <p>Davomad</p>
-                  <div><span>Frontend N12</span><strong>92%</strong></div>
-                  <div><span>English Kids</span><strong>88%</strong></div>
-                  <div><span>Matematika</span><strong>95%</strong></div>
+                <div class="task-card">
+                  <b data-i18n="quickTasks">Tezkor nazorat</b>
+                  <p><span></span><em data-i18n="taskDebt">Qarzdor o'quvchilar</em></p>
+                  <p><span></span><em data-i18n="taskAttendance">Bugungi davomad</em></p>
+                  <p><span></span><em data-i18n="taskLeads">Sinov dars lidlari</em></p>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="brandbook-card">
-            <img src="assets/eduka-brandbook.png" alt="Eduka brandbook preview" />
-          </div>
-          <div class="floating-insight revenue-card">
-            <span>To'lovlar</span>
-            <strong>+34%</strong>
-            <p>qarzdorlik nazorati yaxshilandi</p>
-          </div>
-          <div class="floating-insight attendance-card">
-            <span>Davomad</span>
-            <strong>95%</strong>
-            <p>bugungi darslar yakunlandi</p>
           </div>
         </div>
       </section>
 
-      <section class="about-section">
-        <div>
-          <p class="eyebrow">Platforma haqida</p>
-          <h2>Eduka markaz ichidagi tartibsiz jarayonlarni aniq tizimga aylantiradi.</h2>
+      <section class="partner-section">
+        <p data-i18n="partnerTitle">Beta bosqichidagi birinchi hamkorlar</p>
+        <div class="partner-logos">
+          <span>Learning Center</span>
+          <span>Edu Pro</span>
+          <span>Academy</span>
+          <span>IT School</span>
+          <span>Language Hub</span>
         </div>
-        <p>
-          CRM o'quvchi ro'yxatdan o'tgan kundan boshlab to'lov, davomad, guruh almashinuvi,
-          o'qituvchi jadvali va rahbariyat hisobotigacha bo'lgan jarayonlarni bog'laydi.
+      </section>
+
+      <section class="problem-section">
+        <div>
+          <p class="eyebrow" data-i18n="problemBadge">Muammolarni tizimga aylantiring</p>
+          <h2 data-i18n="problemTitle">Dars jadvalidan moliyagacha bo'lgan jarayonlar bitta CRM ichida</h2>
+        </div>
+        <p data-i18n="problemText">
+          Excel, daftar, Telegram chat va alohida to'lov ro'yxatlari markaz o'sgan sari nazoratni qiyinlashtiradi.
+          Eduka jarayonlarni birlashtirib, administrator va rahbar uchun aniq ko'rinish beradi.
         </p>
       </section>
 
       <section id="features" class="section-block">
         <div class="section-heading">
-          <p class="eyebrow">Imkoniyatlar</p>
-          <h2>O'quv markaz boshqaruvi uchun kerakli asosiy modullar</h2>
+          <p class="eyebrow" data-i18n="featuresBadge">Imkoniyatlar</p>
+          <h2 data-i18n="featuresTitle">O'quv markazni boshqarish uchun kerakli modullar</h2>
         </div>
         <div class="feature-grid">
-          <article>
-            <span>01</span>
-            <h3>O'quvchilar bazasi</h3>
-            <p>Kontaktlar, ota-ona ma'lumotlari, status, guruhlar va to'lov tarixini bitta profilda saqlang.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Guruhlar va jadval</h3>
-            <p>Fan, o'qituvchi, xona, dars kunlari va vaqtlarni aniq jadvalda boshqaring.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Davomad</h3>
-            <p>Keldi, kelmadi yoki kechikdi holatlarini tez belgilang va oy oxirida statistikani ko'ring.</p>
-          </article>
-          <article>
-            <span>04</span>
-            <h3>To'lovlar</h3>
-            <p>Oylik to'lov, qarzdorlik, chegirma va to'lov usullarini nazorat qiling.</p>
-          </article>
-          <article>
-            <span>05</span>
-            <h3>Hisobotlar</h3>
-            <p>Daromad, qarzdorlar, guruh samaradorligi va o'quvchi o'sishini ko'ring.</p>
-          </article>
-          <article>
-            <span>06</span>
-            <h3>Rollar</h3>
-            <p>Admin, menejer, o'qituvchi va buxgalter uchun alohida ruxsatlar yarating.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="pricing" class="section-block pricing-section">
-        <div class="section-heading">
-          <p class="eyebrow">Narxlar</p>
-          <h2>Markazingiz hajmiga mos tariflar</h2>
-        </div>
-        <div class="pricing-grid">
-          <article class="price-card">
-            <h3>Start</h3>
-            <p>Kichik o'quv markazlar uchun</p>
-            <strong>299 000 so'm</strong>
-            <span>/ oy</span>
-            <ul>
-              <li>100 tagacha o'quvchi</li>
-              <li>10 tagacha guruh</li>
-              <li>Davomad va to'lovlar</li>
-            </ul>
-            <button type="button" data-open-demo>Demo olish</button>
-          </article>
-          <article class="price-card featured">
-            <div class="badge">Tavsiya etiladi</div>
-            <h3>Growth</h3>
-            <p>O'sayotgan markazlar uchun</p>
-            <strong>599 000 so'm</strong>
-            <span>/ oy</span>
-            <ul>
-              <li>500 tagacha o'quvchi</li>
-              <li>Cheksiz guruhlar</li>
-              <li>Hisobotlar va rollar</li>
-            </ul>
-            <button type="button" data-open-demo>Demo olish</button>
-          </article>
-          <article class="price-card">
-            <h3>Pro</h3>
-            <p>Filialli markazlar uchun</p>
-            <strong>Kelishiladi</strong>
-            <span>individual</span>
-            <ul>
-              <li>Bir nechta filial</li>
-              <li>Integratsiyalar</li>
-              <li>Shaxsiy onboarding</li>
-            </ul>
-            <button type="button" data-open-demo>Bog'lanish</button>
-          </article>
+          <article><span>01</span><h3 data-i18n="fStudents">O'quvchilar bazasi</h3><p data-i18n="fStudentsText">Har bir o'quvchi profili, ota-ona raqami, statusi, to'lov va guruh tarixi.</p></article>
+          <article><span>02</span><h3 data-i18n="fGroups">Guruhlar va jadval</h3><p data-i18n="fGroupsText">Guruh, fan, xona, o'qituvchi va dars kunlarini tartibli boshqaring.</p></article>
+          <article><span>03</span><h3 data-i18n="fAttendance">Davomad</h3><p data-i18n="fAttendanceText">Keldi, kelmadi, kechikdi holatlari va oy yakunidagi davomad statistikasi.</p></article>
+          <article><span>04</span><h3 data-i18n="fPayments">To'lov va qarzdorlik</h3><p data-i18n="fPaymentsText">To'lov muddati, chegirma, qarzdorlar va tushum nazorati.</p></article>
+          <article><span>05</span><h3 data-i18n="fLeads">Lidlar / sotuv bo'limi</h3><p data-i18n="fLeadsText">Yangi mijozlarni sinov darsidan birinchi to'lovgacha kuzating.</p></article>
+          <article><span>06</span><h3 data-i18n="fCabinet">Kabinetlar</h3><p data-i18n="fCabinetText">O'qituvchi, o'quvchi va ota-ona uchun alohida qulay kirish imkoniyati.</p></article>
+          <article><span>07</span><h3 data-i18n="fBranch">Filiallar</h3><p data-i18n="fBranchText">Bir nechta filial ko'rsatkichlarini markazlashgan dashboardda ko'ring.</p></article>
+          <article><span>08</span><h3 data-i18n="fReports">Hisobotlar</h3><p data-i18n="fReportsText">Daromad, guruh samaradorligi, o'sish va jamoa ishini raqamlarda kuzating.</p></article>
         </div>
       </section>
 
       <section id="gamification" class="split-section">
         <div>
-          <p class="eyebrow">Gamification</p>
-          <h2>O'quvchilar motivatsiyasini ball, reyting va yutuqlar bilan oshiring.</h2>
-          <p>
-            Eduka orqali darsga qatnashish, vazifa bajarish va test natijalarini rag'batga aylantirish mumkin.
+          <p class="eyebrow" data-i18n="gameBadge">Gamification</p>
+          <h2 data-i18n="gameTitle">O'quvchini natija, reyting va yutuqlar orqali rag'batlantiring</h2>
+          <p data-i18n="gameText">
+            Ball, reyting, vazifa bajarish va darsdagi faollik orqali o'quvchilar motivatsiyasini oshirish mumkin.
           </p>
         </div>
-        <div class="game-panel">
+        <div class="game-board">
           <div><span>XP</span><strong>12 480</strong></div>
-          <div><span>Top guruh</span><strong>Frontend N12</strong></div>
-          <div><span>Haftalik streak</span><strong>18 kun</strong></div>
+          <div><span data-i18n="topGroup">Top guruh</span><strong>Frontend N12</strong></div>
+          <div><span data-i18n="weekly">Haftalik faollik</span><strong>92%</strong></div>
+        </div>
+      </section>
+
+      <section id="pricing" class="section-block pricing-section">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="pricingBadge">Narxlar</p>
+          <h2 data-i18n="pricingTitle">Eduka tariflari o'quvchi soniga qarab moslashadi</h2>
+        </div>
+        <div class="pricing-grid">
+          <article class="price-card"><h3>Start</h3><p>0-100 <span data-i18n="studentCount">o'quvchi</span></p><strong>299 000</strong><small data-i18n="perMonth">so'm / oy</small><button type="button" data-open-demo data-i18n="choose">Tanlash</button></article>
+          <article class="price-card featured"><div class="badge" data-i18n="popular">Ommabop</div><h3>Basic</h3><p>100-300 <span data-i18n="studentCount">o'quvchi</span></p><strong>499 000</strong><small data-i18n="perMonth">so'm / oy</small><button type="button" data-open-demo data-i18n="choose">Tanlash</button></article>
+          <article class="price-card"><h3>Pro</h3><p>300-1000 <span data-i18n="studentCount">o'quvchi</span></p><strong>899 000</strong><small data-i18n="perMonth">so'm / oy</small><button type="button" data-open-demo data-i18n="choose">Tanlash</button></article>
+          <article class="price-card"><h3>Premium</h3><p>1000+ <span data-i18n="studentCount">o'quvchi</span></p><strong data-i18n="custom">Kelishiladi</strong><small data-i18n="enterprise">filialli markazlar</small><button type="button" data-open-demo data-i18n="contact">Bog'lanish</button></article>
         </div>
       </section>
 
       <section id="support" class="section-block support-section">
         <div class="section-heading">
-          <p class="eyebrow">Qo'llab-quvvatlash</p>
-          <h2>Ishga tushirishdan kundalik foydalanishgacha yoningizdamiz</h2>
+          <p class="eyebrow" data-i18n="supportBadge">Qo'llab-quvvatlash</p>
+          <h2 data-i18n="supportTitle">Ishga tushirishdan kundalik ishlatishgacha yordam beramiz</h2>
         </div>
         <div class="support-grid">
-          <article><strong>Onboarding</strong><p>Markazingiz ma'lumotlarini tizimga ko'chirishda yordam beramiz.</p></article>
-          <article><strong>Telegram support</strong><p>Tezkor savollar uchun alohida yordam kanali.</p></article>
-          <article><strong>O'qitish</strong><p>Admin va xodimlarga CRM bilan ishlashni ko'rsatamiz.</p></article>
+          <article><b data-i18n="sTelegram">Telegram eslatmalar</b><p data-i18n="sTelegramText">To'lov, dars va vazifalar bo'yicha avtomatik xabarlar.</p></article>
+          <article><b data-i18n="sOnboarding">Onboarding</b><p data-i18n="sOnboardingText">Jamoangizga CRM bilan ishlashni tushuntirib, ma'lumotlarni tartiblaymiz.</p></article>
+          <article><b data-i18n="sSecurity">Xavfsizlik</b><p data-i18n="sSecurityText">Rollar, ruxsatlar va ma'lumotlarni boshqarish nazorati.</p></article>
         </div>
       </section>
 
-      <section id="careers" class="split-section careers-section">
-        <div>
-          <p class="eyebrow">Vakansiyalar</p>
-          <h2>Eduka jamoasiga qo'shiling</h2>
-          <p>
-            CRM, ta'lim texnologiyalari va mijozlar muvaffaqiyati yo'nalishida ishlashni xohlaydigan mutaxassislarni kutamiz.
-          </p>
-        </div>
-        <a class="secondary-button large" href="mailto:hr@eduka.uz">hr@eduka.uz</a>
+      <section class="numbers-section">
+        <div><strong>Beta</strong><span data-i18n="nProject">yangi loyiha</span></div>
+        <div><strong>2-3</strong><span data-i18n="nPartners">ilk hamkorlar</span></div>
+        <div><strong>8+</strong><span data-i18n="nModules">asosiy modul</span></div>
+        <div><strong>3</strong><span data-i18n="nLang">til</span></div>
       </section>
 
-      <section class="section-block faq-section">
+      <section class="testimonial-section">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="testimonialBadge">Mijozlar fikri</p>
+          <h2 data-i18n="testimonialTitle">Beta hamkorlar bilan Eduka’ni real markazlarda sinaymiz</h2>
+        </div>
+        <div class="testimonial-grid">
+          <article><p data-i18n="t1">"To'lov va davomadni bitta oynada ko'rish administrator ishini ancha yengillashtiradi."</p><b>Learning Center</b><span data-i18n="betaPartner">Beta hamkor</span></article>
+          <article><p data-i18n="t2">"Lidlar va guruhlar bo'yicha aniq pipeline bo'lishi sotuvni tartibga soladi."</p><b>Edu Pro</b><span data-i18n="betaPartner">Beta hamkor</span></article>
+          <article><p data-i18n="t3">"Filiallar uchun oddiy, arzon va tushunarli CRM kerak edi. Eduka shu tomonga ketyapti."</p><b>Academy</b><span data-i18n="betaPartner">Beta hamkor</span></article>
+        </div>
+      </section>
+
+      <section class="faq-section">
         <div class="section-heading">
           <p class="eyebrow">FAQ</p>
-          <h2>Ko'p so'raladigan savollar</h2>
+          <h2 data-i18n="faqTitle">Ko'p so'raladigan savollar</h2>
         </div>
         <div class="faq-list">
-          <details open>
-            <summary>Eduka kimlar uchun?</summary>
-            <p>O'quv markazlar, til maktablari, IT akademiyalar va kurs markazlari uchun.</p>
-          </details>
-          <details>
-            <summary>Demo qancha vaqt oladi?</summary>
-            <p>Odatda 20-30 daqiqada asosiy modullar va markazingizga mos ishlash ssenariysi ko'rsatiladi.</p>
-          </details>
-          <details>
-            <summary>Ma'lumotlarni Excel'dan ko'chirish mumkinmi?</summary>
-            <p>Ha, o'quvchilar, guruhlar va to'lovlar bo'yicha import jarayonini yo'lga qo'yish mumkin.</p>
-          </details>
+          <details open><summary data-i18n="q1">Eduka kimlar uchun?</summary><p data-i18n="a1">O'quv markazlar, til maktablari, IT akademiyalar va kurs markazlari uchun.</p></details>
+          <details><summary data-i18n="q2">Hozir loyiha tayyormi?</summary><p data-i18n="a2">Eduka yangi loyiha. Beta hamkorlar orqali modullar bosqichma-bosqich ishga tushiriladi.</p></details>
+          <details><summary data-i18n="q3">Telegram botga ulash mumkinmi?</summary><p data-i18n="a3">Ha. Demo so'rovlarini Telegram bot yoki alohida guruhga yuborish mumkin.</p></details>
+          <details><summary data-i18n="q4">Uch tilda ishlaydimi?</summary><p data-i18n="a4">Sayt UZ/RU/EN tillarida. CRM interfeysi ham uch tilda rejalashtiriladi.</p></details>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <a class="brand" href="#home">
-        <span class="brand-mark">E</span>
-        <span>EDUKA</span>
-      </a>
-      <p>Smart system for modern learning centers.</p>
-      <a href="tel:+998901234567">+998 90 123 45 67</a>
+      <div>
+        <a class="brand" href="#home"><span class="logo-mark">E</span><span>EDUKA</span></a>
+        <p data-i18n="footerText">O'quv markazlari uchun professional CRM tizimi.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#pricing" data-i18n="navPricing">Narxlar</a>
+        <a href="#support" data-i18n="navSupport">Qo'llab-quvvatlash</a>
+        <a href="tel:+998901234567">+998 90 123 45 67</a>
+      </div>
     </footer>
 
     <div class="modal-backdrop" data-modal hidden>
       <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <button class="modal-close" type="button" aria-label="Yopish" data-close-modal>×</button>
-        <p class="eyebrow">Demo so'rovi</p>
-        <h2 id="modal-title">Eduka'ni markazingizda sinab ko'ring</h2>
-        <p class="modal-copy">
-          Telefon raqamingizni qoldiring. Jamoamiz CRM qanday ishlashini ko'rsatib,
-          markazingizga mos tarif va modullarni taklif qiladi.
+        <button class="modal-close" type="button" aria-label="Yopish" data-close-modal>&times;</button>
+        <p class="eyebrow" data-i18n="modalBadge">Demo so'rovi</p>
+        <h2 id="modal-title" data-i18n="modalTitle">Eduka'ni markazingizda sinab ko'ring</h2>
+        <p class="modal-copy" data-i18n="modalText">
+          Telefon raqamingizni qoldiring. So'rovingiz Telegram bot yoki guruhga yuboriladigan qilib ulanadi.
         </p>
         <form class="modal-form">
-          <input name="name" type="text" placeholder="Ismingiz" required />
+          <input name="name" type="text" placeholder="Ismingiz" data-placeholder="name" required />
           <input name="phone" type="tel" placeholder="+998 __ ___ __ __" required />
-          <button class="primary-button large" type="submit">Demo vaqtini olish</button>
+          <button class="primary-button large" type="submit" data-i18n="sendDemo">Demo so'rovini yuborish</button>
         </form>
       </section>
     </div>
 
     <div class="toast" role="status" aria-live="polite"></div>
-
     <script src="script.js"></script>
   </body>
 </html>
