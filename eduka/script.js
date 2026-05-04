@@ -103,10 +103,11 @@ const translations = {
     footerText: "O'quv markazlari uchun professional CRM tizimi.",
     modalBadge: "Demo so'rovi",
     modalTitle: "Eduka'ni markazingizda sinab ko'ring",
-    modalText: "Telefon raqamingizni qoldiring. So'rovingiz Telegram bot yoki guruhga yuboriladigan qilib ulanadi.",
+    modalText: "Telefon raqamingizni qoldiring. So'rovingiz Eduka sotuv guruhiga yuboriladi.",
     sendDemo: "Demo so'rovini yuborish",
     namePlaceholder: "Ismingiz",
-    toastDemo: "Demo so'rovi qabul qilindi. Telegram bot ulanishi keyingi bosqichda qo'shiladi.",
+    toastDemo: "Demo so'rovi yuborildi. Tez orada bog'lanamiz.",
+    toastDemoError: "So'rov yuborilmadi. Iltimos, telefon orqali bog'laning: +998 99 893 90 00.",
     toastLogin: "CRM kabinet hozircha yopiq beta rejimida.",
     toastLang: "tili tanlandi"
   },
@@ -207,10 +208,11 @@ const translations = {
     footerText: "Профессиональная CRM для учебных центров.",
     modalBadge: "Демо-заявка",
     modalTitle: "Попробуйте Eduka в вашем центре",
-    modalText: "Оставьте номер. Заявку можно подключить к Telegram bot или группе.",
+    modalText: "Оставьте номер. Заявка будет отправлена в группу продаж Eduka.",
     sendDemo: "Отправить заявку",
     namePlaceholder: "Ваше имя",
-    toastDemo: "Демо-заявка принята. Telegram bot подключим на следующем этапе.",
+    toastDemo: "Демо-заявка отправлена. Скоро свяжемся с вами.",
+    toastDemoError: "Заявка не отправилась. Позвоните нам: +998 99 893 90 00.",
     toastLogin: "CRM кабинет пока в закрытой beta.",
     toastLang: "язык выбран"
   },
@@ -311,10 +313,11 @@ const translations = {
     footerText: "Professional CRM for learning centers.",
     modalBadge: "Demo request",
     modalTitle: "Try Eduka in your center",
-    modalText: "Leave your number. The request can be connected to a Telegram bot or group.",
+    modalText: "Leave your number. The request will be sent to the Eduka sales group.",
     sendDemo: "Send demo request",
     namePlaceholder: "Your name",
-    toastDemo: "Demo request received. Telegram bot integration will be added next.",
+    toastDemo: "Demo request sent. We will contact you soon.",
+    toastDemoError: "Request was not sent. Please call us: +998 99 893 90 00.",
     toastLogin: "CRM portal is currently in private beta.",
     toastLang: "language selected"
   }
@@ -411,11 +414,36 @@ languageButtons.forEach((button) => {
   });
 });
 
-modalForm?.addEventListener("submit", (event) => {
+modalForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  showToast(translations[currentLang].toastDemo);
-  modalForm.reset();
-  closeModal();
+  const submitButton = modalForm.querySelector("button[type='submit']");
+  const formData = new FormData(modalForm);
+
+  submitButton.disabled = true;
+
+  try {
+    const response = await fetch("/api/demo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: formData.get("name"),
+        phone: formData.get("phone"),
+        lang: currentLang
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Request failed");
+    }
+
+    showToast(translations[currentLang].toastDemo);
+    modalForm.reset();
+    closeModal();
+  } catch {
+    showToast(translations[currentLang].toastDemoError);
+  } finally {
+    submitButton.disabled = false;
+  }
 });
 
 const revealTargets = document.querySelectorAll(
