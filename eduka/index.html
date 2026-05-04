@@ -14,12 +14,17 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png" />
+    <link rel="manifest" href="assets/favicon/site.webmanifest" />
+    <link rel="shortcut icon" href="assets/favicon/favicon.ico" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="loader" aria-label="Eduka yuklanmoqda">
       <div class="loader-box">
-        <span class="logo-mark">E</span>
+        <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
         <div>
           <strong>Eduka</strong>
           <p data-i18n="loader">CRM ishga tayyorlanmoqda</p>
@@ -29,7 +34,7 @@
 
     <header class="site-header">
       <a class="brand" href="#home" aria-label="Eduka">
-        <span class="logo-mark">E</span>
+        <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
         <span>EDUKA</span>
       </a>
 
@@ -88,7 +93,7 @@
           </div>
           <div class="crm-preview">
             <aside>
-              <span class="logo-mark">E</span>
+              <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
               <b data-i18n="crmMenu">Boshqaruv</b>
               <p data-i18n="crmStudents">O'quvchilar</p>
               <p data-i18n="crmGroups">Guruhlar</p>
@@ -167,6 +172,19 @@
         </div>
       </section>
 
+      <section class="workflow-section">
+        <div class="section-heading">
+          <p class="eyebrow">Workflow</p>
+          <h2>Yangi lid kelganidan to o'quvchi bitirgunigacha hammasi nazoratda</h2>
+        </div>
+        <div class="workflow-steps">
+          <article><span>01</span><h3>Lid qabul qilish</h3><p>Instagram, Telegram yoki telefon orqali kelgan mijozlar sotuv bo'limida yo'qolib ketmaydi.</p></article>
+          <article><span>02</span><h3>Sinov dars</h3><p>Sinov dars vaqti, mas'ul menejer va natija bir joyda qayd etiladi.</p></article>
+          <article><span>03</span><h3>Guruhga qo'shish</h3><p>O'quvchi mos guruhga biriktiriladi, jadval va to'lov avtomatik ko'rinadi.</p></article>
+          <article><span>04</span><h3>O'sishni kuzatish</h3><p>Davomad, to'lov, reyting va hisobotlar orqali markaz holatini real vaqtga yaqin ko'ring.</p></article>
+        </div>
+      </section>
+
       <section id="gamification" class="split-section">
         <div>
           <p class="eyebrow" data-i18n="gameBadge">Gamification</p>
@@ -182,6 +200,25 @@
         </div>
       </section>
 
+      <section class="integration-section">
+        <div>
+          <p class="eyebrow">Integratsiyalar</p>
+          <h2>Telegram, SMS va to'lov tizimlariga tayyor arxitektura</h2>
+          <p>
+            Demo so'rovlari allaqachon Telegram guruhga yuboriladigan qilib ulandi. Keyingi bosqichda to'lov eslatmalari,
+            dars bildirishnomalari va ota-onalarga xabarlar avtomatlashtiriladi.
+          </p>
+        </div>
+        <div class="integration-grid">
+          <span>Telegram bot</span>
+          <span>SMS eslatma</span>
+          <span>Click / Payme</span>
+          <span>Google Sheets</span>
+          <span>Excel import</span>
+          <span>API</span>
+        </div>
+      </section>
+
       <section id="pricing" class="section-block pricing-section">
         <div class="section-heading">
           <p class="eyebrow" data-i18n="pricingBadge">Narxlar</p>
@@ -192,6 +229,19 @@
           <article class="price-card featured"><div class="badge" data-i18n="popular">Ommabop</div><h3>Basic</h3><p>100-300 <span data-i18n="studentCount">o'quvchi</span></p><strong>499 000</strong><small data-i18n="perMonth">so'm / oy</small><button type="button" data-open-demo data-i18n="choose">Tanlash</button></article>
           <article class="price-card"><h3>Pro</h3><p>300-1000 <span data-i18n="studentCount">o'quvchi</span></p><strong>899 000</strong><small data-i18n="perMonth">so'm / oy</small><button type="button" data-open-demo data-i18n="choose">Tanlash</button></article>
           <article class="price-card"><h3>Premium</h3><p>1000+ <span data-i18n="studentCount">o'quvchi</span></p><strong data-i18n="custom">Kelishiladi</strong><small data-i18n="enterprise">filialli markazlar</small><button type="button" data-open-demo data-i18n="contact">Bog'lanish</button></article>
+        </div>
+      </section>
+
+      <section class="roadmap-section">
+        <div class="section-heading">
+          <p class="eyebrow">Roadmap</p>
+          <h2>Eduka bosqichma-bosqich kuchli CRM platformaga aylanadi</h2>
+        </div>
+        <div class="roadmap-grid">
+          <article><b>1-bosqich</b><h3>Landing + demo oqimi</h3><p>Sayt, uch til, Telegram demo so'rovlar va sotuv jarayoni.</p></article>
+          <article><b>2-bosqich</b><h3>Backend + SQL</h3><p>Login, rollar, o'quvchilar, guruhlar, to'lovlar va PostgreSQL.</p></article>
+          <article><b>3-bosqich</b><h3>CRM kabinet</h3><p>Admin, o'qituvchi, ota-ona va o'quvchi kabinetlari.</p></article>
+          <article><b>4-bosqich</b><h3>Avtomatlashtirish</h3><p>Telegram/SMS eslatmalar, gamification, filiallar va chuqur hisobotlar.</p></article>
         </div>
       </section>
 
@@ -242,7 +292,7 @@
 
     <footer class="site-footer">
       <div>
-        <a class="brand" href="#home"><span class="logo-mark">E</span><span>EDUKA</span></a>
+        <a class="brand" href="#home"><span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a>
         <p data-i18n="footerText">O'quv markazlari uchun professional CRM tizimi.</p>
       </div>
       <div class="footer-links">

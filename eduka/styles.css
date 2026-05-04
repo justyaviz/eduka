@@ -21,7 +21,9 @@ html {
 body {
   margin: 0;
   color: var(--ink);
-  background: #fbfcff;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(30, 58, 255, 0.08), transparent 28%),
+    #fbfcff;
   font-family: "Inter", Arial, sans-serif;
   overflow-x: hidden;
 }
@@ -91,6 +93,13 @@ body.loaded .loader {
   border-radius: 8px;
   font-weight: 900;
   box-shadow: 0 12px 30px rgba(30, 58, 255, 0.24);
+}
+
+.logo-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 .site-header {
@@ -199,8 +208,30 @@ body.loaded .loader {
 .modal-form button,
 .lead-form button {
   color: var(--white);
-  background: var(--primary);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
   box-shadow: 0 12px 30px rgba(30, 58, 255, 0.22);
+}
+
+.primary-button::after,
+.price-card button::after,
+.crm-top button::after,
+.modal-form button::after {
+  content: "";
+  position: absolute;
+  inset: -45% auto -45% -38%;
+  width: 32%;
+  transform: skewX(-18deg);
+  background: rgba(255, 255, 255, 0.34);
+  transition: left 0.5s ease;
+}
+
+.primary-button:hover::after,
+.price-card button:hover::after,
+.crm-top button:hover::after,
+.modal-form button:hover::after {
+  left: 125%;
 }
 
 .secondary-button,
@@ -242,6 +273,7 @@ body.loaded .loader {
 }
 
 .hero-section {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(430px, 1.08fr);
   align-items: center;
@@ -250,6 +282,34 @@ body.loaded .loader {
   background:
     radial-gradient(circle at 78% 16%, rgba(30, 58, 255, 0.14), transparent 34%),
     linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%);
+  isolation: isolate;
+}
+
+.hero-section::before,
+.hero-section::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 999px;
+  filter: blur(2px);
+  animation: glowMove 8s ease-in-out infinite;
+}
+
+.hero-section::before {
+  width: 280px;
+  height: 280px;
+  right: 8%;
+  top: 12%;
+  background: rgba(30, 58, 255, 0.16);
+}
+
+.hero-section::after {
+  width: 180px;
+  height: 180px;
+  left: 9%;
+  bottom: 8%;
+  background: rgba(79, 107, 255, 0.13);
+  animation-delay: 1.4s;
 }
 
 .eyebrow {
@@ -274,6 +334,11 @@ h1 {
   font-size: clamp(38px, 4.8vw, 58px);
   line-height: 1.05;
   font-weight: 900;
+  color: transparent;
+  background: linear-gradient(100deg, var(--dark) 0%, var(--primary) 48%, #6d7cff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  text-shadow: 0 0 32px rgba(30, 58, 255, 0.12);
 }
 
 h2 {
@@ -329,6 +394,7 @@ h3 {
 }
 
 .hero-panel {
+  position: relative;
   min-width: 0;
   background: var(--white);
   border: 1px solid var(--line);
@@ -336,6 +402,16 @@ h3 {
   box-shadow: var(--shadow);
   overflow: hidden;
   animation: rise 0.7s ease both;
+}
+
+.hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  background: linear-gradient(135deg, rgba(30, 58, 255, 0.55), transparent 35%, rgba(79, 107, 255, 0.35));
+  border-radius: 14px;
+  opacity: 0.46;
 }
 
 .browser-bar {
@@ -424,6 +500,8 @@ h3 {
 .price-card,
 .support-grid article,
 .testimonial-grid article,
+.workflow-steps article,
+.roadmap-grid article,
 .faq-list details {
   background: var(--white);
   border: 1px solid var(--line);
@@ -508,6 +586,9 @@ h3 {
 .problem-section,
 .section-block,
 .split-section,
+.workflow-section,
+.integration-section,
+.roadmap-section,
 .numbers-section,
 .testimonial-section,
 .faq-section {
@@ -570,7 +651,9 @@ h3 {
 .feature-grid,
 .pricing-grid,
 .support-grid,
-.testimonial-grid {
+.testimonial-grid,
+.workflow-steps,
+.roadmap-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
@@ -579,7 +662,9 @@ h3 {
 .feature-grid article,
 .price-card,
 .support-grid article,
-.testimonial-grid article {
+.testimonial-grid article,
+.workflow-steps article,
+.roadmap-grid article {
   padding: 22px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -587,7 +672,9 @@ h3 {
 .feature-grid article:hover,
 .price-card:hover,
 .support-grid article:hover,
-.testimonial-grid article:hover {
+.testimonial-grid article:hover,
+.workflow-steps article:hover,
+.roadmap-grid article:hover {
   transform: translateY(-4px);
   border-color: rgba(30, 58, 255, 0.25);
   box-shadow: 0 18px 48px rgba(10, 15, 44, 0.08);
@@ -599,6 +686,33 @@ h3 {
   color: var(--primary);
   font-size: 13px;
   font-weight: 900;
+}
+
+.workflow-section {
+  background: var(--white);
+}
+
+.workflow-steps article {
+  background:
+    linear-gradient(180deg, rgba(30, 58, 255, 0.045), transparent 70%),
+    var(--white);
+}
+
+.workflow-steps span,
+.roadmap-grid b {
+  display: inline-flex;
+  margin-bottom: 22px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.workflow-steps p,
+.roadmap-grid p,
+.integration-section p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.62;
 }
 
 .feature-grid p,
@@ -629,6 +743,7 @@ h3 {
   padding: 18px;
   background: linear-gradient(135deg, var(--primary), var(--primary-2));
   border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(30, 58, 255, 0.25);
 }
 
 .game-board div {
@@ -639,6 +754,7 @@ h3 {
   color: var(--white);
   background: rgba(255, 255, 255, 0.13);
   border-radius: 10px;
+  animation: pulseSoft 3s ease-in-out infinite;
 }
 
 .game-board span {
@@ -647,6 +763,42 @@ h3 {
 
 .game-board strong {
   font-size: 20px;
+}
+
+.integration-section {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 42px;
+  align-items: center;
+  background:
+    radial-gradient(circle at 78% 22%, rgba(30, 58, 255, 0.16), transparent 28%),
+    var(--dark);
+}
+
+.integration-section h2 {
+  color: var(--white);
+}
+
+.integration-section p {
+  color: #d8def0;
+}
+
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.integration-grid span {
+  display: grid;
+  min-height: 86px;
+  place-items: center;
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  font-weight: 850;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .pricing-section {
@@ -732,6 +884,28 @@ h3 {
   margin-top: 6px;
   color: var(--muted);
   font-weight: 750;
+}
+
+.roadmap-section {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%);
+}
+
+.roadmap-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roadmap-grid article {
+  position: relative;
+  overflow: hidden;
+}
+
+.roadmap-grid article::after {
+  content: "";
+  position: absolute;
+  inset: auto 18px 0 18px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  border-radius: 999px 999px 0 0;
 }
 
 .faq-list {
@@ -910,6 +1084,26 @@ h3 {
   }
 }
 
+@keyframes glowMove {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10px, -12px, 0) scale(1.06);
+  }
+}
+
+@keyframes pulseSoft {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 rgba(255, 255, 255, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 26px rgba(255, 255, 255, 0.08);
+  }
+}
+
 @keyframes modalIn {
   from {
     opacity: 0;
@@ -941,8 +1135,14 @@ h3 {
   .feature-grid,
   .pricing-grid,
   .support-grid,
-  .testimonial-grid {
+  .testimonial-grid,
+  .workflow-steps,
+  .roadmap-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .integration-section {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -982,7 +1182,8 @@ h3 {
 
   .crm-preview,
   .analytics-row,
-  .numbers-section {
+  .numbers-section,
+  .integration-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1015,6 +1216,8 @@ h3 {
   .pricing-grid,
   .support-grid,
   .testimonial-grid,
+  .workflow-steps,
+  .roadmap-grid,
   .metric-grid {
     grid-template-columns: 1fr;
     width: 100%;

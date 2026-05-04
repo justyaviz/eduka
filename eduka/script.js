@@ -447,7 +447,7 @@ modalForm?.addEventListener("submit", async (event) => {
 });
 
 const revealTargets = document.querySelectorAll(
-  ".partner-section, .problem-section, .section-block, .split-section, .numbers-section, .testimonial-section, .faq-section"
+  ".partner-section, .problem-section, .section-block, .split-section, .workflow-section, .integration-section, .roadmap-section, .numbers-section, .testimonial-section, .faq-section"
 );
 
 revealTargets.forEach((target) => target.classList.add("reveal"));
