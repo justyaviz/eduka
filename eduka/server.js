@@ -54,14 +54,25 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;");
 }
 
-function sendTelegramMessage(text) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+function getTelegramConfig() {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
 
   if (!token || !chatId) {
-    return Promise.reject(new Error("Telegram is not configured"));
+    throw new Error("Telegram is not configured");
   }
 
+  const chatIds = [chatId];
+  const numericChatId = chatId.replace(/^-/, "");
+
+  if (chatId.startsWith("-") && !chatId.startsWith("-100") && numericChatId.length >= 10) {
+    chatIds.push(`-100${numericChatId}`);
+  }
+
+  return { token, chatIds };
+}
+
+function postTelegramMessage(token, chatId, text) {
   const payload = JSON.stringify({
     chat_id: chatId,
     text,
@@ -93,15 +104,35 @@ function sendTelegramMessage(text) {
             return;
           }
 
-          reject(new Error(`Telegram returned ${telegramResponse.statusCode}`));
+          reject(new Error(`Telegram returned ${telegramResponse.statusCode}: ${responseBody}`));
         });
       }
     );
+
+    request.setTimeout(10_000, () => {
+      request.destroy(new Error("Telegram request timed out"));
+    });
 
     request.on("error", reject);
     request.write(payload);
     request.end();
   });
+}
+
+async function sendTelegramMessage(text) {
+  const { token, chatIds } = getTelegramConfig();
+  let lastError;
+
+  for (const chatId of chatIds) {
+    try {
+      return await postTelegramMessage(token, chatId, text);
+    } catch (error) {
+      lastError = error;
+      console.error(`Telegram send failed for chat ${chatId}: ${error.message}`);
+    }
+  }
+
+  throw lastError || new Error("Telegram send failed");
 }
 
 function sendFile(response, filePath) {
@@ -127,12 +158,12 @@ async function handleDemoRequest(request, response) {
     const body = await readJsonBody(request);
     const name = String(body.name || "").trim();
     const phone = String(body.phone || "").trim();
-    const center = String(body.center || "").trim();
-    const students = String(body.students || "").trim();
+    const center = String(body.center || "Kiritilmagan").trim();
+    const students = String(body.students || "Kiritilmagan").trim();
     const lang = String(body.lang || "uz").trim().toUpperCase();
 
-    if (!name || !phone || !center || !students) {
-      sendJson(response, 400, { ok: false, message: "Name, phone, center and student count are required" });
+    if (!name || !phone) {
+      sendJson(response, 400, { ok: false, message: "Name and phone are required" });
       return;
     }
 
@@ -151,6 +182,7 @@ async function handleDemoRequest(request, response) {
     await sendTelegramMessage(message);
     sendJson(response, 200, { ok: true });
   } catch (error) {
+    console.error(`Demo request failed: ${error.message}`);
     const isConfigError = error.message === "Telegram is not configured";
     sendJson(response, isConfigError ? 503 : 500, {
       ok: false,
