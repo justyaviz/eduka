@@ -14,7 +14,8 @@ const mimeTypes = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json; charset=utf-8"
 };
 
 function sendJson(response, statusCode, payload) {
@@ -126,18 +127,22 @@ async function handleDemoRequest(request, response) {
     const body = await readJsonBody(request);
     const name = String(body.name || "").trim();
     const phone = String(body.phone || "").trim();
+    const center = String(body.center || "").trim();
+    const students = String(body.students || "").trim();
     const lang = String(body.lang || "uz").trim().toUpperCase();
 
-    if (!name || !phone) {
-      sendJson(response, 400, { ok: false, message: "Name and phone are required" });
+    if (!name || !phone || !center || !students) {
+      sendJson(response, 400, { ok: false, message: "Name, phone, center and student count are required" });
       return;
     }
 
     const message = [
-      "📩 <b>Eduka demo so'rovi</b>",
+      "<b>Eduka demo so'rovi</b>",
       "",
       `<b>Ism:</b> ${escapeHtml(name)}`,
       `<b>Telefon:</b> ${escapeHtml(phone)}`,
+      `<b>Markaz:</b> ${escapeHtml(center)}`,
+      `<b>O'quvchi soni:</b> ${escapeHtml(students)}`,
       `<b>Til:</b> ${escapeHtml(lang)}`,
       `<b>Manba:</b> eduka.uz landing`,
       `<b>Vaqt:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
