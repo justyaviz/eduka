@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eduka - O'quv markazlar uchun CRM</title>
+    <meta
+      name="description"
+      content="Eduka - o'quv markazlar uchun o'quvchilar, guruhlar, davomad, to'lovlar va hisobotlarni boshqaradigan zamonaviy CRM."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#home" aria-label="Eduka bosh sahifa">
+        <span class="brand-mark">↗</span>
+        <span>EDUKA</span>
+      </a>
+
+      <button class="menu-toggle" type="button" aria-label="Menyuni ochish" aria-expanded="false">
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="nav-links" aria-label="Asosiy menyu">
+        <a href="#home">Bosh sahifa</a>
+        <a href="#features">Imkoniyatlar</a>
+        <a href="#pricing">Narxlar</a>
+        <a href="#gamification">Gamification</a>
+        <a href="#support">Qo'llab-quvvatlash</a>
+        <a href="#careers">Vakansiyalar</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switcher" aria-label="Til tanlash">
+          <button class="active" type="button">UZ</button>
+          <button type="button">RU</button>
+          <button type="button">EN</button>
+        </div>
+        <a class="phone-link" href="tel:+998901234567">+998 90 123 45 67</a>
+        <a class="ghost-button" href="#login">Kirish</a>
+        <a class="primary-button" href="#demo">Demo olish</a>
+      </div>
+    </header>
+
+    <main>
+      <section id="home" class="hero-section">
+        <div class="hero-copy">
+          <p class="eyebrow">O'quv markazlar uchun yagona boshqaruv tizimi</p>
+          <h1>O'quv markazingizni Eduka bilan boshqaring</h1>
+          <p class="hero-text">
+            Eduka administratorlar, o'qituvchilar va menejerlarga o'quvchilar, guruhlar,
+            davomad, to'lovlar hamda hisobotlarni bir joyda tartibli boshqarishga yordam beradi.
+          </p>
+
+          <div class="hero-actions">
+            <a class="primary-button large" href="#demo">Demo olish</a>
+            <a class="secondary-button large" href="#features">Imkoniyatlarni ko'rish</a>
+          </div>
+
+          <form id="demo" class="lead-form">
+            <label for="phone">Telefon raqam qoldiring</label>
+            <div class="lead-form-row">
+              <input id="phone" name="phone" type="tel" placeholder="+998 __ ___ __ __" required />
+              <button type="submit">Yuborish</button>
+            </div>
+            <p class="form-note">Mutaxassisimiz siz bilan bog'lanib, demo vaqtini kelishadi.</p>
+          </form>
+        </div>
+
+        <div class="hero-visual" aria-label="Eduka dashboard mockup">
+          <div class="dashboard-shell">
+            <div class="dashboard-sidebar">
+              <span class="mini-logo">↗</span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="dashboard-content">
+              <div class="dashboard-topbar">
+                <div>
+                  <p>Bugungi holat</p>
+                  <strong>Dashboard</strong>
+                </div>
+                <span>04 May</span>
+              </div>
+              <div class="stats-grid">
+                <article>
+                  <span>O'quvchilar</span>
+                  <strong>1 248</strong>
+                  <small>+18%</small>
+                </article>
+                <article>
+                  <span>Guruhlar</span>
+                  <strong>86</strong>
+                  <small>Faol</small>
+                </article>
+                <article>
+                  <span>Tushum</span>
+                  <strong>284 mln</strong>
+                  <small>oylik</small>
+                </article>
+              </div>
+              <div class="dashboard-panel">
+                <div class="chart-bars">
+                  <span style="height: 42%"></span>
+                  <span style="height: 68%"></span>
+                  <span style="height: 55%"></span>
+                  <span style="height: 78%"></span>
+                  <span style="height: 61%"></span>
+                  <span style="height: 88%"></span>
+                </div>
+                <div class="attendance-list">
+                  <p>Davomad</p>
+                  <div><span>Frontend N12</span><strong>92%</strong></div>
+                  <div><span>English Kids</span><strong>88%</strong></div>
+                  <div><span>Matematika</span><strong>95%</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="brandbook-card">
+            <img src="assets/eduka-brandbook.png" alt="Eduka brandbook preview" />
+          </div>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <div>
+          <p class="eyebrow">Platforma haqida</p>
+          <h2>Eduka markaz ichidagi tartibsiz jarayonlarni aniq tizimga aylantiradi.</h2>
+        </div>
+        <p>
+          CRM o'quvchi ro'yxatdan o'tgan kundan boshlab to'lov, davomad, guruh almashinuvi,
+          o'qituvchi jadvali va rahbariyat hisobotigacha bo'lgan jarayonlarni bog'laydi.
+        </p>
+      </section>
+
+      <section id="features" class="section-block">
+        <div class="section-heading">
+          <p class="eyebrow">Imkoniyatlar</p>
+          <h2>O'quv markaz boshqaruvi uchun kerakli asosiy modullar</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span>01</span>
+            <h3>O'quvchilar bazasi</h3>
+            <p>Kontaktlar, ota-ona ma'lumotlari, status, guruhlar va to'lov tarixini bitta profilda saqlang.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Guruhlar va jadval</h3>
+            <p>Fan, o'qituvchi, xona, dars kunlari va vaqtlarni aniq jadvalda boshqaring.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Davomad</h3>
+            <p>Keldi, kelmadi yoki kechikdi holatlarini tez belgilang va oy oxirida statistikani ko'ring.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>To'lovlar</h3>
+            <p>Oylik to'lov, qarzdorlik, chegirma va to'lov usullarini nazorat qiling.</p>
+          </article>
+          <article>
+            <span>05</span>
+            <h3>Hisobotlar</h3>
+            <p>Daromad, qarzdorlar, guruh samaradorligi va o'quvchi o'sishini ko'ring.</p>
+          </article>
+          <article>
+            <span>06</span>
+            <h3>Rollar</h3>
+            <p>Admin, menejer, o'qituvchi va buxgalter uchun alohida ruxsatlar yarating.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="pricing" class="section-block pricing-section">
+        <div class="section-heading">
+          <p class="eyebrow">Narxlar</p>
+          <h2>Markazingiz hajmiga mos tariflar</h2>
+        </div>
+        <div class="pricing-grid">
+          <article class="price-card">
+            <h3>Start</h3>
+            <p>Kichik o'quv markazlar uchun</p>
+            <strong>299 000 so'm</strong>
+            <span>/ oy</span>
+            <ul>
+              <li>100 tagacha o'quvchi</li>
+              <li>10 tagacha guruh</li>
+              <li>Davomad va to'lovlar</li>
+            </ul>
+            <a href="#demo">Demo olish</a>
+          </article>
+          <article class="price-card featured">
+            <div class="badge">Tavsiya etiladi</div>
+            <h3>Growth</h3>
+            <p>O'sayotgan markazlar uchun</p>
+            <strong>599 000 so'm</strong>
+            <span>/ oy</span>
+            <ul>
+              <li>500 tagacha o'quvchi</li>
+              <li>Cheksiz guruhlar</li>
+              <li>Hisobotlar va rollar</li>
+            </ul>
+            <a href="#demo">Demo olish</a>
+          </article>
+          <article class="price-card">
+            <h3>Pro</h3>
+            <p>Filialli markazlar uchun</p>
+            <strong>Kelishiladi</strong>
+            <span>individual</span>
+            <ul>
+              <li>Bir nechta filial</li>
+              <li>Integratsiyalar</li>
+              <li>Shaxsiy onboarding</li>
+            </ul>
+            <a href="#demo">Bog'lanish</a>
+          </article>
+        </div>
+      </section>
+
+      <section id="gamification" class="split-section">
+        <div>
+          <p class="eyebrow">Gamification</p>
+          <h2>O'quvchilar motivatsiyasini ball, reyting va yutuqlar bilan oshiring.</h2>
+          <p>
+            Eduka orqali darsga qatnashish, vazifa bajarish va test natijalarini rag'batga aylantirish mumkin.
+          </p>
+        </div>
+        <div class="game-panel">
+          <div><span>XP</span><strong>12 480</strong></div>
+          <div><span>Top guruh</span><strong>Frontend N12</strong></div>
+          <div><span>Haftalik streak</span><strong>18 kun</strong></div>
+        </div>
+      </section>
+
+      <section id="support" class="section-block support-section">
+        <div class="section-heading">
+          <p class="eyebrow">Qo'llab-quvvatlash</p>
+          <h2>Ishga tushirishdan kundalik foydalanishgacha yoningizdamiz</h2>
+        </div>
+        <div class="support-grid">
+          <article><strong>Onboarding</strong><p>Markazingiz ma'lumotlarini tizimga ko'chirishda yordam beramiz.</p></article>
+          <article><strong>Telegram support</strong><p>Tezkor savollar uchun alohida yordam kanali.</p></article>
+          <article><strong>O'qitish</strong><p>Admin va xodimlarga CRM bilan ishlashni ko'rsatamiz.</p></article>
+        </div>
+      </section>
+
+      <section id="careers" class="split-section careers-section">
+        <div>
+          <p class="eyebrow">Vakansiyalar</p>
+          <h2>Eduka jamoasiga qo'shiling</h2>
+          <p>
+            CRM, ta'lim texnologiyalari va mijozlar muvaffaqiyati yo'nalishida ishlashni xohlaydigan mutaxassislarni kutamiz.
+          </p>
+        </div>
+        <a class="secondary-button large" href="mailto:hr@eduka.uz">hr@eduka.uz</a>
+      </section>
+
+      <section class="section-block faq-section">
+        <div class="section-heading">
+          <p class="eyebrow">FAQ</p>
+          <h2>Ko'p so'raladigan savollar</h2>
+        </div>
+        <div class="faq-list">
+          <details open>
+            <summary>Eduka kimlar uchun?</summary>
+            <p>O'quv markazlar, til maktablari, IT akademiyalar va kurs markazlari uchun.</p>
+          </details>
+          <details>
+            <summary>Demo qancha vaqt oladi?</summary>
+            <p>Odatda 20-30 daqiqada asosiy modullar va markazingizga mos ishlash ssenariysi ko'rsatiladi.</p>
+          </details>
+          <details>
+            <summary>Ma'lumotlarni Excel'dan ko'chirish mumkinmi?</summary>
+            <p>Ha, o'quvchilar, guruhlar va to'lovlar bo'yicha import jarayonini yo'lga qo'yish mumkin.</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand" href="#home">
+        <span class="brand-mark">↗</span>
+        <span>EDUKA</span>
+      </a>
+      <p>Smart system for modern learning centers.</p>
+      <a href="tel:+998901234567">+998 90 123 45 67</a>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

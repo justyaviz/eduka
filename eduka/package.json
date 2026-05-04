@@ -1,0 +1,12 @@
+{
+  "name": "eduka-landing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eduka landing page for eduka.uz",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
