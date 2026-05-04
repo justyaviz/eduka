@@ -2,6 +2,8 @@ const header = document.querySelector(".site-header");
 const menuToggle = document.querySelector(".menu-toggle");
 const languageButtons = document.querySelectorAll("[data-lang]");
 const modal = document.querySelector("[data-modal]");
+const successModal = document.querySelector("[data-success-modal]");
+const loginModal = document.querySelector("[data-login-modal]");
 const modalForm = document.querySelector(".modal-form");
 const toast = document.querySelector(".toast");
 const billingButtons = document.querySelectorAll("[data-billing]");
@@ -28,6 +30,7 @@ const translations = {
     crmStudents: "O'quvchilar",
     crmGroups: "Guruhlar",
     crmFinance: "Moliya",
+    crmLeads: "Lidlar",
     crmReports: "Hisobotlar",
     today: "Bugungi ko'rsatkichlar",
     students: "O'quvchilar",
@@ -37,11 +40,35 @@ const translations = {
     taskDebt: "Qarzdor o'quvchilar",
     taskAttendance: "Bugungi davomad",
     taskLeads: "Sinov dars lidlari",
+    heroFloatDebt: "Qarzdorlik",
+    heroFloatAttendance: "Bugungi davomad",
+    heroFloatLead: "Yangi lid",
+    paymentGraph: "To'lov grafigi",
+    tableStudent: "O'quvchi",
+    tableGroup: "Guruh",
+    tableStatus: "Holat",
+    tablePayment: "To'lov",
+    statusActive: "Faol",
+    statusDebt: "Qarzdor",
+    pipeNew: "Yangi lid",
+    pipeTrial: "Sinov dars",
+    pipePay: "To'lov",
+    pipeGroup: "Guruh",
     partnerTitle: "Beta bosqichidagi birinchi hamkorlar",
     problemBadge: "Muammolarni tizimga aylantiring",
     problemTitle: "Dars jadvalidan moliyagacha bo'lgan jarayonlar bitta CRM ichida",
     problemText:
       "Excel, daftar, Telegram chat va alohida to'lov ro'yxatlari markaz o'sgan sari nazoratni qiyinlashtiradi. Eduka jarayonlarni birlashtirib, administrator va rahbar uchun aniq ko'rinish beradi.",
+    audienceBadge: "Kimlar uchun",
+    audienceTitle: "Eduka har xil formatdagi o'quv markazlarga moslashadi",
+    aud1: "Til markazlari",
+    aud1Text: "Guruhlar, darajalar, davomad va oylik to'lovlarni bir tizimda nazorat qiling.",
+    aud2: "IT akademiyalar",
+    aud2Text: "Modul, mentor, loyiha va o'quvchi progressini tartibli kuzating.",
+    aud3: "Repetitor markazlari",
+    aud3Text: "Individual va guruh darslarini, to'lov sanalarini va ota-onalar bilan aloqani soddalashtiring.",
+    aud4: "Filialli markazlar",
+    aud4Text: "Har bir filialdagi tushum, qarzdorlik va guruh samaradorligini alohida ko'ring.",
     featuresBadge: "Imkoniyatlar",
     featuresTitle: "O'quv markazni boshqarish uchun kerakli modullar",
     fStudents: "O'quvchilar bazasi",
@@ -107,6 +134,12 @@ const translations = {
     pCustom: "Individual sozlash",
     pApi: "API va integratsiyalar",
     pManager: "Maxsus menejer",
+    compareFeature: "Imkoniyat",
+    compareStudents: "O'quvchi va guruhlar",
+    compareAttendance: "Davomad CRM",
+    compareLeads: "Lidlar pipeline",
+    compareBranch: "Filiallar",
+    compareManager: "Maxsus menejer",
     roadmapBadge: "Nega Eduka?",
     roadmapTitle: "O'quv markazingizda tartib, tezlik va nazorat paydo bo'ladi",
     rStep1: "01",
@@ -150,6 +183,11 @@ const translations = {
     a3: "Tariflar o'quvchi soni va kerakli modullarga qarab tanlanadi. Start tarifi 299 000 so'mdan boshlanadi.",
     q4: "Eduka uch tilda ishlaydimi?",
     a4: "Ha, landing UZ/RU/EN tillarida. CRM interfeysi ham ko'p tilli ishlashga tayyorlanadi.",
+    finalBadge: "Bugun boshlang",
+    finalTitle: "O'quv markazingizni tartibga keltirishni bugun boshlang",
+    finalText:
+      "Eduka o'quv markaz CRM, davomad CRM, to'lov nazorati va o'quv markaz avtomatlashtirish jarayonlarini bitta joyga yig'adi.",
+    finalButton: "Bepul konsultatsiya olish",
     footerText: "O'quv markazlari uchun professional CRM tizimi.",
     privacy: "Maxfiylik",
     terms: "Foydalanish shartlari",
@@ -163,6 +201,13 @@ const translations = {
     toastDemo: "Demo so'rovi yuborildi. Tez orada bog'lanamiz.",
     toastDemoError: "So'rov yuborilmadi. Iltimos, telefon orqali bog'laning: +998 99 893 90 00.",
     toastLogin: "CRM kabinet hozircha yopiq beta rejimida.",
+    successTitle: "Arizangiz qabul qilindi",
+    successText: "15 daqiqa ichida Eduka sotuv jamoasi siz bilan bog'lanadi va bepul konsultatsiya beradi.",
+    successTelegram: "Telegram botga o'tish",
+    betaBadge: "Yopiq beta",
+    betaTitle: "CRM kabinet hozir yopiq beta rejimida",
+    betaText: "Kirish faqat demo olgan va beta hamkor sifatida ulangan markazlar uchun ochiladi.",
+    betaButton: "Beta ro'yxatga qo'shilish",
     toastLang: "tili tanlandi"
   },
   ru: {
@@ -186,6 +231,7 @@ const translations = {
     crmStudents: "Ученики",
     crmGroups: "Группы",
     crmFinance: "Финансы",
+    crmLeads: "Лиды",
     crmReports: "Отчеты",
     today: "Показатели сегодня",
     students: "Ученики",
@@ -195,11 +241,35 @@ const translations = {
     taskDebt: "Должники",
     taskAttendance: "Посещаемость сегодня",
     taskLeads: "Лиды на пробный урок",
+    heroFloatDebt: "Долги",
+    heroFloatAttendance: "Посещаемость",
+    heroFloatLead: "Новый лид",
+    paymentGraph: "График оплат",
+    tableStudent: "Ученик",
+    tableGroup: "Группа",
+    tableStatus: "Статус",
+    tablePayment: "Оплата",
+    statusActive: "Активен",
+    statusDebt: "Долг",
+    pipeNew: "Новый лид",
+    pipeTrial: "Пробный урок",
+    pipePay: "Оплата",
+    pipeGroup: "Группа",
     partnerTitle: "Первые партнеры beta-этапа",
     problemBadge: "Превратите хаос в систему",
     problemTitle: "От расписания до финансов - все процессы внутри одной CRM",
     problemText:
       "Excel, тетради, Telegram-чаты и отдельные списки оплат усложняют контроль при росте центра. Eduka объединяет процессы и дает руководителю прозрачную картину.",
+    audienceBadge: "Для кого",
+    audienceTitle: "Eduka подходит учебным центрам разных форматов",
+    aud1: "Языковые центры",
+    aud1Text: "Контролируйте группы, уровни, посещаемость и ежемесячные оплаты в одной системе.",
+    aud2: "IT академии",
+    aud2Text: "Отслеживайте модули, менторов, проекты и прогресс учеников.",
+    aud3: "Репетиторские центры",
+    aud3Text: "Упростите индивидуальные и групповые уроки, даты оплат и связь с родителями.",
+    aud4: "Сетевые центры",
+    aud4Text: "Смотрите выручку, долги и эффективность групп по каждому филиалу.",
     featuresBadge: "Возможности",
     featuresTitle: "Модули для управления учебным центром",
     fStudents: "База учеников",
@@ -265,6 +335,12 @@ const translations = {
     pCustom: "Индивидуальная настройка",
     pApi: "API и интеграции",
     pManager: "Персональный менеджер",
+    compareFeature: "Возможность",
+    compareStudents: "Ученики и группы",
+    compareAttendance: "CRM посещаемости",
+    compareLeads: "Pipeline лидов",
+    compareBranch: "Филиалы",
+    compareManager: "Персональный менеджер",
     roadmapBadge: "Почему Eduka?",
     roadmapTitle: "В вашем учебном центре появятся порядок, скорость и контроль",
     rStep1: "01",
@@ -308,6 +384,11 @@ const translations = {
     a3: "Тариф выбирается по количеству учеников и нужным модулям. Start начинается от 299 000 сум.",
     q4: "Eduka работает на трех языках?",
     a4: "Да, landing работает на UZ/RU/EN. CRM-интерфейс также готовится к многоязычной работе.",
+    finalBadge: "Начните сегодня",
+    finalTitle: "Начните наводить порядок в учебном центре уже сегодня",
+    finalText:
+      "Eduka объединяет CRM для учебного центра, посещаемость, контроль оплат и автоматизацию процессов в одном месте.",
+    finalButton: "Получить бесплатную консультацию",
     footerText: "Профессиональная CRM для учебных центров.",
     privacy: "Конфиденциальность",
     terms: "Условия",
@@ -321,6 +402,13 @@ const translations = {
     toastDemo: "Демо-заявка отправлена. Скоро свяжемся с вами.",
     toastDemoError: "Заявка не отправилась. Позвоните нам: +998 99 893 90 00.",
     toastLogin: "CRM кабинет пока в закрытой beta.",
+    successTitle: "Заявка принята",
+    successText: "В течение 15 минут команда продаж Eduka свяжется с вами и проведет бесплатную консультацию.",
+    successTelegram: "Перейти в Telegram bot",
+    betaBadge: "Закрытая beta",
+    betaTitle: "CRM кабинет сейчас в закрытой beta",
+    betaText: "Вход открыт только для центров, которые получили демо и подключены как beta-партнеры.",
+    betaButton: "Записаться в beta",
     toastLang: "язык выбран"
   },
   en: {
@@ -344,6 +432,7 @@ const translations = {
     crmStudents: "Students",
     crmGroups: "Groups",
     crmFinance: "Finance",
+    crmLeads: "Leads",
     crmReports: "Reports",
     today: "Today's metrics",
     students: "Students",
@@ -353,11 +442,35 @@ const translations = {
     taskDebt: "Students in debt",
     taskAttendance: "Today's attendance",
     taskLeads: "Trial lesson leads",
+    heroFloatDebt: "Debt",
+    heroFloatAttendance: "Attendance today",
+    heroFloatLead: "New lead",
+    paymentGraph: "Payment graph",
+    tableStudent: "Student",
+    tableGroup: "Group",
+    tableStatus: "Status",
+    tablePayment: "Payment",
+    statusActive: "Active",
+    statusDebt: "Debt",
+    pipeNew: "New lead",
+    pipeTrial: "Trial lesson",
+    pipePay: "Payment",
+    pipeGroup: "Group",
     partnerTitle: "First beta-stage partners",
     problemBadge: "Turn problems into a system",
     problemTitle: "From schedules to finance, all workflows inside one CRM",
     problemText:
       "Excel files, notebooks, Telegram chats and separate payment lists make control harder as a center grows. Eduka connects workflows and gives leaders a clear view.",
+    audienceBadge: "Who it is for",
+    audienceTitle: "Eduka adapts to different learning center formats",
+    aud1: "Language centers",
+    aud1Text: "Control groups, levels, attendance and monthly payments in one system.",
+    aud2: "IT academies",
+    aud2Text: "Track modules, mentors, projects and student progress in an organized way.",
+    aud3: "Tutoring centers",
+    aud3Text: "Simplify individual and group lessons, payment dates and parent communication.",
+    aud4: "Multi-branch centers",
+    aud4Text: "See revenue, debt and group performance separately for each branch.",
     featuresBadge: "Features",
     featuresTitle: "Modules for managing a learning center",
     fStudents: "Student database",
@@ -423,6 +536,12 @@ const translations = {
     pCustom: "Custom setup",
     pApi: "API and integrations",
     pManager: "Dedicated manager",
+    compareFeature: "Feature",
+    compareStudents: "Students and groups",
+    compareAttendance: "Attendance CRM",
+    compareLeads: "Lead pipeline",
+    compareBranch: "Branches",
+    compareManager: "Dedicated manager",
     roadmapBadge: "Why Eduka?",
     roadmapTitle: "Your learning center gets order, speed and clear control",
     rStep1: "01",
@@ -466,6 +585,11 @@ const translations = {
     a3: "Plans are selected by student count and required modules. Start begins from 299,000 UZS.",
     q4: "Does Eduka work in three languages?",
     a4: "Yes, the landing works in UZ/RU/EN. The CRM interface is also being prepared for multilingual use.",
+    finalBadge: "Start today",
+    finalTitle: "Start organizing your learning center today",
+    finalText:
+      "Eduka brings learning center CRM, attendance CRM, payment control and process automation into one workspace.",
+    finalButton: "Get free consultation",
     footerText: "Professional CRM for learning centers.",
     privacy: "Privacy",
     terms: "Terms",
@@ -479,6 +603,13 @@ const translations = {
     toastDemo: "Demo request sent. We will contact you soon.",
     toastDemoError: "Request was not sent. Please call us: +998 99 893 90 00.",
     toastLogin: "CRM portal is currently in private beta.",
+    successTitle: "Your request is accepted",
+    successText: "The Eduka sales team will contact you within 15 minutes and provide a free consultation.",
+    successTelegram: "Open Telegram bot",
+    betaBadge: "Closed beta",
+    betaTitle: "CRM portal is currently in closed beta",
+    betaText: "Login is open only for centers that received a demo and joined as beta partners.",
+    betaButton: "Join beta list",
     toastLang: "language selected"
   }
 };
@@ -573,6 +704,36 @@ function closeModal() {
   document.body.style.overflow = "";
 }
 
+function openSuccessModal() {
+  if (!successModal) return;
+  successModal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeSuccessModal() {
+  if (!successModal) return;
+  successModal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+function openLoginModal() {
+  if (!loginModal) return;
+  loginModal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeLoginModal() {
+  if (!loginModal) return;
+  loginModal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+function closeAllModals() {
+  closeModal();
+  closeSuccessModal();
+  closeLoginModal();
+}
+
 function playCounters() {
   if (countersPlayed) return;
   countersPlayed = true;
@@ -616,21 +777,34 @@ document.querySelectorAll(".nav-links a, .header-actions a").forEach((link) => {
 });
 
 document.querySelectorAll("[data-open-demo]").forEach((button) => {
-  button.addEventListener("click", openModal);
+  button.addEventListener("click", () => {
+    closeLoginModal();
+    openModal();
+  });
 });
 
 document.querySelector("[data-open-login]")?.addEventListener("click", () => {
-  showToast(translations[currentLang].toastLogin);
+  openLoginModal();
 });
 
 document.querySelector("[data-close-modal]")?.addEventListener("click", closeModal);
+document.querySelector("[data-close-success]")?.addEventListener("click", closeSuccessModal);
+document.querySelector("[data-close-login]")?.addEventListener("click", closeLoginModal);
 
 modal?.addEventListener("click", (event) => {
   if (event.target === modal) closeModal();
 });
 
+successModal?.addEventListener("click", (event) => {
+  if (event.target === successModal) closeSuccessModal();
+});
+
+loginModal?.addEventListener("click", (event) => {
+  if (event.target === loginModal) closeLoginModal();
+});
+
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeModal();
+  if (event.key === "Escape") closeAllModals();
 });
 
 languageButtons.forEach((button) => {
@@ -673,6 +847,7 @@ modalForm?.addEventListener("submit", async (event) => {
       modalForm.reset();
       closeModal();
       modalForm.classList.remove("sent");
+      openSuccessModal();
     }, 650);
   } catch {
     showToast(translations[currentLang].toastDemoError);
@@ -682,7 +857,7 @@ modalForm?.addEventListener("submit", async (event) => {
 });
 
 const revealTargets = document.querySelectorAll(
-  ".partner-section, .problem-section, .section-block, .split-section, .workflow-section, .integration-section, .roadmap-section, .numbers-section, .testimonial-section, .faq-section"
+  ".partner-section, .problem-section, .section-block, .audience-section, .split-section, .workflow-section, .integration-section, .roadmap-section, .numbers-section, .testimonial-section, .faq-section, .final-cta-section"
 );
 
 revealTargets.forEach((target) => target.classList.add("reveal"));

@@ -34,12 +34,14 @@
   </head>
   <body>
     <div class="loader" aria-label="Eduka yuklanmoqda">
-      <div class="loader-box">
-        <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
-        <div>
-          <strong>Eduka</strong>
-          <p data-i18n="loader">CRM ishga tayyorlanmoqda</p>
-        </div>
+      <div class="loader-word">
+        <span class="loader-logo"><img src="assets/logo_icon.png" alt="" /></span>
+        <span class="loader-text">EDUKA</span>
+        <svg class="loader-ring" viewBox="0 0 80 80" aria-hidden="true">
+          <circle class="dash" cx="40" cy="40" r="34" pathLength="360"></circle>
+          <circle class="spin" cx="40" cy="40" r="28" pathLength="360"></circle>
+        </svg>
+        <p data-i18n="loader">CRM ishga tayyorlanmoqda</p>
       </div>
     </div>
 
@@ -98,6 +100,9 @@
         </div>
 
         <div class="hero-panel" aria-label="Eduka platforma ko'rinishi">
+          <div class="floating-card debt"><span data-i18n="heroFloatDebt">Qarzdorlik</span><strong>-12%</strong></div>
+          <div class="floating-card attendance"><span data-i18n="heroFloatAttendance">Bugungi davomad</span><strong>92%</strong></div>
+          <div class="floating-card lead"><span data-i18n="heroFloatLead">Yangi lid</span><strong>+18</strong></div>
           <div class="browser-bar">
             <span></span><span></span><span></span>
             <strong>app.eduka.uz</strong>
@@ -106,9 +111,10 @@
             <aside>
               <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
               <b data-i18n="crmMenu">Boshqaruv</b>
-              <p data-i18n="crmStudents">O'quvchilar</p>
+              <p class="active" data-i18n="crmStudents">O'quvchilar</p>
               <p data-i18n="crmGroups">Guruhlar</p>
               <p data-i18n="crmFinance">Moliya</p>
+              <p data-i18n="crmLeads">Lidlar</p>
               <p data-i18n="crmReports">Hisobotlar</p>
             </aside>
             <div class="crm-main">
@@ -120,12 +126,13 @@
                 <button type="button" data-open-demo data-i18n="demo">Demo olish</button>
               </div>
               <div class="metric-grid">
-                <article><span data-i18n="students">O'quvchilar</span><strong>Beta</strong></article>
-                <article><span data-i18n="payments">To'lovlar</span><strong>299K+</strong></article>
-                <article><span data-i18n="leads">Lidlar</span><strong>CRM</strong></article>
+                <article><span data-i18n="students">O'quvchilar</span><strong>684</strong></article>
+                <article><span data-i18n="payments">To'lovlar</span><strong>128.4M</strong></article>
+                <article><span data-i18n="leads">Lidlar</span><strong>47</strong></article>
               </div>
               <div class="analytics-row">
                 <div class="chart-card">
+                  <div class="chart-title"><b data-i18n="paymentGraph">To'lov grafigi</b><small>May</small></div>
                   <span style="height: 48%"></span>
                   <span style="height: 70%"></span>
                   <span style="height: 58%"></span>
@@ -138,6 +145,18 @@
                   <p><span></span><em data-i18n="taskAttendance">Bugungi davomad</em></p>
                   <p><span></span><em data-i18n="taskLeads">Sinov dars lidlari</em></p>
                 </div>
+              </div>
+              <div class="crm-table">
+                <div><b data-i18n="tableStudent">O'quvchi</b><b data-i18n="tableGroup">Guruh</b><b data-i18n="tableStatus">Holat</b><b data-i18n="tablePayment">To'lov</b></div>
+                <div><span>Madina A.</span><span>English B2</span><mark data-i18n="statusActive">Faol</mark><strong>450K</strong></div>
+                <div><span>Azizbek R.</span><span>Frontend N12</span><mark class="warn" data-i18n="statusDebt">Qarzdor</mark><strong>180K</strong></div>
+                <div><span>Sarvinoz T.</span><span>Matematika</span><mark data-i18n="statusActive">Faol</mark><strong>320K</strong></div>
+              </div>
+              <div class="pipeline-mini">
+                <span data-i18n="pipeNew">Yangi lid</span>
+                <span data-i18n="pipeTrial">Sinov dars</span>
+                <span data-i18n="pipePay">To'lov</span>
+                <span data-i18n="pipeGroup">Guruh</span>
               </div>
             </div>
           </div>
@@ -164,6 +183,19 @@
           Excel, daftar, Telegram chat va alohida to'lov ro'yxatlari markaz o'sgan sari nazoratni qiyinlashtiradi.
           Eduka jarayonlarni birlashtirib, administrator va rahbar uchun aniq ko'rinish beradi.
         </p>
+      </section>
+
+      <section class="audience-section">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="audienceBadge">Kimlar uchun</p>
+          <h2 data-i18n="audienceTitle">Eduka har xil formatdagi o'quv markazlarga moslashadi</h2>
+        </div>
+        <div class="audience-grid">
+          <article><span>01</span><h3 data-i18n="aud1">Til markazlari</h3><p data-i18n="aud1Text">Guruhlar, darajalar, davomad va oylik to'lovlarni bir tizimda nazorat qiling.</p></article>
+          <article><span>02</span><h3 data-i18n="aud2">IT akademiyalar</h3><p data-i18n="aud2Text">Modul, mentor, loyiha va o'quvchi progressini tartibli kuzating.</p></article>
+          <article><span>03</span><h3 data-i18n="aud3">Repetitor markazlari</h3><p data-i18n="aud3Text">Individual va guruh darslarini, to'lov sanalarini va ota-onalar bilan aloqani soddalashtiring.</p></article>
+          <article><span>04</span><h3 data-i18n="aud4">Filialli markazlar</h3><p data-i18n="aud4Text">Har bir filialdagi tushum, qarzdorlik va guruh samaradorligini alohida ko'ring.</p></article>
+        </div>
       </section>
 
       <section id="features" class="section-block">
@@ -247,6 +279,14 @@
           <article class="price-card" data-plan="pro"><h3>Pro</h3><p>300-1000 <span data-i18n="studentCount">o'quvchi</span></p><strong data-price>899 000</strong><small data-period data-i18n="perMonth">so'm / oy</small><ul><li data-i18n="pBranches">Filiallar nazorati</li><li data-i18n="pCabinets">Kabinetlar</li><li data-i18n="pGame">Gamification</li></ul><button type="button" data-open-demo data-i18n="choose">Tanlash</button></article>
           <article class="price-card" data-plan="premium"><h3>Premium</h3><p>1000+ <span data-i18n="studentCount">o'quvchi</span></p><strong data-price data-i18n="custom">Kelishiladi</strong><small data-period data-i18n="enterprise">filialli markazlar</small><ul><li data-i18n="pCustom">Individual sozlash</li><li data-i18n="pApi">API va integratsiyalar</li><li data-i18n="pManager">Maxsus menejer</li></ul><button type="button" data-open-demo data-i18n="contact">Bog'lanish</button></article>
         </div>
+        <div class="comparison-table" aria-label="Tariflarni solishtirish">
+          <div class="comparison-row head"><span data-i18n="compareFeature">Imkoniyat</span><b>Start</b><b>Basic</b><b>Pro</b><b>Premium</b></div>
+          <div class="comparison-row"><span data-i18n="compareStudents">O'quvchi va guruhlar</span><b>✓</b><b>✓</b><b>✓</b><b>✓</b></div>
+          <div class="comparison-row"><span data-i18n="compareAttendance">Davomad CRM</span><b>✓</b><b>✓</b><b>✓</b><b>✓</b></div>
+          <div class="comparison-row"><span data-i18n="compareLeads">Lidlar pipeline</span><b>—</b><b>✓</b><b>✓</b><b>✓</b></div>
+          <div class="comparison-row"><span data-i18n="compareBranch">Filiallar</span><b>—</b><b>—</b><b>✓</b><b>✓</b></div>
+          <div class="comparison-row"><span data-i18n="compareManager">Maxsus menejer</span><b>—</b><b>—</b><b>—</b><b>✓</b></div>
+        </div>
       </section>
 
       <section class="roadmap-section">
@@ -309,6 +349,15 @@
           <details><summary data-i18n="q4">Eduka uch tilda ishlaydimi?</summary><p data-i18n="a4">Ha, landing UZ/RU/EN tillarida. CRM interfeysi ham ko'p tilli ishlashga tayyorlanadi.</p></details>
         </div>
       </section>
+
+      <section class="final-cta-section">
+        <div>
+          <p class="eyebrow" data-i18n="finalBadge">Bugun boshlang</p>
+          <h2 data-i18n="finalTitle">O'quv markazingizni tartibga keltirishni bugun boshlang</h2>
+          <p data-i18n="finalText">Eduka o'quv markaz CRM, davomad CRM, to'lov nazorati va o'quv markaz avtomatlashtirish jarayonlarini bitta joyga yig'adi.</p>
+        </div>
+        <button class="primary-button large" type="button" data-open-demo data-i18n="finalButton">Bepul konsultatsiya olish</button>
+      </section>
     </main>
 
     <footer class="site-footer">
@@ -320,8 +369,8 @@
         <a href="#pricing" data-i18n="navPricing">Narxlar</a>
         <a href="#support" data-i18n="navSupport">Qo'llab-quvvatlash</a>
         <a href="https://t.me/eduka_robot" target="_blank" rel="noreferrer">Telegram</a>
-        <a href="#" data-i18n="privacy">Privacy</a>
-        <a href="#" data-i18n="terms">Terms</a>
+        <a href="privacy.html" data-i18n="privacy">Privacy</a>
+        <a href="terms.html" data-i18n="terms">Terms</a>
         <a href="tel:+998998939000">+998 99 893 90 00</a>
       </div>
     </footer>
@@ -329,24 +378,44 @@
     <div class="modal-backdrop" data-modal hidden>
       <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <button class="modal-close" type="button" aria-label="Yopish" data-close-modal>&times;</button>
-        <p class="eyebrow" data-i18n="modalBadge">Demo so'rovi</p>
+        <p class="modal-title-dot" data-i18n="modalBadge">Demo so'rovi</p>
         <h2 id="modal-title" data-i18n="modalTitle">Eduka'ni markazingizda sinab ko'ring</h2>
-        <p class="modal-copy" data-i18n="modalText">
+        <p class="modal-copy message" data-i18n="modalText">
           Telefon raqamingizni qoldiring. So'rovingiz Telegram bot yoki guruhga yuboriladigan qilib ulanadi.
         </p>
         <form class="modal-form">
-          <input name="name" type="text" placeholder="Ismingiz" data-placeholder="name" required />
-          <input name="phone" type="tel" placeholder="+998 __ ___ __ __" required />
-          <input name="center" type="text" placeholder="O'quv markaz nomi" data-placeholder="center" required />
-          <select name="students" required>
+          <label><input class="input" name="name" type="text" placeholder=" " required /><span data-i18n="namePlaceholder">Ismingiz</span></label>
+          <label><input class="input" name="phone" type="tel" placeholder=" " required /><span>+998 __ ___ __ __</span></label>
+          <label><input class="input" name="center" type="text" placeholder=" " required /><span data-i18n="centerPlaceholder">O'quv markaz nomi</span></label>
+          <select name="students" class="input" required>
             <option value="" data-i18n="studentsPlaceholder">O'quvchi soni</option>
             <option value="0-100">0-100</option>
             <option value="100-300">100-300</option>
             <option value="300-1000">300-1000</option>
             <option value="1000+">1000+</option>
           </select>
-          <button class="primary-button large" type="submit" data-i18n="sendDemo">Demo so'rovini yuborish</button>
+          <button class="submit" type="submit" data-i18n="sendDemo">Demo so'rovini yuborish</button>
         </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" data-success-modal hidden>
+      <section class="modal-panel success-panel" role="dialog" aria-modal="true" aria-labelledby="success-title">
+        <button class="modal-close" type="button" aria-label="Yopish" data-close-success>&times;</button>
+        <div class="success-icon"><img src="assets/logo_icon.png" alt="" /></div>
+        <h2 id="success-title" data-i18n="successTitle">Arizangiz qabul qilindi</h2>
+        <p class="modal-copy" data-i18n="successText">15 daqiqa ichida Eduka sotuv jamoasi siz bilan bog'lanadi va bepul konsultatsiya beradi.</p>
+        <a class="secondary-button large" href="https://t.me/eduka_robot" target="_blank" rel="noreferrer" data-i18n="successTelegram">Telegram botga o'tish</a>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" data-login-modal hidden>
+      <section class="modal-panel beta-panel" role="dialog" aria-modal="true" aria-labelledby="beta-title">
+        <button class="modal-close" type="button" aria-label="Yopish" data-close-login>&times;</button>
+        <p class="modal-title-dot" data-i18n="betaBadge">Yopiq beta</p>
+        <h2 id="beta-title" data-i18n="betaTitle">CRM kabinet hozir yopiq beta rejimida</h2>
+        <p class="modal-copy" data-i18n="betaText">Kirish faqat demo olgan va beta hamkor sifatida ulangan markazlar uchun ochiladi.</p>
+        <button class="primary-button large" type="button" data-open-demo data-i18n="betaButton">Beta ro'yxatga qo'shilish</button>
       </section>
     </div>
 
