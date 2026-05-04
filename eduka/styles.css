@@ -956,7 +956,18 @@ h3 {
 }
 
 .roadmap-section {
-  background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%);
+  position: relative;
+  overflow: hidden;
+  color: var(--white);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(30, 58, 255, 0.55), transparent 34%),
+    radial-gradient(circle at 90% 18%, rgba(79, 107, 255, 0.34), transparent 28%),
+    linear-gradient(135deg, #050a1e 0%, #0a0f2c 58%, #111a46 100%);
+}
+
+.roadmap-section .section-heading h2,
+.roadmap-section .eyebrow {
+  color: var(--white);
 }
 
 .roadmap-grid {
@@ -966,6 +977,9 @@ h3 {
 .roadmap-grid article {
   position: relative;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px);
 }
 
 .roadmap-grid article::after {
@@ -977,17 +991,119 @@ h3 {
   border-radius: 999px 999px 0 0;
 }
 
+.roadmap-grid b {
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  background: var(--primary);
+  border-radius: 14px;
+  box-shadow: 0 0 34px rgba(30, 58, 255, 0.56);
+}
+
+.roadmap-grid h3 {
+  color: var(--white);
+}
+
+.roadmap-grid p {
+  color: #d8def0;
+}
+
+.section-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.support-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.support-grid article {
+  position: relative;
+  overflow: hidden;
+  min-height: 210px;
+}
+
+.support-grid article::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(30, 58, 255, 0.08), transparent 58%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.support-grid article:hover::before {
+  opacity: 1;
+}
+
+.support-grid article > span {
+  display: inline-flex;
+  margin-bottom: 22px;
+  padding: 8px 10px;
+  color: var(--primary);
+  background: rgba(30, 58, 255, 0.08);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.testimonial-grid article {
+  position: relative;
+  min-height: 260px;
+}
+
+.testimonial-grid article::before {
+  content: '"';
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  color: rgba(30, 58, 255, 0.12);
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.testimonial-grid b,
+.testimonial-grid span {
+  display: block;
+}
+
+.testimonial-grid b {
+  margin-top: 24px;
+  color: var(--dark);
+}
+
+.testimonial-grid span {
+  margin-top: 4px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.faq-section {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%);
+}
+
 .faq-list {
   display: grid;
   gap: 10px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .faq-list details {
   padding: 18px 20px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .faq-list details[open] {
   border-color: rgba(30, 58, 255, 0.25);
+  box-shadow: 0 16px 38px rgba(10, 15, 44, 0.07);
 }
 
 .faq-list summary {
@@ -1130,6 +1246,28 @@ h3 {
   transform: translateY(0);
 }
 
+.reveal.visible .roadmap-grid article,
+.reveal.visible .support-grid article,
+.reveal.visible .testimonial-grid article,
+.reveal.visible .faq-list details {
+  animation: cardRise 0.62s ease both;
+}
+
+.reveal.visible article:nth-child(2),
+.reveal.visible details:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.reveal.visible article:nth-child(3),
+.reveal.visible details:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.reveal.visible article:nth-child(4),
+.reveal.visible details:nth-child(4) {
+  animation-delay: 0.24s;
+}
+
 @keyframes float {
   0%,
   100% {
@@ -1137,6 +1275,18 @@ h3 {
   }
   50% {
     transform: translateY(-7px);
+  }
+}
+
+@keyframes cardRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
