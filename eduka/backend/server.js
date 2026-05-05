@@ -95,13 +95,6 @@ function getTelegramConfig(options = {}) {
 
   rawChatIds.forEach((chatId) => {
     if (!chatIds.includes(chatId)) chatIds.push(chatId);
-
-    const numericChatId = chatId.replace(/^-/, "");
-
-    if (chatId.startsWith("-") && !chatId.startsWith("-100") && numericChatId.length >= 10) {
-      const supergroupChatId = `-100${numericChatId}`;
-      if (!chatIds.includes(supergroupChatId)) chatIds.push(supergroupChatId);
-    }
   });
 
   return {
@@ -226,7 +219,7 @@ async function sendTelegramMessage(text) {
     }
   }
 
-  throw lastError || new Error("Telegram send failed");
+  throw lastError || new Error(`Telegram send failed. Tried chats: ${chatIds.join(", ")}`);
 }
 
 function sendFile(response, filePath) {
