@@ -161,6 +161,56 @@ function postTelegramMessage(token, chatId, text) {
   });
 }
 
+function telegramApiRequest(token, methodName, payload = {}) {
+  const payloadText = JSON.stringify(payload);
+
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      {
+        hostname: "api.telegram.org",
+        path: `/bot${token}/${methodName}`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payloadText)
+        }
+      },
+      (telegramResponse) => {
+        let responseBody = "";
+
+        telegramResponse.on("data", (chunk) => {
+          responseBody += chunk;
+        });
+
+        telegramResponse.on("end", () => {
+          let parsedBody;
+
+          try {
+            parsedBody = JSON.parse(responseBody);
+          } catch {
+            parsedBody = { ok: false, description: responseBody };
+          }
+
+          if (telegramResponse.statusCode >= 200 && telegramResponse.statusCode < 300 && parsedBody.ok) {
+            resolve(parsedBody);
+            return;
+          }
+
+          reject(new Error(parsedBody.description || `Telegram returned ${telegramResponse.statusCode}`));
+        });
+      }
+    );
+
+    request.setTimeout(10_000, () => {
+      request.destroy(new Error("Telegram request timed out"));
+    });
+
+    request.on("error", reject);
+    request.write(payloadText);
+    request.end();
+  });
+}
+
 async function sendTelegramMessage(text) {
   const { token, chatIds, tokenEnvName, chatEnvName } = getTelegramConfig();
   let lastError;
@@ -235,10 +285,9 @@ async function handleDemoRequest(request, response) {
   }
 }
 
-function handleTelegramHealth(response) {
+async function handleTelegramHealth(response, shouldCheckTelegram) {
   const config = getTelegramConfig({ allowMissing: true });
-
-  sendJson(response, 200, {
+  const payload = {
     ok: true,
     configured: config.tokenPresent && config.chatIdCount > 0,
     tokenPresent: config.tokenPresent,
@@ -247,11 +296,47 @@ function handleTelegramHealth(response) {
     chatEnvName: config.chatEnvName || null,
     supportedTokenEnv: ["TELEGRAM_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN"],
     supportedChatEnv: ["TELEGRAM_CHAT_ID", "TELEGRAM_GROUP_ID", "TELEGRAM_ADMIN_CHAT_ID", "CHAT_ID"]
-  });
+  };
+
+  if (!shouldCheckTelegram || !config.tokenPresent) {
+    sendJson(response, 200, payload);
+    return;
+  }
+
+  try {
+    const botInfo = await telegramApiRequest(config.token, "getMe");
+    payload.bot = {
+      ok: true,
+      username: botInfo.result?.username || null,
+      name: botInfo.result?.first_name || null
+    };
+  } catch (error) {
+    payload.bot = { ok: false, error: error.message };
+  }
+
+  payload.chats = [];
+
+  for (const chatId of config.chatIds || []) {
+    try {
+      const chatInfo = await telegramApiRequest(config.token, "getChat", { chat_id: chatId });
+      payload.chats.push({
+        chatId,
+        ok: true,
+        type: chatInfo.result?.type || null,
+        title: chatInfo.result?.title || null
+      });
+    } catch (error) {
+      payload.chats.push({ chatId, ok: false, error: error.message });
+    }
+  }
+
+  sendJson(response, 200, payload);
 }
 
 const server = http.createServer((request, response) => {
-  const urlPath = decodeURIComponent(request.url.split("?")[0]);
+  const [rawUrlPath, rawQuery = ""] = request.url.split("?");
+  const urlPath = decodeURIComponent(rawUrlPath);
+  const query = new URLSearchParams(rawQuery);
 
   if (request.method === "POST" && urlPath === "/api/demo") {
     handleDemoRequest(request, response);
@@ -259,7 +344,7 @@ const server = http.createServer((request, response) => {
   }
 
   if (request.method === "GET" && urlPath === "/api/telegram-health") {
-    handleTelegramHealth(response);
+    handleTelegramHealth(response, query.get("check") === "1");
     return;
   }
 
