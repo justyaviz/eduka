@@ -39,7 +39,7 @@
           <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
           <span>EDUKA</span>
         </a>
-        <button class="create-student" type="button" data-open-modal="students">Talaba yaratish</button>
+        <button class="create-student" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
           <button class="active" type="button" data-view="dashboard" data-icon="M4 5h16v4H4z M4 13h7v6H4z M15 13h5v6h-5z">Dashboard</button>
           <button type="button" data-view="leads" data-icon="M5 5h14v14H5z M8 9h8 M8 13h5">Lidlar</button>
@@ -74,12 +74,12 @@
 
       <div class="workspace">
         <header class="topbar">
-          <button class="mobile-menu" type="button" data-mobile-menu aria-label="Menyuni ochish">Menu</button>
+          <button class="mobile-menu icon-button" type="button" data-mobile-menu data-ui-icon="menu" aria-label="Menyuni ochish"><span>Menu</span></button>
           <strong class="center-name" data-center-name>ilm academy uz</strong>
           <label class="search-box"><span>Qidiruv</span><input type="search" aria-label="Qidiruv" /></label>
           <button class="lang-button" type="button">uz</button>
-          <button class="ghost-icon" type="button" aria-label="Bildirishnomalar">N</button>
-          <button class="ghost-icon logout-button" type="button" data-logout>Chiqish</button>
+          <button class="ghost-icon icon-button" type="button" data-ui-icon="bell" aria-label="Bildirishnomalar"></button>
+          <button class="ghost-icon logout-button" type="button" data-logout data-ui-icon="log-out"><span>Chiqish</span></button>
         </header>
 
         <main class="content">
@@ -104,26 +104,26 @@
           </section>
 
           <section class="view" id="leads">
-            <div class="page-head"><h1>Lidlar</h1><span data-count="leads">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="leads">Lid yaratish</button></div>
+            <div class="page-head"><h1>Lidlar</h1><span data-count="leads">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="leads" data-ui-icon="plus">Lid yaratish</button></div>
             <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Holati</option></select><select><option>Menejer</option></select><input type="date" /></div>
             <div class="pipeline" data-pipeline></div>
             <div class="table" data-table="leads"><div><b>Lid</b><b>Telefon</b><b>Manba</b><b>Holat</b><b>Menejer</b><b>Qayta aloqa</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="teachers">
-            <div class="page-head"><h1>O'qituvchilar</h1><span data-count="teachers">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="teachers">O'qituvchi yaratish</button></div>
+            <div class="page-head"><h1>O'qituvchilar</h1><span data-count="teachers">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="teachers" data-ui-icon="plus">O'qituvchi yaratish</button></div>
             <div class="notice"><strong>Diqqat!</strong><p>CEO profili orqali o'qituvchini boshqa filialga biriktirishingiz mumkin.</p></div>
             <div class="table" data-table="teachers"><div><b>Ism</b><b>Telefon</b><b>Fanlar</b><b>Holat</b><b>Oylik stavka</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="groups">
-            <div class="page-head"><h1>Guruhlar</h1><span data-count="groups">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="groups">Guruh yaratish</button></div>
+            <div class="page-head"><h1>Guruhlar</h1><span data-count="groups">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="groups" data-ui-icon="plus">Guruh yaratish</button></div>
             <div class="filters"><select><option>Faol guruhlar</option></select><select><option>O'qituvchi</option></select><select><option>Kurslar bo'yicha</option></select><select><option>Kunlar</option></select><input type="date" /><input type="date" /></div>
             <div class="table" data-table="groups"><div><b>Guruh</b><b>Kurslar</b><b>O'qituvchi</b><b>Kunlar</b><b>Mashg'ulotlar sanalari</b><b>Xona</b><b>Talabalar</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="students">
-            <div class="page-head"><h1>Talabalar</h1><span data-count="students">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="students">Talaba yaratish</button></div>
+            <div class="page-head"><h1>Talabalar</h1><span data-count="students">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button></div>
             <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Kurslar</option></select><select><option>Talaba holati</option></select><select><option>Moliyaviy holati</option></select><input type="date" /><input type="date" /></div>
             <div class="table" data-table="students"><div><b>Ism</b><b>Telefon</b><b>Ota-ona</b><b>Kurs</b><b>Guruh</b><b>Status</b><b>Balans</b><b>Izoh</b><b>Amallar</b></div></div>
           </section>
@@ -141,7 +141,7 @@
           </section>
 
           <section class="view" id="attendance">
-            <div class="page-head"><h1>Davomat hisobotlari</h1><span data-count="attendance">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="attendance">Davomat belgilash</button></div>
+            <div class="page-head"><h1>Davomat hisobotlari</h1><span data-count="attendance">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="attendance" data-ui-icon="check">Davomat belgilash</button></div>
             <div class="filters"><input type="date" value="2026-05-05" /><input placeholder="Ism" /><select><option>Guruh</option></select><select><option>Davomat</option></select></div>
             <div class="table" data-table="attendance"><div><b>Sana</b><b>Talaba</b><b>Guruh</b><b>Davomat</b><b>Izoh</b></div></div>
           </section>
@@ -154,14 +154,14 @@
           </section>
 
           <section class="view" id="finance">
-            <div class="page-head"><h1>Barcha to'lovlar</h1><button class="section-action" type="button" data-open-modal="payments">To'lov qo'shish</button></div>
+            <div class="page-head"><h1>Barcha to'lovlar</h1><button class="section-action" type="button" data-open-modal="payments" data-ui-icon="wallet">To'lov qo'shish</button></div>
             <div class="finance-summary"><article><span>To'lovlar miqdori</span><strong data-finance-total>0 UZS</strong><small>01.05.2026 - 31.05.2026</small></article><article><span>Sof foyda miqdori</span><strong>0 UZS</strong><small>01.05.2026 - 31.05.2026</small></article></div>
             <div class="filters finance-filters"><label>Sanadan boshlab <input type="date" value="2026-05-01" /></label><label>Sana bo'yicha <input type="date" value="2026-05-31" /></label><input placeholder="Ism yoki Telefon" /><select><option>To'lov turi</option></select></div>
             <div class="table" data-table="payments"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>To'lov turi</b><b>Izoh</b><b>Xodim</b></div></div>
           </section>
 
-          <section class="view" id="withdrawals"><div class="page-head"><h1>Yechib olish</h1><button class="section-action" type="button" data-open-modal="withdrawals">Yechib olish</button></div><p class="subtle">Jami yechib olishlar: 0 UZS (01.05.2026 - 31.05.2026)</p><div class="empty-state">Bo'sh</div></section>
-          <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor - 0</span><button class="section-action" type="button" data-open-modal="expenses">Xarajat qo'shish</button></div><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="withdrawals"><div class="page-head"><h1>Yechib olish</h1><button class="section-action" type="button" data-open-modal="withdrawals" data-ui-icon="wallet">Yechib olish</button></div><p class="subtle">Jami yechib olishlar: 0 UZS (01.05.2026 - 31.05.2026)</p><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor - 0</span><button class="section-action" type="button" data-open-modal="expenses" data-ui-icon="plus">Xarajat qo'shish</button></div><div class="empty-state">Bo'sh</div></section>
           <section class="view" id="salary"><div class="page-head"><h1>Ish haqi</h1><span>new</span></div><div class="empty-state">Bo'sh</div></section>
           <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span>Miqdor - 0</span></div><div class="empty-state">Balansi bor talabalar avtomatik qarzdor sifatida ko'rinadi.</div></section>
           <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1></div><div class="empty-state">Kunlik tushum, oylik tushum, guruh samaradorligi va menejer sotuv natijalari shu yerda bo'ladi.</div></section>

@@ -17,6 +17,30 @@ let activeModal = null;
 let editingId = null;
 const state = { students: [], leads: [], groups: [], teachers: [], payments: [], attendance: [] };
 
+const uiIcons = {
+  bell: "M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
+  check: "M20 6L9 17l-5-5",
+  edit: "M4 20h4l10-10-4-4L4 16v4z M14 6l4 4",
+  "log-out": "M10 6H5v12h5 M14 8l4 4-4 4 M18 12H9",
+  menu: "M4 7h16 M4 12h16 M4 17h16",
+  plus: "M12 5v14 M5 12h14",
+  trash: "M5 7h14 M10 11v6 M14 11v6 M8 7l1-3h6l1 3 M7 7l1 13h8l1-13",
+  "user-plus": "M9 11a4 4 0 118 0 4 4 0 01-8 0z M3 21c1.5-4 11.5-4 13 0 M19 8v6 M16 11h6",
+  wallet: "M4 7h16v12H4z M16 12h4 M7 7V5h10"
+};
+
+function svgIcon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  (uiIcons[name] || uiIcons.plus).split(" M").forEach((segment, index) => {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", index ? `M${segment}` : segment);
+    svg.append(path);
+  });
+  return svg;
+}
+
 document.querySelectorAll(".side-nav button[data-icon]").forEach((button) => {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
@@ -27,6 +51,10 @@ document.querySelectorAll(".side-nav button[data-icon]").forEach((button) => {
     svg.append(path);
   });
   button.prepend(svg);
+});
+
+document.querySelectorAll("[data-ui-icon]").forEach((button) => {
+  button.prepend(svgIcon(button.dataset.uiIcon));
 });
 
 const statusLabels = {
@@ -238,11 +266,18 @@ function row(table, values) {
   table.append(div);
 }
 
+function emptyRow(table, text) {
+  const div = document.createElement("div");
+  div.className = "table-empty";
+  div.textContent = text;
+  table.append(div);
+}
+
 function resetTable(name, emptyText) {
   const table = document.querySelector(`[data-table="${name}"]`);
   if (!table) return null;
   table.querySelectorAll("div:not(:first-child)").forEach((node) => node.remove());
-  if (!state[name]?.length && emptyText) row(table, [emptyText]);
+  if (!state[name]?.length && emptyText) emptyRow(table, emptyText);
   const counter = document.querySelector(`[data-count="${name}"]`);
   if (counter) counter.textContent = `Miqdor - ${state[name]?.length || 0}`;
   return table;
@@ -253,40 +288,55 @@ function actionButtons(resource, item) {
   wrap.className = "row-actions";
   const edit = document.createElement("button");
   edit.type = "button";
-  edit.textContent = "Tahrirlash";
+  edit.append(svgIcon("edit"), document.createTextNode("Tahrirlash"));
   edit.addEventListener("click", () => openModal(resource, item));
   const remove = document.createElement("button");
   remove.type = "button";
-  remove.textContent = "O'chirish";
+  remove.append(svgIcon("trash"), document.createTextNode("O'chirish"));
   remove.addEventListener("click", () => deleteItem(resource, item.id));
   wrap.append(edit, remove);
   return wrap;
 }
 
+function badge(value) {
+  const span = document.createElement("span");
+  const normalized = String(value || "active");
+  span.className = `status-badge status-${normalized}`;
+  span.textContent = statusLabels[normalized] || normalized;
+  return span;
+}
+
+function money(value) {
+  const span = document.createElement("span");
+  span.className = Number(value || 0) > 0 ? "money money-danger" : "money";
+  span.textContent = formatMoney(value);
+  return span;
+}
+
 function renderAll() {
   let table = resetTable("students", "Hali talabalar yo'q. Talaba yaratish tugmasini bosing.");
-  state.students.forEach((item) => row(table, [item.full_name, item.phone, item.parent_phone, item.course_name, item.group_name, statusLabels[item.status] || item.status, formatMoney(item.balance), item.note, actionButtons("students", item)]));
+  state.students.forEach((item) => row(table, [item.full_name, item.phone, item.parent_phone, item.course_name, item.group_name, badge(item.status), money(item.balance), item.note, actionButtons("students", item)]));
 
   table = resetTable("leads", "Hali lidlar yo'q. Lid yaratish orqali pipeline boshlang.");
-  state.leads.forEach((item) => row(table, [item.full_name, item.phone, item.source, statusLabels[item.status] || item.status, item.manager_name, formatDate(item.next_contact_at), actionButtons("leads", item)]));
+  state.leads.forEach((item) => row(table, [item.full_name, item.phone, item.source, badge(item.status), item.manager_name, formatDate(item.next_contact_at), actionButtons("leads", item)]));
 
   table = resetTable("groups", "Hali guruhlar yo'q.");
   state.groups.forEach((item) => row(table, [item.name, item.course_name, item.teacher_full_name || item.teacher_name, item.days, `${formatDate(item.starts_at)} - ${formatDate(item.ends_at)}`, item.room, item.student_count || 0, actionButtons("groups", item)]));
 
   table = resetTable("teachers", "Hali o'qituvchilar yo'q.");
-  state.teachers.forEach((item) => row(table, [item.full_name, item.phone, item.subjects, statusLabels[item.status] || item.status, formatMoney(item.salary_rate), actionButtons("teachers", item)]));
+  state.teachers.forEach((item) => row(table, [item.full_name, item.phone, item.subjects, badge(item.status), money(item.salary_rate), actionButtons("teachers", item)]));
 
   table = resetTable("payments", "Hali to'lovlar yo'q.");
   let total = 0;
   state.payments.forEach((item) => {
     total += Number(item.amount || 0);
-    row(table, [formatDate(item.paid_at), item.student_name, formatMoney(item.amount), item.payment_type, item.note, item.created_by_name]);
+    row(table, [formatDate(item.paid_at), item.student_name, money(item.amount), item.payment_type, item.note, item.created_by_name]);
   });
   const financeTotal = document.querySelector("[data-finance-total]");
   if (financeTotal) financeTotal.textContent = formatMoney(total);
 
   table = resetTable("attendance", "Hali davomat belgilanmagan.");
-  state.attendance.forEach((item) => row(table, [formatDate(item.lesson_date), item.student_name, item.group_name, statusLabels[item.status] || item.status, item.note]));
+  state.attendance.forEach((item) => row(table, [formatDate(item.lesson_date), item.student_name, item.group_name, badge(item.status), item.note]));
 
   renderPipeline();
 }
