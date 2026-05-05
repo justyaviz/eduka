@@ -2,9 +2,13 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const root = path.join(__dirname, "..", "frontend");
 const port = Number(process.env.PORT) || 3000;
+const sessionCookieName = "eduka_session";
+const sessionMaxAgeSeconds = 60 * 60 * 24 * 7;
+let pgPool;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -20,6 +24,11 @@ const mimeTypes = {
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  response.end(JSON.stringify(payload));
+}
+
+function sendJsonWithHeaders(response, statusCode, payload, headers = {}) {
+  response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8", ...headers });
   response.end(JSON.stringify(payload));
 }
 
@@ -45,6 +54,87 @@ function readJsonBody(request) {
 
     request.on("error", reject);
   });
+}
+
+function normalizePhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.length === 9) return `998${digits}`;
+  return digits;
+}
+
+function hashToken(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function verifyPassword(password, storedHash) {
+  const parts = String(storedHash || "").split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+
+  const [, salt, expectedHash] = parts;
+  const actualHash = crypto.scryptSync(String(password), salt, 64);
+  const expectedBuffer = Buffer.from(expectedHash, "hex");
+
+  if (actualHash.length !== expectedBuffer.length) return false;
+  return crypto.timingSafeEqual(actualHash, expectedBuffer);
+}
+
+function parseCookies(request) {
+  const cookies = {};
+  const cookieHeader = request.headers.cookie || "";
+
+  cookieHeader.split(";").forEach((cookie) => {
+    const [rawName, ...rawValue] = cookie.trim().split("=");
+    if (!rawName) return;
+    cookies[rawName] = decodeURIComponent(rawValue.join("="));
+  });
+
+  return cookies;
+}
+
+function buildSessionCookie(token, options = {}) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const maxAge = options.clear ? 0 : sessionMaxAgeSeconds;
+  const value = options.clear ? "" : encodeURIComponent(token);
+  return `${sessionCookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+function getDbPool() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+
+  if (!pgPool) {
+    let Pool;
+
+    try {
+      ({ Pool } = require("pg"));
+    } catch {
+      throw new Error("pg dependency is not installed");
+    }
+
+    pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false }
+    });
+  }
+
+  return pgPool;
+}
+
+function publicUser(row) {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    phone: row.phone,
+    role: row.role,
+    organization: row.organization_id
+      ? {
+          id: row.organization_id,
+          name: row.organization_name,
+          licenseExpiresAt: row.license_expires_at
+        }
+      : null
+  };
 }
 
 function escapeHtml(value) {
@@ -137,6 +227,14 @@ function postTelegramMessage(token, chatId, text) {
           if (telegramResponse.statusCode >= 200 && telegramResponse.statusCode < 300) {
             resolve(responseBody);
             return;
+          }
+
+          let parsedBody = {};
+
+          try {
+            parsedBody = JSON.parse(responseBody);
+          } catch {
+            parsedBody = {};
           }
 
           const error = new Error(`Telegram returned ${telegramResponse.statusCode}: ${responseBody}`);
@@ -258,6 +356,150 @@ function sendFile(response, filePath) {
   });
 }
 
+async function findSessionUser(request) {
+  const token = parseCookies(request)[sessionCookieName];
+  if (!token) return null;
+
+  const pool = getDbPool();
+  const result = await pool.query(
+    `SELECT
+       u.id,
+       u.full_name,
+       u.phone,
+       u.role,
+       u.organization_id,
+       o.name AS organization_name,
+       o.license_expires_at
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN organizations o ON o.id = u.organization_id
+     WHERE s.token_hash = $1
+       AND s.expires_at > NOW()
+       AND u.is_active = TRUE
+     LIMIT 1`,
+    [hashToken(token)]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function handleLoginRequest(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    const phone = String(body.phone || "").trim();
+    const password = String(body.password || "");
+    const normalizedPhone = normalizePhone(phone);
+
+    if (!normalizedPhone || !password) {
+      sendJson(response, 400, { ok: false, message: "Telefon raqam va parol kerak" });
+      return;
+    }
+
+    const pool = getDbPool();
+    const result = await pool.query(
+      `SELECT
+         u.id,
+         u.full_name,
+         u.phone,
+         u.role,
+         u.password_hash,
+         u.organization_id,
+         o.name AS organization_name,
+         o.license_expires_at
+       FROM users u
+       LEFT JOIN organizations o ON o.id = u.organization_id
+       WHERE u.normalized_phone = $1
+         AND u.is_active = TRUE
+       LIMIT 1`,
+      [normalizedPhone]
+    );
+    const user = result.rows[0];
+
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      sendJson(response, 401, { ok: false, message: "Telefon raqam yoki parol noto'g'ri" });
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + sessionMaxAgeSeconds * 1000);
+
+    await pool.query(
+      "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+      [user.id, hashToken(token), expiresAt]
+    );
+
+    delete user.password_hash;
+    sendJsonWithHeaders(response, 200, { ok: true, user: publicUser(user) }, { "Set-Cookie": buildSessionCookie(token) });
+  } catch (error) {
+    console.error(`Login failed: ${error.message}`);
+    const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
+    sendJson(response, statusCode, { ok: false, message: error.message });
+  }
+}
+
+async function handleMeRequest(request, response) {
+  try {
+    const user = await findSessionUser(request);
+
+    if (!user) {
+      sendJson(response, 401, { ok: false, message: "Unauthorized" });
+      return;
+    }
+
+    sendJson(response, 200, { ok: true, user: publicUser(user) });
+  } catch (error) {
+    console.error(`Session check failed: ${error.message}`);
+    const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
+    sendJson(response, statusCode, { ok: false, message: error.message });
+  }
+}
+
+async function handleLogoutRequest(request, response) {
+  try {
+    const token = parseCookies(request)[sessionCookieName];
+
+    if (token) {
+      await getDbPool().query("DELETE FROM sessions WHERE token_hash = $1", [hashToken(token)]);
+    }
+  } catch (error) {
+    console.error(`Logout cleanup failed: ${error.message}`);
+  }
+
+  sendJsonWithHeaders(response, 200, { ok: true }, { "Set-Cookie": buildSessionCookie("", { clear: true }) });
+}
+
+async function handleSummaryRequest(request, response) {
+  try {
+    const user = await findSessionUser(request);
+
+    if (!user) {
+      sendJson(response, 401, { ok: false, message: "Unauthorized" });
+      return;
+    }
+
+    const organizationId = user.organization_id;
+    const pool = getDbPool();
+    const result = await pool.query(
+      `SELECT
+        (SELECT COUNT(*)::int FROM leads WHERE organization_id = $1 AND status = 'active') AS active_leads,
+        (SELECT COUNT(*)::int FROM students WHERE organization_id = $1 AND status = 'active') AS active_students,
+        (SELECT COUNT(*)::int FROM groups WHERE organization_id = $1 AND status = 'active') AS active_groups,
+        (SELECT COUNT(*)::int FROM students WHERE organization_id = $1 AND balance > 0) AS debtors,
+        (SELECT COUNT(*)::int FROM leads WHERE organization_id = $1 AND status = 'trial') AS trial_students,
+        (SELECT COUNT(DISTINCT student_id)::int FROM payments WHERE organization_id = $1 AND paid_at >= date_trunc('month', NOW())) AS paid_this_month,
+        (SELECT COUNT(*)::int FROM students WHERE organization_id = $1 AND status = 'left_active_group') AS left_active_group,
+        (SELECT COUNT(*)::int FROM leads WHERE organization_id = $1 AND status = 'left_after_trial') AS left_after_trial`,
+      [organizationId]
+    );
+
+    sendJson(response, 200, { ok: true, summary: result.rows[0] });
+  } catch (error) {
+    console.error(`Summary failed: ${error.message}`);
+    const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
+    sendJson(response, statusCode, { ok: false, message: error.message });
+  }
+}
+
 async function handleDemoRequest(request, response) {
   try {
     const body = await readJsonBody(request);
@@ -270,6 +512,13 @@ async function handleDemoRequest(request, response) {
     if (!name || !phone) {
       sendJson(response, 400, { ok: false, message: "Name and phone are required" });
       return;
+    }
+
+    if (process.env.DATABASE_URL) {
+      await getDbPool().query(
+        "INSERT INTO demo_requests (name, phone, center, students, lang) VALUES ($1, $2, $3, $4, $5)",
+        [name, phone, center, students, lang]
+      );
     }
 
     const message = [
@@ -368,6 +617,26 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "POST" && urlPath === "/api/demo") {
     handleDemoRequest(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/auth/login") {
+    handleLoginRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/auth/me") {
+    handleMeRequest(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/auth/logout") {
+    handleLogoutRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/summary") {
+    handleSummaryRequest(request, response);
     return;
   }
 

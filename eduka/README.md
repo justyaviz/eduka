@@ -34,3 +34,30 @@ TELEGRAM_CHAT_ID=guruh yoki kanal id
 ```
 
 Demo formasi `/api/demo` endpoint orqali Telegram guruhga yuboriladi.
+
+## PostgreSQL login
+
+CRM kabinet haqiqiy login uchun `DATABASE_URL` environment variable talab qiladi.
+
+1. PostgreSQL bazada schema yarating:
+
+```bash
+psql "$DATABASE_URL" -f backend/schema.sql
+```
+
+2. Admin user uchun SQL generatsiya qiling:
+
+```bash
+node backend/create-admin.js "Admin Ism" "+998901234567" "KuchliParol123!" "ilm academy uz"
+```
+
+3. Chiqqan SQL'ni PostgreSQL bazada ishga tushiring.
+
+Login endpointlari:
+
+```txt
+POST /api/auth/login
+GET  /api/auth/me
+POST /api/auth/logout
+GET  /api/app/summary
+```

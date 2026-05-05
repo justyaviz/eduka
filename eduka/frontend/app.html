@@ -26,16 +26,16 @@
         <form class="login-form" data-login-form>
           <label>
             <span>Telefon raqam</span>
-            <input name="phone" type="tel" value="+998 90 123 45 67" autocomplete="tel" required />
+            <input name="phone" type="tel" placeholder="+998 __ ___ __ __" autocomplete="tel" required />
           </label>
           <label>
             <span>Parol</span>
-            <input name="password" type="password" value="eduka-demo" autocomplete="current-password" required />
+            <input name="password" type="password" placeholder="Parolingiz" autocomplete="current-password" required />
           </label>
           <button type="submit">Kirish</button>
         </form>
         <button class="forgot-link" type="button" data-forgot>Parol esdan chiqdimi?</button>
-        <p class="login-note" data-login-note>Demo rejim: forma hozir lokal preview uchun ishlaydi.</p>
+        <p class="login-note" data-login-note>Haqiqiy kirish uchun foydalanuvchi PostgreSQL bazasida bo'lishi kerak.</p>
       </section>
     </main>
 
@@ -47,18 +47,18 @@
         </a>
         <button class="create-student" type="button">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
-          <button class="active" type="button" data-view="dashboard" data-icon="⌂">Dashboard</button>
-          <button type="button" data-view="leads" data-icon="◌">Lidlar</button>
-          <button type="button" data-view="teachers" data-icon="◍">O'qituvchilar</button>
-          <button type="button" data-view="groups" data-icon="▦">Guruhlar</button>
-          <button type="button" data-view="students" data-icon="◉">Talabalar</button>
-          <button type="button" data-view="reminders" data-icon="□">Eslatmalar</button>
-          <button type="button" data-view="rating" data-icon="☆">Reyting</button>
-          <button type="button" data-view="attendance" data-icon="☑">Davomat hisobotlari</button>
-          <button type="button" data-view="teacher-attendance" data-icon="▤">Ustozlar davomati</button>
-          <button type="button" data-view="finance" data-icon="₸">Moliya</button>
-          <button type="button" data-view="reports" data-icon="▥">Hisobotlar</button>
-          <button type="button" data-view="settings" data-icon="⚙">Sozlamalar</button>
+          <button class="active" type="button" data-view="dashboard" data-icon="D">Dashboard</button>
+          <button type="button" data-view="leads" data-icon="L">Lidlar</button>
+          <button type="button" data-view="teachers" data-icon="O">O'qituvchilar</button>
+          <button type="button" data-view="groups" data-icon="G">Guruhlar</button>
+          <button type="button" data-view="students" data-icon="T">Talabalar</button>
+          <button type="button" data-view="reminders" data-icon="E">Eslatmalar</button>
+          <button type="button" data-view="rating" data-icon="R">Reyting</button>
+          <button type="button" data-view="attendance" data-icon="DH">Davomat hisobotlari</button>
+          <button type="button" data-view="teacher-attendance" data-icon="UD">Ustozlar davomati</button>
+          <button type="button" data-view="finance" data-icon="M">Moliya</button>
+          <button type="button" data-view="reports" data-icon="H">Hisobotlar</button>
+          <button type="button" data-view="settings" data-icon="S">Sozlamalar</button>
         </nav>
         <div class="side-subnav" data-subnav="finance" hidden>
           <button type="button" data-view="finance">Barcha to'lovlar</button>
@@ -96,7 +96,7 @@
       <div class="workspace">
         <header class="topbar">
           <button class="mobile-menu" type="button" data-mobile-menu aria-label="Menyuni ochish">☰</button>
-          <strong class="center-name">ilm academy uz</strong>
+          <strong class="center-name" data-center-name>ilm academy uz</strong>
           <label class="search-box">
             <span>Qidiruv</span>
             <input type="search" aria-label="Qidiruv" />
@@ -111,14 +111,14 @@
 
           <section class="view active" id="dashboard">
             <div class="metric-grid">
-              <article><span>Faol lidlar</span><strong>0</strong></article>
-              <article><span>Faol talabalar</span><strong>0</strong></article>
-              <article><span>Guruhlar</span><strong>0</strong></article>
-              <article><span>Qarzdorlar</span><strong>0</strong></article>
-              <article><span>Sinov darsida</span><strong>0</strong></article>
-              <article><span>Joriy oyda to'laganlar</span><strong>0</strong></article>
-              <article><span>Faol guruhni tark etganlar</span><strong>0</strong></article>
-              <article><span>Sinov muddatidan keyin ketdi</span><strong>0</strong></article>
+              <article><span>Faol lidlar</span><strong data-summary="active_leads">0</strong></article>
+              <article><span>Faol talabalar</span><strong data-summary="active_students">0</strong></article>
+              <article><span>Guruhlar</span><strong data-summary="active_groups">0</strong></article>
+              <article><span>Qarzdorlar</span><strong data-summary="debtors">0</strong></article>
+              <article><span>Sinov darsida</span><strong data-summary="trial_students">0</strong></article>
+              <article><span>Joriy oyda to'laganlar</span><strong data-summary="paid_this_month">0</strong></article>
+              <article><span>Faol guruhni tark etganlar</span><strong data-summary="left_active_group">0</strong></article>
+              <article><span>Sinov muddatidan keyin ketdi</span><strong data-summary="left_after_trial">0</strong></article>
             </div>
             <section class="page-card">
               <div class="page-head"><h1>Jadval</h1></div>
