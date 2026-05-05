@@ -360,12 +360,15 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/api/telegram-health") {
+  if (request.method === "GET" && ["/api/telegram-health", "/api/telegram-health/"].includes(urlPath)) {
     handleTelegramHealth(response, query.get("check") === "1");
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/api/telegram-test") {
+  if (
+    request.method === "GET" &&
+    ["/api/telegram-test", "/api/telegram-test/", "/api/test-telegram", "/api/test-telegram/"].includes(urlPath)
+  ) {
     handleTelegramTest(response);
     return;
   }
