@@ -17,6 +17,16 @@ let activeModal = null;
 let editingId = null;
 let currentUser = null;
 const state = { students: [], leads: [], groups: [], teachers: [], payments: [], attendance: [], audit: [], analytics: {} };
+const stateMeta = {};
+const endpoints = {
+  students: "/api/students",
+  leads: "/api/leads",
+  groups: "/api/groups",
+  teachers: "/api/teachers",
+  payments: "/api/payments",
+  attendance: "/api/attendance",
+  audit: "/api/audit-logs"
+};
 const uiState = {
   globalSearch: "",
   filters: {},
@@ -241,6 +251,15 @@ function filteredItems(resource) {
 }
 
 function pagedItems(resource) {
+  if (stateMeta[resource]) {
+    const total = Number(stateMeta[resource].total || state[resource]?.length || 0);
+    const perPage = Number(uiState.perPage[resource] || stateMeta[resource].limit || 10);
+    return {
+      items: state[resource] || [],
+      total,
+      maxPage: Math.max(1, Math.ceil(total / perPage))
+    };
+  }
   const items = filteredItems(resource);
   const perPage = Number(uiState.perPage[resource] || 10);
   const maxPage = Math.max(1, Math.ceil(items.length / perPage));
@@ -300,24 +319,39 @@ async function loadAnalytics() {
 
 async function loadCollection(name, endpoint) {
   try {
-    const payload = await api(endpoint);
+    const payload = await api(withQuery(name, endpoint));
     state[name] = payload.items || [];
+    stateMeta[name] = { total: payload.total ?? state[name].length, page: payload.page || uiState.page[name] || 1, limit: payload.limit || uiState.perPage[name] || 10 };
   } catch (error) {
     showToast(error.message);
   }
+}
+
+function withQuery(resource, endpoint) {
+  const query = new URLSearchParams();
+  const filters = uiState.filters[resource] || {};
+  const search = filters.search || uiState.globalSearch;
+  if (search) query.set("search", search);
+  Object.entries(filters).forEach(([key, value]) => {
+    if (!value || key === "search") return;
+    query.set(key, value);
+  });
+  query.set("page", uiState.page[resource] || 1);
+  query.set("limit", uiState.perPage[resource] || 10);
+  return `${endpoint}?${query.toString()}`;
 }
 
 async function refreshAll() {
   await Promise.all([
     loadSummary(),
     loadAnalytics(),
-    loadCollection("students", "/api/students"),
-    loadCollection("leads", "/api/leads"),
-    loadCollection("groups", "/api/groups"),
-    loadCollection("teachers", "/api/teachers"),
-    loadCollection("payments", "/api/payments"),
-    loadCollection("attendance", "/api/attendance"),
-    loadCollection("audit", "/api/audit-logs")
+    loadCollection("students", endpoints.students),
+    loadCollection("leads", endpoints.leads),
+    loadCollection("groups", endpoints.groups),
+    loadCollection("teachers", endpoints.teachers),
+    loadCollection("payments", endpoints.payments),
+    loadCollection("attendance", endpoints.attendance),
+    loadCollection("audit", endpoints.audit)
   ]);
   renderAll();
 }
@@ -340,6 +374,20 @@ function applyRoleUi(role) {
     }
     button.hidden = !allowed.includes(button.dataset.view);
   });
+
+  document.querySelectorAll("[data-open-modal]").forEach((button) => {
+    const resource = button.dataset.openModal;
+    button.hidden = !canWrite(resource);
+  });
+}
+
+function canWrite(resource) {
+  const role = String(currentUser?.role || "").toLowerCase();
+  if (["admin", "ceo", "rahbar"].includes(role)) return true;
+  if (["manager", "menejer"].includes(role)) return ["students", "leads"].includes(resource);
+  if (["teacher", "oqituvchi"].includes(role)) return resource === "attendance";
+  if (["accountant", "buxgalter"].includes(role)) return ["payments", "expenses", "withdrawals"].includes(resource);
+  return false;
 }
 
 function row(table, values) {
@@ -392,7 +440,7 @@ function renderPager(resource, total, maxPage) {
   select.addEventListener("change", () => {
     uiState.perPage[resource] = Number(select.value);
     uiState.page[resource] = 1;
-    renderAll();
+    refreshAll();
   });
   const prev = document.createElement("button");
   prev.type = "button";
@@ -400,7 +448,7 @@ function renderPager(resource, total, maxPage) {
   prev.disabled = uiState.page[resource] <= 1;
   prev.addEventListener("click", () => {
     uiState.page[resource] -= 1;
-    renderAll();
+    refreshAll();
   });
   const page = document.createElement("strong");
   page.textContent = `${uiState.page[resource]} / ${maxPage}`;
@@ -410,7 +458,7 @@ function renderPager(resource, total, maxPage) {
   next.disabled = uiState.page[resource] >= maxPage;
   next.addEventListener("click", () => {
     uiState.page[resource] += 1;
-    renderAll();
+    refreshAll();
   });
   pager.append(info, select, prev, page, next);
 }
@@ -428,6 +476,14 @@ function renderResource(resource, emptyText, renderer) {
 function actionButtons(resource, item) {
   const wrap = document.createElement("span");
   wrap.className = "row-actions";
+  if (resource === "students") {
+    const profile = document.createElement("button");
+    profile.type = "button";
+    profile.append(svgIcon("user-plus"), document.createTextNode("Profil"));
+    profile.addEventListener("click", () => openStudentProfile(item.id));
+    wrap.append(profile);
+  }
+  if (!canWrite(resource)) return wrap;
   const edit = document.createElement("button");
   edit.type = "button";
   edit.append(svgIcon("edit"), document.createTextNode("Tahrirlash"));
@@ -438,6 +494,32 @@ function actionButtons(resource, item) {
   remove.addEventListener("click", () => deleteItem(resource, item.id));
   wrap.append(edit, remove);
   return wrap;
+}
+
+async function openStudentProfile(studentId) {
+  try {
+    const payload = await api(`/api/students/${studentId}/profile`);
+    const profile = payload.profile;
+    const student = profile.student;
+    activeModal = null;
+    editingId = null;
+    modalTitle.textContent = `${student.full_name} profili`;
+    modalForm.innerHTML = `
+      <div class="profile-grid">
+        <article><span>Telefon</span><strong>${student.phone || "-"}</strong></article>
+        <article><span>Ota-ona</span><strong>${student.parent_phone || "-"}</strong></article>
+        <article><span>Guruh</span><strong>${student.group_name || "-"}</strong></article>
+        <article><span>Balans</span><strong>${formatMoney(student.balance)}</strong></article>
+      </div>
+      <div class="profile-columns">
+        <section><h3>To'lov tarixi</h3>${profile.payments.map((item) => `<p><b>${formatDate(item.paid_at)}</b><span>${formatMoney(item.amount)} - ${item.payment_type || ""}</span></p>`).join("") || "<p>To'lov yo'q</p>"}</section>
+        <section><h3>Davomat tarixi</h3>${profile.attendance.map((item) => `<p><b>${formatDate(item.lesson_date)}</b><span>${statusLabels[item.status] || item.status} - ${item.group_name || ""}</span></p>`).join("") || "<p>Davomat yo'q</p>"}</section>
+      </div>
+      <div class="modal-actions"><button type="button" data-close-modal>Yopish</button></div>`;
+    modal.hidden = false;
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 function badge(value) {
@@ -470,9 +552,16 @@ function renderAll() {
   if (financeTotal) financeTotal.textContent = formatMoney(total);
 
   renderResource("attendance", "Hali davomat belgilanmagan.", (table, item) => row(table, [formatDate(item.lesson_date), item.student_name, item.group_name, badge(item.status), item.note]));
-  renderResource("audit", "Audit log hali bo'sh.", (table, item) => row(table, [formatDate(item.created_at), item.user_name, item.action, item.entity, item.entity_id]));
+  renderResource("audit", "Audit log hali bo'sh.", (table, item) => row(table, [formatDate(item.created_at), item.user_name, item.action, `${item.entity} ${auditChange(item.payload)}`, item.entity_id]));
   renderPipeline();
   renderAnalytics();
+}
+
+function auditChange(payload) {
+  const data = typeof payload === "string" ? JSON.parse(payload || "{}") : payload || {};
+  if (data.before && data.after) return "(oldingi/yangi qiymat saqlandi)";
+  if (data.before) return "(o'chirilgan qiymat saqlandi)";
+  return "";
 }
 
 function renderPipeline() {
@@ -481,8 +570,29 @@ function renderPipeline() {
   pipeline.innerHTML = "";
   ["new", "contacted", "trial", "paid", "lost"].forEach((status) => {
     const card = document.createElement("article");
-    const count = state.leads.filter((lead) => lead.status === status).length;
-    card.innerHTML = `<span>${statusLabels[status]}</span><strong>${count}</strong>`;
+    const leads = state.leads.filter((lead) => lead.status === status);
+    card.className = "kanban-column";
+    card.dataset.status = status;
+    card.innerHTML = `<header><span>${statusLabels[status]}</span><strong>${leads.length}</strong></header>`;
+    leads.forEach((lead) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.draggable = true;
+      chip.dataset.leadId = lead.id;
+      chip.innerHTML = `<b>${lead.full_name}</b><small>${lead.phone || ""}</small>`;
+      chip.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/plain", String(lead.id)));
+      card.append(chip);
+    });
+    card.addEventListener("dragover", (event) => event.preventDefault());
+    card.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      const leadId = Number(event.dataTransfer.getData("text/plain"));
+      const lead = state.leads.find((item) => item.id === leadId);
+      if (!lead || lead.status === status) return;
+      await api(`/api/leads/${leadId}`, { method: "PUT", body: JSON.stringify({ ...lead, status }) });
+      await refreshAll();
+      showToast("Lid statusi o'zgartirildi.");
+    });
     pipeline.append(card);
   });
 }
@@ -501,6 +611,29 @@ function renderBarChart(selector, rows, valueKey, labelKey) {
 }
 
 function renderAnalytics() {
+  const smart = state.analytics.smart || {};
+  const smartNodes = {
+    today_revenue: formatMoney(smart.today_revenue),
+    revenue_growth: `${Number(smart.revenue_growth || 0).toFixed(1)}% kechagiga nisbatan`,
+    today_leads: Number(smart.today_leads || 0).toLocaleString("uz-UZ"),
+    conversion_rate: `${Number(smart.conversion_rate || 0).toFixed(1)}%`,
+    debt_total: formatMoney(smart.debt_total),
+    debtors: `${Number(smart.debtors || 0)} qarzdor`
+  };
+  Object.entries(smartNodes).forEach(([key, value]) => {
+    const node = document.querySelector(`[data-smart="${key}"]`);
+    if (node) node.textContent = value;
+  });
+  const alerts = document.querySelector("[data-alerts]");
+  if (alerts) {
+    alerts.innerHTML = "";
+    (smart.alerts || ["Muhim ogohlantirish yo'q"]).forEach((text) => {
+      const item = document.createElement("p");
+      item.textContent = text;
+      alerts.append(item);
+    });
+  }
+
   renderBarChart('[data-chart="monthly_payments"]', state.analytics.monthly_payments || [], "amount", "month");
   renderBarChart('[data-chart="student_growth"]', state.analytics.student_growth || [], "count", "month");
 
@@ -553,6 +686,9 @@ function openModal(resource, item = null) {
   const config = modalFields[resource];
   modalTitle.textContent = editingId ? `${config.title}ni tahrirlash` : config.title;
   modalForm.innerHTML = config.fields.map((field) => fieldHtml(field, item || {})).join("") + `<div class="modal-actions"><button type="button" data-close-modal>Bekor qilish</button><button type="submit">${editingId ? "Saqlash" : "Yaratish"}</button></div>`;
+  if (resource === "attendance") {
+    modalForm.querySelector(".modal-actions")?.insertAdjacentHTML("afterbegin", '<button type="button" data-attendance-all>Keldi: hammasi</button>');
+  }
   modal.hidden = false;
   modalForm.querySelector("[name]")?.focus();
 }
@@ -641,6 +777,26 @@ document.addEventListener("click", async (event) => {
   if (openButton) openModal(openButton.dataset.openModal);
   if (event.target.closest("[data-close-modal]")) closeModal();
 
+  if (event.target.closest("[data-attendance-all]")) {
+    const groupId = modalForm.querySelector('[name="group_id"]')?.value;
+    const lessonDate = modalForm.querySelector('[name="lesson_date"]')?.value;
+    if (!groupId || !lessonDate) {
+      showToast("Avval guruh va dars sanasini tanlang.");
+      return;
+    }
+    const records = state.students
+      .filter((student) => String(student.group_id) === String(groupId))
+      .map((student) => ({ group_id: groupId, student_id: student.id, lesson_date: lessonDate, status: "present" }));
+    if (!records.length) {
+      showToast("Bu guruhda talaba topilmadi.");
+      return;
+    }
+    await api("/api/attendance", { method: "POST", body: JSON.stringify({ records }) });
+    closeModal();
+    await refreshAll();
+    showToast("Guruh bo'yicha davomat belgilandi.");
+  }
+
   if (event.target.closest("[data-logout]")) {
     await api("/api/auth/logout", { method: "POST" }).catch(() => {});
     showAuth();
@@ -653,7 +809,7 @@ document.querySelector("[data-global-search]")?.addEventListener("input", (event
   Object.keys(uiState.page).forEach((resource) => {
     uiState.page[resource] = 1;
   });
-  renderAll();
+  refreshAll();
 });
 
 document.querySelectorAll("[data-filter-scope]").forEach((scope) => {
@@ -664,7 +820,7 @@ document.querySelectorAll("[data-filter-scope]").forEach((scope) => {
     uiState.filters[resource] = uiState.filters[resource] || {};
     uiState.filters[resource][field.dataset.filter] = field.value;
     uiState.page[resource] = 1;
-    renderAll();
+    refreshAll();
   });
 
   scope.addEventListener("change", (event) => {
@@ -674,7 +830,7 @@ document.querySelectorAll("[data-filter-scope]").forEach((scope) => {
     uiState.filters[resource] = uiState.filters[resource] || {};
     uiState.filters[resource][field.dataset.filter] = field.value;
     uiState.page[resource] = 1;
-    renderAll();
+    refreshAll();
   });
 });
 

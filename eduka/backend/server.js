@@ -221,6 +221,17 @@ function asDate(value) {
   return text || null;
 }
 
+function requestQuery(request) {
+  const [, rawQuery = ""] = request.url.split("?");
+  return new URLSearchParams(rawQuery);
+}
+
+function pageOptions(query) {
+  const page = Math.max(1, Number(query.get("page") || 1));
+  const limit = Math.min(100, Math.max(1, Number(query.get("limit") || 20)));
+  return { page, limit, offset: (page - 1) * limit };
+}
+
 function withError(response, label, error) {
   console.error(`${label} failed: ${error.message}`);
   const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
@@ -616,7 +627,7 @@ async function handleAnalyticsRequest(request, response) {
 
     const pool = getDbPool();
     const organizationId = user.organization_id;
-    const [payments, leads, students, lessons, topGroups] = await Promise.all([
+    const [payments, leads, students, lessons, topGroups, smart] = await Promise.all([
       pool.query(
         `SELECT to_char(month, 'YYYY-MM') AS month, COALESCE(SUM(p.amount), 0)::numeric AS amount
          FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') month
@@ -649,12 +660,44 @@ async function handleAnalyticsRequest(request, response) {
          ORDER BY students DESC, g.id DESC
          LIMIT 5`,
         [organizationId]
+      ),
+      pool.query(
+        `SELECT
+          COALESCE((SELECT SUM(amount) FROM payments WHERE organization_id=$1 AND paid_at::date=CURRENT_DATE), 0)::numeric AS today_revenue,
+          COALESCE((SELECT SUM(amount) FROM payments WHERE organization_id=$1 AND paid_at::date=CURRENT_DATE - 1), 0)::numeric AS yesterday_revenue,
+          (SELECT COUNT(*)::int FROM leads WHERE organization_id=$1 AND created_at::date=CURRENT_DATE) AS today_leads,
+          (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND balance > 0) AS debtors,
+          COALESCE((SELECT SUM(balance) FROM students WHERE organization_id=$1 AND balance > 0), 0)::numeric AS debt_total,
+          (SELECT COUNT(*)::int FROM leads WHERE organization_id=$1 AND status='paid') AS paid_leads,
+          GREATEST((SELECT COUNT(*)::int FROM leads WHERE organization_id=$1), 1) AS all_leads,
+          (SELECT COUNT(*)::int FROM leads WHERE organization_id=$1 AND next_contact_at <= NOW() AND status NOT IN ('paid','lost')) AS overdue_followups`,
+        [organizationId]
       )
     ]);
+    const smartRow = smart.rows[0] || {};
+    const todayRevenue = Number(smartRow.today_revenue || 0);
+    const yesterdayRevenue = Number(smartRow.yesterday_revenue || 0);
+    const revenueGrowth = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : todayRevenue > 0 ? 100 : 0;
+    const conversionRate = (Number(smartRow.paid_leads || 0) / Number(smartRow.all_leads || 1)) * 100;
+    const alerts = [];
+    if (Number(smartRow.debtors || 0) > 0) alerts.push(`${smartRow.debtors} ta qarzdor mavjud`);
+    if (Number(smartRow.overdue_followups || 0) > 0) alerts.push(`${smartRow.overdue_followups} ta lidga qayta aloqa vaqti kelgan`);
+    if (!alerts.length) alerts.push("Muhim ogohlantirish yo'q");
 
     sendJson(response, 200, {
       ok: true,
       analytics: {
+        smart: {
+          today_revenue: todayRevenue,
+          yesterday_revenue: yesterdayRevenue,
+          revenue_growth: revenueGrowth,
+          today_leads: Number(smartRow.today_leads || 0),
+          debtors: Number(smartRow.debtors || 0),
+          debt_total: Number(smartRow.debt_total || 0),
+          conversion_rate: conversionRate,
+          overdue_followups: Number(smartRow.overdue_followups || 0),
+          alerts
+        },
         monthly_payments: payments.rows,
         lead_funnel: leads.rows,
         student_growth: students.rows,
@@ -672,17 +715,33 @@ async function handleAuditLogsRequest(request, response) {
     const user = await requireUser(request, response, "audit:read");
     if (!user) return;
 
+    const query = requestQuery(request);
+    const { page, limit, offset } = pageOptions(query);
+    const search = asText(query.get("search"));
+    const params = [user.organization_id];
+    let where = "WHERE a.organization_id=$1";
+
+    if (search) {
+      params.push(`%${search}%`);
+      where += ` AND (a.action ILIKE $${params.length} OR a.entity ILIKE $${params.length} OR u.full_name ILIKE $${params.length})`;
+    }
+
+    const countResult = await getDbPool().query(
+      `SELECT COUNT(*)::int AS total FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id ${where}`,
+      params
+    );
+    params.push(limit, offset);
     const result = await getDbPool().query(
       `SELECT a.*, u.full_name AS user_name
        FROM audit_logs a
        LEFT JOIN users u ON u.id=a.user_id
-       WHERE a.organization_id=$1
+       ${where}
        ORDER BY a.created_at DESC
-       LIMIT 80`,
-      [user.organization_id]
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
     );
 
-    sendJson(response, 200, { ok: true, items: result.rows });
+    sendJson(response, 200, { ok: true, items: result.rows, total: countResult.rows[0].total, page, limit });
   } catch (error) {
     withError(response, "Audit logs", error);
   }
@@ -693,8 +752,39 @@ async function listRows(request, response, config) {
     const user = await requireUser(request, response, `${config.permission}:read`);
     if (!user) return;
 
-    const result = await getDbPool().query(config.listSql, [user.organization_id]);
-    sendJson(response, 200, { ok: true, items: result.rows });
+    const query = requestQuery(request);
+    const { page, limit, offset } = pageOptions(query);
+    const params = [user.organization_id];
+    let where = "WHERE 1=1";
+    const search = asText(query.get("search"));
+    const status = asText(query.get("status"));
+
+    if (search && config.searchColumns?.length) {
+      params.push(`%${search}%`);
+      const searchIndex = params.length;
+      where += ` AND (${config.searchColumns.map((column) => `${column}::text ILIKE $${searchIndex}`).join(" OR ")})`;
+    }
+
+    if (status && config.filterColumns?.status) {
+      params.push(status);
+      where += ` AND ${config.filterColumns.status} = $${params.length}`;
+    }
+
+    for (const [paramName, column] of Object.entries(config.filterColumns || {})) {
+      if (paramName === "status") continue;
+      const value = asText(query.get(paramName));
+      if (!value) continue;
+      params.push(`%${value}%`);
+      where += ` AND ${column}::text ILIKE $${params.length}`;
+    }
+
+    const sort = config.sortColumns?.includes(query.get("sort")) ? query.get("sort") : config.defaultSort || "id";
+    const order = query.get("order") === "asc" ? "ASC" : "DESC";
+    const baseSql = `SELECT * FROM (${config.listSql}) data ${where}`;
+    const countResult = await getDbPool().query(`SELECT COUNT(*)::int AS total FROM (${baseSql}) counted`, params);
+    params.push(limit, offset);
+    const result = await getDbPool().query(`${baseSql} ORDER BY ${sort} ${order} LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+    sendJson(response, 200, { ok: true, items: result.rows, total: countResult.rows[0].total, page, limit });
   } catch (error) {
     withError(response, `List ${config.entity}`, error);
   }
@@ -722,14 +812,16 @@ async function updateRow(request, response, config, id) {
 
     const body = await readJsonBody(request);
     const data = config.prepare(body, user, id);
-    const result = await getDbPool().query(config.updateSql, data.values);
+    const pool = getDbPool();
+    const before = await pool.query(`SELECT * FROM ${config.entity} WHERE id=$1 AND organization_id=$2`, [id, user.organization_id]);
+    const result = await pool.query(config.updateSql, data.values);
 
     if (!result.rows[0]) {
       sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
       return;
     }
 
-    await writeAudit(getDbPool(), user, "update", config.entity, id, data.audit || body);
+    await writeAudit(pool, user, "update", config.entity, id, { before: before.rows[0] || null, after: result.rows[0] });
     sendJson(response, 200, { ok: true, item: result.rows[0] });
   } catch (error) {
     withError(response, `Update ${config.entity}`, error);
@@ -741,14 +833,16 @@ async function deleteRow(request, response, config, id) {
     const user = await requireUser(request, response, `${config.permission}:write`);
     if (!user) return;
 
-    const result = await getDbPool().query(config.deleteSql, [id, user.organization_id]);
+    const pool = getDbPool();
+    const before = await pool.query(`SELECT * FROM ${config.entity} WHERE id=$1 AND organization_id=$2`, [id, user.organization_id]);
+    const result = await pool.query(config.deleteSql, [id, user.organization_id]);
 
     if (!result.rows[0]) {
       sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
       return;
     }
 
-    await writeAudit(getDbPool(), user, "delete", config.entity, id);
+    await writeAudit(pool, user, "delete", config.entity, id, { before: before.rows[0] || null });
     sendJson(response, 200, { ok: true });
   } catch (error) {
     withError(response, `Delete ${config.entity}`, error);
@@ -766,6 +860,10 @@ const crudConfigs = {
       WHERE s.organization_id = $1
       GROUP BY s.id, g.name
       ORDER BY s.id DESC`,
+    searchColumns: ["full_name", "phone", "parent_phone", "course_name", "group_name"],
+    filterColumns: { status: "status", course_name: "course_name" },
+    sortColumns: ["id", "full_name", "phone", "status", "balance", "created_at"],
+    defaultSort: "id",
     insertSql: `INSERT INTO students (organization_id, full_name, phone, parent_phone, birth_date, course_name, group_id, status, balance, note)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
     updateSql: `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, birth_date=$6, course_name=$7, group_id=$8, status=$9, balance=$10, note=$11
@@ -781,6 +879,10 @@ const crudConfigs = {
     entity: "leads",
     permission: "leads",
     listSql: "SELECT * FROM leads WHERE organization_id=$1 ORDER BY id DESC",
+    searchColumns: ["full_name", "phone", "source", "manager_name", "note"],
+    filterColumns: { status: "status", manager_name: "manager_name" },
+    sortColumns: ["id", "full_name", "status", "created_at", "next_contact_at"],
+    defaultSort: "id",
     insertSql: `INSERT INTO leads (organization_id, full_name, phone, status, source, manager_name, next_contact_at, note)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     updateSql: `UPDATE leads SET full_name=$3, phone=$4, status=$5, source=$6, manager_name=$7, next_contact_at=$8, note=$9
@@ -802,6 +904,10 @@ const crudConfigs = {
       WHERE g.organization_id=$1
       GROUP BY g.id, t.full_name
       ORDER BY g.id DESC`,
+    searchColumns: ["name", "course_name", "teacher_full_name", "teacher_name", "days", "room"],
+    filterColumns: { status: "status", course_name: "course_name", teacher: "teacher_full_name", days: "days" },
+    sortColumns: ["id", "name", "course_name", "status", "student_count"],
+    defaultSort: "id",
     insertSql: `INSERT INTO groups (organization_id, name, course_name, status, teacher_id, teacher_name, days, starts_at, ends_at, room)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
     updateSql: `UPDATE groups SET name=$3, course_name=$4, status=$5, teacher_id=$6, teacher_name=$7, days=$8, starts_at=$9, ends_at=$10, room=$11
@@ -817,6 +923,10 @@ const crudConfigs = {
     entity: "teachers",
     permission: "teachers",
     listSql: "SELECT * FROM teachers WHERE organization_id=$1 ORDER BY id DESC",
+    searchColumns: ["full_name", "phone", "subjects"],
+    filterColumns: { status: "status" },
+    sortColumns: ["id", "full_name", "status", "created_at"],
+    defaultSort: "id",
     insertSql: `INSERT INTO teachers (organization_id, full_name, phone, subjects, status, salary_rate)
       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
     updateSql: `UPDATE teachers SET full_name=$3, phone=$4, subjects=$5, status=$6, salary_rate=$7
@@ -855,21 +965,88 @@ async function handlePaymentCreate(request, response) {
   }
 }
 
+async function handleStudentProfileRequest(request, response, studentId) {
+  try {
+    const user = await requireUser(request, response, "students:read");
+    if (!user) return;
+
+    const pool = getDbPool();
+    const [student, payments, attendance] = await Promise.all([
+      pool.query(
+        `SELECT s.*, g.name AS group_name, g.course_name AS group_course, t.full_name AS teacher_name
+         FROM students s
+         LEFT JOIN groups g ON g.id=s.group_id
+         LEFT JOIN teachers t ON t.id=g.teacher_id
+         WHERE s.id=$1 AND s.organization_id=$2`,
+        [studentId, user.organization_id]
+      ),
+      pool.query("SELECT * FROM payments WHERE student_id=$1 AND organization_id=$2 ORDER BY paid_at DESC", [studentId, user.organization_id]),
+      pool.query(
+        `SELECT a.*, g.name AS group_name
+         FROM attendance_records a
+         LEFT JOIN groups g ON g.id=a.group_id
+         WHERE a.student_id=$1 AND a.organization_id=$2
+         ORDER BY a.lesson_date DESC`,
+        [studentId, user.organization_id]
+      )
+    ]);
+
+    if (!student.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "Talaba topilmadi" });
+      return;
+    }
+
+    sendJson(response, 200, { ok: true, profile: { student: student.rows[0], payments: payments.rows, attendance: attendance.rows } });
+  } catch (error) {
+    withError(response, "Student profile", error);
+  }
+}
+
 async function listPayments(request, response) {
   try {
     const user = await requireUser(request, response, "read");
     if (!user) return;
 
+    const query = requestQuery(request);
+    const { page, limit, offset } = pageOptions(query);
+    const search = asText(query.get("search"));
+    const paymentType = asText(query.get("payment_type"));
+    const dateFrom = asDate(query.get("date_from"));
+    const dateTo = asDate(query.get("date_to"));
+    const params = [user.organization_id];
+    let where = "WHERE p.organization_id=$1";
+    if (search) {
+      params.push(`%${search}%`);
+      where += ` AND (s.full_name ILIKE $${params.length} OR s.phone ILIKE $${params.length})`;
+    }
+    if (paymentType) {
+      params.push(paymentType);
+      where += ` AND p.payment_type=$${params.length}`;
+    }
+    if (dateFrom) {
+      params.push(dateFrom);
+      where += ` AND p.paid_at::date >= $${params.length}::date`;
+    }
+    if (dateTo) {
+      params.push(dateTo);
+      where += ` AND p.paid_at::date <= $${params.length}::date`;
+    }
+    const countResult = await getDbPool().query(
+      `SELECT COUNT(*)::int AS total FROM payments p LEFT JOIN students s ON s.id=p.student_id ${where}`,
+      params
+    );
+    params.push(limit, offset);
     const result = await getDbPool().query(
       `SELECT p.*, s.full_name AS student_name, u.full_name AS created_by_name
        FROM payments p
        LEFT JOIN students s ON s.id = p.student_id
        LEFT JOIN users u ON u.id = p.created_by
-       WHERE p.organization_id=$1
-       ORDER BY p.paid_at DESC, p.id DESC`,
-      [user.organization_id]
+       ${where}
+       ORDER BY p.paid_at DESC, p.id DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
     );
-    sendJson(response, 200, { ok: true, items: result.rows });
+    sendJson(response, 200, { ok: true, items: result.rows, total: countResult.rows[0].total, page, limit });
   } catch (error) {
     withError(response, "List payments", error);
   }
@@ -882,31 +1059,61 @@ async function handleAttendance(request, response) {
 
     const pool = getDbPool();
     if (request.method === "GET") {
+      const query = requestQuery(request);
+      const { page, limit, offset } = pageOptions(query);
+      const status = asText(query.get("status"));
+      const search = asText(query.get("search"));
+      const lessonDate = asDate(query.get("lesson_date"));
+      const params = [user.organization_id];
+      let where = "WHERE a.organization_id=$1";
+      if (status) {
+        params.push(status);
+        where += ` AND a.status=$${params.length}`;
+      }
+      if (lessonDate) {
+        params.push(lessonDate);
+        where += ` AND a.lesson_date=$${params.length}::date`;
+      }
+      if (search) {
+        params.push(`%${search}%`);
+        where += ` AND (s.full_name ILIKE $${params.length} OR g.name ILIKE $${params.length})`;
+      }
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM attendance_records a LEFT JOIN students s ON s.id=a.student_id LEFT JOIN groups g ON g.id=a.group_id ${where}`,
+        params
+      );
+      params.push(limit, offset);
       const result = await pool.query(
         `SELECT a.*, s.full_name AS student_name, g.name AS group_name
          FROM attendance_records a
          LEFT JOIN students s ON s.id=a.student_id
          LEFT JOIN groups g ON g.id=a.group_id
-         WHERE a.organization_id=$1
-         ORDER BY a.lesson_date DESC, a.id DESC`,
-        [user.organization_id]
+         ${where}
+         ORDER BY a.lesson_date DESC, a.id DESC
+         LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params
       );
-      sendJson(response, 200, { ok: true, items: result.rows });
+      sendJson(response, 200, { ok: true, items: result.rows, total: countResult.rows[0].total, page, limit });
       return;
     }
 
     const body = await readJsonBody(request);
+    const records = Array.isArray(body.records) ? body.records : [body];
+    const saved = [];
+    for (const record of records) {
     const result = await pool.query(
       `INSERT INTO attendance_records (organization_id, group_id, student_id, lesson_date, status, note, marked_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (organization_id, group_id, student_id, lesson_date)
        DO UPDATE SET status=EXCLUDED.status, note=EXCLUDED.note, marked_by=EXCLUDED.marked_by
        RETURNING *`,
-      [user.organization_id, body.group_id, body.student_id, asDate(body.lesson_date), asText(body.status, "present"), asText(body.note), user.id]
+      [user.organization_id, record.group_id, record.student_id, asDate(record.lesson_date), asText(record.status, "present"), asText(record.note), user.id]
     );
+      saved.push(result.rows[0]);
+    }
 
-    await writeAudit(pool, user, "upsert", "attendance_records", result.rows[0].id, body);
-    sendJson(response, 200, { ok: true, item: result.rows[0] });
+    await writeAudit(pool, user, "upsert", "attendance_records", saved[0]?.id, { count: saved.length, records });
+    sendJson(response, 200, { ok: true, item: saved[0], items: saved });
   } catch (error) {
     withError(response, "Attendance", error);
   }
@@ -1121,6 +1328,12 @@ const server = http.createServer((request, response) => {
       deleteRow(request, response, config, Number(id));
       return;
     }
+  }
+
+  const studentProfileMatch = urlPath.match(/^\/api\/students\/(\d+)\/profile$/);
+  if (studentProfileMatch && request.method === "GET") {
+    handleStudentProfileRequest(request, response, Number(studentProfileMatch[1]));
+    return;
   }
 
   if (urlPath === "/api/payments") {
