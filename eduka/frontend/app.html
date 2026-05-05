@@ -24,14 +24,8 @@
           <p class="login-copy">Telefon raqam va parol orqali kiring. Parol esdan chiqsa, Telegram admin bilan bog'laning.</p>
         </div>
         <form class="login-form" data-login-form>
-          <label>
-            <span>Telefon raqam</span>
-            <input name="phone" type="tel" placeholder="+998 __ ___ __ __" autocomplete="tel" required />
-          </label>
-          <label>
-            <span>Parol</span>
-            <input name="password" type="password" placeholder="Parolingiz" autocomplete="current-password" required />
-          </label>
+          <label><span>Telefon raqam</span><input name="phone" type="tel" placeholder="+998 __ ___ __ __" autocomplete="tel" required /></label>
+          <label><span>Parol</span><input name="password" type="password" placeholder="Parolingiz" autocomplete="current-password" required /></label>
           <button type="submit">Kirish</button>
         </form>
         <button class="forgot-link" type="button" data-forgot>Parol esdan chiqdimi?</button>
@@ -45,20 +39,20 @@
           <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
           <span>EDUKA</span>
         </a>
-        <button class="create-student" type="button">Talaba yaratish</button>
+        <button class="create-student" type="button" data-open-modal="students">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
-          <button class="active" type="button" data-view="dashboard" data-icon="D">Dashboard</button>
-          <button type="button" data-view="leads" data-icon="L">Lidlar</button>
-          <button type="button" data-view="teachers" data-icon="O">O'qituvchilar</button>
-          <button type="button" data-view="groups" data-icon="G">Guruhlar</button>
-          <button type="button" data-view="students" data-icon="T">Talabalar</button>
-          <button type="button" data-view="reminders" data-icon="E">Eslatmalar</button>
-          <button type="button" data-view="rating" data-icon="R">Reyting</button>
-          <button type="button" data-view="attendance" data-icon="DH">Davomat hisobotlari</button>
-          <button type="button" data-view="teacher-attendance" data-icon="UD">Ustozlar davomati</button>
-          <button type="button" data-view="finance" data-icon="M">Moliya</button>
-          <button type="button" data-view="reports" data-icon="H">Hisobotlar</button>
-          <button type="button" data-view="settings" data-icon="S">Sozlamalar</button>
+          <button class="active" type="button" data-view="dashboard" data-icon="M4 5h16v4H4z M4 13h7v6H4z M15 13h5v6h-5z">Dashboard</button>
+          <button type="button" data-view="leads" data-icon="M5 5h14v14H5z M8 9h8 M8 13h5">Lidlar</button>
+          <button type="button" data-view="teachers" data-icon="M12 4a4 4 0 110 8 4 4 0 010-8z M4 20c1.5-4 14.5-4 16 0">O'qituvchilar</button>
+          <button type="button" data-view="groups" data-icon="M4 7h16 M6 7v12h12V7 M8 11h8">Guruhlar</button>
+          <button type="button" data-view="students" data-icon="M8 7a4 4 0 118 0 4 4 0 01-8 0z M4 21c2-5 14-5 16 0">Talabalar</button>
+          <button type="button" data-view="reminders" data-icon="M6 4h12v16H6z M9 8h6 M9 12h6">Eslatmalar</button>
+          <button type="button" data-view="rating" data-icon="M5 17l4-4 3 3 7-8 M5 21h14">Reyting</button>
+          <button type="button" data-view="attendance" data-icon="M5 4h14v16H5z M8 9l2 2 4-4">Davomat hisobotlari</button>
+          <button type="button" data-view="teacher-attendance" data-icon="M4 6h16 M7 10h10 M7 14h6 M4 20h16">Ustozlar davomati</button>
+          <button type="button" data-view="finance" data-icon="M4 8h16v10H4z M7 12h4">Moliya</button>
+          <button type="button" data-view="reports" data-icon="M5 19V9 M12 19V5 M19 19v-7">Hisobotlar</button>
+          <button type="button" data-view="settings" data-icon="M12 8a4 4 0 100 8 4 4 0 000-8z M4 12h2 M18 12h2 M12 4v2 M12 18v2">Sozlamalar</button>
         </nav>
         <div class="side-subnav" data-subnav="finance" hidden>
           <button type="button" data-view="finance">Barcha to'lovlar</button>
@@ -68,42 +62,24 @@
           <button type="button" data-view="debtors">Qarzdorlar</button>
         </div>
         <div class="side-subnav" data-subnav="settings" hidden>
-          <button type="button">SMS sozlamalari</button>
-          <button type="button">Onlain telefoniya</button>
-          <button type="button">Baho</button>
-          <button type="button">CEO</button>
-          <button type="button">Umumiy sozlamalari</button>
-          <button type="button">Xodimlar</button>
-          <button type="button">Billing</button>
-          <button type="button">Roadmap</button>
-          <button type="button">Ofis</button>
-          <button type="button">Kurslar</button>
-          <button type="button">Xonalar</button>
-          <button type="button">Dam olish kunlari</button>
-          <button type="button">Arxiv</button>
-          <button type="button">Guruhni tark etgan o'quvchilar</button>
-          <button type="button">Shakllar</button>
-          <button type="button">Blog</button>
-          <button type="button">Nima yangilik</button>
-          <button type="button">Teglar</button>
+          <button type="button">SMS sozlamalari</button><button type="button">Onlain telefoniya</button><button type="button">Baho</button>
+          <button type="button">CEO</button><button type="button">Umumiy sozlamalari</button><button type="button">Xodimlar</button>
+          <button type="button">Billing</button><button type="button">Roadmap</button><button type="button">Ofis</button>
+          <button type="button">Kurslar</button><button type="button">Xonalar</button><button type="button">Dam olish kunlari</button>
+          <button type="button">Arxiv</button><button type="button">Guruhni tark etgan o'quvchilar</button><button type="button">Shakllar</button>
+          <button type="button">Blog</button><button type="button">Nima yangilik</button><button type="button">Teglar</button>
         </div>
-        <div class="sidebar-footer">
-          <button type="button">Texnik yordam</button>
-          <button type="button">Video darsliklar</button>
-        </div>
+        <div class="sidebar-footer"><button type="button">Texnik yordam</button><button type="button">Video darsliklar</button></div>
       </aside>
 
       <div class="workspace">
         <header class="topbar">
-          <button class="mobile-menu" type="button" data-mobile-menu aria-label="Menyuni ochish">☰</button>
+          <button class="mobile-menu" type="button" data-mobile-menu aria-label="Menyuni ochish">Menu</button>
           <strong class="center-name" data-center-name>ilm academy uz</strong>
-          <label class="search-box">
-            <span>Qidiruv</span>
-            <input type="search" aria-label="Qidiruv" />
-          </label>
+          <label class="search-box"><span>Qidiruv</span><input type="search" aria-label="Qidiruv" /></label>
           <button class="lang-button" type="button">uz</button>
-          <button class="ghost-icon" type="button" aria-label="Bildirishnomalar">○</button>
-          <button class="ghost-icon" type="button" aria-label="Profil">◐</button>
+          <button class="ghost-icon" type="button" aria-label="Bildirishnomalar">N</button>
+          <button class="ghost-icon logout-button" type="button" data-logout>Chiqish</button>
         </header>
 
         <main class="content">
@@ -128,26 +104,28 @@
           </section>
 
           <section class="view" id="leads">
-            <div class="page-head"><h1>Lidlar</h1><span>Miqdor — 0</span></div>
+            <div class="page-head"><h1>Lidlar</h1><span data-count="leads">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="leads">Lid yaratish</button></div>
             <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Holati</option></select><select><option>Menejer</option></select><input type="date" /></div>
-            <div class="table"><div><b>Lid</b><b>Telefon</b><b>Manba</b><b>Holat</b><b>Menejer</b><b>Amallar</b></div></div>
+            <div class="pipeline" data-pipeline></div>
+            <div class="table" data-table="leads"><div><b>Lid</b><b>Telefon</b><b>Manba</b><b>Holat</b><b>Menejer</b><b>Qayta aloqa</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="teachers">
-            <div class="page-head"><h1>O'qituvchilar</h1><span>Miqdor — 0</span></div>
-            <div class="notice"><strong>Diqqat!</strong><p>CEO profili orqali o'qituvchini boshqa (bir-necha) filialga biriktirishingiz mumkin.</p></div>
+            <div class="page-head"><h1>O'qituvchilar</h1><span data-count="teachers">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="teachers">O'qituvchi yaratish</button></div>
+            <div class="notice"><strong>Diqqat!</strong><p>CEO profili orqali o'qituvchini boshqa filialga biriktirishingiz mumkin.</p></div>
+            <div class="table" data-table="teachers"><div><b>Ism</b><b>Telefon</b><b>Fanlar</b><b>Holat</b><b>Oylik stavka</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="groups">
-            <div class="page-head"><h1>Guruhlar</h1><span>Miqdor — 0</span></div>
-            <div class="filters"><select><option>Faol guruhlar</option></select><select><option>O'qituvchi</option></select><select><option>Kurslar bo'yicha</option></select><select><option>Kunlar</option></select><select><option>Teglar</option></select><input type="date" /><input type="date" /></div>
-            <div class="table"><div><b>Guruh</b><b>Kurslar</b><b>O'qituvchi</b><b>Kunlar</b><b>Mashg'ulotlar sanalari</b><b>O'tilgan muddat</b><b>Xonalar</b><b>Tags</b><b>Talabalar</b><b>Amallar</b></div></div>
+            <div class="page-head"><h1>Guruhlar</h1><span data-count="groups">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="groups">Guruh yaratish</button></div>
+            <div class="filters"><select><option>Faol guruhlar</option></select><select><option>O'qituvchi</option></select><select><option>Kurslar bo'yicha</option></select><select><option>Kunlar</option></select><input type="date" /><input type="date" /></div>
+            <div class="table" data-table="groups"><div><b>Guruh</b><b>Kurslar</b><b>O'qituvchi</b><b>Kunlar</b><b>Mashg'ulotlar sanalari</b><b>Xona</b><b>Talabalar</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="students">
-            <div class="page-head"><h1>Talabalar</h1><span>Miqdor — 0</span></div>
-            <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Kurslar</option></select><select><option>Talaba holati</option></select><select><option>Moliyaviy holati</option></select><select><option>Teglar bo'yicha</option></select><input placeholder="Qo'shimcha ID" /><input type="date" /><input type="date" /></div>
-            <div class="table"><div><b>Foto</b><b>Ism</b><b>Telefon</b><b>Guruhlar</b><b>O'qituvchilar</b><b>Mashg'ulotlar sanalari</b><b>Balans</b><b>Izoh</b></div><div><span>1</span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+            <div class="page-head"><h1>Talabalar</h1><span data-count="students">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="students">Talaba yaratish</button></div>
+            <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Kurslar</option></select><select><option>Talaba holati</option></select><select><option>Moliyaviy holati</option></select><input type="date" /><input type="date" /></div>
+            <div class="table" data-table="students"><div><b>Ism</b><b>Telefon</b><b>Ota-ona</b><b>Kurs</b><b>Guruh</b><b>Status</b><b>Balans</b><b>Izoh</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="reminders">
@@ -163,9 +141,9 @@
           </section>
 
           <section class="view" id="attendance">
-            <div class="page-head"><h1>Davomat hisobotlari</h1><span>Miqdor — 0</span></div>
-            <div class="filters"><input type="date" value="2026-05-05" /><input placeholder="Ism" /><input placeholder="Telefon" /><select><option>Faol</option></select><button>+ 1</button><select><option>Guruh</option></select><select><option>O'qituvchi</option></select><select><option>Davomat</option></select></div>
-            <div class="empty-state">Bo'sh · 10/sahifa</div>
+            <div class="page-head"><h1>Davomat hisobotlari</h1><span data-count="attendance">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="attendance">Davomat belgilash</button></div>
+            <div class="filters"><input type="date" value="2026-05-05" /><input placeholder="Ism" /><select><option>Guruh</option></select><select><option>Davomat</option></select></div>
+            <div class="table" data-table="attendance"><div><b>Sana</b><b>Talaba</b><b>Guruh</b><b>Davomat</b><b>Izoh</b></div></div>
           </section>
 
           <section class="view" id="teacher-attendance">
@@ -176,26 +154,30 @@
           </section>
 
           <section class="view" id="finance">
-            <div class="page-head"><h1>Barcha to'lovlar</h1></div>
-            <div class="finance-summary"><article><span>To'lovlar miqdori</span><strong>0 UZS</strong><small>01.05.2026 — 31.05.2026</small></article><article><span>Sof foyda miqdori</span><strong>0 UZS</strong><small>01.05.2026 — 31.05.2026</small></article></div>
-            <div class="filters finance-filters"><label>Sanadan boshlab <input type="date" value="2026-05-01" /></label><label>Sana bo'yicha <input type="date" value="2026-05-31" /></label><input placeholder="Ism yoki Telefon" /><select><option>Guruhni tanlash</option></select><select><option>Kurs</option></select><select><option>O'qituvchi</option></select><select><option>To'lov turi</option></select><input placeholder="Sum" /><select><option>Xodimni ismi</option></select></div>
-            <div class="table"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>To'lov turi</b><b>O'qituvchi</b><b>Izoh</b><b>Xodim</b></div></div>
+            <div class="page-head"><h1>Barcha to'lovlar</h1><button class="section-action" type="button" data-open-modal="payments">To'lov qo'shish</button></div>
+            <div class="finance-summary"><article><span>To'lovlar miqdori</span><strong data-finance-total>0 UZS</strong><small>01.05.2026 - 31.05.2026</small></article><article><span>Sof foyda miqdori</span><strong>0 UZS</strong><small>01.05.2026 - 31.05.2026</small></article></div>
+            <div class="filters finance-filters"><label>Sanadan boshlab <input type="date" value="2026-05-01" /></label><label>Sana bo'yicha <input type="date" value="2026-05-31" /></label><input placeholder="Ism yoki Telefon" /><select><option>To'lov turi</option></select></div>
+            <div class="table" data-table="payments"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>To'lov turi</b><b>Izoh</b><b>Xodim</b></div></div>
           </section>
 
-          <section class="view" id="withdrawals">
-            <div class="page-head"><h1>Yechib olish</h1></div>
-            <p class="subtle">Jami yechib olishlar: 0 UZS (01.05.2026 — 31.05.2026)</p>
-            <div class="filters"><input type="date" value="2026-05-01" /><input type="date" value="2026-05-31" /><input placeholder="Ism yoki Telefon" /><input placeholder="Sum" /><select><option>Kurs</option></select></div>
-            <div class="table"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>Izoh</b><b>Xodim</b><b>Harakatlar</b></div></div>
-          </section>
-
-          <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor — 0</span></div><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="withdrawals"><div class="page-head"><h1>Yechib olish</h1><button class="section-action" type="button" data-open-modal="withdrawals">Yechib olish</button></div><p class="subtle">Jami yechib olishlar: 0 UZS (01.05.2026 - 31.05.2026)</p><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor - 0</span><button class="section-action" type="button" data-open-modal="expenses">Xarajat qo'shish</button></div><div class="empty-state">Bo'sh</div></section>
           <section class="view" id="salary"><div class="page-head"><h1>Ish haqi</h1><span>new</span></div><div class="empty-state">Bo'sh</div></section>
-          <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span>Miqdor — 0</span></div><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span>Miqdor - 0</span></div><div class="empty-state">Balansi bor talabalar avtomatik qarzdor sifatida ko'rinadi.</div></section>
           <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1></div><div class="empty-state">Kunlik tushum, oylik tushum, guruh samaradorligi va menejer sotuv natijalari shu yerda bo'ladi.</div></section>
           <section class="view" id="settings"><div class="page-head"><h1>Sozlamalar</h1></div><div class="empty-state">SMS sozlamalari, xodimlar, billing, ofis, kurslar, xonalar, teglar va arxiv chap pastki menyuda ochiladi.</div></section>
         </main>
       </div>
+    </div>
+
+    <div class="modal-backdrop" data-modal hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-head">
+          <h2 id="modal-title" data-modal-title>Yaratish</h2>
+          <button type="button" data-close-modal aria-label="Yopish">x</button>
+        </div>
+        <form class="modal-form" data-modal-form></form>
+      </section>
     </div>
 
     <div class="toast" data-toast></div>

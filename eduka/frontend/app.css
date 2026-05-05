@@ -207,15 +207,26 @@ button {
 }
 
 .side-nav button::before {
-  content: attr(data-icon);
+  content: "";
   display: grid;
   place-items: center;
   width: 24px;
   height: 24px;
-  color: var(--primary);
   background: var(--soft-blue);
   border-radius: 6px;
-  font-size: 13px;
+}
+
+.side-nav button svg {
+  position: absolute;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .side-nav button:hover,
@@ -267,7 +278,7 @@ button {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: auto auto minmax(220px, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(260px, 420px) auto auto auto;
   gap: 12px;
   align-items: center;
   min-height: 62px;
@@ -314,6 +325,10 @@ button {
   display: none;
 }
 
+.logout-button {
+  padding: 0 12px;
+}
+
 .content {
   padding: 18px;
 }
@@ -353,6 +368,15 @@ button {
 
 .page-head span {
   color: var(--muted);
+}
+
+.section-action {
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--white);
+  background: var(--primary);
+  border-radius: 7px;
+  font-weight: 500;
 }
 
 .metric-grid {
@@ -425,6 +449,34 @@ button {
   color: var(--muted);
 }
 
+.pipeline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.pipeline article {
+  padding: 12px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pipeline span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pipeline strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--dark);
+  font-size: 22px;
+  font-weight: 500;
+}
+
 .table {
   overflow-x: auto;
   background: #ffffff;
@@ -455,6 +507,27 @@ button {
 .table b {
   color: #374151;
   background: var(--panel);
+}
+
+.table .row-actions {
+  display: flex;
+  gap: 6px;
+  border-right: 0;
+  padding: 8px;
+}
+
+.row-actions button {
+  min-height: 30px;
+  padding: 0 9px;
+  color: var(--primary);
+  background: var(--soft-blue);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.row-actions button:last-child {
+  color: #b42318;
+  background: #fff1f0;
 }
 
 .empty-state {
@@ -518,6 +591,100 @@ button {
   transform: translateY(0);
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(17, 24, 39, 0.34);
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(760px, 92vh);
+  overflow: auto;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 28px 90px rgba(17, 24, 39, 0.22);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-head h2 {
+  margin: 0;
+  color: var(--dark);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.modal-head button {
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+  background: var(--panel);
+  border-radius: 7px;
+}
+
+.modal-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 20px;
+}
+
+.modal-form label {
+  display: grid;
+  gap: 7px;
+  color: #374151;
+}
+
+.modal-form input,
+.modal-form select,
+.modal-form textarea {
+  min-height: 40px;
+  padding: 0 11px;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+}
+
+.modal-form textarea {
+  min-height: 88px;
+  padding-top: 10px;
+  resize: vertical;
+}
+
+.modal-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.modal-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  background: var(--panel);
+  border-radius: 7px;
+}
+
+.modal-actions button[type="submit"] {
+  color: var(--white);
+  background: var(--primary);
+}
+
 @media (max-width: 1080px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -561,7 +728,9 @@ button {
 
   .metric-grid,
   .reminder-grid,
-  .finance-summary {
+  .finance-summary,
+  .pipeline,
+  .modal-form {
     grid-template-columns: 1fr;
   }
 
