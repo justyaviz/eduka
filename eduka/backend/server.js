@@ -139,7 +139,14 @@ function postTelegramMessage(token, chatId, text) {
             return;
           }
 
-          reject(new Error(`Telegram returned ${telegramResponse.statusCode}: ${responseBody}`));
+          const error = new Error(`Telegram returned ${telegramResponse.statusCode}: ${responseBody}`);
+          const migrateToChatId = parsedBody.parameters?.migrate_to_chat_id;
+
+          if (migrateToChatId) {
+            error.migrateToChatId = String(migrateToChatId);
+          }
+
+          reject(error);
         });
       }
     );
@@ -216,6 +223,17 @@ async function sendTelegramMessage(text) {
     } catch (error) {
       lastError = error;
       console.error(`Telegram send failed for chat ${chatId}: ${error.message}`);
+
+      if (error.migrateToChatId && !chatIds.includes(error.migrateToChatId)) {
+        console.log(`Telegram chat migrated. Retrying with ${error.migrateToChatId}`);
+
+        try {
+          return await postTelegramMessage(token, error.migrateToChatId, text);
+        } catch (retryError) {
+          lastError = retryError;
+          console.error(`Telegram migrated chat retry failed for ${error.migrateToChatId}: ${retryError.message}`);
+        }
+      }
     }
   }
 
