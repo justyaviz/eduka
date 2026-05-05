@@ -1,43 +1,12 @@
 const authScreen = document.querySelector("[data-auth-screen]");
 const appShell = document.querySelector("[data-app-shell]");
 const loginForm = document.querySelector("[data-login-form]");
-const roleSelect = document.querySelector("[data-role-select]");
-const roleLabel = document.querySelector("[data-role-label]");
-const pageTitle = document.querySelector("[data-page-title]");
+const pageViews = document.querySelectorAll(".view");
+const navButtons = document.querySelectorAll("[data-view]");
 const toast = document.querySelector("[data-toast]");
 const mobileMenu = document.querySelector("[data-mobile-menu]");
-
-const titles = {
-  dashboard: "Dashboard",
-  students: "O'quvchilar",
-  leads: "Lidlar / Sotuv bo'limi",
-  groups: "Guruhlar",
-  attendance: "Davomad",
-  payments: "To'lovlar",
-  schedule: "Dars jadvali",
-  teachers: "O'qituvchilar",
-  reports: "Hisobotlar",
-  branches: "Filiallar",
-  staff: "Xodimlar va rollar",
-  settings: "Sozlamalar",
-  gamification: "Gamification"
-};
-
-const roleNames = {
-  owner: "Rahbar paneli",
-  manager: "Menejer paneli",
-  teacher: "O'qituvchi paneli",
-  accountant: "Buxgalter paneli",
-  admin: "Admin paneli"
-};
-
-const roleAccess = {
-  owner: ["dashboard", "students", "leads", "groups", "attendance", "payments", "schedule", "teachers", "reports", "branches", "staff", "settings", "gamification"],
-  admin: ["dashboard", "students", "leads", "groups", "attendance", "payments", "schedule", "teachers", "reports", "branches", "staff", "settings", "gamification"],
-  manager: ["dashboard", "students", "leads", "groups", "schedule", "reports"],
-  teacher: ["dashboard", "groups", "attendance", "schedule", "gamification"],
-  accountant: ["dashboard", "students", "payments", "reports", "branches"]
-};
+const financeSubnav = document.querySelector('[data-subnav="finance"]');
+const settingsSubnav = document.querySelector('[data-subnav="settings"]');
 
 let toastTimer;
 
@@ -45,44 +14,32 @@ function showToast(message) {
   window.clearTimeout(toastTimer);
   toast.textContent = message;
   toast.classList.add("show");
-  toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2600);
+  toastTimer = window.setTimeout(() => toast.classList.remove("show"), 3200);
 }
 
 function setView(viewName) {
-  document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewName));
-  document.querySelectorAll(".side-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
-  pageTitle.textContent = titles[viewName] || "Dashboard";
+  pageViews.forEach((view) => view.classList.toggle("active", view.id === viewName));
+  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
+
+  const isFinance = ["finance", "withdrawals", "expenses", "salary", "debtors"].includes(viewName);
+  financeSubnav.hidden = !isFinance;
+  settingsSubnav.hidden = viewName !== "settings";
   document.body.classList.remove("menu-open");
-}
-
-function applyRole(role) {
-  const allowedViews = roleAccess[role] || roleAccess.owner;
-  roleLabel.textContent = roleNames[role] || roleNames.owner;
-
-  document.querySelectorAll(".side-nav button").forEach((button) => {
-    button.hidden = !allowedViews.includes(button.dataset.view);
-  });
-
-  setView(allowedViews[0]);
 }
 
 loginForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   authScreen.hidden = true;
   appShell.hidden = false;
-  applyRole(roleSelect.value);
-  showToast("Kabinet demo rejimda ochildi.");
-});
-
-document.querySelector("[data-send-code]")?.addEventListener("click", () => {
-  showToast("SMS/Telegram kod yuborish oqimi keyingi bosqichda ulanadi.");
+  setView("dashboard");
+  showToast("Kabinetga kirildi.");
 });
 
 document.querySelector("[data-forgot]")?.addEventListener("click", () => {
-  showToast("Parolni tiklash linki SMS yoki Telegram orqali yuboriladi.");
+  showToast("Parol esdan chiqqan bo'lsa, Telegram adminiga yozing: @eduka_admin");
 });
 
-document.querySelectorAll(".side-nav button").forEach((button) => {
+navButtons.forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
 });
 

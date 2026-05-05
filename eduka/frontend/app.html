@@ -3,205 +3,198 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eduka CRM - Ichki boshqaruv</title>
-    <meta name="description" content="Eduka CRM ichki boshqaruv paneli: dashboard, o'quvchilar, lidlar, guruhlar, davomad, to'lovlar va hisobotlar." />
+    <title>Eduka CRM - Kabinet</title>
+    <meta name="description" content="Eduka CRM ichki kabineti: lidlar, o'qituvchilar, guruhlar, talabalar, davomat, moliya va sozlamalar." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
     <main class="auth-screen" data-auth-screen>
-      <section class="auth-brand">
-        <a class="brand" href="index.html" aria-label="Eduka bosh sahifa">
+      <section class="login-panel" aria-labelledby="login-title">
+        <a class="brand" href="index.html">
           <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
           <span>EDUKA</span>
         </a>
         <div>
-          <p class="eyebrow">CRM kabinet</p>
-          <h1>O'quv markazingizni bir oynadan boshqaring.</h1>
-          <p>Telefon, parol yoki SMS/Telegram kod orqali kiring. Dashboard rolga qarab moslashadi.</p>
+          <p class="muted">CRM kabinet</p>
+          <h1 id="login-title">Platformaga kirish</h1>
+          <p class="login-copy">Telefon raqam va parol orqali kiring. Parol esdan chiqsa, Telegram admin bilan bog'laning.</p>
         </div>
-        <div class="auth-stats">
-          <article><strong>92%</strong><span>bugungi davomad</span></article>
-          <article><strong>128.4M</strong><span>oylik tushum</span></article>
-          <article><strong>47</strong><span>yangi lid</span></article>
-        </div>
-      </section>
-
-      <section class="login-card" aria-labelledby="login-title">
-        <p class="eyebrow">Kirish</p>
-        <h2 id="login-title">Eduka CRM kabinetiga kirish</h2>
         <form class="login-form" data-login-form>
           <label>
             <span>Telefon raqam</span>
-            <input name="phone" type="tel" value="+998 90 123 45 67" required />
+            <input name="phone" type="tel" value="+998 90 123 45 67" autocomplete="tel" required />
           </label>
           <label>
             <span>Parol</span>
-            <input name="password" type="password" value="eduka-demo" required />
+            <input name="password" type="password" value="eduka-demo" autocomplete="current-password" required />
           </label>
-          <label>
-            <span>Rol</span>
-            <select name="role" data-role-select>
-              <option value="owner">Rahbar</option>
-              <option value="manager">Menejer</option>
-              <option value="teacher">O'qituvchi</option>
-              <option value="accountant">Buxgalter</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-          <button type="submit">Kabinetga kirish</button>
+          <button type="submit">Kirish</button>
         </form>
-        <div class="login-actions">
-          <button type="button" data-send-code>SMS/Telegram kod yuborish</button>
-          <button type="button" data-forgot>Parolni unutdingizmi?</button>
-        </div>
-        <p class="login-note" data-login-note>Demo rejim: hozircha forma lokal preview uchun ishlaydi.</p>
+        <button class="forgot-link" type="button" data-forgot>Parol esdan chiqdimi?</button>
+        <p class="login-note" data-login-note>Demo rejim: forma hozir lokal preview uchun ishlaydi.</p>
       </section>
     </main>
 
     <div class="app-shell" data-app-shell hidden>
       <aside class="sidebar">
-        <a class="brand" href="index.html">
+        <a class="brand sidebar-brand" href="index.html">
           <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
           <span>EDUKA</span>
         </a>
+        <button class="create-student" type="button">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
-          <button class="active" type="button" data-view="dashboard">Dashboard</button>
-          <button type="button" data-view="students">O'quvchilar</button>
-          <button type="button" data-view="leads">Lidlar / Sotuv</button>
-          <button type="button" data-view="groups">Guruhlar</button>
-          <button type="button" data-view="attendance">Davomad</button>
-          <button type="button" data-view="payments">To'lovlar</button>
-          <button type="button" data-view="schedule">Dars jadvali</button>
-          <button type="button" data-view="teachers">O'qituvchilar</button>
-          <button type="button" data-view="reports">Hisobotlar</button>
-          <button type="button" data-view="branches">Filiallar</button>
-          <button type="button" data-view="staff">Xodimlar va rollar</button>
-          <button type="button" data-view="settings">Sozlamalar</button>
-          <button type="button" data-view="gamification">Gamification</button>
+          <button class="active" type="button" data-view="dashboard" data-icon="⌂">Dashboard</button>
+          <button type="button" data-view="leads" data-icon="◌">Lidlar</button>
+          <button type="button" data-view="teachers" data-icon="◍">O'qituvchilar</button>
+          <button type="button" data-view="groups" data-icon="▦">Guruhlar</button>
+          <button type="button" data-view="students" data-icon="◉">Talabalar</button>
+          <button type="button" data-view="reminders" data-icon="□">Eslatmalar</button>
+          <button type="button" data-view="rating" data-icon="☆">Reyting</button>
+          <button type="button" data-view="attendance" data-icon="☑">Davomat hisobotlari</button>
+          <button type="button" data-view="teacher-attendance" data-icon="▤">Ustozlar davomati</button>
+          <button type="button" data-view="finance" data-icon="₸">Moliya</button>
+          <button type="button" data-view="reports" data-icon="▥">Hisobotlar</button>
+          <button type="button" data-view="settings" data-icon="⚙">Sozlamalar</button>
         </nav>
-        <div class="sidebar-card">
-          <span>Trial</span>
-          <strong>7 kun bepul</strong>
-          <p>Markaz sozlamalarini to'ldirib, jamoani ulang.</p>
+        <div class="side-subnav" data-subnav="finance" hidden>
+          <button type="button" data-view="finance">Barcha to'lovlar</button>
+          <button type="button" data-view="withdrawals">Yechib olish</button>
+          <button type="button" data-view="expenses">Xarajatlar</button>
+          <button type="button" data-view="salary">Ish haqi <span>new</span></button>
+          <button type="button" data-view="debtors">Qarzdorlar</button>
+        </div>
+        <div class="side-subnav" data-subnav="settings" hidden>
+          <button type="button">SMS sozlamalari</button>
+          <button type="button">Onlain telefoniya</button>
+          <button type="button">Baho</button>
+          <button type="button">CEO</button>
+          <button type="button">Umumiy sozlamalari</button>
+          <button type="button">Xodimlar</button>
+          <button type="button">Billing</button>
+          <button type="button">Roadmap</button>
+          <button type="button">Ofis</button>
+          <button type="button">Kurslar</button>
+          <button type="button">Xonalar</button>
+          <button type="button">Dam olish kunlari</button>
+          <button type="button">Arxiv</button>
+          <button type="button">Guruhni tark etgan o'quvchilar</button>
+          <button type="button">Shakllar</button>
+          <button type="button">Blog</button>
+          <button type="button">Nima yangilik</button>
+          <button type="button">Teglar</button>
+        </div>
+        <div class="sidebar-footer">
+          <button type="button">Texnik yordam</button>
+          <button type="button">Video darsliklar</button>
         </div>
       </aside>
 
       <div class="workspace">
         <header class="topbar">
           <button class="mobile-menu" type="button" data-mobile-menu aria-label="Menyuni ochish">☰</button>
-          <div>
-            <p data-role-label>Rahbar paneli</p>
-            <h1 data-page-title>Dashboard</h1>
-          </div>
-          <div class="top-actions">
-            <button type="button">+ Yangi o'quvchi</button>
-            <button type="button">To'lov qabul qilish</button>
-            <div class="user-chip"><span>BB</span><strong>Behruz Berdiyev</strong></div>
-          </div>
+          <strong class="center-name">ilm academy uz</strong>
+          <label class="search-box">
+            <span>Qidiruv</span>
+            <input type="search" aria-label="Qidiruv" />
+          </label>
+          <button class="lang-button" type="button">uz</button>
+          <button class="ghost-icon" type="button" aria-label="Bildirishnomalar">○</button>
+          <button class="ghost-icon" type="button" aria-label="Profil">◐</button>
         </header>
 
-        <section class="view active" id="dashboard">
-          <div class="kpi-grid">
-            <article><span>Bugungi o'quvchilar</span><strong>684</strong><small>+32 kechagidan</small></article>
-            <article><span>Davomad foizi</span><strong>92%</strong><small>18 ta sababli kelmadi</small></article>
-            <article><span>Oylik tushum</span><strong>128.4M</strong><small>reja 73%</small></article>
-            <article><span>Qarzdorlik</span><strong>14.2M</strong><small>36 o'quvchi</small></article>
-            <article><span>Yangi lidlar</span><strong>47</strong><small>12 ta sinov dars</small></article>
-            <article><span>Bugungi darslar</span><strong>28</strong><small>5 xona band</small></article>
-          </div>
-          <div class="dashboard-grid">
-            <article class="panel wide">
-              <div class="panel-head"><h2>Tezkor grafiklar</h2><button type="button">Eksport</button></div>
-              <div class="chart-bars" aria-label="Oylik tushum grafigi"><span style="height:42%"></span><span style="height:64%"></span><span style="height:52%"></span><span style="height:78%"></span><span style="height:70%"></span><span style="height:88%"></span><span style="height:75%"></span></div>
-            </article>
-            <article class="panel"><div class="panel-head"><h2>Bugungi vazifalar</h2></div><ul class="task-list"><li>12 ta yangi lidga aloqa qilish</li><li>36 qarzdorga eslatma yuborish</li><li>Frontend N12 davomadini yopish</li><li>Yunusobod filiali tushumini tekshirish</li></ul></article>
-          </div>
-        </section>
+        <main class="content">
+          <div class="license-banner">Litsenziyaning platformaga amal qilish muddati: 10.05.2026 - 23:59. 6 kundan ortiq vaqt qoldi</div>
 
-        <section class="view" id="students">
-          <div class="section-grid">
-            <article class="panel wide">
-              <div class="panel-head"><h2>O'quvchilar ro'yxati</h2><button type="button">+ O'quvchi</button></div>
-              <div class="data-table">
-                <div><b>Ism</b><b>Telefon</b><b>Guruh</b><b>Status</b><b>Balans</b></div>
-                <div><span>Madina Aliyeva</span><span>+998 90 111 22 33</span><span>English B2</span><mark>Faol</mark><strong>0</strong></div>
-                <div><span>Azizbek Rahimov</span><span>+998 93 444 55 66</span><span>Frontend N12</span><mark class="danger">Qarzdor</mark><strong>180K</strong></div>
-                <div><span>Sarvinoz Toshpulatova</span><span>+998 99 777 88 11</span><span>Matematika</span><mark>Faol</mark><strong>0</strong></div>
-              </div>
-            </article>
-            <article class="panel profile-card"><h2>O'quvchi profili</h2><p>Telefon, ota-ona, tug'ilgan sana, qaysi guruhda o'qishi, to'lov tarixi va davomad tarixi shu yerda ko'rinadi.</p><div class="profile-lines"><span>Ota-ona: +998 91 222 33 44</span><span>Tug'ilgan sana: 14.03.2010</span><span>Status: faol / muzlatilgan / ketgan / qarzdor</span></div></article>
-          </div>
-        </section>
-
-        <section class="view" id="leads">
-          <div class="kanban">
-            <article><h2>Yangi murojaatlar</h2><p>Instagram: IELTS kursi</p><p>Telegram: IT kurs</p></article>
-            <article><h2>Sinov dars</h2><p>Ali V. - bugun 18:00</p><p>Sevara K. - ertaga</p></article>
-            <article><h2>Aloqa qilindi</h2><p>3 ta qayta aloqa vaqti</p></article>
-            <article><h2>To'lov qildi</h2><p>2 yangi o'quvchi</p></article>
-            <article><h2>Yo'qotilgan</h2><p>Narx mos kelmadi</p></article>
-          </div>
-          <article class="panel"><h2>Sotuv nazorati</h2><p>Menejerga biriktirish, izoh yozish va qayta aloqa vaqtini belgilash uchun pipeline tayyor.</p></article>
-        </section>
-
-        <section class="view" id="groups">
-          <div class="cards-grid">
-            <article><h2>Frontend N12</h2><p>O'qituvchi: Jamshid Karimov</p><p>Dush/Chor/Juma 19:00, 3-xona</p><strong>18 o'quvchi · davomad 92%</strong></article>
-            <article><h2>English B2</h2><p>O'qituvchi: Nilufar Akramova</p><p>Sesh/Pay/Shan 17:00, 1-xona</p><strong>14 o'quvchi · to'lov 96%</strong></article>
-            <article><h2>Matematika</h2><p>O'qituvchi: Dilorom opa</p><p>Har kuni 15:00, 2-xona</p><strong>22 o'quvchi · davomad 95%</strong></article>
-          </div>
-        </section>
-
-        <section class="view" id="attendance">
-          <article class="panel wide">
-            <div class="panel-head"><h2>Bugungi darslar va davomad</h2><button type="button">Oylik hisobot</button></div>
-            <div class="attendance-list">
-              <div><b>Frontend N12</b><span>Keldi 16</span><span>Kelmadi 1</span><span>Kechikdi 1</span><button>Belgilash</button></div>
-              <div><b>English B2</b><span>Keldi 12</span><span>Sababli 2</span><span>Kechikdi 0</span><button>Belgilash</button></div>
-              <div><b>Matematika</b><span>Keldi 21</span><span>Kelmadi 1</span><span>Kechikdi 0</span><button>Belgilash</button></div>
+          <section class="view active" id="dashboard">
+            <div class="metric-grid">
+              <article><span>Faol lidlar</span><strong>0</strong></article>
+              <article><span>Faol talabalar</span><strong>0</strong></article>
+              <article><span>Guruhlar</span><strong>0</strong></article>
+              <article><span>Qarzdorlar</span><strong>0</strong></article>
+              <article><span>Sinov darsida</span><strong>0</strong></article>
+              <article><span>Joriy oyda to'laganlar</span><strong>0</strong></article>
+              <article><span>Faol guruhni tark etganlar</span><strong>0</strong></article>
+              <article><span>Sinov muddatidan keyin ketdi</span><strong>0</strong></article>
             </div>
-          </article>
-        </section>
+            <section class="page-card">
+              <div class="page-head"><h1>Jadval</h1></div>
+              <div class="tabs"><button>Toq kunlar</button><button>Juft kunlar</button><button>Boshqa</button><button>Gorizontal</button></div>
+              <div class="empty-state">Bo'sh jadval. Guruhlar yaratilganda darslar shu yerda ko'rinadi.</div>
+            </section>
+          </section>
 
-        <section class="view" id="payments">
-          <div class="section-grid">
-            <article class="panel"><h2>To'lov qabul qilish</h2><p>Naqd, karta, Click, Payme usullari. Chegirma, qaytarim va izoh kiritish.</p><button type="button">+ To'lov</button></article>
-            <article class="panel wide"><h2>Qarzdorlar ro'yxati</h2><div class="data-table"><div><b>O'quvchi</b><b>Muddat</b><b>Qarz</b><b>Eslatma</b></div><div><span>Azizbek R.</span><span>05 May</span><strong>180K</strong><button>Yuborish</button></div><div><span>Kamola S.</span><span>08 May</span><strong>320K</strong><button>Yuborish</button></div></div></article>
-          </div>
-        </section>
+          <section class="view" id="leads">
+            <div class="page-head"><h1>Lidlar</h1><span>Miqdor — 0</span></div>
+            <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Holati</option></select><select><option>Menejer</option></select><input type="date" /></div>
+            <div class="table"><div><b>Lid</b><b>Telefon</b><b>Manba</b><b>Holat</b><b>Menejer</b><b>Amallar</b></div></div>
+          </section>
 
-        <section class="view" id="schedule">
-          <article class="panel wide"><h2>Kunlik / haftalik dars jadvali</h2><div class="schedule-grid"><span>09:00 IELTS · 1-xona</span><span>11:00 Matematika · 2-xona</span><span>15:00 Kids English · 1-xona</span><span>19:00 Frontend N12 · 3-xona</span></div><p class="hint">Xona bandligi, o'qituvchi jadvali va dars vaqti to'qnashuvlari shu ekranda ko'rsatiladi.</p></article>
-        </section>
+          <section class="view" id="teachers">
+            <div class="page-head"><h1>O'qituvchilar</h1><span>Miqdor — 0</span></div>
+            <div class="notice"><strong>Diqqat!</strong><p>CEO profili orqali o'qituvchini boshqa (bir-necha) filialga biriktirishingiz mumkin.</p></div>
+          </section>
 
-        <section class="view" id="teachers">
-          <div class="cards-grid"><article><h2>Jamshid Karimov</h2><p>Frontend N12, React Pro</p><strong>42 dars soati</strong></article><article><h2>Nilufar Akramova</h2><p>English B1, B2</p><strong>36 dars soati</strong></article><article><h2>Dilorom opa</h2><p>Matematika 7-9</p><strong>48 dars soati</strong></article></div><article class="panel"><h2>Huquqlar</h2><p>O'qituvchi o'z guruhlari va davomad kiritish oynasinigina ko'radi. Ish haqi hisoboti rahbar va admin uchun ochiq.</p></article>
-        </section>
+          <section class="view" id="groups">
+            <div class="page-head"><h1>Guruhlar</h1><span>Miqdor — 0</span></div>
+            <div class="filters"><select><option>Faol guruhlar</option></select><select><option>O'qituvchi</option></select><select><option>Kurslar bo'yicha</option></select><select><option>Kunlar</option></select><select><option>Teglar</option></select><input type="date" /><input type="date" /></div>
+            <div class="table"><div><b>Guruh</b><b>Kurslar</b><b>O'qituvchi</b><b>Kunlar</b><b>Mashg'ulotlar sanalari</b><b>O'tilgan muddat</b><b>Xonalar</b><b>Tags</b><b>Talabalar</b><b>Amallar</b></div></div>
+          </section>
 
-        <section class="view" id="reports">
-          <div class="cards-grid"><article><h2>Kunlik tushum</h2><strong>8.6M</strong></article><article><h2>Oylik tushum</h2><strong>128.4M</strong></article><article><h2>O'quvchi o'sishi</h2><strong>+18%</strong></article><article><h2>Ketgan o'quvchilar</h2><strong>7</strong></article><article><h2>Guruh samaradorligi</h2><strong>91%</strong></article><article><h2>Menejer natijasi</h2><strong>23 sotuv</strong></article></div>
-        </section>
+          <section class="view" id="students">
+            <div class="page-head"><h1>Talabalar</h1><span>Miqdor — 0</span></div>
+            <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Kurslar</option></select><select><option>Talaba holati</option></select><select><option>Moliyaviy holati</option></select><select><option>Teglar bo'yicha</option></select><input placeholder="Qo'shimcha ID" /><input type="date" /><input type="date" /></div>
+            <div class="table"><div><b>Foto</b><b>Ism</b><b>Telefon</b><b>Guruhlar</b><b>O'qituvchilar</b><b>Mashg'ulotlar sanalari</b><b>Balans</b><b>Izoh</b></div><div><span>1</span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+          </section>
 
-        <section class="view" id="branches">
-          <div class="cards-grid"><article><h2>Yunusobod</h2><p>286 o'quvchi</p><strong>54.2M tushum</strong></article><article><h2>Novza</h2><p>194 o'quvchi</p><strong>38.1M tushum</strong></article><article><h2>Sergeli</h2><p>204 o'quvchi</p><strong>36.1M tushum</strong></article></div><article class="panel"><h2>Filial nazorati</h2><p>Har bir filial o'quvchilari, tushumi, qarzdorligi va xodimlari alohida ko'rinadi.</p></article>
-        </section>
+          <section class="view" id="reminders">
+            <div class="page-head"><h1>Eslatmalar</h1><span>Aktiv</span></div>
+            <div class="filters"><select><option>Xodimni tanlang</option></select><select><option>Teg tanlang</option></select><input type="date" /><input type="date" /></div>
+            <div class="reminder-grid"><article><strong>0</strong><span>Muddati o'tgan</span><p>Boshqa yo'q</p></article><article><strong>0</strong><span>Bugun</span><p>Boshqa yo'q</p></article><article><strong>0</strong><span>Kelajak</span><p>Boshqa yo'q</p></article></div>
+          </section>
 
-        <section class="view" id="staff">
-          <div class="role-grid"><article><h2>Admin</h2><p>To'liq boshqaruv</p></article><article><h2>Rahbar</h2><p>Hamma hisobot va filiallar</p></article><article><h2>Menejer</h2><p>Lidlar va o'quvchilar</p></article><article><h2>O'qituvchi</h2><p>Guruhlar va davomad</p></article><article><h2>Buxgalter</h2><p>To'lovlar va qarzdorlik</p></article></div>
-        </section>
+          <section class="view" id="rating">
+            <div class="page-head"><h1>Reyting</h1></div>
+            <div class="filters"><input type="date" value="2026-05-01" /><input type="date" value="2026-05-05" /><button>Grafik</button><button>Jadval</button><select><option>20/sahifa</option></select></div>
+            <div class="empty-state">Bo'sh</div>
+          </section>
 
-        <section class="view" id="settings">
-          <div class="settings-grid"><article><h2>Markaz nomi</h2><p>Eduka Learning Center</p></article><article><h2>Tarif</h2><p>Growth · 7 kun trial</p></article><article><h2>Til</h2><p>UZ / RU / EN</p></article><article><h2>Integratsiya</h2><p>SMS, Telegram, Click, Payme</p></article><article><h2>Kurslar/fanlar</h2><p>Fanlar ro'yxati</p></article><article><h2>Xonalar</h2><p>Xona bandligi</p></article><article><h2>Chegirma turlari</h2><p>Oilaviy, doimiy, promo</p></article></div>
-        </section>
+          <section class="view" id="attendance">
+            <div class="page-head"><h1>Davomat hisobotlari</h1><span>Miqdor — 0</span></div>
+            <div class="filters"><input type="date" value="2026-05-05" /><input placeholder="Ism" /><input placeholder="Telefon" /><select><option>Faol</option></select><button>+ 1</button><select><option>Guruh</option></select><select><option>O'qituvchi</option></select><select><option>Davomat</option></select></div>
+            <div class="empty-state">Bo'sh · 10/sahifa</div>
+          </section>
 
-        <section class="view" id="gamification">
-          <div class="cards-grid"><article><h2>O'quvchi ballari</h2><strong>12 480 XP</strong></article><article><h2>Reyting</h2><strong>Top 10</strong></article><article><h2>Sertifikat/yutuqlar</h2><strong>36 badge</strong></article><article><h2>Top guruhlar</h2><strong>Frontend N12</strong></article><article><h2>Faollik streaklari</h2><strong>18 kun</strong></article></div>
-        </section>
+          <section class="view" id="teacher-attendance">
+            <div class="page-head"><h1>Ustozlar davomati</h1></div>
+            <div class="tabs"><button>Ustozlar davomati</button><button>Ustozlar ish jadvali</button><button>Oylik maosh hisoblash</button></div>
+            <div class="filters"><input type="month" value="2026-05" /></div>
+            <div class="empty-state">Bo'sh</div>
+          </section>
+
+          <section class="view" id="finance">
+            <div class="page-head"><h1>Barcha to'lovlar</h1></div>
+            <div class="finance-summary"><article><span>To'lovlar miqdori</span><strong>0 UZS</strong><small>01.05.2026 — 31.05.2026</small></article><article><span>Sof foyda miqdori</span><strong>0 UZS</strong><small>01.05.2026 — 31.05.2026</small></article></div>
+            <div class="filters finance-filters"><label>Sanadan boshlab <input type="date" value="2026-05-01" /></label><label>Sana bo'yicha <input type="date" value="2026-05-31" /></label><input placeholder="Ism yoki Telefon" /><select><option>Guruhni tanlash</option></select><select><option>Kurs</option></select><select><option>O'qituvchi</option></select><select><option>To'lov turi</option></select><input placeholder="Sum" /><select><option>Xodimni ismi</option></select></div>
+            <div class="table"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>To'lov turi</b><b>O'qituvchi</b><b>Izoh</b><b>Xodim</b></div></div>
+          </section>
+
+          <section class="view" id="withdrawals">
+            <div class="page-head"><h1>Yechib olish</h1></div>
+            <p class="subtle">Jami yechib olishlar: 0 UZS (01.05.2026 — 31.05.2026)</p>
+            <div class="filters"><input type="date" value="2026-05-01" /><input type="date" value="2026-05-31" /><input placeholder="Ism yoki Telefon" /><input placeholder="Sum" /><select><option>Kurs</option></select></div>
+            <div class="table"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>Izoh</b><b>Xodim</b><b>Harakatlar</b></div></div>
+          </section>
+
+          <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor — 0</span></div><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="salary"><div class="page-head"><h1>Ish haqi</h1><span>new</span></div><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span>Miqdor — 0</span></div><div class="empty-state">Bo'sh</div></section>
+          <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1></div><div class="empty-state">Kunlik tushum, oylik tushum, guruh samaradorligi va menejer sotuv natijalari shu yerda bo'ladi.</div></section>
+          <section class="view" id="settings"><div class="page-head"><h1>Sozlamalar</h1></div><div class="empty-state">SMS sozlamalari, xodimlar, billing, ofis, kurslar, xonalar, teglar va arxiv chap pastki menyuda ochiladi.</div></section>
+        </main>
       </div>
     </div>
 
