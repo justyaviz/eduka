@@ -199,7 +199,7 @@ const translations = {
     centerPlaceholder: "O'quv markaz nomi",
     studentsPlaceholder: "O'quvchi soni",
     toastDemo: "Demo so'rovi yuborildi. Tez orada bog'lanamiz.",
-    toastDemoError: "So'rov yuborilmadi. Iltimos, telefon orqali bog'laning: +998 99 893 90 00.",
+    toastDemoError: "So'rov yuborilmadi. Telegram sozlamalarini tekshiring yoki telefon qiling: +998 99 893 90 00.",
     toastLogin: "CRM kabinet hozircha yopiq beta rejimida.",
     successTitle: "Arizangiz qabul qilindi",
     successText: "15 daqiqa ichida Eduka sotuv jamoasi siz bilan bog'lanadi va bepul konsultatsiya beradi.",
@@ -400,7 +400,7 @@ const translations = {
     centerPlaceholder: "Название учебного центра",
     studentsPlaceholder: "Количество учеников",
     toastDemo: "Демо-заявка отправлена. Скоро свяжемся с вами.",
-    toastDemoError: "Заявка не отправилась. Позвоните нам: +998 99 893 90 00.",
+    toastDemoError: "Заявка не отправилась. Проверьте Telegram-настройки или позвоните: +998 99 893 90 00.",
     toastLogin: "CRM кабинет пока в закрытой beta.",
     successTitle: "Заявка принята",
     successText: "В течение 15 минут команда продаж Eduka свяжется с вами и проведет бесплатную консультацию.",
@@ -601,7 +601,7 @@ const translations = {
     centerPlaceholder: "Learning center name",
     studentsPlaceholder: "Student count",
     toastDemo: "Demo request sent. We will contact you soon.",
-    toastDemoError: "Request was not sent. Please call us: +998 99 893 90 00.",
+    toastDemoError: "Request was not sent. Check Telegram settings or call us: +998 99 893 90 00.",
     toastLogin: "CRM portal is currently in private beta.",
     successTitle: "Your request is accepted",
     successText: "The Eduka sales team will contact you within 15 minutes and provide a free consultation.",
@@ -839,7 +839,10 @@ modalForm?.addEventListener("submit", async (event) => {
       })
     });
 
-    if (!response.ok) throw new Error("Request failed");
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.message || "Request failed");
+    }
 
     modalForm.classList.add("sent");
     showToast(translations[currentLang].toastDemo);
@@ -849,7 +852,8 @@ modalForm?.addEventListener("submit", async (event) => {
       modalForm.classList.remove("sent");
       openSuccessModal();
     }, 650);
-  } catch {
+  } catch (error) {
+    console.error("Demo request failed:", error.message);
     showToast(translations[currentLang].toastDemoError);
   } finally {
     submitButton.disabled = false;

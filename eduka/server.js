@@ -54,22 +54,64 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;");
 }
 
-function getTelegramConfig() {
-  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
-  const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+function firstEnvValue(names) {
+  for (const name of names) {
+    const value = String(process.env[name] || "").trim();
+    if (value) return { name, value };
+  }
 
-  if (!token || !chatId) {
+  return { name: "", value: "" };
+}
+
+function getTelegramConfig(options = {}) {
+  const tokenEnv = firstEnvValue(["TELEGRAM_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN"]);
+  const chatEnv = firstEnvValue([
+    "TELEGRAM_CHAT_ID",
+    "TELEGRAM_GROUP_ID",
+    "TELEGRAM_ADMIN_CHAT_ID",
+    "CHAT_ID"
+  ]);
+  const token = tokenEnv.value;
+  const rawChatIds = chatEnv.value
+    .split(",")
+    .map((chatId) => chatId.trim())
+    .filter(Boolean);
+
+  if (!token || rawChatIds.length === 0) {
+    if (options.allowMissing) {
+      return {
+        tokenPresent: Boolean(token),
+        chatIdCount: rawChatIds.length,
+        tokenEnvName: tokenEnv.name,
+        chatEnvName: chatEnv.name,
+        chatIds: []
+      };
+    }
+
     throw new Error("Telegram is not configured");
   }
 
-  const chatIds = [chatId];
-  const numericChatId = chatId.replace(/^-/, "");
+  const chatIds = [];
 
-  if (chatId.startsWith("-") && !chatId.startsWith("-100") && numericChatId.length >= 10) {
-    chatIds.push(`-100${numericChatId}`);
-  }
+  rawChatIds.forEach((chatId) => {
+    if (!chatIds.includes(chatId)) chatIds.push(chatId);
 
-  return { token, chatIds };
+    const numericChatId = chatId.replace(/^-/, "");
+
+    if (chatId.startsWith("-") && !chatId.startsWith("-100") && numericChatId.length >= 10) {
+      const supergroupChatId = `-100${numericChatId}`;
+      if (!chatIds.includes(supergroupChatId)) chatIds.push(supergroupChatId);
+    }
+  });
+
+  return {
+    token,
+    chatIds,
+    tokenPresent: true,
+    chatIdCount: chatIds.length,
+    tokenEnvName: tokenEnv.name,
+    chatEnvName: chatEnv.name
+  };
 }
 
 function postTelegramMessage(token, chatId, text) {
@@ -120,8 +162,10 @@ function postTelegramMessage(token, chatId, text) {
 }
 
 async function sendTelegramMessage(text) {
-  const { token, chatIds } = getTelegramConfig();
+  const { token, chatIds, tokenEnvName, chatEnvName } = getTelegramConfig();
   let lastError;
+
+  console.log(`Telegram config: token=${tokenEnvName || "missing"}, chat=${chatEnvName || "missing"}, candidates=${chatIds.length}`);
 
   for (const chatId of chatIds) {
     try {
@@ -186,9 +230,24 @@ async function handleDemoRequest(request, response) {
     const isConfigError = error.message === "Telegram is not configured";
     sendJson(response, isConfigError ? 503 : 500, {
       ok: false,
-      message: isConfigError ? "Telegram is not configured" : "Could not send request"
+      message: isConfigError ? "Telegram is not configured" : error.message
     });
   }
+}
+
+function handleTelegramHealth(response) {
+  const config = getTelegramConfig({ allowMissing: true });
+
+  sendJson(response, 200, {
+    ok: true,
+    configured: config.tokenPresent && config.chatIdCount > 0,
+    tokenPresent: config.tokenPresent,
+    chatIdCount: config.chatIdCount,
+    tokenEnvName: config.tokenEnvName || null,
+    chatEnvName: config.chatEnvName || null,
+    supportedTokenEnv: ["TELEGRAM_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN"],
+    supportedChatEnv: ["TELEGRAM_CHAT_ID", "TELEGRAM_GROUP_ID", "TELEGRAM_ADMIN_CHAT_ID", "CHAT_ID"]
+  });
 }
 
 const server = http.createServer((request, response) => {
@@ -196,6 +255,11 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "POST" && urlPath === "/api/demo") {
     handleDemoRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/telegram-health") {
+    handleTelegramHealth(response);
     return;
   }
 
