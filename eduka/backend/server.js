@@ -3,7 +3,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 
-const root = __dirname;
+const root = path.join(__dirname, "..", "frontend");
 const port = Number(process.env.PORT) || 3000;
 
 const mimeTypes = {

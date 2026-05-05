@@ -1,6 +1,13 @@
-# Eduka Landing
+# Eduka
 
-Eduka.uz uchun landing page: o'quv markazlar uchun CRM platforma taqdimoti.
+Eduka.uz uchun landing frontend va Node backend. Hozir frontend landing sahifa, backend esa static fayllar va demo arizalarni Telegramga yuboradigan API vazifasini bajaradi.
+
+## Tuzilma
+
+```txt
+frontend/  landing page, assets, legal sahifalar
+backend/   Node.js server va API endpointlar
+```
 
 ## Ishga tushirish
 
@@ -8,11 +15,11 @@ Eduka.uz uchun landing page: o'quv markazlar uchun CRM platforma taqdimoti.
 npm start
 ```
 
-Server `PORT` environment variable orqali port oladi. Lokal holatda default port: `3000`.
+Server `backend/server.js` orqali ishga tushadi va `frontend/` papkasini static qilib beradi. `PORT` environment variable orqali port oladi. Lokal holatda default port: `3000`.
 
 ## Railway
 
-Railway GitHub repository ulanganidan keyin `npm start` orqali ishga tushadi.
+Railway GitHub repository ulanganidan keyin root directory `eduka` bo'lib qoladi va `npm start` orqali ishga tushadi.
 
 Custom domain uchun Railway service ichida `Settings -> Public Networking -> Custom Domain`
 qismidan `eduka.uz` domeni qo'shiladi va Railway bergan DNS yozuvlari domen provayderida sozlanadi.
