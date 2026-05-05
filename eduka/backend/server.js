@@ -181,7 +181,8 @@ const rolePermissions = {
   teacher: ["read", "groups:read", "students:read", "attendance:write"],
   oqituvchi: ["read", "groups:read", "students:read", "attendance:write"],
   accountant: ["read", "students:read", "payments:write", "finance:write"],
-  buxgalter: ["read", "students:read", "payments:write", "finance:write"]
+  buxgalter: ["read", "students:read", "payments:write", "finance:write"],
+  auditor: ["read", "audit:read"]
 };
 
 function hasPermission(user, permission) {
@@ -608,6 +609,85 @@ async function handleSummaryRequest(request, response) {
   }
 }
 
+async function handleAnalyticsRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+
+    const pool = getDbPool();
+    const organizationId = user.organization_id;
+    const [payments, leads, students, lessons, topGroups] = await Promise.all([
+      pool.query(
+        `SELECT to_char(month, 'YYYY-MM') AS month, COALESCE(SUM(p.amount), 0)::numeric AS amount
+         FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') month
+         LEFT JOIN payments p ON p.organization_id=$1 AND date_trunc('month', p.paid_at)=month
+         GROUP BY month ORDER BY month`,
+        [organizationId]
+      ),
+      pool.query("SELECT status, COUNT(*)::int AS count FROM leads WHERE organization_id=$1 GROUP BY status", [organizationId]),
+      pool.query(
+        `SELECT to_char(month, 'YYYY-MM') AS month, COUNT(s.id)::int AS count
+         FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') month
+         LEFT JOIN students s ON s.organization_id=$1 AND date_trunc('month', s.created_at)=month
+         GROUP BY month ORDER BY month`,
+        [organizationId]
+      ),
+      pool.query(
+        `SELECT l.*, g.name AS group_name
+         FROM lessons l
+         LEFT JOIN groups g ON g.id=l.group_id
+         WHERE l.organization_id=$1 AND l.lesson_at::date=CURRENT_DATE
+         ORDER BY l.lesson_at ASC LIMIT 8`,
+        [organizationId]
+      ),
+      pool.query(
+        `SELECT g.name, COUNT(s.id)::int AS students
+         FROM groups g
+         LEFT JOIN students s ON s.group_id=g.id
+         WHERE g.organization_id=$1
+         GROUP BY g.id
+         ORDER BY students DESC, g.id DESC
+         LIMIT 5`,
+        [organizationId]
+      )
+    ]);
+
+    sendJson(response, 200, {
+      ok: true,
+      analytics: {
+        monthly_payments: payments.rows,
+        lead_funnel: leads.rows,
+        student_growth: students.rows,
+        today_lessons: lessons.rows,
+        top_groups: topGroups.rows
+      }
+    });
+  } catch (error) {
+    withError(response, "Analytics", error);
+  }
+}
+
+async function handleAuditLogsRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, "audit:read");
+    if (!user) return;
+
+    const result = await getDbPool().query(
+      `SELECT a.*, u.full_name AS user_name
+       FROM audit_logs a
+       LEFT JOIN users u ON u.id=a.user_id
+       WHERE a.organization_id=$1
+       ORDER BY a.created_at DESC
+       LIMIT 80`,
+      [user.organization_id]
+    );
+
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) {
+    withError(response, "Audit logs", error);
+  }
+}
+
 async function listRows(request, response, config) {
   try {
     const user = await requireUser(request, response, `${config.permission}:read`);
@@ -1004,6 +1084,16 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/api/app/summary") {
     handleSummaryRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/analytics") {
+    handleAnalyticsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/audit-logs") {
+    handleAuditLogsRequest(request, response);
     return;
   }
 

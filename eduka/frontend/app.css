@@ -457,6 +457,108 @@ button:active {
   margin-bottom: 18px;
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.chart-card {
+  min-height: 260px;
+  padding: 16px;
+  background: var(--white);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.chart-card .page-head h1 {
+  font-size: 18px;
+}
+
+.bar-chart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  min-height: 180px;
+  padding-top: 10px;
+}
+
+.bar-chart div {
+  position: relative;
+  display: grid;
+  align-content: end;
+  min-height: 170px;
+  gap: 6px;
+}
+
+.bar-chart i {
+  display: block;
+  min-height: 8px;
+  background: linear-gradient(180deg, var(--primary-2), var(--primary));
+  border-radius: 8px 8px 4px 4px;
+  box-shadow: 0 8px 18px rgba(30, 58, 255, 0.18);
+}
+
+.bar-chart span,
+.bar-chart strong {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.bar-chart strong {
+  color: var(--dark);
+  font-weight: 600;
+}
+
+.funnel-chart,
+.rank-list {
+  display: grid;
+  gap: 12px;
+}
+
+.funnel-chart div {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding-bottom: 13px;
+}
+
+.funnel-chart i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 7px;
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+.funnel-chart span,
+.rank-list span {
+  color: var(--muted);
+}
+
+.funnel-chart strong,
+.rank-list strong {
+  color: var(--dark);
+  font-weight: 600;
+}
+
+.rank-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 0 12px;
+  background: #f8faff;
+  border: 1px solid #edf0f6;
+  border-radius: 8px;
+}
+
 .metric-grid article,
 .page-card,
 .notice,
@@ -613,6 +715,34 @@ button:active {
   color: var(--muted);
   text-align: center;
   background: #fff;
+}
+
+.table-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 10px 0 16px;
+  color: var(--muted);
+}
+
+.table-pager span {
+  margin-right: auto;
+}
+
+.table-pager select,
+.table-pager button {
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+}
+
+.table-pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .table .row-actions {
@@ -889,6 +1019,7 @@ button:active {
   }
 
   .metric-grid,
+  .dashboard-grid,
   .reminder-grid,
   .finance-summary,
   .pipeline,

@@ -15,7 +15,14 @@ const modalTitle = document.querySelector("[data-modal-title]");
 let toastTimer;
 let activeModal = null;
 let editingId = null;
-const state = { students: [], leads: [], groups: [], teachers: [], payments: [], attendance: [] };
+let currentUser = null;
+const state = { students: [], leads: [], groups: [], teachers: [], payments: [], attendance: [], audit: [], analytics: {} };
+const uiState = {
+  globalSearch: "",
+  filters: {},
+  page: { students: 1, leads: 1, groups: 1, teachers: 1, payments: 1, attendance: 1, audit: 1 },
+  perPage: { students: 10, leads: 10, groups: 10, teachers: 10, payments: 10, attendance: 10, audit: 10 }
+};
 
 const uiIcons = {
   bell: "M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
@@ -193,10 +200,61 @@ function formatDate(value) {
   return String(value).slice(0, 10);
 }
 
+function includesText(value, query) {
+  if (!query) return true;
+  return String(value || "").toLowerCase().includes(query.toLowerCase());
+}
+
+function itemSearchText(item) {
+  return Object.values(item || {}).join(" ");
+}
+
+function dateInRange(value, from, to) {
+  const date = formatDate(value);
+  if (!date) return true;
+  if (from && date < from) return false;
+  if (to && date > to) return false;
+  return true;
+}
+
+function filteredItems(resource) {
+  const filters = uiState.filters[resource] || {};
+  const globalQuery = uiState.globalSearch.trim();
+  return (state[resource] || []).filter((item) => {
+    if (globalQuery && !includesText(itemSearchText(item), globalQuery)) return false;
+    if (filters.search && !includesText(itemSearchText(item), filters.search)) return false;
+    if (filters.status && item.status !== filters.status) return false;
+    if (filters.finance === "debt" && Number(item.balance || 0) <= 0) return false;
+    if (filters.finance === "clear" && Number(item.balance || 0) > 0) return false;
+    if (filters.course_name && !includesText(item.course_name, filters.course_name)) return false;
+    if (filters.manager_name && !includesText(item.manager_name, filters.manager_name)) return false;
+    if (filters.teacher && !includesText(`${item.teacher_full_name || ""} ${item.teacher_name || ""}`, filters.teacher)) return false;
+    if (filters.days && !includesText(item.days, filters.days)) return false;
+    if (filters.group_name && !includesText(item.group_name, filters.group_name)) return false;
+    if (filters.payment_type && item.payment_type !== filters.payment_type) return false;
+    if (filters.lesson_date && formatDate(item.lesson_date) !== filters.lesson_date) return false;
+    if (!dateInRange(item.created_at || item.paid_at || item.next_contact_at, filters.date_from, filters.date_to)) return false;
+    if (filters.starts_at && formatDate(item.starts_at) < filters.starts_at) return false;
+    if (filters.ends_at && formatDate(item.ends_at) > filters.ends_at) return false;
+    return true;
+  });
+}
+
+function pagedItems(resource) {
+  const items = filteredItems(resource);
+  const perPage = Number(uiState.perPage[resource] || 10);
+  const maxPage = Math.max(1, Math.ceil(items.length / perPage));
+  uiState.page[resource] = Math.min(uiState.page[resource] || 1, maxPage);
+  const start = (uiState.page[resource] - 1) * perPage;
+  return { items: items.slice(start, start + perPage), total: items.length, maxPage };
+}
+
 function showApp(user) {
+  currentUser = user;
   authScreen.hidden = true;
   appShell.hidden = false;
   centerName.textContent = user?.organization?.name || "ilm academy uz";
+  applyRoleUi(user?.role);
   setView("dashboard");
   refreshAll();
 }
@@ -233,6 +291,13 @@ async function loadSummary() {
   } catch {}
 }
 
+async function loadAnalytics() {
+  try {
+    const payload = await api("/api/app/analytics");
+    state.analytics = payload.analytics || {};
+  } catch {}
+}
+
 async function loadCollection(name, endpoint) {
   try {
     const payload = await api(endpoint);
@@ -245,14 +310,36 @@ async function loadCollection(name, endpoint) {
 async function refreshAll() {
   await Promise.all([
     loadSummary(),
+    loadAnalytics(),
     loadCollection("students", "/api/students"),
     loadCollection("leads", "/api/leads"),
     loadCollection("groups", "/api/groups"),
     loadCollection("teachers", "/api/teachers"),
     loadCollection("payments", "/api/payments"),
-    loadCollection("attendance", "/api/attendance")
+    loadCollection("attendance", "/api/attendance"),
+    loadCollection("audit", "/api/audit-logs")
   ]);
   renderAll();
+}
+
+function applyRoleUi(role) {
+  const normalized = String(role || "").toLowerCase();
+  const allowed = {
+    teacher: ["dashboard", "groups", "students", "attendance", "teacher-attendance"],
+    oqituvchi: ["dashboard", "groups", "students", "attendance", "teacher-attendance"],
+    accountant: ["dashboard", "students", "finance", "withdrawals", "expenses", "salary", "debtors", "reports"],
+    buxgalter: ["dashboard", "students", "finance", "withdrawals", "expenses", "salary", "debtors", "reports"],
+    manager: ["dashboard", "leads", "students", "groups", "teachers", "reminders"],
+    menejer: ["dashboard", "leads", "students", "groups", "teachers", "reminders"]
+  }[normalized];
+
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    if (!allowed) {
+      button.hidden = false;
+      return;
+    }
+    button.hidden = !allowed.includes(button.dataset.view);
+  });
 }
 
 function row(table, values) {
@@ -277,10 +364,65 @@ function resetTable(name, emptyText) {
   const table = document.querySelector(`[data-table="${name}"]`);
   if (!table) return null;
   table.querySelectorAll("div:not(:first-child)").forEach((node) => node.remove());
-  if (!state[name]?.length && emptyText) emptyRow(table, emptyText);
   const counter = document.querySelector(`[data-count="${name}"]`);
-  if (counter) counter.textContent = `Miqdor - ${state[name]?.length || 0}`;
   return table;
+}
+
+function renderPager(resource, total, maxPage) {
+  const table = document.querySelector(`[data-table="${resource}"]`);
+  if (!table) return;
+  let pager = table.nextElementSibling;
+  if (!pager || !pager.classList.contains("table-pager")) {
+    pager = document.createElement("div");
+    pager.className = "table-pager";
+    table.after(pager);
+  }
+
+  pager.innerHTML = "";
+  const info = document.createElement("span");
+  info.textContent = `${total} ta yozuv`;
+  const select = document.createElement("select");
+  [10, 20, 50].forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = `${value}/sahifa`;
+    option.selected = Number(uiState.perPage[resource]) === value;
+    select.append(option);
+  });
+  select.addEventListener("change", () => {
+    uiState.perPage[resource] = Number(select.value);
+    uiState.page[resource] = 1;
+    renderAll();
+  });
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.textContent = "Oldingi";
+  prev.disabled = uiState.page[resource] <= 1;
+  prev.addEventListener("click", () => {
+    uiState.page[resource] -= 1;
+    renderAll();
+  });
+  const page = document.createElement("strong");
+  page.textContent = `${uiState.page[resource]} / ${maxPage}`;
+  const next = document.createElement("button");
+  next.type = "button";
+  next.textContent = "Keyingi";
+  next.disabled = uiState.page[resource] >= maxPage;
+  next.addEventListener("click", () => {
+    uiState.page[resource] += 1;
+    renderAll();
+  });
+  pager.append(info, select, prev, page, next);
+}
+
+function renderResource(resource, emptyText, renderer) {
+  const table = resetTable(resource, emptyText);
+  const { items, total, maxPage } = pagedItems(resource);
+  if (!total) emptyRow(table, emptyText);
+  items.forEach((item) => renderer(table, item));
+  const counter = document.querySelector(`[data-count="${resource}"]`);
+  if (counter) counter.textContent = `Miqdor - ${total}`;
+  renderPager(resource, total, maxPage);
 }
 
 function actionButtons(resource, item) {
@@ -314,31 +456,23 @@ function money(value) {
 }
 
 function renderAll() {
-  let table = resetTable("students", "Hali talabalar yo'q. Talaba yaratish tugmasini bosing.");
-  state.students.forEach((item) => row(table, [item.full_name, item.phone, item.parent_phone, item.course_name, item.group_name, badge(item.status), money(item.balance), item.note, actionButtons("students", item)]));
+  renderResource("students", "Hali talabalar yo'q. Talaba yaratish tugmasini bosing.", (table, item) => row(table, [item.full_name, item.phone, item.parent_phone, item.course_name, item.group_name, badge(item.status), money(item.balance), item.note, actionButtons("students", item)]));
+  renderResource("leads", "Hali lidlar yo'q. Lid yaratish orqali pipeline boshlang.", (table, item) => row(table, [item.full_name, item.phone, item.source, badge(item.status), item.manager_name, formatDate(item.next_contact_at), actionButtons("leads", item)]));
+  renderResource("groups", "Hali guruhlar yo'q.", (table, item) => row(table, [item.name, item.course_name, item.teacher_full_name || item.teacher_name, item.days, `${formatDate(item.starts_at)} - ${formatDate(item.ends_at)}`, item.room, item.student_count || 0, actionButtons("groups", item)]));
+  renderResource("teachers", "Hali o'qituvchilar yo'q.", (table, item) => row(table, [item.full_name, item.phone, item.subjects, badge(item.status), money(item.salary_rate), actionButtons("teachers", item)]));
 
-  table = resetTable("leads", "Hali lidlar yo'q. Lid yaratish orqali pipeline boshlang.");
-  state.leads.forEach((item) => row(table, [item.full_name, item.phone, item.source, badge(item.status), item.manager_name, formatDate(item.next_contact_at), actionButtons("leads", item)]));
-
-  table = resetTable("groups", "Hali guruhlar yo'q.");
-  state.groups.forEach((item) => row(table, [item.name, item.course_name, item.teacher_full_name || item.teacher_name, item.days, `${formatDate(item.starts_at)} - ${formatDate(item.ends_at)}`, item.room, item.student_count || 0, actionButtons("groups", item)]));
-
-  table = resetTable("teachers", "Hali o'qituvchilar yo'q.");
-  state.teachers.forEach((item) => row(table, [item.full_name, item.phone, item.subjects, badge(item.status), money(item.salary_rate), actionButtons("teachers", item)]));
-
-  table = resetTable("payments", "Hali to'lovlar yo'q.");
   let total = 0;
-  state.payments.forEach((item) => {
+  filteredItems("payments").forEach((item) => {
     total += Number(item.amount || 0);
-    row(table, [formatDate(item.paid_at), item.student_name, money(item.amount), item.payment_type, item.note, item.created_by_name]);
   });
+  renderResource("payments", "Hali to'lovlar yo'q.", (table, item) => row(table, [formatDate(item.paid_at), item.student_name, money(item.amount), item.payment_type, item.note, item.created_by_name]));
   const financeTotal = document.querySelector("[data-finance-total]");
   if (financeTotal) financeTotal.textContent = formatMoney(total);
 
-  table = resetTable("attendance", "Hali davomat belgilanmagan.");
-  state.attendance.forEach((item) => row(table, [formatDate(item.lesson_date), item.student_name, item.group_name, badge(item.status), item.note]));
-
+  renderResource("attendance", "Hali davomat belgilanmagan.", (table, item) => row(table, [formatDate(item.lesson_date), item.student_name, item.group_name, badge(item.status), item.note]));
+  renderResource("audit", "Audit log hali bo'sh.", (table, item) => row(table, [formatDate(item.created_at), item.user_name, item.action, item.entity, item.entity_id]));
   renderPipeline();
+  renderAnalytics();
 }
 
 function renderPipeline() {
@@ -351,6 +485,47 @@ function renderPipeline() {
     card.innerHTML = `<span>${statusLabels[status]}</span><strong>${count}</strong>`;
     pipeline.append(card);
   });
+}
+
+function renderBarChart(selector, rows, valueKey, labelKey) {
+  const node = document.querySelector(selector);
+  if (!node) return;
+  node.innerHTML = "";
+  const max = Math.max(1, ...rows.map((rowItem) => Number(rowItem[valueKey] || 0)));
+  rows.forEach((rowItem) => {
+    const bar = document.createElement("div");
+    const value = Number(rowItem[valueKey] || 0);
+    bar.innerHTML = `<span>${rowItem[labelKey]}</span><strong>${value.toLocaleString("uz-UZ")}</strong><i style="height:${Math.max(8, (value / max) * 100)}%"></i>`;
+    node.append(bar);
+  });
+}
+
+function renderAnalytics() {
+  renderBarChart('[data-chart="monthly_payments"]', state.analytics.monthly_payments || [], "amount", "month");
+  renderBarChart('[data-chart="student_growth"]', state.analytics.student_growth || [], "count", "month");
+
+  const funnel = document.querySelector('[data-chart="lead_funnel"]');
+  if (funnel) {
+    funnel.innerHTML = "";
+    const rows = state.analytics.lead_funnel || [];
+    const max = Math.max(1, ...rows.map((item) => Number(item.count || 0)));
+    rows.forEach((item) => {
+      const line = document.createElement("div");
+      line.innerHTML = `<span>${statusLabels[item.status] || item.status}</span><strong>${item.count}</strong><i style="width:${Math.max(6, (Number(item.count || 0) / max) * 100)}%"></i>`;
+      funnel.append(line);
+    });
+  }
+
+  const ranks = document.querySelector('[data-chart="top_groups"]');
+  if (ranks) {
+    ranks.innerHTML = "";
+    (state.analytics.top_groups || []).forEach((item, index) => {
+      const line = document.createElement("div");
+      line.innerHTML = `<span>${index + 1}. ${item.name || "Guruh"}</span><strong>${item.students}</strong>`;
+      ranks.append(line);
+    });
+    if (!ranks.children.length) ranks.textContent = "Hali guruhlar yo'q.";
+  }
 }
 
 function selectOptions(type, value) {
@@ -425,6 +600,25 @@ modalForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const config = modalFields[activeModal];
   const data = Object.fromEntries(new FormData(modalForm).entries());
+  const phoneFields = ["phone", "parent_phone"].filter((name) => data[name]);
+  const invalidPhone = phoneFields.find((name) => normalizeDigits(data[name]).length < 9);
+  const invalidNumber = ["balance", "amount", "salary_rate"].find((name) => data[name] && Number(data[name]) < 0);
+
+  if (invalidPhone) {
+    showToast("Telefon raqam kamida 9 ta raqamdan iborat bo'lishi kerak.");
+    return;
+  }
+
+  if (invalidNumber) {
+    showToast("Summa va balans manfiy bo'lmasligi kerak.");
+    return;
+  }
+
+  if (activeModal === "students" && !editingId && state.students.some((item) => normalizeDigits(item.phone) === normalizeDigits(data.phone))) {
+    showToast("Bu telefon raqam bilan talaba allaqachon mavjud.");
+    return;
+  }
+
   const method = editingId ? "PUT" : "POST";
   const endpoint = editingId ? `${config.endpoint}/${editingId}` : config.endpoint;
 
@@ -438,6 +632,10 @@ modalForm?.addEventListener("submit", async (event) => {
   }
 });
 
+function normalizeDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 document.addEventListener("click", async (event) => {
   const openButton = event.target.closest("[data-open-modal]");
   if (openButton) openModal(openButton.dataset.openModal);
@@ -448,6 +646,36 @@ document.addEventListener("click", async (event) => {
     showAuth();
     showToast("Tizimdan chiqildi.");
   }
+});
+
+document.querySelector("[data-global-search]")?.addEventListener("input", (event) => {
+  uiState.globalSearch = event.target.value;
+  Object.keys(uiState.page).forEach((resource) => {
+    uiState.page[resource] = 1;
+  });
+  renderAll();
+});
+
+document.querySelectorAll("[data-filter-scope]").forEach((scope) => {
+  scope.addEventListener("input", (event) => {
+    const field = event.target.closest("[data-filter]");
+    if (!field) return;
+    const resource = scope.dataset.filterScope;
+    uiState.filters[resource] = uiState.filters[resource] || {};
+    uiState.filters[resource][field.dataset.filter] = field.value;
+    uiState.page[resource] = 1;
+    renderAll();
+  });
+
+  scope.addEventListener("change", (event) => {
+    const field = event.target.closest("[data-filter]");
+    if (!field) return;
+    const resource = scope.dataset.filterScope;
+    uiState.filters[resource] = uiState.filters[resource] || {};
+    uiState.filters[resource][field.dataset.filter] = field.value;
+    uiState.page[resource] = 1;
+    renderAll();
+  });
 });
 
 document.querySelector("[data-forgot]")?.addEventListener("click", () => {

@@ -76,7 +76,7 @@
         <header class="topbar">
           <button class="mobile-menu icon-button" type="button" data-mobile-menu data-ui-icon="menu" aria-label="Menyuni ochish"><span>Menu</span></button>
           <strong class="center-name" data-center-name>ilm academy uz</strong>
-          <label class="search-box"><span>Qidiruv</span><input type="search" aria-label="Qidiruv" /></label>
+          <label class="search-box"><span>Qidiruv</span><input type="search" aria-label="Qidiruv" data-global-search /></label>
           <button class="lang-button" type="button">uz</button>
           <button class="ghost-icon icon-button" type="button" data-ui-icon="bell" aria-label="Bildirishnomalar"></button>
           <button class="ghost-icon logout-button" type="button" data-logout data-ui-icon="log-out"><span>Chiqish</span></button>
@@ -101,11 +101,17 @@
               <div class="tabs"><button>Toq kunlar</button><button>Juft kunlar</button><button>Boshqa</button><button>Gorizontal</button></div>
               <div class="empty-state">Bo'sh jadval. Guruhlar yaratilganda darslar shu yerda ko'rinadi.</div>
             </section>
+            <section class="dashboard-grid">
+              <article class="chart-card"><div class="page-head"><h1>Oylik tushum</h1><span>6 oy</span></div><div class="bar-chart" data-chart="monthly_payments"></div></article>
+              <article class="chart-card"><div class="page-head"><h1>Lid funnel</h1><span>status</span></div><div class="funnel-chart" data-chart="lead_funnel"></div></article>
+              <article class="chart-card"><div class="page-head"><h1>Talaba o'sishi</h1><span>6 oy</span></div><div class="bar-chart" data-chart="student_growth"></div></article>
+              <article class="chart-card"><div class="page-head"><h1>Top guruhlar</h1><span>talabalar</span></div><div class="rank-list" data-chart="top_groups"></div></article>
+            </section>
           </section>
 
           <section class="view" id="leads">
             <div class="page-head"><h1>Lidlar</h1><span data-count="leads">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="leads" data-ui-icon="plus">Lid yaratish</button></div>
-            <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Holati</option></select><select><option>Menejer</option></select><input type="date" /></div>
+            <div class="filters" data-filter-scope="leads"><input data-filter="search" placeholder="Ism yoki telefon orqali qidirish" /><select data-filter="status"><option value="">Holati</option><option value="new">Yangi</option><option value="contacted">Aloqa qilindi</option><option value="trial">Sinov darsi</option><option value="paid">To'lov qildi</option><option value="lost">Yo'qotildi</option></select><input data-filter="manager_name" placeholder="Menejer" /><input data-filter="date_from" type="date" /></div>
             <div class="pipeline" data-pipeline></div>
             <div class="table" data-table="leads"><div><b>Lid</b><b>Telefon</b><b>Manba</b><b>Holat</b><b>Menejer</b><b>Qayta aloqa</b><b>Amallar</b></div></div>
           </section>
@@ -118,13 +124,13 @@
 
           <section class="view" id="groups">
             <div class="page-head"><h1>Guruhlar</h1><span data-count="groups">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="groups" data-ui-icon="plus">Guruh yaratish</button></div>
-            <div class="filters"><select><option>Faol guruhlar</option></select><select><option>O'qituvchi</option></select><select><option>Kurslar bo'yicha</option></select><select><option>Kunlar</option></select><input type="date" /><input type="date" /></div>
+            <div class="filters" data-filter-scope="groups"><select data-filter="status"><option value="">Barcha guruhlar</option><option value="active">Faol guruhlar</option><option value="archived">Arxiv</option></select><input data-filter="teacher" placeholder="O'qituvchi" /><input data-filter="course_name" placeholder="Kurslar bo'yicha" /><input data-filter="days" placeholder="Kunlar" /><input data-filter="starts_at" type="date" /><input data-filter="ends_at" type="date" /></div>
             <div class="table" data-table="groups"><div><b>Guruh</b><b>Kurslar</b><b>O'qituvchi</b><b>Kunlar</b><b>Mashg'ulotlar sanalari</b><b>Xona</b><b>Talabalar</b><b>Amallar</b></div></div>
           </section>
 
           <section class="view" id="students">
             <div class="page-head"><h1>Talabalar</h1><span data-count="students">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button></div>
-            <div class="filters"><input placeholder="Ism yoki telefon orqali qidirish" /><select><option>Kurslar</option></select><select><option>Talaba holati</option></select><select><option>Moliyaviy holati</option></select><input type="date" /><input type="date" /></div>
+            <div class="filters" data-filter-scope="students"><input data-filter="search" placeholder="Ism yoki telefon orqali qidirish" /><input data-filter="course_name" placeholder="Kurslar" /><select data-filter="status"><option value="">Talaba holati</option><option value="active">Faol</option><option value="frozen">Muzlatilgan</option><option value="left">Ketgan</option><option value="debtor">Qarzdor</option></select><select data-filter="finance"><option value="">Moliyaviy holati</option><option value="debt">Qarzdor</option><option value="clear">Qarzi yo'q</option></select><input data-filter="date_from" type="date" /><input data-filter="date_to" type="date" /></div>
             <div class="table" data-table="students"><div><b>Ism</b><b>Telefon</b><b>Ota-ona</b><b>Kurs</b><b>Guruh</b><b>Status</b><b>Balans</b><b>Izoh</b><b>Amallar</b></div></div>
           </section>
 
@@ -142,7 +148,7 @@
 
           <section class="view" id="attendance">
             <div class="page-head"><h1>Davomat hisobotlari</h1><span data-count="attendance">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="attendance" data-ui-icon="check">Davomat belgilash</button></div>
-            <div class="filters"><input type="date" value="2026-05-05" /><input placeholder="Ism" /><select><option>Guruh</option></select><select><option>Davomat</option></select></div>
+            <div class="filters" data-filter-scope="attendance"><input data-filter="lesson_date" type="date" value="2026-05-05" /><input data-filter="search" placeholder="Ism" /><input data-filter="group_name" placeholder="Guruh" /><select data-filter="status"><option value="">Davomat</option><option value="present">Keldi</option><option value="absent">Kelmadi</option><option value="late">Kechikdi</option><option value="excused">Sababli</option></select></div>
             <div class="table" data-table="attendance"><div><b>Sana</b><b>Talaba</b><b>Guruh</b><b>Davomat</b><b>Izoh</b></div></div>
           </section>
 
@@ -156,7 +162,7 @@
           <section class="view" id="finance">
             <div class="page-head"><h1>Barcha to'lovlar</h1><button class="section-action" type="button" data-open-modal="payments" data-ui-icon="wallet">To'lov qo'shish</button></div>
             <div class="finance-summary"><article><span>To'lovlar miqdori</span><strong data-finance-total>0 UZS</strong><small>01.05.2026 - 31.05.2026</small></article><article><span>Sof foyda miqdori</span><strong>0 UZS</strong><small>01.05.2026 - 31.05.2026</small></article></div>
-            <div class="filters finance-filters"><label>Sanadan boshlab <input type="date" value="2026-05-01" /></label><label>Sana bo'yicha <input type="date" value="2026-05-31" /></label><input placeholder="Ism yoki Telefon" /><select><option>To'lov turi</option></select></div>
+            <div class="filters finance-filters" data-filter-scope="payments"><label>Sanadan boshlab <input data-filter="date_from" type="date" value="2026-05-01" /></label><label>Sana bo'yicha <input data-filter="date_to" type="date" value="2026-05-31" /></label><input data-filter="search" placeholder="Ism yoki Telefon" /><select data-filter="payment_type"><option value="">To'lov turi</option><option value="naqd">Naqd</option><option value="karta">Karta</option><option value="click">Click</option><option value="payme">Payme</option></select></div>
             <div class="table" data-table="payments"><div><b>Sana</b><b>Talaba ismi</b><b>Sum</b><b>To'lov turi</b><b>Izoh</b><b>Xodim</b></div></div>
           </section>
 
@@ -164,7 +170,7 @@
           <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor - 0</span><button class="section-action" type="button" data-open-modal="expenses" data-ui-icon="plus">Xarajat qo'shish</button></div><div class="empty-state">Bo'sh</div></section>
           <section class="view" id="salary"><div class="page-head"><h1>Ish haqi</h1><span>new</span></div><div class="empty-state">Bo'sh</div></section>
           <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span>Miqdor - 0</span></div><div class="empty-state">Balansi bor talabalar avtomatik qarzdor sifatida ko'rinadi.</div></section>
-          <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1></div><div class="empty-state">Kunlik tushum, oylik tushum, guruh samaradorligi va menejer sotuv natijalari shu yerda bo'ladi.</div></section>
+          <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1></div><div class="table" data-table="audit"><div><b>Vaqt</b><b>Xodim</b><b>Amal</b><b>Bo'lim</b><b>ID</b></div></div></section>
           <section class="view" id="settings"><div class="page-head"><h1>Sozlamalar</h1></div><div class="empty-state">SMS sozlamalari, xodimlar, billing, ofis, kurslar, xonalar, teglar va arxiv chap pastki menyuda ochiladi.</div></section>
         </main>
       </div>
