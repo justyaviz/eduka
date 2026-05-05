@@ -285,6 +285,23 @@ async function handleDemoRequest(request, response) {
   }
 }
 
+async function handleTelegramTest(response) {
+  try {
+    const message = [
+      "<b>Eduka test xabari</b>",
+      "",
+      "Telegram ulanishi ishlayapti.",
+      `<b>Vaqt:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
+    ].join("\n");
+
+    await sendTelegramMessage(message);
+    sendJson(response, 200, { ok: true, message: "Telegram test message sent" });
+  } catch (error) {
+    console.error(`Telegram test failed: ${error.message}`);
+    sendJson(response, 500, { ok: false, message: error.message });
+  }
+}
+
 async function handleTelegramHealth(response, shouldCheckTelegram) {
   const config = getTelegramConfig({ allowMissing: true });
   const payload = {
@@ -345,6 +362,11 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/api/telegram-health") {
     handleTelegramHealth(response, query.get("check") === "1");
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/telegram-test") {
+    handleTelegramTest(response);
     return;
   }
 
