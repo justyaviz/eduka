@@ -854,7 +854,7 @@ modalForm?.addEventListener("submit", async (event) => {
     }, 650);
   } catch (error) {
     console.error("Demo request failed:", error.message);
-    showToast(translations[currentLang].toastDemoError);
+    showToast(`${translations[currentLang].toastDemoError} ${error.message}`);
   } finally {
     submitButton.disabled = false;
   }
