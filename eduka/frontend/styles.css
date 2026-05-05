@@ -2002,6 +2002,206 @@ h3 {
   }
 }
 
+/* Final Eduka brand lock */
+:root {
+  --primary: #1e3aff;
+  --primary-2: #4f6bff;
+  --brand-cyan: #4fd8ff;
+  --neon-blue: rgba(30, 58, 255, 0.34);
+  --neon-green: rgba(79, 216, 255, 0.24);
+}
+
+.hero-section {
+  background:
+    radial-gradient(circle at 78% 32%, rgba(79, 216, 255, 0.11), transparent 23%),
+    radial-gradient(circle at 18% 18%, rgba(30, 58, 255, 0.1), transparent 26%),
+    #ffffff;
+}
+
+.primary-button,
+.price-card button,
+.crm-top button,
+.modal-form button,
+.hero-actions .primary-button {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary), #3157ff 54%, var(--primary-2));
+  box-shadow: 0 18px 42px rgba(30, 58, 255, 0.28), 0 0 38px rgba(79, 107, 255, 0.3);
+}
+
+.secondary-button,
+.ghost-button,
+.hero-actions .secondary-button {
+  color: var(--primary);
+  background: #ffffff;
+  border-color: rgba(30, 58, 255, 0.55);
+}
+
+.eyebrow,
+.metric-grid strong,
+.floating-card strong,
+.pipeline-mini span {
+  color: var(--primary);
+}
+
+.hero-note span::before {
+  background: linear-gradient(135deg, var(--primary), var(--brand-cyan));
+  box-shadow: 0 0 14px rgba(30, 58, 255, 0.32);
+}
+
+.hero-panel {
+  box-shadow: 0 -18px 70px rgba(30, 58, 255, 0.12), 0 0 90px rgba(79, 107, 255, 0.24);
+}
+
+.hero-panel::before {
+  background: linear-gradient(135deg, rgba(30, 58, 255, 0.68), rgba(255, 255, 255, 0.12) 38%, rgba(79, 216, 255, 0.48));
+}
+
+.crm-preview aside p.active,
+.task-card span,
+.pipeline-mini span {
+  background: rgba(30, 58, 255, 0.08);
+}
+
+.chart-card span {
+  background: linear-gradient(180deg, #88a0ff, var(--primary));
+  box-shadow: 0 0 18px rgba(30, 58, 255, 0.22);
+}
+
+.trial-chip {
+  color: #243fda;
+  background: rgba(30, 58, 255, 0.08);
+  border-color: rgba(30, 58, 255, 0.22);
+  box-shadow: 0 0 22px rgba(30, 58, 255, 0.12);
+}
+
+.price-card:hover {
+  border-color: rgba(30, 58, 255, 0.26);
+  box-shadow: 0 22px 60px rgba(16, 24, 40, 0.12), 0 0 34px rgba(30, 58, 255, 0.14);
+}
+
+/* Eduka brand color correction */
+:root {
+  --primary: #1e3aff;
+  --primary-2: #4f6bff;
+  --brand-cyan: #4fd8ff;
+  --neon-blue: rgba(30, 58, 255, 0.34);
+  --neon-green: rgba(79, 216, 255, 0.28);
+}
+
+.primary-button,
+.price-card button,
+.crm-top button,
+.modal-form button {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 12px 30px rgba(30, 58, 255, 0.24), 0 0 34px var(--neon-blue);
+}
+
+.primary-button:hover,
+.price-card button:hover,
+.crm-top button:hover,
+.modal-form button:hover {
+  box-shadow: 0 16px 36px rgba(30, 58, 255, 0.3), 0 0 46px rgba(79, 107, 255, 0.34);
+}
+
+.secondary-button,
+.ghost-button {
+  color: var(--primary);
+  background: #ffffff;
+  border-color: rgba(30, 58, 255, 0.55);
+}
+
+.secondary-button:hover,
+.ghost-button:hover {
+  box-shadow: 0 0 28px rgba(30, 58, 255, 0.18);
+}
+
+.hero-section {
+  background:
+    radial-gradient(circle at 78% 32%, rgba(79, 216, 255, 0.11), transparent 23%),
+    radial-gradient(circle at 18% 18%, rgba(30, 58, 255, 0.1), transparent 26%),
+    #ffffff;
+}
+
+.eyebrow {
+  color: var(--primary);
+}
+
+.hero-actions .primary-button {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary), #3157ff 54%, var(--primary-2));
+  box-shadow: 0 18px 42px rgba(30, 58, 255, 0.28), 0 0 38px rgba(79, 107, 255, 0.32);
+}
+
+.hero-actions .secondary-button {
+  color: var(--primary);
+  background: #ffffff;
+}
+
+.hero-note span::before {
+  background: linear-gradient(135deg, var(--primary), var(--brand-cyan));
+  box-shadow: 0 0 14px rgba(30, 58, 255, 0.32);
+}
+
+.hero-panel {
+  box-shadow: 0 -18px 70px rgba(30, 58, 255, 0.12), 0 0 90px rgba(79, 107, 255, 0.24);
+}
+
+.hero-panel::before {
+  background: linear-gradient(135deg, rgba(30, 58, 255, 0.68), rgba(255, 255, 255, 0.12) 38%, rgba(79, 216, 255, 0.48));
+}
+
+.crm-preview aside p.active {
+  color: var(--primary);
+  background: rgba(30, 58, 255, 0.08);
+}
+
+.metric-grid strong,
+.floating-card strong {
+  color: var(--primary);
+}
+
+.chart-card span {
+  background: linear-gradient(180deg, #88a0ff, var(--primary));
+  box-shadow: 0 0 18px rgba(30, 58, 255, 0.22);
+}
+
+.task-card span,
+.pipeline-mini span {
+  background: rgba(30, 58, 255, 0.09);
+}
+
+.pipeline-mini span {
+  color: var(--primary);
+}
+
+.trial-chip {
+  color: #243fda;
+  background: rgba(30, 58, 255, 0.08);
+  border-color: rgba(30, 58, 255, 0.22);
+  box-shadow: 0 0 22px rgba(30, 58, 255, 0.12);
+}
+
+.price-card.featured .trial-chip {
+  color: #dfe6ff;
+  background: rgba(79, 107, 255, 0.16);
+  border-color: rgba(130, 150, 255, 0.42);
+}
+
+.price-card:hover {
+  border-color: rgba(30, 58, 255, 0.26);
+  box-shadow: 0 22px 60px rgba(16, 24, 40, 0.12), 0 0 34px rgba(30, 58, 255, 0.14);
+}
+
+@keyframes neonPulse {
+  0%,
+  100% {
+    box-shadow: 0 -18px 70px rgba(30, 58, 255, 0.12), 0 0 74px rgba(79, 107, 255, 0.22);
+  }
+  50% {
+    box-shadow: 0 -20px 78px rgba(30, 58, 255, 0.2), 0 0 104px rgba(79, 216, 255, 0.28);
+  }
+}
+
 /* Professional trial hero refresh */
 :root {
   --primary: #0f62fe;
@@ -2103,15 +2303,15 @@ body {
 
 .secondary-button,
 .ghost-button {
-  color: #ff6b00;
+  color: var(--primary);
   background: #ffffff;
-  border: 1.5px solid #ff7a1a;
-  box-shadow: 0 0 0 rgba(255, 122, 26, 0);
+  border: 1.5px solid var(--primary);
+  box-shadow: 0 0 0 rgba(30, 58, 255, 0);
 }
 
 .secondary-button:hover,
 .ghost-button:hover {
-  box-shadow: 0 0 26px rgba(255, 122, 26, 0.22);
+  box-shadow: 0 0 26px rgba(30, 58, 255, 0.18);
 }
 
 .large {
@@ -2143,7 +2343,7 @@ body {
 }
 
 .eyebrow {
-  color: #ff7a1a;
+  color: var(--primary);
   font-size: 13px;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -2175,12 +2375,12 @@ h1 {
 
 .hero-actions .primary-button {
   color: #10131c;
-  background: linear-gradient(135deg, #ffd94d, #ff9029);
-  box-shadow: 0 18px 42px rgba(255, 144, 41, 0.28), 0 0 34px rgba(255, 217, 77, 0.28);
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 18px 42px rgba(30, 58, 255, 0.28), 0 0 34px rgba(79, 107, 255, 0.28);
 }
 
 .hero-actions .secondary-button {
-  color: #ff6b00;
+  color: var(--primary);
   background: #ffffff;
 }
 
@@ -2273,8 +2473,8 @@ h1 {
 }
 
 .crm-preview aside p.active {
-  color: #ff7a1a;
-  background: #fff6ed;
+  color: var(--primary);
+  background: rgba(30, 58, 255, 0.08);
 }
 
 .crm-main {
@@ -2312,22 +2512,22 @@ h1 {
 }
 
 .metric-grid strong {
-  color: #ff7a1a;
+  color: var(--primary);
   font-size: 30px;
 }
 
 .chart-card span {
-  background: linear-gradient(180deg, #ffb347, #ff7a1a);
-  box-shadow: 0 0 18px rgba(255, 122, 26, 0.22);
+  background: linear-gradient(180deg, #88a0ff, var(--primary));
+  box-shadow: 0 0 18px rgba(30, 58, 255, 0.18);
 }
 
 .task-card span,
 .pipeline-mini span {
-  background: rgba(255, 122, 26, 0.1);
+  background: rgba(30, 58, 255, 0.09);
 }
 
 .pipeline-mini span {
-  color: #ff6b00;
+  color: var(--primary);
 }
 
 .floating-card {
@@ -2337,7 +2537,7 @@ h1 {
 }
 
 .floating-card strong {
-  color: #ff7a1a;
+  color: var(--primary);
 }
 
 .pricing-section {
@@ -2587,4 +2787,81 @@ h1 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Final Eduka brand lock */
+:root {
+  --primary: #1e3aff;
+  --primary-2: #4f6bff;
+  --brand-cyan: #4fd8ff;
+  --neon-blue: rgba(30, 58, 255, 0.34);
+  --neon-green: rgba(79, 216, 255, 0.24);
+}
+
+.hero-section {
+  background:
+    radial-gradient(circle at 78% 32%, rgba(79, 216, 255, 0.11), transparent 23%),
+    radial-gradient(circle at 18% 18%, rgba(30, 58, 255, 0.1), transparent 26%),
+    #ffffff;
+}
+
+.primary-button,
+.price-card button,
+.crm-top button,
+.modal-form button,
+.hero-actions .primary-button {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary), #3157ff 54%, var(--primary-2));
+  box-shadow: 0 18px 42px rgba(30, 58, 255, 0.28), 0 0 38px rgba(79, 107, 255, 0.3);
+}
+
+.secondary-button,
+.ghost-button,
+.hero-actions .secondary-button {
+  color: var(--primary);
+  background: #ffffff;
+  border-color: rgba(30, 58, 255, 0.55);
+}
+
+.eyebrow,
+.metric-grid strong,
+.floating-card strong,
+.pipeline-mini span {
+  color: var(--primary);
+}
+
+.hero-note span::before {
+  background: linear-gradient(135deg, var(--primary), var(--brand-cyan));
+  box-shadow: 0 0 14px rgba(30, 58, 255, 0.32);
+}
+
+.hero-panel {
+  box-shadow: 0 -18px 70px rgba(30, 58, 255, 0.12), 0 0 90px rgba(79, 107, 255, 0.24);
+}
+
+.hero-panel::before {
+  background: linear-gradient(135deg, rgba(30, 58, 255, 0.68), rgba(255, 255, 255, 0.12) 38%, rgba(79, 216, 255, 0.48));
+}
+
+.crm-preview aside p.active,
+.task-card span,
+.pipeline-mini span {
+  background: rgba(30, 58, 255, 0.08);
+}
+
+.chart-card span {
+  background: linear-gradient(180deg, #88a0ff, var(--primary));
+  box-shadow: 0 0 18px rgba(30, 58, 255, 0.22);
+}
+
+.trial-chip {
+  color: #243fda;
+  background: rgba(30, 58, 255, 0.08);
+  border-color: rgba(30, 58, 255, 0.22);
+  box-shadow: 0 0 22px rgba(30, 58, 255, 0.12);
+}
+
+.price-card:hover {
+  border-color: rgba(30, 58, 255, 0.26);
+  box-shadow: 0 22px 60px rgba(16, 24, 40, 0.12), 0 0 34px rgba(30, 58, 255, 0.14);
 }
