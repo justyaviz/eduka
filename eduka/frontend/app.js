@@ -35,6 +35,7 @@ const uiState = {
 };
 
 const uiIcons = {
+  archive: "M5 4h14v16H5z M8 8h8 M8 12h8",
   bell: "M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
   check: "M20 6L9 17l-5-5",
   edit: "M4 20h4l10-10-4-4L4 16v4z M14 6l4 4",
@@ -43,7 +44,45 @@ const uiIcons = {
   plus: "M12 5v14 M5 12h14",
   trash: "M5 7h14 M10 11v6 M14 11v6 M8 7l1-3h6l1 3 M7 7l1 13h8l1-13",
   "user-plus": "M9 11a4 4 0 118 0 4 4 0 01-8 0z M3 21c1.5-4 11.5-4 13 0 M19 8v6 M16 11h6",
+  users: "M8 11a4 4 0 118 0 M3 21c2-5 16-5 18 0",
   wallet: "M4 7h16v12H4z M16 12h4 M7 7V5h10"
+};
+
+const generatedViews = {
+  "center-info": ["Markaz ma'lumotlari", "Telegram, YouTube, Instagram, operator va support kontaktlari", "form"],
+  "general-settings": ["Umumiy sozlamalar", "Chek, davomat, qarzdorlik va o'qituvchi ruxsatlari", "toggles"],
+  "office-settings": ["Ofis", "Lavozimlar, xodimlar, xonalar va bayram kunlari", "cards"],
+  positions: ["Lavozimlar ro'yhati", "Adminstrator, buxgalter, kassir, teacher va boshqa rollar", "roles"],
+  employees: ["Xodimlar ro'yhati", "Xodimlar, rollar va ruxsatlarni boshqarish", "table"],
+  rooms: ["Xonalar", "Xona bandligi va dars jadvali bilan bog'lash", "table"],
+  holidays: ["Bayram kunlari", "Dam olish kunlari va o'quv kalendari", "table"],
+  "receipt-settings": ["Chek sozlamalari", "Chek ko'rinishi, printer va fiskal sozlamalar", "receipt"],
+  courses: ["Kurslar", "Kurs narxi, davomiyligi va darajalari", "table"],
+  "sms-settings": ["SMS", "SMS sotib olish, auto sms va shablonlar", "toggles"],
+  forms: ["Formalar", "Lid formalar va oddiy forma sozlamalari", "table"],
+  tags: ["Teglar", "Talaba, lid va guruhlar uchun teglar", "table"],
+  "payment-types": ["To'lov turlari", "Naqd, karta, Click, Payme va boshqa usullar", "table"],
+  accounting: ["Hisob-kitoblar", "Tarif, billing va hisob-kitob sozlamalari", "cards"],
+  "course-report": ["Kurs hisoboti", "Kurslar bo'yicha o'sish va rentabellik", "report"],
+  "teacher-efficiency": ["O'qituvchi samaradorligi", "Davomat, to'lov va guruh natijalari", "report"],
+  "cashflow-report": ["Pul oqimi", "Daromad, chiqim, maosh va sof foyda", "report"],
+  "salary-report": ["Ish haqi hisoboti", "O'qituvchi va xodimlar ish haqi", "report"],
+  "lead-report": ["Lid hisobotlari", "Manba, menejer va konversiya bo'yicha", "report"],
+  "removed-students-report": ["Guruhdan o'chirilganlar hisoboti", "Ketgan talabalar va sabablar", "report"],
+  "points-report": ["Ballar hisoboti", "Gamification va reyting ballari", "report"],
+  "exam-report": ["Imtihon hisoboti", "Imtihon natijalari va sertifikatlar", "report"],
+  "discount-report": ["Chegirma hisoboti", "Chegirmalar, qaytarimlar va ta'siri", "report"],
+  "sent-sms-report": ["Yuborilgan SMSlar", "SMS loglari va yetkazilish holati", "report"],
+  "worktime-report": ["Ish vaqti hisoboti", "Xodimlar ish vaqti va davomati", "report"],
+  journals: ["Jurnallar", "Audit, tizim loglari va harakatlar tarixi", "report"],
+  "coin-report": ["Tanga/Kristal hisoboti", "Gamification mukofotlari", "report"],
+  "archive-leads": ["Arxiv: Lidlar", "Arxivlangan lidlar", "archive"],
+  "archive-students": ["Arxiv: Talabalar", "Arxivlangan talabalar", "archive"],
+  "archive-teachers": ["Arxiv: O'qituvchilar", "Arxivlangan o'qituvchilar", "archive"],
+  "archive-employees": ["Arxiv: Xodimlar", "Arxivlangan xodimlar", "archive"],
+  "archive-groups": ["Arxiv: Guruhlar", "Arxivlangan guruhlar", "archive"],
+  "archive-finance": ["Arxiv: Moliya", "Arxivlangan moliya yozuvlari", "archive"],
+  market: ["Market", "Qo'shimcha modullar va integratsiyalar", "market"]
 };
 
 function svgIcon(name) {
@@ -73,6 +112,40 @@ document.querySelectorAll(".side-nav button[data-icon]").forEach((button) => {
 document.querySelectorAll("[data-ui-icon]").forEach((button) => {
   button.prepend(svgIcon(button.dataset.uiIcon));
 });
+
+function createGeneratedViews() {
+  const content = document.querySelector(".content");
+  Object.entries(generatedViews).forEach(([id, [title, description, type]]) => {
+    if (document.getElementById(id)) return;
+    const section = document.createElement("section");
+    section.className = "view generated-view";
+    section.id = id;
+    section.innerHTML = generatedViewHtml(title, description, type);
+    content.append(section);
+  });
+}
+
+function generatedViewHtml(title, description, type) {
+  if (type === "form") {
+    return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-form"><label>Administrator telegram username<input placeholder="https://t.me/" /></label><label>Telegram kanal<input placeholder="https://t.me/" /></label><label>YouTube<input placeholder="https://www.youtube.com/" /></label><label>Instagram<input placeholder="https://www.instagram.com/" /></label><label>Operator raqami<input placeholder="+998 __ ___ __ __" /></label><label>Viloyat<select><option>Farg'ona viloyati</option><option>Toshkent shahri</option></select></label></div><div class="modal-actions"><button type="button">Saqlash</button></div></section>`;
+  }
+  if (type === "toggles") {
+    const rows = ["Chegirma o'qituvchilarga ta'sir qilsin", "To'lov qilingandan so'ng chek chiqarish", "To'lov yaratishda sana tanlansin", "Qarzdor talabani bloklash", "Yangi lid nomerini SMS orqali tasdiqlash", "Davomatdan keyin ota-onaga xabar yuborish"];
+    return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="toggle-list">${rows.map((row, index) => `<label><input type="checkbox" ${index === 1 ? "checked" : ""}/><span>${row}</span></label>`).join("")}</div></section>`;
+  }
+  if (type === "roles") {
+    return `<section class="settings-panel"><div class="page-head"><h1>${title}</h1><button class="section-action" type="button">Lavozim qo'shish</button></div><p>${description}</p><div class="role-list">${["Exerciser", "Developer", "Kassir", "Chop etuvchi", "Marketolog", "Adminstrator", "Buxgalter", "Teacher"].map((role) => `<article><b>${role[0]}</b><span>${role}</span><small>global</small></article>`).join("")}</div></section>`;
+  }
+  if (type === "receipt") {
+    return `<section class="split-panels"><article><div class="page-head"><h1>${title}</h1><button class="section-action">Tahrirlash</button></div><div class="table simple-table"><div><b>T/R</b><b>Nomi</b></div><div class="table-empty">Ma'lumot topilmadi</div></div></article><article><h1>Chek ko'rinishi</h1><div class="receipt-preview">EDUKA<br/>O'quv markazi cheki</div></article></section>`;
+  }
+  if (type === "market") {
+    return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-grid"><article><h2>Telegram bot</h2><p>Davomat va qarzdorlik xabarlari.</p></article><article><h2>Excel import/export</h2><p>Talabalar va moliya fayllari.</p></article><article><h2>SMS gateway</h2><p>Auto SMS va shablonlar.</p></article></div></section>`;
+  }
+  return `<section class="settings-panel"><div class="page-head list-head"><h1>${title}</h1><label><span>15</span><input value="15" /></label><button class="section-action" type="button">Qo'shish</button></div><p>${description}</p><div class="filters"><input placeholder="Qidirish" /><button>Tozalash</button><button>Excelga eksport qilish</button></div><div class="table simple-table"><div><b>T/R</b><b>Nomi</b><b>Holat</b><b>Yaratilgan vaqt</b><b>Amallar</b></div><div class="table-empty">Ma'lumot topilmadi</div></div></section>`;
+}
+
+createGeneratedViews();
 
 const statusLabels = {
   new: "Yangi",
@@ -285,9 +358,16 @@ function showAuth() {
 
 function setView(viewName) {
   pageViews.forEach((view) => view.classList.toggle("active", view.id === viewName));
-  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
-  financeSubnav.hidden = !["finance", "withdrawals", "expenses", "salary", "debtors"].includes(viewName);
-  settingsSubnav.hidden = viewName !== "settings";
+  document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewName));
+  document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
+  const financeViews = ["finance", "withdrawals", "extra-income", "expenses", "salary", "bonuses", "debtors"];
+  const settingsViews = ["settings", "center-info", "general-settings", "office-settings", "positions", "employees", "rooms", "holidays", "receipt-settings", "courses", "sms-settings", "forms", "tags", "payment-types", "accounting"];
+  const reportViews = ["reports", "course-report", "teacher-efficiency", "cashflow-report", "salary-report", "lead-report", "removed-students-report", "attendance", "points-report", "exam-report", "discount-report", "sent-sms-report", "worktime-report", "journals", "coin-report"];
+  const archiveViews = ["archive-leads", "archive-students", "archive-teachers", "archive-employees", "archive-groups", "archive-finance"];
+  financeSubnav.hidden = !financeViews.includes(viewName);
+  settingsSubnav.hidden = !settingsViews.includes(viewName);
+  document.querySelector('[data-subnav="reports"]').hidden = !reportViews.includes(viewName);
+  document.querySelector('[data-subnav="archive"]').hidden = !archiveViews.includes(viewName);
   document.body.classList.remove("menu-open");
 }
 
