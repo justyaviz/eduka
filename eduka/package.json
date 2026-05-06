@@ -4,7 +4,9 @@
   "private": true,
   "description": "Eduka landing frontend and backend service for eduka.uz",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js",
+    "build": "node --check backend/server.js && node --check frontend/crm-mock.js && node --check frontend/crm-services.js && node --check frontend/app.js"
   },
   "dependencies": {
     "pg": "^8.13.1"

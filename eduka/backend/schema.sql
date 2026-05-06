@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + interval '7 days'),
   license_expires_at TIMESTAMPTZ,
   setup_completed_at TIMESTAMPTZ,
+  support_note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS leads (
   organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   phone TEXT,
+  course_name TEXT,
   status TEXT NOT NULL DEFAULT 'new',
   source TEXT,
   manager_name TEXT,
@@ -78,8 +80,10 @@ CREATE TABLE IF NOT EXISTS courses (
   id BIGSERIAL PRIMARY KEY,
   organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  description TEXT,
   price NUMERIC(14, 2) NOT NULL DEFAULT 0,
   duration TEXT,
+  level TEXT,
   lesson_type TEXT NOT NULL DEFAULT 'group',
   status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -108,10 +112,13 @@ CREATE TABLE IF NOT EXISTS teachers (
   organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   phone TEXT,
+  email TEXT,
   course_name TEXT,
   subjects TEXT,
+  groups TEXT,
   login_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   status TEXT NOT NULL DEFAULT 'active',
+  salary_type TEXT NOT NULL DEFAULT 'fixed',
   salary_rate NUMERIC(14, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -285,6 +292,8 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS setup_completed_at TIMESTAMPT
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS manager_name TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS course_name TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS support_note TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_contact_at TIMESTAMPTZ;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS note TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_phone TEXT;
@@ -295,8 +304,13 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS group_id BIGINT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_type TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS discount NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS level TEXT;
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS course_name TEXT;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS groups TEXT;
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS login_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS salary_type TEXT NOT NULL DEFAULT 'fixed';
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS course_name TEXT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_id BIGINT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS days TEXT;

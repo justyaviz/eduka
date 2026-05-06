@@ -1089,6 +1089,120 @@ async function handleSuperTariffsRequest(request, response) {
   }
 }
 
+async function handleSuperSubscriptionsRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    const result = await getDbPool().query(
+      `SELECT s.*, o.name AS center_name, t.name AS tariff_name
+       FROM subscriptions s
+       LEFT JOIN organizations o ON o.id=s.organization_id
+       LEFT JOIN tariffs t ON t.id=s.tariff_id
+       ORDER BY s.id DESC
+       LIMIT 200`
+    );
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) {
+    withError(response, "Super subscriptions", error);
+  }
+}
+
+async function handleSuperPaymentsRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    const result = await getDbPool().query(
+      `SELECT p.*, o.name AS center_name
+       FROM payments p
+       LEFT JOIN organizations o ON o.id=p.organization_id
+       ORDER BY p.paid_at DESC, p.id DESC
+       LIMIT 200`
+    );
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) {
+    withError(response, "Super payments", error);
+  }
+}
+
+async function handleSuperSupportRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    const result = await getDbPool().query(
+      `SELECT o.id, o.name AS center_name, 'Support izoh' AS subject,
+              COALESCE(o.support_note, 'Hozircha support yozuvi yoq') AS message,
+              o.updated_at AS created_at
+       FROM organizations o
+       ORDER BY o.updated_at DESC
+       LIMIT 100`
+    );
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) {
+    withError(response, "Super support", error);
+  }
+}
+
+async function handleSuperSettingsRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    sendJson(response, 200, {
+      ok: true,
+      settings: {
+        support_telegram: process.env.SUPPORT_TELEGRAM || "@eduka_admin",
+        trial_days: 7,
+        billing_lock_enabled: true
+      }
+    });
+  } catch (error) {
+    withError(response, "Super settings", error);
+  }
+}
+
+async function handleLeadConvertRequest(request, response, leadId) {
+  try {
+    const user = await requireUser(request, response, "leads:write");
+    if (!user) return;
+    const pool = getDbPool();
+    const leadResult = await pool.query("SELECT * FROM leads WHERE id=$1 AND organization_id=$2", [leadId, user.organization_id]);
+    const lead = leadResult.rows[0];
+    if (!lead) {
+      sendJson(response, 404, { ok: false, message: "Lid topilmadi" });
+      return;
+    }
+    const student = await pool.query(
+      `INSERT INTO students (organization_id, full_name, phone, course_name, status, note)
+       VALUES ($1,$2,$3,$4,'active',$5) RETURNING *`,
+      [user.organization_id, lead.full_name, lead.phone, lead.course_name || "", `Liddan o'tkazildi: ${lead.note || ""}`]
+    );
+    await pool.query("UPDATE leads SET status='paid' WHERE id=$1 AND organization_id=$2", [leadId, user.organization_id]);
+    await writeAudit(pool, user, "convert", "leads", leadId, { student_id: student.rows[0].id });
+    sendJson(response, 201, { ok: true, item: student.rows[0] });
+  } catch (error) {
+    withError(response, "Lead convert", error);
+  }
+}
+
+async function handleLeadStatusRequest(request, response, leadId) {
+  try {
+    const user = await requireUser(request, response, "leads:write");
+    if (!user) return;
+    const body = await readJsonBody(request);
+    const result = await getDbPool().query(
+      "UPDATE leads SET status=$3 WHERE id=$1 AND organization_id=$2 RETURNING *",
+      [leadId, user.organization_id, asText(body.status, "new")]
+    );
+    if (!result.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "Lid topilmadi" });
+      return;
+    }
+    await writeAudit(getDbPool(), user, "status", "leads", leadId, { status: body.status });
+    sendJson(response, 200, { ok: true, item: result.rows[0] });
+  } catch (error) {
+    withError(response, "Lead status", error);
+  }
+}
+
 async function handleSummaryRequest(request, response) {
   try {
     const user = await findSessionUser(request);
@@ -1292,6 +1406,21 @@ async function listRows(request, response, config) {
   }
 }
 
+async function getRow(request, response, config, id) {
+  try {
+    const user = await requireUser(request, response, `${config.permission}:read`);
+    if (!user) return;
+    const result = await getDbPool().query(`SELECT * FROM (${config.listSql}) data WHERE id=$2 LIMIT 1`, [user.organization_id, id]);
+    if (!result.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
+      return;
+    }
+    sendJson(response, 200, { ok: true, item: result.rows[0] });
+  } catch (error) {
+    withError(response, `Get ${config.entity}`, error);
+  }
+}
+
 async function createRow(request, response, config) {
   try {
     const user = await requireUser(request, response, `${config.permission}:write`);
@@ -1372,20 +1501,23 @@ const crudConfigs = {
   courses: {
     entity: "courses",
     permission: "courses",
-    listSql: "SELECT * FROM courses WHERE organization_id=$1 ORDER BY id DESC",
-    searchColumns: ["name", "duration", "lesson_type", "status"],
+    listSql: `SELECT c.*,
+        (SELECT COUNT(*)::int FROM groups g WHERE g.organization_id=c.organization_id AND g.course_name=c.name) AS groups_count,
+        (SELECT COUNT(*)::int FROM students s WHERE s.organization_id=c.organization_id AND s.course_name=c.name) AS students_count
+      FROM courses c WHERE c.organization_id=$1 ORDER BY c.id DESC`,
+    searchColumns: ["name", "description", "duration", "lesson_type", "status"],
     filterColumns: { status: "status", lesson_type: "lesson_type" },
     sortColumns: ["id", "name", "price", "status", "created_at"],
     defaultSort: "id",
-    insertSql: `INSERT INTO courses (organization_id, name, price, duration, lesson_type, status)
-      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    updateSql: `UPDATE courses SET name=$3, price=$4, duration=$5, lesson_type=$6, status=$7
+    insertSql: `INSERT INTO courses (organization_id, name, description, price, duration, level, lesson_type, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    updateSql: `UPDATE courses SET name=$3, description=$4, price=$5, duration=$6, level=$7, lesson_type=$8, status=$9
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
     deleteSql: "DELETE FROM courses WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
-        ? [id, user.organization_id, asText(body.name), asNumber(body.price), asText(body.duration), asText(body.lesson_type, "group"), asText(body.status, "active")]
-        : [user.organization_id, asText(body.name), asNumber(body.price), asText(body.duration), asText(body.lesson_type, "group"), asText(body.status, "active")]
+        ? [id, user.organization_id, asText(body.name), asText(body.description), asNumber(body.price), asText(body.duration), asText(body.level), asText(body.lesson_type, "group"), asText(body.status, "active")]
+        : [user.organization_id, asText(body.name), asText(body.description), asNumber(body.price), asText(body.duration), asText(body.level), asText(body.lesson_type, "group"), asText(body.status, "active")]
     })
   },
   students: {
@@ -1421,15 +1553,15 @@ const crudConfigs = {
     filterColumns: { status: "status", manager_name: "manager_name" },
     sortColumns: ["id", "full_name", "status", "created_at", "next_contact_at"],
     defaultSort: "id",
-    insertSql: `INSERT INTO leads (organization_id, full_name, phone, status, source, manager_name, next_contact_at, note)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    updateSql: `UPDATE leads SET full_name=$3, phone=$4, status=$5, source=$6, manager_name=$7, next_contact_at=$8, note=$9
+    insertSql: `INSERT INTO leads (organization_id, full_name, phone, course_name, status, source, manager_name, next_contact_at, note)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    updateSql: `UPDATE leads SET full_name=$3, phone=$4, course_name=$5, status=$6, source=$7, manager_name=$8, next_contact_at=$9, note=$10
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
     deleteSql: "DELETE FROM leads WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
-        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.status, "new"), asText(body.source), asText(body.manager_name), asDate(body.next_contact_at), asText(body.note)]
-        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.status, "new"), asText(body.source), asText(body.manager_name), asDate(body.next_contact_at), asText(body.note)]
+        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.course_name), asText(body.status, "new"), asText(body.source), asText(body.manager_name), asDate(body.next_contact_at), asText(body.note)]
+        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.course_name), asText(body.status, "new"), asText(body.source), asText(body.manager_name), asDate(body.next_contact_at), asText(body.note)]
     })
   },
   groups: {
@@ -1461,19 +1593,19 @@ const crudConfigs = {
     entity: "teachers",
     permission: "teachers",
     listSql: "SELECT * FROM teachers WHERE organization_id=$1 ORDER BY id DESC",
-    searchColumns: ["full_name", "phone", "subjects"],
-    filterColumns: { status: "status" },
+    searchColumns: ["full_name", "phone", "email", "course_name", "subjects"],
+    filterColumns: { status: "status", course_name: "course_name" },
     sortColumns: ["id", "full_name", "status", "created_at"],
     defaultSort: "id",
-    insertSql: `INSERT INTO teachers (organization_id, full_name, phone, course_name, subjects, login_enabled, status, salary_rate)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    updateSql: `UPDATE teachers SET full_name=$3, phone=$4, course_name=$5, subjects=$6, login_enabled=$7, status=$8, salary_rate=$9
+    insertSql: `INSERT INTO teachers (organization_id, full_name, phone, email, course_name, subjects, groups, login_enabled, status, salary_type, salary_rate)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    updateSql: `UPDATE teachers SET full_name=$3, phone=$4, email=$5, course_name=$6, subjects=$7, groups=$8, login_enabled=$9, status=$10, salary_type=$11, salary_rate=$12
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
     deleteSql: "DELETE FROM teachers WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
-        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.course_name), asText(body.subjects), Boolean(body.login_enabled), asText(body.status, "active"), asNumber(body.salary_rate)]
-        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.course_name), asText(body.subjects), Boolean(body.login_enabled), asText(body.status, "active"), asNumber(body.salary_rate)]
+        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate)]
+        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate)]
     })
   }
 };
@@ -1594,9 +1726,12 @@ async function listPayments(request, response) {
     );
     params.push(limit, offset);
     const result = await getDbPool().query(
-      `SELECT p.*, s.full_name AS student_name, u.full_name AS created_by_name
+      `SELECT p.*, s.full_name AS student_name, g.name AS group_name, u.full_name AS created_by_name,
+              p.amount AS paid_amount,
+              GREATEST(COALESCE(p.due_amount, 0) - COALESCE(p.amount, 0) - COALESCE(p.discount, 0), 0)::numeric AS remaining_debt
        FROM payments p
        LEFT JOIN students s ON s.id = p.student_id
+       LEFT JOIN groups g ON g.id = p.group_id
        LEFT JOIN users u ON u.id = p.created_by
        ${where}
        ORDER BY p.paid_at DESC, p.id DESC
@@ -1846,7 +1981,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/api/auth/me") {
+  if (request.method === "GET" && ["/api/auth/me", "/api/me"].includes(urlPath)) {
     handleMeRequest(request, response);
     return;
   }
@@ -1861,12 +1996,17 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/api/app/summary") {
+  if (request.method === "GET" && ["/api/app/summary", "/api/dashboard"].includes(urlPath)) {
     handleSummaryRequest(request, response);
     return;
   }
 
   if (request.method === "GET" && urlPath === "/api/app/analytics") {
+    handleAnalyticsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/reports") {
     handleAnalyticsRequest(request, response);
     return;
   }
@@ -1896,6 +2036,12 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  const superCenterStatusMatch = urlPath.match(/^\/api\/super\/centers\/(\d+)\/status$/);
+  if (superCenterStatusMatch && request.method === "PUT") {
+    handleSuperCentersRequest(request, response, Number(superCenterStatusMatch[1]));
+    return;
+  }
+
   const superCenterMatch = urlPath.match(/^\/api\/super\/centers(?:\/(\d+))?$/);
   if (superCenterMatch && ["GET", "PUT"].includes(request.method)) {
     handleSuperCentersRequest(request, response, superCenterMatch[1] ? Number(superCenterMatch[1]) : null);
@@ -1907,6 +2053,38 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (request.method === "GET" && urlPath === "/api/super/subscriptions") {
+    handleSuperSubscriptionsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/super/payments") {
+    handleSuperPaymentsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/super/support") {
+    handleSuperSupportRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/super/settings") {
+    handleSuperSettingsRequest(request, response);
+    return;
+  }
+
+  const leadStatusMatch = urlPath.match(/^\/api\/leads\/(\d+)\/status$/);
+  if (leadStatusMatch && request.method === "PUT") {
+    handleLeadStatusRequest(request, response, Number(leadStatusMatch[1]));
+    return;
+  }
+
+  const convertLeadMatch = urlPath.match(/^\/api\/leads\/(\d+)\/convert-to-student$/);
+  if (convertLeadMatch && request.method === "POST") {
+    handleLeadConvertRequest(request, response, Number(convertLeadMatch[1]));
+    return;
+  }
+
   const crudMatch = urlPath.match(/^\/api\/(students|leads|groups|teachers|courses)(?:\/(\d+))?$/);
   if (crudMatch) {
     const [, resource, id] = crudMatch;
@@ -1914,6 +2092,11 @@ const server = http.createServer((request, response) => {
 
     if (request.method === "GET" && !id) {
       listRows(request, response, config);
+      return;
+    }
+
+    if (request.method === "GET" && id) {
+      getRow(request, response, config, Number(id));
       return;
     }
 

@@ -1069,6 +1069,273 @@ button:active {
   font-weight: 700;
 }
 
+.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.notice-line {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  color: #355173;
+  background: #eef6ff;
+  border: 1px solid #d9e8ff;
+  border-radius: 10px;
+}
+
+.attendance-flow,
+.profile-page,
+.access-card,
+.current-plan,
+.plan-card,
+.support-list article {
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.attendance-flow {
+  margin-bottom: 14px;
+}
+
+.attendance-flow h2,
+.chart-card h2 {
+  margin: 0;
+  color: var(--dark);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.attendance-students {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.attendance-students article {
+  display: grid;
+  grid-template-columns: 1fr minmax(130px, 180px);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  background: #f8faff;
+  border: 1px solid #edf0f6;
+  border-radius: 10px;
+}
+
+.attendance-students strong,
+.attendance-students span {
+  display: block;
+}
+
+.attendance-students span,
+.mini-list,
+.profile-tabs {
+  color: var(--muted);
+}
+
+.attendance-students select {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+}
+
+.profile-page {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-page .page-head {
+  margin-bottom: 0;
+}
+
+.profile-page .page-head button,
+.profile-tabs button,
+.settings-tabs button,
+.plan-card button,
+.current-plan button,
+.access-card button {
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--primary);
+  background: var(--soft-blue);
+  border: 1px solid rgba(30, 58, 255, 0.12);
+  border-radius: 8px;
+}
+
+.profile-tabs,
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-tabs button.active,
+.settings-tabs button.active {
+  color: #ffffff;
+  background: var(--primary);
+}
+
+.mini-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mini-list span {
+  padding: 8px 10px;
+  color: var(--ink);
+  background: #f8faff;
+  border: 1px solid #edf0f6;
+  border-radius: 999px;
+}
+
+.subscription-grid,
+.plans-grid {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.plans-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.current-plan {
+  background:
+    radial-gradient(circle at 90% 12%, rgba(30, 58, 255, 0.14), transparent 26%),
+    #ffffff;
+}
+
+.current-plan span,
+.plan-card span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.current-plan h2,
+.plan-card h2 {
+  margin: 10px 0;
+  color: var(--dark);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.current-plan ul,
+.plan-card ul {
+  margin: 14px 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.premium-settings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.premium-settings article {
+  display: grid;
+  gap: 10px;
+}
+
+.premium-settings label {
+  display: grid;
+  gap: 6px;
+  color: #4b5563;
+}
+
+.premium-settings input {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+}
+
+.premium-settings .role-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.premium-settings .role-list span {
+  padding: 8px 10px;
+  color: var(--primary);
+  background: var(--soft-blue);
+  border-radius: 999px;
+}
+
+.support-list {
+  display: grid;
+  gap: 12px;
+}
+
+.support-list article {
+  display: grid;
+  gap: 6px;
+}
+
+.support-list strong {
+  color: var(--dark);
+}
+
+.support-list span {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.access-card {
+  display: grid;
+  place-items: start;
+  max-width: 520px;
+  gap: 12px;
+  margin: 40px auto;
+}
+
+.access-card h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.status-paid,
+.status-active,
+.status-present,
+.status-trial {
+  color: var(--success);
+  background: rgba(15, 159, 110, 0.1);
+}
+
+.status-partial,
+.status-late,
+.status-trialing {
+  color: var(--warning);
+  background: rgba(183, 121, 31, 0.1);
+}
+
+.status-debt,
+.status-overdue,
+.status-absent,
+.status-blocked,
+.status-debtor {
+  color: var(--danger);
+  background: rgba(217, 45, 32, 0.1);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: fit-content;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .table-pager {
   display: flex;
   align-items: center;
@@ -1664,6 +1931,16 @@ body {
   .topbar {
     grid-template-columns: auto auto minmax(150px, 1fr) auto auto auto;
   }
+
+  .subscription-grid,
+  .plans-grid,
+  .premium-settings,
+  .settings-grid,
+  .profile-grid,
+  .profile-columns,
+  .attendance-students {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1675,5 +1952,25 @@ body {
 
   .wide-chart {
     grid-column: auto;
+  }
+
+  .topbar {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .center-name,
+  .lang-button,
+  .logout-button span {
+    display: none;
+  }
+
+  .content {
+    padding: 16px;
+  }
+
+  .dashboard-grid,
+  .metric-grid,
+  .compact {
+    grid-template-columns: 1fr;
   }
 }
