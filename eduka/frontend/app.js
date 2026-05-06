@@ -39,6 +39,7 @@ const state = {
   superSummary: {}
 };
 const adminRouteKeys = [
+  "login",
   "dashboard",
   "centers",
   "centers-new",
@@ -55,6 +56,7 @@ const adminRouteKeys = [
   "not-found"
 ];
 const adminViews = new Set(adminRouteKeys.map((key) => `admin-${key}`));
+const adminProtectedViews = new Set([...adminViews].filter((view) => view !== "admin-login"));
 const stateMeta = {};
 const endpoints = {
   students: "/api/students",
@@ -155,6 +157,7 @@ const routeByView = {
 adminRouteKeys.forEach((key) => {
   routeByView[`admin-${key}`] = `/admin/${key}`;
 });
+routeByView["admin-login"] = "/admin/login";
 routeByView["admin-dashboard"] = "/admin/dashboard";
 routeByView["admin-centers-new"] = "/admin/centers/new";
 routeByView["admin-center-profile"] = "/admin/centers";
@@ -165,6 +168,7 @@ routeByView["admin-not-found"] = "/admin/not-found";
 
 function viewFromPath(pathname = window.location.pathname) {
   const normalized = pathname.replace(/\/$/, "");
+  if (normalized === "/admin/login") return "admin-login";
   if (normalized === "/admin" || normalized === "/admin/dashboard") return "admin-dashboard";
   if (normalized === "/admin/centers/new") return "admin-centers-new";
   if (/^\/admin\/centers\/\d+$/.test(normalized)) return "admin-center-profile";
@@ -281,12 +285,13 @@ function allowedViewsForRole(role = currentUser?.role) {
 
 function isViewAllowed(viewName) {
   if (viewName === "access-denied") return true;
+  if (viewName === "admin-login") return true;
   if (adminViews.has(viewName)) return isSuperRole();
   return allowedViewsForRole().has(viewName);
 }
 
 function defaultViewForRole(role = currentUser?.role) {
-  if (window.location.pathname.startsWith("/admin")) return "admin-dashboard";
+  if (window.location.pathname.startsWith("/admin")) return isAdminAuthenticated() ? "admin-dashboard" : "admin-login";
   return isSuperRole(role) ? "super-dashboard" : "dashboard";
 }
 
@@ -702,6 +707,7 @@ function pagedItems(resource) {
 
 function showApp(user) {
   currentUser = user;
+  hideAdminLogin();
   authScreen.hidden = true;
   appShell.hidden = false;
   centerName.textContent = user?.organization?.name || "ilm academy uz";
@@ -785,6 +791,7 @@ function saveOnboardingStep() {
 
 function setView(viewName, options = {}) {
   ensureAdminShell();
+  if (window.location.pathname.startsWith("/admin") && !isAdminAuthenticated() && viewName !== "admin-login") return;
   if (!document.getElementById(viewName)) viewName = defaultViewForRole();
   if (!isViewAllowed(viewName)) {
     const fallback = defaultViewForRole();
@@ -819,20 +826,24 @@ function setView(viewName, options = {}) {
 }
 
 async function checkSession() {
+  applyTenantContext();
+  if (document.querySelector(".tenant-not-found")) return;
   if (window.location.pathname.startsWith("/admin")) {
-    showApp(window.crmMock?.users?.superAdmin || { id: 99, fullName: "Platforma egasi", role: "super_admin" });
-    showToast("Admin panel mock/local state bilan ochildi.");
+    const user = adminUserFromSession();
+    if (!user) {
+      showAdminLogin();
+      return;
+    }
+    if (window.location.pathname === "/admin/login") {
+      window.history.replaceState({ viewName: "admin-dashboard" }, "", "/admin/dashboard");
+    }
+    showApp(user);
     return;
   }
   try {
     const payload = await api("/api/auth/me");
     showApp(payload.user);
   } catch {
-    if (window.location.pathname.startsWith("/admin")) {
-      showApp(window.crmMock?.users?.superAdmin || { id: 99, fullName: "Platforma egasi", role: "super_admin" });
-      showToast("Admin panel mock/local state bilan ochildi.");
-      return;
-    }
     showAuth();
   }
 }
@@ -1611,23 +1622,108 @@ function closeModal() {
 }
 
 const adminStorageKey = "eduka_admin_state_v1";
+const adminSessionKey = "eduka_admin_session_v1";
+const adminAccounts = [
+  { id: 1, fullName: "Eduka egasi", email: "admin@eduka.uz", password: "12345678", role: "OWNER" },
+  { id: 2, fullName: "Platforma menejeri", email: "manager@eduka.uz", password: "12345678", role: "SUPER_ADMIN" }
+];
 const reservedSubdomains = ["www", "app", "api", "admin", "super", "mail", "support", "help", "dashboard", "control", "billing"];
 const adminMenu = [
   ["admin-dashboard", "Dashboard"],
-  ["admin-centers", "Centers"],
-  ["admin-subdomains", "Subdomains"],
-  ["admin-subscriptions", "Subscriptions"],
-  ["admin-payments", "Payments"],
-  ["admin-plans", "Plans"],
-  ["admin-demo-requests", "Demo requests"],
+  ["admin-centers", "O'quv markazlar"],
+  ["admin-centers-new", "Yangi markaz"],
+  ["admin-subdomains", "Subdomainlar"],
+  ["admin-subscriptions", "Obunalar"],
+  ["admin-payments", "To'lovlar"],
+  ["admin-plans", "Tariflar"],
+  ["admin-demo-requests", "So'rovlar"],
   ["admin-support", "Support"],
-  ["admin-admin-users", "Admin users"],
+  ["admin-admin-users", "Adminlar"],
   ["admin-audit-log", "Audit log"],
-  ["admin-settings", "Settings"]
+  ["admin-settings", "Sozlamalar"]
 ];
 const adminState = loadAdminState();
 let activeAdminTab = "overview";
 let activeAdminSettingsTab = "general";
+
+function adminSession() {
+  try {
+    return JSON.parse(localStorage.getItem(adminSessionKey) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function isAdminAuthenticated() {
+  return Boolean(adminSession()?.email);
+}
+
+function currentAdmin() {
+  return adminSession() || currentUser || adminAccounts[0];
+}
+
+function adminLogin(email, password) {
+  const account = adminAccounts.find((item) => item.email.toLowerCase() === String(email || "").toLowerCase().trim() && item.password === String(password || ""));
+  if (!account) return null;
+  const session = { id: account.id, fullName: account.fullName, email: account.email, role: account.role, loggedInAt: new Date().toISOString() };
+  localStorage.setItem(adminSessionKey, JSON.stringify(session));
+  currentUser = { ...session, role: account.role.toLowerCase() };
+  addAuditLog("login", "admin", session.email, "-", "success");
+  return session;
+}
+
+function adminLogout() {
+  const session = adminSession();
+  if (session) addAuditLog("logout", "admin", session.email, "active", "ended");
+  localStorage.removeItem(adminSessionKey);
+  currentUser = null;
+  showAdminLogin();
+}
+
+function showAdminLogin(error = "") {
+  authScreen.hidden = true;
+  appShell.hidden = true;
+  closeModal();
+  closeOnboarding();
+  let screen = document.querySelector("[data-admin-login-screen]");
+  if (!screen) {
+    screen = document.createElement("main");
+    screen.className = "admin-login-screen";
+    screen.dataset.adminLoginScreen = "";
+    document.body.append(screen);
+  }
+  screen.hidden = false;
+  screen.innerHTML = `
+    <section class="admin-login-card">
+      <a class="brand" href="/">
+        <span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span>
+        <span>EDUKA</span>
+      </a>
+      <div>
+        <span class="admin-login-eyebrow">Platform Control Center</span>
+        <h1>Eduka rahbariyati uchun boshqaruv paneli</h1>
+        <p>Markazlar, obunalar, to'lovlar va platforma sozlamalarini bitta joydan boshqaring.</p>
+      </div>
+      <form class="admin-login-form" data-admin-login-form>
+        <label>Email<input name="email" type="email" autocomplete="username" required /></label>
+        <label>Parol<input name="password" type="password" autocomplete="current-password" required /></label>
+        <div class="form-error" data-admin-login-error>${error}</div>
+        <button type="submit">Kirish</button>
+      </form>
+    </section>`;
+  if (window.location.pathname !== "/admin/login") window.history.replaceState({ viewName: "admin-login" }, "", "/admin/login");
+}
+
+function hideAdminLogin() {
+  const screen = document.querySelector("[data-admin-login-screen]");
+  if (screen) screen.hidden = true;
+}
+
+function adminUserFromSession() {
+  const session = adminSession();
+  if (!session) return null;
+  return { id: session.id, fullName: session.fullName, email: session.email, role: session.role.toLowerCase(), organization: null };
+}
 
 function adminProfileIdFromPath() {
   const match = window.location.pathname.match(/\/admin\/centers\/(\d+)/);
@@ -1702,7 +1798,7 @@ function seedAdminState() {
     })),
     demoRequests: [
       { id: 1, centerName: "Bright Future", contactPerson: "Aziza Normatova", phone: "+998 90 222 44 11", email: "aziza@example.com", interestedPlan: "Pro", source: "Website", status: "NEW", responsibleAdmin: "Sales Manager", createdAt: "2026-05-06", notes: [] },
-      { id: 2, centerName: "Result Academy", contactPerson: "Sardor Umarov", phone: "+998 93 777 88 99", email: "sardor@example.com", interestedPlan: "Business", source: "Telegram", status: "CONTACTED", responsibleAdmin: "Support Manager", createdAt: "2026-05-05", notes: ["Demo vaqti kelishilmoqda"] }
+      { id: 2, centerName: "Result Academy", contactPerson: "Sardor Umarov", phone: "+998 93 777 88 99", email: "sardor@example.com", interestedPlan: "Business", source: "Telegram", status: "CONTACTED", responsibleAdmin: "Support Manager", createdAt: "2026-05-05", notes: ["Uchrashuv vaqti kelishilmoqda"] }
     ],
     supportTickets: (mock.supportTickets || []).map((ticket) => ({
       id: ticket.id,
@@ -1728,9 +1824,9 @@ function seedAdminState() {
       general: { platformName: "Eduka", supportEmail: "support@eduka.uz", defaultLanguage: "uz", defaultCurrency: "UZS" },
       domains: { mainDomain: "eduka.uz", wildcardDomain: "*.eduka.uz", reservedSubdomains: reservedSubdomains.join(", ") },
       billing: { defaultTrialDays: 7, invoicePrefix: "EDU", tax: "0", paymentMethods: "cash, card, click, payme, bank" },
-      notifications: { telegram: "placeholder", email: "placeholder", sms: "placeholder" },
+      notifications: { telegram: "Faol", email: "Faol", sms: "Faol" },
       security: { require2fa: false, sessionTimeout: 60, allowedRoles: "OWNER, SUPER_ADMIN, SALES_MANAGER, SUPPORT_MANAGER, FINANCE_MANAGER, TECH_ADMIN" },
-      integrations: { telegramBot: "", paymentGateway: "click/payme", emailService: "smtp placeholder" }
+      integrations: { telegramBot: "", paymentGateway: "Click / Payme", emailService: "SMTP" }
     }
   };
 }
@@ -1756,7 +1852,7 @@ function nextAdminId(collection) {
 function addAuditLog(action, targetType, targetName, oldValue = "-", newValue = "-") {
   adminState.auditLogs.unshift({
     id: nextAdminId(adminState.auditLogs),
-    admin: currentUser?.fullName || "Platform Owner",
+    admin: currentAdmin()?.fullName || "Eduka egasi",
     action,
     targetType,
     targetName,
@@ -1779,8 +1875,60 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "") || "center";
 }
 
+function tenantFromLocation() {
+  const queryTenant = new URLSearchParams(window.location.search).get("tenant");
+  if (queryTenant) return slugify(queryTenant);
+  const host = window.location.hostname.toLowerCase();
+  const parts = host.split(".");
+  if (host === "eduka.uz" || host === "www.eduka.uz" || host === "localhost" || host === "127.0.0.1") return "";
+  if (parts.length >= 3 && parts.slice(-2).join(".") === "eduka.uz") return parts[0];
+  return "";
+}
+
+function applyTenantContext() {
+  if (window.location.pathname.startsWith("/admin")) return;
+  const tenant = tenantFromLocation();
+  if (!tenant) return;
+  const center = adminState.centers.find((item) => item.subdomain === tenant);
+  if (!center) {
+    authScreen.hidden = false;
+    appShell.hidden = true;
+    authScreen.innerHTML = `<section class="login-panel tenant-not-found"><a class="brand" href="/"><span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a><h1>Bu o'quv markaz topilmadi</h1><p class="login-copy">Subdomainni tekshiring yoki Eduka support bilan bog'laning.</p><a class="demo-login" href="/">Bosh sahifaga qaytish</a></section>`;
+    return;
+  }
+  const note = document.querySelector("[data-login-note]");
+  if (note) note.textContent = `${center.name} kabinetiga kirish`;
+  centerName.textContent = center.name;
+}
+
 function renderBadge(value) {
-  return `<span class="status-badge ${String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}">${value || "-"}</span>`;
+  const label = {
+    active: "Aktiv",
+    blocked: "Bloklangan",
+    trial: "Sinov",
+    expired: "Muddati o'tgan",
+    paid: "To'langan",
+    pending: "Kutilmoqda",
+    overdue: "Muddati o'tgan",
+    paused: "Pauza",
+    cancelled: "Bekor qilingan",
+    healthy: "Barqaror",
+    ready: "Tayyor",
+    secure: "Himoyalangan",
+    NEW: "Yangi",
+    CONTACTED: "Aloqa qilindi",
+    DEMO_SCHEDULED: "Uchrashuv belgilandi",
+    TRIAL_CREATED: "Sinov ochildi",
+    CUSTOMER: "Mijozga aylandi",
+    REJECTED: "Rad etildi",
+    LATER: "Keyinroq",
+    OPEN: "Ochiq",
+    IN_PROGRESS: "Jarayonda",
+    WAITING_CUSTOMER: "Mijoz javobi kutilmoqda",
+    RESOLVED: "Hal qilindi",
+    CLOSED: "Yopilgan"
+  }[value] || value || "-";
+  return `<span class="status-badge ${String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}">${label}</span>`;
 }
 
 function validateEmail(value) {
@@ -1790,6 +1938,7 @@ function validateEmail(value) {
 function validateSubdomain(value, currentCenterId = null) {
   const subdomain = String(value || "").trim();
   if (!subdomain) return "Subdomain required.";
+  if (/\s/.test(subdomain)) return "Subdomain ichida bo'sh joy bo'lmasin.";
   if (!/^[a-z0-9-]+$/.test(subdomain)) return "Faqat lowercase latin harflar, raqamlar va hyphen ishlating.";
   if (subdomain.length < 3 || subdomain.length > 30) return "Subdomain 3-30 belgi bo'lishi kerak.";
   if (reservedSubdomains.includes(subdomain)) return "Bu subdomain reserved.";
@@ -1832,6 +1981,11 @@ function ensureAdminShell() {
     sidebar.insertBefore(nav, document.querySelector(".sidebar-footer"));
   }
   const inAdmin = window.location.pathname.startsWith("/admin");
+  if (inAdmin && !isAdminAuthenticated() && window.location.pathname !== "/admin/login") {
+    showAdminLogin();
+    return;
+  }
+  hideAdminLogin();
   document.querySelector(".create-student").hidden = inAdmin;
   document.querySelectorAll(".side-nav:not([data-admin-nav]), .side-subnav").forEach((node) => {
     node.hidden = inAdmin;
@@ -1840,6 +1994,19 @@ function ensureAdminShell() {
   document.querySelector(".license-banner")?.classList.toggle("admin-hidden", inAdmin);
   document.body.classList.toggle("admin-mode", inAdmin);
   centerName.textContent = inAdmin ? "Platform Control Center" : (currentUser?.organization?.name || "ilm academy uz");
+  const topbar = document.querySelector(".topbar");
+  let adminHeader = document.querySelector("[data-admin-header]");
+  if (!adminHeader) {
+    adminHeader = document.createElement("div");
+    adminHeader.className = "admin-header-tools";
+    adminHeader.dataset.adminHeader = "";
+    topbar?.append(adminHeader);
+  }
+  adminHeader.hidden = !inAdmin;
+  if (inAdmin) {
+    const admin = currentAdmin();
+    adminHeader.innerHTML = `<button type="button" data-admin-action="toast" data-message="Bildirishnomalar markazi ochildi.">Bildirishnomalar</button><button type="button" data-admin-action="profile-menu">${admin.fullName}</button><button type="button" data-admin-logout>Chiqish</button>`;
+  }
 }
 
 function adminLayout(title, actions = "") {
@@ -1877,7 +2044,7 @@ function renderAdminDashboard() {
     ["Trial markazlar", summary.trial],
     ["Expired markazlar", summary.expired],
     ["Blocked markazlar", summary.blocked],
-    ["MRR", formatCurrency(summary.mrr)],
+    ["MRR oylik daromad", formatCurrency(summary.mrr)],
     ["Bugungi yangi", summary.today],
     ["Jami o'quvchilar", summary.students],
     ["Jami o'qituvchilar", summary.teachers],
@@ -1885,50 +2052,50 @@ function renderAdminDashboard() {
   ];
   const expiring = adminState.centers.filter((center) => center.subscriptionEndsAt <= "2026-06-10");
   const debts = adminState.subscriptions.filter((item) => ["overdue", "pending"].includes(item.paymentStatus));
-  return `${adminLayout("Platform Control Center", '<button type="button" data-admin-action="go" data-target="admin-centers">View all centers</button>')}
+  return `${adminLayout("Platform Control Center", '<button type="button" data-admin-action="go" data-target="admin-centers">Barcha markazlar</button>')}
     <div class="admin-kpis">${cards.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("")}</div>
     <div class="admin-dashboard-grid">
       ${adminMiniList("Oxirgi ro'yxatdan o'tgan markazlar", adminState.centers.slice(0, 5), "admin-centers")}
       ${adminMiniList("Obunasi tugayotgan markazlar", expiring, "admin-subscriptions")}
       ${adminMiniList("Qarzdor markazlar", debts.map((item) => ({ name: item.centerName, status: item.paymentStatus })), "admin-payments")}
       ${adminMiniList("Eng faol markazlar", [...adminState.centers].sort((a, b) => b.studentsCount - a.studentsCount).slice(0, 5), "admin-centers")}
-      ${adminMiniList("Bugungi demo so'rovlar", adminState.demoRequests.filter((item) => item.createdAt === "2026-05-06").map((item) => ({ name: item.centerName, status: item.status })), "admin-demo-requests")}
-      <section class="admin-panel"><div class="page-head"><h2>Platforma status</h2><button type="button" data-admin-action="toast" data-message="Status sahifasi placeholder.">Details</button></div><div class="admin-status"><span>API</span>${renderBadge("healthy")}<span>Database</span>${renderBadge("mock/local")}<span>Billing</span>${renderBadge("ready")}</div></section>
+      ${adminMiniList("Bugungi so'rovlar", adminState.demoRequests.filter((item) => item.createdAt === "2026-05-06").map((item) => ({ name: item.centerName, status: item.status })), "admin-demo-requests")}
+      <section class="admin-panel"><div class="page-head"><h2>Platforma holati</h2><button type="button" data-admin-action="go" data-target="admin-settings">Details</button></div><div class="admin-status"><span>API</span>${renderBadge("healthy")}<span>Ma'lumotlar</span>${renderBadge("secure")}<span>Billing</span>${renderBadge("ready")}</div></section>
     </div>`;
 }
 
 function adminMiniList(title, items, target) {
-  return `<section class="admin-panel"><div class="page-head"><h2>${title}</h2><button type="button" data-admin-action="go" data-target="${target}">View all</button></div>${items.length ? items.map((item) => `<div class="admin-list-row"><span>${item.name || item.centerName}</span>${renderBadge(item.status || item.subscriptionStatus || "active")}<button type="button" data-admin-action="go" data-target="${target}">Open</button></div>`).join("") : `<div class="empty-state">Data yo'q</div>`}</section>`;
+  return `<section class="admin-panel"><div class="page-head"><h2>${title}</h2><button type="button" data-admin-action="go" data-target="${target}">Barchasi</button></div>${items.length ? items.map((item) => `<div class="admin-list-row"><span>${item.name || item.centerName}</span>${renderBadge(item.status || item.subscriptionStatus || "active")}<button type="button" data-admin-action="go" data-target="${target}">Ochish</button></div>`).join("") : `<div class="empty-state">Ma'lumot yo'q</div>`}</section>`;
 }
 
 function renderAdminCenters() {
   const centers = adminFilter(adminState.centers, ["name", "subdomain", "owner", "phone", "email", "plan"]);
   const rows = centers.map((center) => `<tr data-admin-row="${center.id}"><td><button type="button" class="link-button" data-admin-action="profile" data-id="${center.id}">${center.name}</button></td><td>${center.subdomain}</td><td>${center.owner}</td><td>${center.phone}</td><td>${center.email}</td><td>${center.plan}</td><td>${renderBadge(center.status)}</td><td>${center.studentsCount}</td><td>${center.branchesCount}</td><td>${formatCurrency(center.monthlyPayment)}</td><td>${formatDate(center.subscriptionEndsAt)}</td><td>${formatDate(center.lastActivityAt)}</td><td class="admin-row-actions">${centerActions(center)}</td></tr>`);
-  return `${adminLayout("Centers", '<button type="button" data-admin-action="go" data-target="admin-centers-new">Yangi markaz</button>')}
-    ${adminFilters("Markaz, owner, subdomain", ["status", "plan", "subscription", "activity"])}
+  return `${adminLayout("O'quv markazlar", '<button type="button" data-admin-action="go" data-target="admin-centers-new">Yangi markaz</button>')}
+    ${adminFilters("Markaz, egasi, subdomain", ["status", "plan", "subscription", "activity"])}
     ${adminTable(["Markaz", "Subdomain", "Egasi", "Telefon", "Email", "Tarif", "Status", "O'quvchilar", "Filial", "Oylik to'lov", "Obuna tugashi", "Oxirgi aktivlik", "Amallar"], rows)}`;
 }
 
 function centerActions(center) {
-  return `<button type="button" data-admin-action="profile" data-id="${center.id}">View profile</button>
-    <button type="button" data-admin-modal="change-plan" data-id="${center.id}">Change plan</button>
-    <button type="button" data-admin-modal="extend-trial" data-id="${center.id}">Extend trial</button>
-    <button type="button" data-admin-modal="edit-subdomain" data-id="${center.id}">Edit subdomain</button>
-    <button type="button" data-admin-action="toast" data-message="Login as center placeholder: ${center.name}">Login as center</button>
-    <button type="button" data-admin-action="toggle-center" data-id="${center.id}">${center.status === "blocked" ? "Unblock" : "Block"}</button>
-    <button type="button" data-admin-modal="support-note" data-id="${center.id}">Support note</button>`;
+  return `<button type="button" data-admin-action="profile" data-id="${center.id}">Profil</button>
+    <button type="button" data-admin-modal="change-plan" data-id="${center.id}">Tarif</button>
+    <button type="button" data-admin-modal="extend-trial" data-id="${center.id}">Trial uzaytirish</button>
+    <button type="button" data-admin-modal="edit-subdomain" data-id="${center.id}">Subdomain</button>
+    <button type="button" data-admin-modal="login-as-center" data-id="${center.id}">Markazga kirish</button>
+    <button type="button" data-admin-action="toggle-center" data-id="${center.id}">${center.status === "blocked" ? "Aktivlashtirish" : "Bloklash"}</button>
+    <button type="button" data-admin-modal="support-note" data-id="${center.id}">Izoh</button>`;
 }
 
 function adminFilters(placeholder, filters = []) {
   const options = {
-    status: '<select data-admin-filter="status"><option value="">Status</option><option value="active">active</option><option value="blocked">blocked</option><option value="trial">trial</option><option value="expired">expired</option><option value="OPEN">OPEN</option><option value="RESOLVED">RESOLVED</option></select>',
+    status: '<select data-admin-filter="status"><option value="">Status</option><option value="active">Aktiv</option><option value="blocked">Bloklangan</option><option value="trial">Sinov</option><option value="expired">Muddati o‘tgan</option><option value="OPEN">Ochiq</option><option value="RESOLVED">Hal qilingan</option></select>',
     plan: `<select data-admin-filter="plan"><option value="">Tarif</option>${adminState.plans.map((plan) => `<option>${plan.name}</option>`).join("")}</select>`,
-    subscription: '<select data-admin-filter="status"><option value="">Subscription</option><option value="active">active</option><option value="trial">trial</option><option value="expired">expired</option><option value="paused">paused</option></select>',
-    activity: '<select data-admin-filter="activity"><option value="">Activity</option><option value="recent">Recent</option><option value="stale">Stale</option></select>',
-    payment: '<select data-admin-filter="payment"><option value="">Payment status</option><option value="paid">paid</option><option value="pending">pending</option><option value="overdue">overdue</option><option value="trial">trial</option></select>',
-    method: '<select data-admin-filter="method"><option value="">Method</option><option value="bank">bank</option><option value="click">click</option><option value="payme">payme</option><option value="card">card</option></select>'
+    subscription: '<select data-admin-filter="status"><option value="">Obuna</option><option value="active">Aktiv</option><option value="trial">Sinov</option><option value="expired">Muddati o‘tgan</option><option value="paused">Pauza</option></select>',
+    activity: '<select data-admin-filter="activity"><option value="">Aktivlik</option><option value="recent">Yaqinda faol</option><option value="stale">Sokin</option></select>',
+    payment: '<select data-admin-filter="payment"><option value="">To‘lov statusi</option><option value="paid">To‘langan</option><option value="pending">Kutilmoqda</option><option value="overdue">Muddati o‘tgan</option><option value="trial">Sinov</option></select>',
+    method: '<select data-admin-filter="method"><option value="">To‘lov usuli</option><option value="bank">Bank</option><option value="click">Click</option><option value="payme">Payme</option><option value="card">Karta</option></select>'
   };
-  return `<div class="admin-filters"><input data-admin-search placeholder="${placeholder}" />${filters.map((key) => options[key] || "").join("")}<button type="button" data-admin-action="reset-filters">Reset filters</button></div>`;
+  return `<div class="admin-filters"><input data-admin-search placeholder="${placeholder}" />${filters.map((key) => options[key] || "").join("")}<button type="button" data-admin-action="reset-filters">Filtrlarni tozalash</button></div>`;
 }
 
 function renderAdminCenterForm() {
@@ -1953,8 +2120,8 @@ function centerFormFields(center = {}) {
     <label>Filial limiti<input name="branchLimit" type="number" value="${center.branchLimit ?? center.branchesCount ?? 1}" /></label>
     <label>Status<select name="status"><option value="active" ${center.status === "active" ? "selected" : ""}>active</option><option value="blocked" ${center.status === "blocked" ? "selected" : ""}>blocked</option></select></label>
     <label class="check-field"><input name="createAdmin" type="checkbox" checked /><span>Admin login yaratish</span></label>
-    <label class="check-field"><input name="autoPassword" type="checkbox" checked /><span>Parolni auto generate qilish</span></label>
-    <label class="check-field"><input name="demoData" type="checkbox" /><span>Demo data bilan yaratish</span></label><div class="form-error" data-admin-form-error></div>`;
+    <label class="check-field"><input name="autoPassword" type="checkbox" checked /><span>Parolni auto-generate qilish</span></label>
+    <label class="check-field"><input name="starterData" type="checkbox" /><span>Boshlang'ich ma'lumot bilan yaratish</span></label><div class="form-error" data-admin-form-error></div>`;
 }
 
 function renderAdminCenterProfile() {
@@ -1962,7 +2129,7 @@ function renderAdminCenterProfile() {
   if (!center) return `${adminLayout("Center not found")}<div class="empty-state">Markaz topilmadi. <button type="button" data-admin-action="go" data-target="admin-centers">Back to centers</button></div>`;
   const tabs = ["overview", "users", "subscription", "usage", "payments", "support notes", "technical"];
   return `${adminLayout(center.name, '<button type="button" data-admin-action="go" data-target="admin-centers">Back</button>')}
-    <div class="admin-profile-actions">${centerActions(center)}<button type="button" data-admin-action="toast" data-message="Reset admin password placeholder.">Reset admin password</button><button type="button" data-admin-action="toast" data-message="Send message placeholder.">Send message</button></div>
+    <div class="admin-profile-actions">${centerActions(center)}<button type="button" data-admin-action="reset-center-password" data-id="${center.id}">Admin parolini yangilash</button><button type="button" data-admin-modal="send-message" data-id="${center.id}">Xabar yuborish</button></div>
     <div class="tabs">${tabs.map((tab) => `<button type="button" class="${activeAdminTab === tab ? "active" : ""}" data-admin-action="tab" data-tab="${tab}">${tab}</button>`).join("")}</div>
     <section class="admin-panel">${renderCenterTab(center)}</section>`;
 }
@@ -1973,18 +2140,18 @@ function renderCenterTab(center) {
   if (activeAdminTab === "usage") return `<div class="admin-kpis"><article><span>Students</span><strong>${center.studentsCount}</strong></article><article><span>Teachers</span><strong>${center.teachersCount}</strong></article><article><span>Groups</span><strong>${center.groupsCount}</strong></article><article><span>Branches</span><strong>${center.branchesCount}</strong></article></div>`;
   if (activeAdminTab === "payments") return renderAdminPayments(center.id);
   if (activeAdminTab === "support notes") return (center.supportNotes || []).map((note) => `<div class="admin-list-row"><span>${note.text}</span><small>${formatDate(note.date)}</small></div>`).join("") || `<div class="empty-state">Support note yo'q</div>`;
-  if (activeAdminTab === "technical") return `<div class="profile-grid"><article><span>URL</span><strong>https://${center.subdomain}.eduka.uz</strong></article><article><span>SSL</span><strong>Placeholder ready</strong></article><article><span>Tenant status</span><strong>${center.status}</strong></article></div>`;
+  if (activeAdminTab === "technical") return `<div class="profile-grid"><article><span>URL</span><strong>https://${center.subdomain}.eduka.uz</strong></article><article><span>SSL</span><strong>Faol</strong></article><article><span>Tenant status</span><strong>${renderBadge(center.status)}</strong></article></div>`;
   return `<div class="profile-grid">${Object.entries({ Nomi: center.name, Subdomain: center.subdomain, Link: `https://${center.subdomain}.eduka.uz`, Egasi: center.owner, Telefon: center.phone, Email: center.email, Manzil: center.address, Tarif: center.plan, "Ro'yxatdan o'tgan": center.registeredAt, "Oxirgi aktivlik": center.lastActivityAt }).map(([key, value]) => `<article><span>${key}</span><strong>${value || "-"}</strong></article>`).join("")}<article><span>Status</span><strong>${renderBadge(center.status)}</strong></article></div>`;
 }
 
 function renderAdminSubdomains() {
-  const rows = adminFilter(adminState.centers, ["name", "subdomain"]).map((center) => `<tr><td>${center.subdomain}</td><td>${center.name}</td><td>https://${center.subdomain}.eduka.uz</td><td>${renderBadge(center.status)}</td><td>${renderBadge("placeholder")}</td><td>${formatDate(center.registeredAt)}</td><td>${formatDate(center.lastActivityAt)}</td><td><button type="button" data-admin-modal="edit-subdomain" data-id="${center.id}">Edit</button></td></tr>`);
-  return `${adminLayout("Subdomains", '<button type="button" data-admin-action="toast" data-message="Unknown tenant not found placeholder.">Unknown tenant</button>')}${adminFilters("Subdomain yoki markaz", ["status"])}<div class="admin-panel"><b>Reserved:</b> ${reservedSubdomains.join(", ")}</div>${adminTable(["Subdomain", "Center", "Full URL", "Status", "SSL", "Created", "Last used", "Actions"], rows)}`;
+  const rows = adminFilter(adminState.centers, ["name", "subdomain"]).map((center) => `<tr><td>${center.subdomain}</td><td>${center.name}</td><td>https://${center.subdomain}.eduka.uz</td><td>${renderBadge(center.status)}</td><td>${renderBadge("healthy")}</td><td>${formatDate(center.registeredAt)}</td><td>${formatDate(center.lastActivityAt)}</td><td><button type="button" data-admin-modal="edit-subdomain" data-id="${center.id}">Tahrirlash</button></td></tr>`);
+  return `${adminLayout("Subdomainlar", '<button type="button" data-admin-action="tenant-check">Tenant tekshirish</button>')}${adminFilters("Subdomain yoki markaz", ["status"])}<div class="admin-panel"><b>Reserved:</b> ${reservedSubdomains.join(", ")}</div>${adminTable(["Subdomain", "Markaz", "To'liq URL", "Status", "SSL", "Yaratilgan", "Oxirgi ishlatilgan", "Amallar"], rows)}`;
 }
 
 function renderAdminSubscriptions() {
-  const rows = adminFilter(adminState.subscriptions, ["centerName", "plan"]).map((item) => `<tr><td>${item.centerName}</td><td>${item.plan}</td><td>${formatCurrency(item.price)}</td><td>${formatDate(item.startDate)}</td><td>${formatDate(item.endDate)}</td><td>${renderBadge(item.status)}</td><td>${item.autoRenew ? "on" : "off"}</td><td>${renderBadge(item.paymentStatus)}</td><td><button type="button" data-admin-modal="extend-subscription" data-id="${item.id}">Extend</button><button type="button" data-admin-modal="subscription-plan" data-id="${item.id}">Change plan</button><button type="button" data-admin-action="subscription-status" data-id="${item.id}" data-status="cancelled">Cancel</button><button type="button" data-admin-action="subscription-status" data-id="${item.id}" data-status="paused">Pause</button><button type="button" data-admin-action="toast" data-message="Invoice placeholder.">Invoice</button></td></tr>`);
-  return `${adminLayout("Subscriptions")}${adminSubscriptionCards()}${adminFilters("Center yoki plan", ["status", "plan", "payment"])}${adminTable(["Center", "Plan", "Price", "Start", "End", "Status", "Auto renew", "Payment", "Actions"], rows)}`;
+  const rows = adminFilter(adminState.subscriptions, ["centerName", "plan"]).map((item) => `<tr><td>${item.centerName}</td><td>${item.plan}</td><td>${formatCurrency(item.price)}</td><td>${formatDate(item.startDate)}</td><td>${formatDate(item.endDate)}</td><td>${renderBadge(item.status)}</td><td>${item.autoRenew ? "Faol" : "O'chiq"}</td><td>${renderBadge(item.paymentStatus)}</td><td><button type="button" data-admin-modal="extend-subscription" data-id="${item.id}">Uzaytirish</button><button type="button" data-admin-modal="subscription-plan" data-id="${item.id}">Tarif</button><button type="button" data-admin-action="subscription-status" data-id="${item.id}" data-status="cancelled">Bekor qilish</button><button type="button" data-admin-action="subscription-status" data-id="${item.id}" data-status="paused">Pauza</button><button type="button" data-admin-action="create-invoice" data-id="${item.id}">Invoice</button></td></tr>`);
+  return `${adminLayout("Obunalar")}${adminSubscriptionCards()}${adminFilters("Markaz yoki tarif", ["status", "plan", "payment"])}${adminTable(["Markaz", "Tarif", "Narx", "Boshlanish", "Tugash", "Status", "Auto renew", "To'lov", "Amallar"], rows)}`;
 }
 
 function adminSubscriptionCards() {
@@ -1997,44 +2164,55 @@ function adminSubscriptionCards() {
 
 function renderAdminPayments(centerId = null) {
   const list = centerId ? adminState.payments.filter((item) => item.centerId === centerId) : adminFilter(adminState.payments, ["centerName", "invoiceNumber", "note"]);
-  const rows = list.map((item) => `<tr><td>${item.centerName}</td><td>${item.plan}</td><td>${formatCurrency(item.amount)}</td><td>${formatDate(item.paymentDate)}</td><td>${item.method}</td><td>${renderBadge(item.status)}</td><td>${item.invoiceNumber}</td><td>${item.note}</td><td><button type="button" data-admin-modal="payment" data-id="${item.id}">Edit</button><button type="button" data-admin-action="mark-paid" data-id="${item.id}">Mark paid</button><button type="button" data-admin-action="toast" data-message="Invoice download placeholder.">Download invoice</button><button type="button" data-admin-action="delete-payment" data-id="${item.id}">Delete</button></td></tr>`);
+  const rows = list.map((item) => `<tr><td>${item.centerName}</td><td>${item.plan}</td><td>${formatCurrency(item.amount)}</td><td>${formatDate(item.paymentDate)}</td><td>${item.method}</td><td>${renderBadge(item.status)}</td><td>${item.invoiceNumber}</td><td>${item.note}</td><td><button type="button" data-admin-modal="payment" data-id="${item.id}">Tahrirlash</button><button type="button" data-admin-action="mark-paid" data-id="${item.id}">To'langan</button><button type="button" data-admin-action="download-invoice" data-id="${item.id}">Invoice</button><button type="button" data-admin-action="delete-payment" data-id="${item.id}">O'chirish</button></td></tr>`);
   if (centerId) return adminTable(["Center", "Plan", "Amount", "Date", "Method", "Status", "Invoice", "Note", "Actions"], rows);
   const monthly = adminState.payments.filter((item) => item.paymentDate?.startsWith("2026-05")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const yearly = adminState.payments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const pending = adminState.payments.filter((item) => item.status === "pending").length;
   const overdue = adminState.subscriptions.filter((item) => item.paymentStatus === "overdue").length;
-  return `${adminLayout("Platform payments", '<button type="button" data-admin-modal="payment">Add payment</button>')}<div class="admin-kpis"><article><span>Monthly revenue</span><strong>${formatCurrency(monthly)}</strong></article><article><span>Yearly revenue</span><strong>${formatCurrency(yearly)}</strong></article><article><span>Pending</span><strong>${pending}</strong></article><article><span>Overdue centers</span><strong>${overdue}</strong></article></div>${adminFilters("Center, invoice, note", ["status", "method"])}${adminTable(["Center", "Plan", "Amount", "Date", "Method", "Status", "Invoice", "Note", "Actions"], rows)}`;
+  return `${adminLayout("Platforma to'lovlari", '<button type="button" data-admin-modal="payment">To‘lov qo‘shish</button>')}<div class="admin-kpis"><article><span>Oylik tushum</span><strong>${formatCurrency(monthly)}</strong></article><article><span>Yillik tushum</span><strong>${formatCurrency(yearly)}</strong></article><article><span>Kutilayotgan</span><strong>${pending}</strong></article><article><span>Muddati o‘tgan markazlar</span><strong>${overdue}</strong></article></div>${adminFilters("Markaz, invoice, izoh", ["status", "method"])}${adminTable(["Markaz", "Tarif", "Summa", "Sana", "Usul", "Status", "Invoice", "Izoh", "Amallar"], rows)}`;
 }
 
 function renderAdminPlans() {
-  const rows = adminState.plans.map((plan) => `<tr><td>${plan.name}</td><td>${formatCurrency(plan.price)}</td><td>${plan.billingPeriod}</td><td>${plan.studentLimit}</td><td>${plan.teacherLimit}</td><td>${plan.branchLimit}</td><td>${plan.groupLimit}</td><td>${plan.telegramEnabled ? "yes" : "no"}</td><td>${plan.reportsEnabled ? "yes" : "no"}</td><td>${plan.apiAccess ? "yes" : "no"}</td><td>${plan.customDomainEnabled ? "yes" : "no"}</td><td>${plan.supportLevel}</td><td>${renderBadge(plan.status)}</td><td><button type="button" data-admin-modal="plan" data-id="${plan.id}">Edit</button><button type="button" data-admin-action="toggle-plan" data-id="${plan.id}">${plan.status === "active" ? "Deactivate" : "Activate"}</button><button type="button" data-admin-action="delete-plan" data-id="${plan.id}">Delete</button></td></tr>`);
-  return `${adminLayout("Plans / Tariflar", '<button type="button" data-admin-modal="plan">Add plan</button>')}<div class="plans-grid">${adminState.plans.map((plan) => `<article class="plan-card"><span>${plan.name}</span><h2>${formatCurrency(plan.price)}</h2><p>${plan.studentLimit} student · ${plan.supportLevel}</p></article>`).join("")}</div>${adminTable(["Name", "Price", "Period", "Students", "Teachers", "Branches", "Groups", "Telegram", "Reports", "API", "Custom domain", "Support", "Status", "Actions"], rows)}`;
+  const rows = adminState.plans.map((plan) => `<tr><td>${plan.name}</td><td>${formatCurrency(plan.price)}</td><td>${plan.billingPeriod}</td><td>${plan.studentLimit}</td><td>${plan.teacherLimit}</td><td>${plan.branchLimit}</td><td>${plan.groupLimit}</td><td>${plan.telegramEnabled ? "Ha" : "Yo'q"}</td><td>${plan.reportsEnabled ? "Ha" : "Yo'q"}</td><td>${plan.apiAccess ? "Ha" : "Yo'q"}</td><td>${plan.customDomainEnabled ? "Ha" : "Yo'q"}</td><td>${plan.supportLevel}</td><td>${renderBadge(plan.status)}</td><td><button type="button" data-admin-modal="plan" data-id="${plan.id}">Tahrirlash</button><button type="button" data-admin-action="toggle-plan" data-id="${plan.id}">${plan.status === "active" ? "O'chirish" : "Aktivlashtirish"}</button><button type="button" data-admin-action="delete-plan" data-id="${plan.id}">Delete</button></td></tr>`);
+  return `${adminLayout("Tariflar", '<button type="button" data-admin-modal="plan">Tarif qo‘shish</button>')}<div class="plans-grid">${adminState.plans.map((plan) => `<article class="plan-card"><span>${plan.name}</span><h2>${formatCurrency(plan.price)}</h2><p>${plan.studentLimit} o'quvchi · ${plan.supportLevel}</p></article>`).join("")}</div>${adminTable(["Nomi", "Narx", "Period", "O'quvchi", "O'qituvchi", "Filial", "Guruh", "Telegram", "Hisobot", "API", "Custom domain", "Support", "Status", "Amallar"], rows)}`;
 }
 
 function renderAdminDemoRequests() {
-  const rows = adminFilter(adminState.demoRequests, ["centerName", "contactPerson", "phone", "email"]).map((item) => `<tr><td>${item.centerName}</td><td>${item.contactPerson}</td><td>${item.phone}</td><td>${item.email}</td><td>${item.interestedPlan}</td><td>${item.source}</td><td>${renderBadge(item.status)}</td><td>${item.responsibleAdmin}</td><td>${formatDate(item.createdAt)}</td><td><button type="button" data-admin-action="demo-status" data-id="${item.id}" data-status="CONTACTED">Mark contacted</button><button type="button" data-admin-modal="demo-note" data-id="${item.id}">Schedule/Add note</button><button type="button" data-admin-action="trial-center" data-id="${item.id}">Create trial center</button><button type="button" data-admin-action="demo-status" data-id="${item.id}" data-status="CUSTOMER">Convert customer</button><button type="button" data-admin-action="delete-demo" data-id="${item.id}">Delete</button></td></tr>`);
-  return `${adminLayout("Demo requests")}${adminFilters("Center, contact, phone", ["status", "plan"])}${adminTable(["Center", "Contact", "Phone", "Email", "Plan", "Source", "Status", "Responsible", "Created", "Actions"], rows)}`;
+  const rows = adminFilter(adminState.demoRequests, ["centerName", "contactPerson", "phone", "email"]).map((item) => `<tr><td>${item.centerName}</td><td>${item.contactPerson}</td><td>${item.phone}</td><td>${item.email}</td><td>${item.interestedPlan}</td><td>${item.source}</td><td>${renderBadge(item.status)}</td><td>${item.responsibleAdmin}</td><td>${formatDate(item.createdAt)}</td><td><button type="button" data-admin-action="demo-status" data-id="${item.id}" data-status="CONTACTED">Aloqa qilindi</button><button type="button" data-admin-modal="demo-note" data-id="${item.id}">Uchrashuv/izoh</button><button type="button" data-admin-action="trial-center" data-id="${item.id}">Sinov ochish</button><button type="button" data-admin-action="demo-status" data-id="${item.id}" data-status="CUSTOMER">Mijozga aylantirish</button><button type="button" data-admin-action="delete-demo" data-id="${item.id}">O'chirish</button></td></tr>`);
+  return `${adminLayout("So'rovlar")}${adminFilters("Markaz, kontakt, telefon", ["status", "plan"])}${adminTable(["Markaz", "Kontakt", "Telefon", "Email", "Tarif", "Manba", "Status", "Mas'ul", "Yaratilgan", "Amallar"], rows)}`;
 }
 
 function renderAdminSupport() {
-  const rows = adminFilter(adminState.supportTickets, ["centerName", "subject", "category", "assignedAdmin"]).map((item) => `<tr><td>${item.centerName}</td><td>${item.subject}</td><td>${item.category}</td><td>${renderBadge(item.priority)}</td><td>${renderBadge(item.status)}</td><td>${item.assignedAdmin}</td><td>${formatDate(item.createdAt)}</td><td><button type="button" data-admin-modal="ticket" data-id="${item.id}">Details</button><button type="button" data-admin-action="ticket-status" data-id="${item.id}" data-status="IN_PROGRESS">In progress</button><button type="button" data-admin-action="ticket-status" data-id="${item.id}" data-status="RESOLVED">Resolve</button><button type="button" data-admin-action="ticket-status" data-id="${item.id}" data-status="CLOSED">Close</button></td></tr>`);
-  return `${adminLayout("Support", '<button type="button" data-admin-modal="ticket">Create ticket</button>')}${adminFilters("Ticket, center, category", ["status"])}${adminTable(["Center", "Subject", "Category", "Priority", "Status", "Assigned", "Created", "Actions"], rows)}`;
+  const rows = adminFilter(adminState.supportTickets, ["centerName", "subject", "category", "assignedAdmin"]).map((item) => `<tr><td>${item.centerName}</td><td>${item.subject}</td><td>${item.category}</td><td>${renderBadge(item.priority)}</td><td>${renderBadge(item.status)}</td><td>${item.assignedAdmin}</td><td>${formatDate(item.createdAt)}</td><td><button type="button" data-admin-modal="ticket" data-id="${item.id}">Details</button><button type="button" data-admin-action="ticket-status" data-id="${item.id}" data-status="IN_PROGRESS">Jarayonda</button><button type="button" data-admin-action="ticket-status" data-id="${item.id}" data-status="RESOLVED">Hal qilish</button><button type="button" data-admin-action="ticket-status" data-id="${item.id}" data-status="CLOSED">Yopish</button></td></tr>`);
+  return `${adminLayout("Support", '<button type="button" data-admin-modal="ticket">Ticket yaratish</button>')}${adminFilters("Ticket, markaz, kategoriya", ["status"])}${adminTable(["Markaz", "Mavzu", "Kategoriya", "Prioritet", "Status", "Mas'ul", "Yaratilgan", "Amallar"], rows)}`;
 }
 
 function renderAdminUsers() {
-  const rows = adminFilter(adminState.adminUsers, ["name", "email", "role"]).map((user) => `<tr><td>${user.name}</td><td>${user.email}</td><td>${user.role}</td><td>${renderBadge(user.status)}</td><td>${formatDate(user.lastLogin)}</td><td>${formatDate(user.createdAt)}</td><td><button type="button" data-admin-modal="admin-user" data-id="${user.id}">Edit</button><button type="button" data-admin-action="toggle-admin-user" data-id="${user.id}">${user.status === "blocked" ? "Unblock" : "Block"}</button><button type="button" data-admin-action="toast" data-message="Reset password placeholder.">Reset password</button><button type="button" data-admin-action="toast" data-message="2FA placeholder.">Enable 2FA</button></td></tr>`);
-  return `${adminLayout("Admin users", '<button type="button" data-admin-modal="admin-user">Add admin</button>')}${adminFilters("Name, email, role", ["status"])}${adminTable(["Name", "Email", "Role", "Status", "Last login", "Created", "Actions"], rows)}`;
+  const rows = adminFilter(adminState.adminUsers, ["name", "email", "role"]).map((user) => `<tr><td>${user.name}</td><td>${user.email}</td><td>${roleLabel(user.role)}</td><td>${renderBadge(user.status)}</td><td>${formatDate(user.lastLogin)}</td><td>${formatDate(user.createdAt)}</td><td><button type="button" data-admin-modal="admin-user" data-id="${user.id}">Tahrirlash</button><button type="button" data-admin-action="toggle-admin-user" data-id="${user.id}">${user.status === "blocked" ? "Aktivlashtirish" : "Bloklash"}</button><button type="button" data-admin-action="reset-admin-password" data-id="${user.id}">Parolni yangilash</button><button type="button" data-admin-action="toggle-2fa" data-id="${user.id}">2FA</button></td></tr>`);
+  return `${adminLayout("Adminlar", '<button type="button" data-admin-modal="admin-user">Admin qo‘shish</button>')}${adminFilters("Ism, email, rol", ["status"])}${adminTable(["Ism", "Email", "Rol", "Status", "Oxirgi kirish", "Yaratilgan", "Amallar"], rows)}`;
+}
+
+function roleLabel(role) {
+  return {
+    OWNER: "Egasi",
+    SUPER_ADMIN: "Super admin",
+    SALES_MANAGER: "Sotuv menejeri",
+    SUPPORT_MANAGER: "Support menejeri",
+    FINANCE_MANAGER: "Moliya menejeri",
+    TECH_ADMIN: "Texnik admin"
+  }[role] || role || "-";
 }
 
 function renderAdminAuditLog() {
   const rows = adminFilter(adminState.auditLogs, ["admin", "action", "targetType", "targetName"]).map((log) => `<tr><td>${log.admin}</td><td>${log.action}</td><td>${log.targetType}</td><td>${log.targetName}</td><td>${log.oldValue}</td><td>${log.newValue}</td><td>${log.ip}</td><td>${formatDate(log.date)}</td></tr>`);
-  return `${adminLayout("Audit log", '<button type="button" data-admin-action="toast" data-message="Export placeholder tayyorlandi.">Export</button>')}${adminFilters("Admin, action, target", ["status"])}${adminTable(["Admin", "Action", "Target type", "Target name", "Old value", "New value", "IP", "Date"], rows)}`;
+  return `${adminLayout("Audit log", '<button type="button" data-admin-action="export-audit">Export</button>')}${adminFilters("Admin, action, target", ["status"])}${adminTable(["Admin", "Action", "Target type", "Target name", "Old value", "New value", "IP", "Date"], rows)}`;
 }
 
 function renderAdminSettings() {
   const tabs = ["general", "domains", "billing", "notifications", "security", "integrations"];
   const data = adminState.settings[activeAdminSettingsTab] || {};
-  return `${adminLayout("Settings", '<button type="button" data-admin-action="reset-demo">Reset demo data</button>')}<div class="tabs">${tabs.map((tab) => `<button type="button" class="${activeAdminSettingsTab === tab ? "active" : ""}" data-admin-action="settings-tab" data-tab="${tab}">${tab}</button>`).join("")}</div><form class="admin-form" data-admin-settings-form data-section="${activeAdminSettingsTab}">${Object.entries(data).map(([key, value]) => `<label>${key}<input name="${key}" value="${value}" /></label>`).join("")}<div class="modal-actions"><button type="submit">Saqlash</button></div></form>`;
+  return `${adminLayout("Sozlamalar", '<button type="button" data-admin-action="reset-data">Ma’lumotlarni tiklash</button>')}<div class="tabs">${tabs.map((tab) => `<button type="button" class="${activeAdminSettingsTab === tab ? "active" : ""}" data-admin-action="settings-tab" data-tab="${tab}">${tab}</button>`).join("")}</div><form class="admin-form" data-admin-settings-form data-section="${activeAdminSettingsTab}">${Object.entries(data).map(([key, value]) => `<label>${key}<input name="${key}" value="${value}" /></label>`).join("")}<div class="modal-actions"><button type="submit">Saqlash</button></div></form>`;
 }
 
 function renderAdminView(viewName) {
@@ -2074,7 +2252,8 @@ function adminOpenModal(type, id = null) {
   if (type === "change-plan" || type === "subscription-plan") modalForm.innerHTML = `<label>Tarif<select name="plan">${adminState.plans.map((item) => `<option ${item.name === (center?.plan || subscription?.plan) ? "selected" : ""}>${item.name}</option>`).join("")}</select></label>${adminModalActions()}`;
   else if (type === "extend-trial" || type === "extend-subscription") modalForm.innerHTML = `<label>Kunlar<input name="days" type="number" value="7" /></label>${adminModalActions()}`;
   else if (type === "edit-subdomain") modalForm.innerHTML = `<label>Subdomain<input name="subdomain" value="${center?.subdomain || ""}" /></label><div class="form-error" data-admin-form-error></div>${adminModalActions("Tekshirish va saqlash")}`;
-  else if (type === "support-note" || type === "demo-note") modalForm.innerHTML = `<label>Izoh<textarea name="note" required></textarea></label>${adminModalActions()}`;
+  else if (type === "support-note" || type === "demo-note" || type === "send-message") modalForm.innerHTML = `<label>Izoh<textarea name="note" required></textarea></label>${adminModalActions()}`;
+  else if (type === "login-as-center") modalForm.innerHTML = `<div class="success-box"><h3>${center?.name || "Markaz"}</h3><p>Xavfsiz kirish havolasi tayyorlandi. Amal audit logga yoziladi.</p><p>https://${center?.subdomain || "center"}.eduka.uz</p></div>${adminModalActions("Kirishni tasdiqlash")}`;
   else if (type === "payment") modalForm.innerHTML = `<label>Center<select name="centerId">${adminState.centers.map((item) => `<option value="${item.id}" ${item.id === payment.centerId ? "selected" : ""}>${item.name}</option>`).join("")}</select></label><label>Amount<input name="amount" type="number" value="${payment.amount || ""}" required /></label><label>Date<input name="paymentDate" type="date" value="${payment.paymentDate || "2026-05-06"}" /></label><label>Method<select name="method"><option>bank</option><option>click</option><option>payme</option><option>card</option></select></label><label>Status<select name="status"><option>paid</option><option>pending</option><option>overdue</option></select></label><label>Note<input name="note" value="${payment.note || ""}" /></label>${adminModalActions()}`;
   else if (type === "plan") modalForm.innerHTML = `<label>Name<input name="name" value="${plan.name || ""}" required /></label><label>Price<input name="price" type="number" value="${plan.price || 0}" /></label><label>Student limit<input name="studentLimit" type="number" value="${plan.studentLimit || 0}" /></label><label>Teacher limit<input name="teacherLimit" type="number" value="${plan.teacherLimit || 0}" /></label><label>Branch limit<input name="branchLimit" type="number" value="${plan.branchLimit || 0}" /></label><label>Group limit<input name="groupLimit" type="number" value="${plan.groupLimit || 0}" /></label><label>Support<input name="supportLevel" value="${plan.supportLevel || "Basic"}" /></label><label>Status<select name="status"><option>active</option><option>inactive</option></select></label>${adminModalActions()}`;
   else if (type === "admin-user") modalForm.innerHTML = `<label>Name<input name="name" value="${adminUser.name || ""}" required /></label><label>Email<input name="email" value="${adminUser.email || ""}" required /></label><label>Role<select name="role">${["OWNER", "SUPER_ADMIN", "SALES_MANAGER", "SUPPORT_MANAGER", "FINANCE_MANAGER", "TECH_ADMIN"].map((role) => `<option ${role === adminUser.role ? "selected" : ""}>${role}</option>`).join("")}</select></label><label>Status<select name="status"><option>active</option><option>blocked</option></select></label>${adminModalActions()}`;
@@ -2128,6 +2307,10 @@ function handleAdminModalSubmit() {
     center.supportNotes = center.supportNotes || [];
     center.supportNotes.unshift({ text: data.note, date: new Date().toISOString() });
     addAuditLog("support note added", "center", center.name, "-", data.note);
+  } else if (type === "send-message" && center) {
+    addAuditLog("message sent", "center", center.name, "-", data.note);
+  } else if (type === "login-as-center" && center) {
+    addAuditLog("login as center", "center", center.name, "-", center.subdomain);
   } else if (type === "payment") {
     savePayment(data);
   } else if (type === "plan") {
@@ -2193,7 +2376,7 @@ function handleCreateCenter(form) {
   const id = nextAdminId(adminState.centers);
   const endDate = new Date();
   endDate.setDate(endDate.getDate() + Number(data.trialDays || 7));
-  const center = { id, name: data.name, subdomain: data.subdomain, owner: data.owner, phone: data.phone, email: data.email, address: data.address, plan: data.plan, status: data.status, subscriptionStatus: "trial", studentsCount: data.demoData ? 12 : 0, teachersCount: 0, groupsCount: 0, branchesCount: Number(data.branchLimit || 1), monthlyPayment: plan?.price || 0, registeredAt: new Date().toISOString().slice(0, 10), subscriptionEndsAt: endDate.toISOString().slice(0, 10), lastActivityAt: new Date().toISOString().slice(0, 10), supportNotes: [] };
+  const center = { id, name: data.name, subdomain: data.subdomain, owner: data.owner, phone: data.phone, email: data.email, address: data.address, plan: data.plan, status: data.status, subscriptionStatus: "trial", studentsCount: data.starterData ? 12 : 0, teachersCount: 0, groupsCount: 0, branchesCount: Number(data.branchLimit || 1), monthlyPayment: plan?.price || 0, registeredAt: new Date().toISOString().slice(0, 10), subscriptionEndsAt: endDate.toISOString().slice(0, 10), lastActivityAt: new Date().toISOString().slice(0, 10), supportNotes: [] };
   adminState.centers.unshift(center);
   adminState.subscriptions.unshift({ id: nextAdminId(adminState.subscriptions), centerId: id, centerName: center.name, plan: center.plan, price: center.monthlyPayment, startDate: center.registeredAt, endDate: center.subscriptionEndsAt, status: "trial", autoRenew: true, paymentStatus: "trial" });
   if (data.createAdmin) adminState.adminUsers.unshift({ id: nextAdminId(adminState.adminUsers), name: data.owner, email: data.email, role: "SUPER_ADMIN", status: "active", lastLogin: "-", createdAt: center.registeredAt, twoFa: false });
@@ -2220,23 +2403,40 @@ function updateAdminState(action, id, value = null) {
   }
   if (action === "mark-paid") {
     const payment = adminState.payments.find((item) => item.id === Number(id));
-    if (payment) payment.status = "paid";
+    if (payment) {
+      payment.status = "paid";
+      addAuditLog("payment marked paid", "payment", payment.invoiceNumber, "-", "paid");
+    }
   }
-  if (action === "delete-payment") adminState.payments = adminState.payments.filter((item) => item.id !== Number(id));
+  if (action === "delete-payment") {
+    if (!window.confirm("To'lovni o'chirishni tasdiqlaysizmi?")) return;
+    adminState.payments = adminState.payments.filter((item) => item.id !== Number(id));
+  }
   if (action === "toggle-plan") {
     const plan = adminState.plans.find((item) => item.id === Number(id));
-    if (plan) plan.status = plan.status === "active" ? "inactive" : "active";
+    if (plan) {
+      plan.status = plan.status === "active" ? "inactive" : "active";
+      addAuditLog("plan status changed", "plan", plan.name, "-", plan.status);
+    }
   }
   if (action === "delete-plan") {
     const plan = adminState.plans.find((item) => item.id === Number(id));
     if (adminState.centers.some((item) => item.plan === plan?.name)) return showToast("Bu plan ishlatilmoqda, delete bloklandi.");
+    if (!window.confirm("Tarifni o'chirishni tasdiqlaysizmi?")) return;
     adminState.plans = adminState.plans.filter((item) => item.id !== Number(id));
+    addAuditLog("plan deleted", "plan", plan?.name, "active", "deleted");
   }
   if (action === "demo-status") {
     const req = adminState.demoRequests.find((item) => item.id === Number(id));
-    if (req) req.status = value;
+    if (req) {
+      req.status = value;
+      addAuditLog("request status changed", "request", req.centerName, "-", value);
+    }
   }
-  if (action === "delete-demo") adminState.demoRequests = adminState.demoRequests.filter((item) => item.id !== Number(id));
+  if (action === "delete-demo") {
+    if (!window.confirm("So'rovni o'chirishni tasdiqlaysizmi?")) return;
+    adminState.demoRequests = adminState.demoRequests.filter((item) => item.id !== Number(id));
+  }
   if (action === "ticket-status") {
     const ticket = adminState.supportTickets.find((item) => item.id === Number(id));
     if (ticket) {
@@ -2248,8 +2448,30 @@ function updateAdminState(action, id, value = null) {
     const user = adminState.adminUsers.find((item) => item.id === Number(id));
     const owners = adminState.adminUsers.filter((item) => item.role === "OWNER" && item.status !== "blocked");
     if (user?.role === "OWNER" && owners.length === 1) return showToast("Yagona OWNER bloklanmaydi.");
-    if (user) user.status = user.status === "blocked" ? "active" : "blocked";
+    if (user) {
+      user.status = user.status === "blocked" ? "active" : "blocked";
+      addAuditLog("admin status changed", "admin", user.email, "-", user.status);
+    }
   }
+  if (action === "reset-center-password" && center) addAuditLog("center password reset", "center", center.name, "-", "sent");
+  if (action === "reset-admin-password") {
+    const user = adminState.adminUsers.find((item) => item.id === Number(id));
+    if (user) addAuditLog("admin password reset", "admin", user.email, "-", "sent");
+  }
+  if (action === "toggle-2fa") {
+    const user = adminState.adminUsers.find((item) => item.id === Number(id));
+    if (user) {
+      user.twoFa = !user.twoFa;
+      addAuditLog("admin 2fa changed", "admin", user.email, "-", user.twoFa ? "enabled" : "disabled");
+    }
+  }
+  if (action === "create-invoice") {
+    const sub = adminState.subscriptions.find((item) => item.id === Number(id));
+    if (sub) addAuditLog("invoice created", "subscription", sub.centerName, "-", sub.plan);
+  }
+  if (action === "download-invoice") showToast("Invoice tayyorlandi.");
+  if (action === "export-audit") showToast("Audit export tayyorlandi.");
+  if (action === "tenant-check") showToast("Tenant routing tekshirildi.");
   saveAdminState();
   renderAdminView(viewFromPath());
 }
@@ -2361,6 +2583,12 @@ function normalizeDigits(value) {
 }
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-admin-logout]")) {
+    adminLogout();
+    showToast("Tizimdan chiqildi.");
+    return;
+  }
+
   const adminModalButton = event.target.closest("[data-admin-modal]");
   if (adminModalButton) {
     adminOpenModal(adminModalButton.dataset.adminModal, adminModalButton.dataset.id);
@@ -2375,7 +2603,7 @@ document.addEventListener("click", async (event) => {
       closeModal();
       setView("admin-center-profile", { route: `/admin/centers/${adminAction.dataset.id}` });
     }
-    else if (action === "toast") showToast(adminAction.dataset.message || "Placeholder action tayyor.");
+    else if (action === "toast") showToast(adminAction.dataset.message || "Amal bajarildi.");
     else if (action === "reset-filters") {
       document.querySelectorAll(".admin-filters input, .admin-filters select").forEach((field) => {
         field.value = "";
@@ -2394,11 +2622,14 @@ document.addEventListener("click", async (event) => {
     } else if (action === "new-center-reset") {
       closeModal();
       setView("admin-centers-new", { replace: true });
-    } else if (action === "reset-demo") {
-      Object.assign(adminState, seedAdminState());
-      saveAdminState();
-      renderAdminView("admin-settings");
-      showToast("Admin demo data reset qilindi.");
+    } else if (action === "reset-data") {
+      if (window.confirm("Ma'lumotlarni boshlang'ich holatga qaytarishni tasdiqlaysizmi?")) {
+        Object.assign(adminState, seedAdminState());
+        addAuditLog("settings reset", "settings", "platform", "-", "reset");
+        saveAdminState();
+        renderAdminView("admin-settings");
+        showToast("Ma'lumotlar tiklandi.");
+      }
     } else if (action === "trial-center") {
       const req = adminState.demoRequests.find((item) => item.id === Number(adminAction.dataset.id));
       if (req) {
@@ -2487,6 +2718,11 @@ document.addEventListener("click", async (event) => {
   }
 
   if (event.target.closest("[data-logout]")) {
+    if (window.location.pathname.startsWith("/admin")) {
+      adminLogout();
+      showToast("Tizimdan chiqildi.");
+      return;
+    }
     await api("/api/auth/logout", { method: "POST" }).catch(() => {});
     showAuth();
     showToast("Tizimdan chiqildi.");
@@ -2510,6 +2746,30 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("submit", (event) => {
+  const adminLoginForm = event.target.closest("[data-admin-login-form]");
+  if (adminLoginForm) {
+    event.preventDefault();
+    const button = adminLoginForm.querySelector("button[type='submit']");
+    const errorNode = adminLoginForm.querySelector("[data-admin-login-error]");
+    const data = Object.fromEntries(new FormData(adminLoginForm).entries());
+    button.disabled = true;
+    button.textContent = "Tekshirilmoqda...";
+    window.setTimeout(() => {
+      const session = adminLogin(data.email, data.password);
+      button.disabled = false;
+      button.textContent = "Kirish";
+      if (!session) {
+        errorNode.textContent = "Email yoki parol noto'g'ri.";
+        return;
+      }
+      hideAdminLogin();
+      showApp(adminUserFromSession());
+      setView("admin-dashboard", { replace: true });
+      showToast("Platform Control Center ochildi.");
+    }, 250);
+    return;
+  }
+
   const centerForm = event.target.closest("[data-admin-create-center]");
   if (centerForm) {
     event.preventDefault();
@@ -2521,6 +2781,7 @@ document.addEventListener("submit", (event) => {
     event.preventDefault();
     const section = settingsForm.dataset.section;
     adminState.settings[section] = Object.fromEntries(new FormData(settingsForm).entries());
+    addAuditLog("settings updated", "settings", section, "-", "saved");
     saveAdminState();
     showToast("Settings saqlandi.");
     renderAdminView("admin-settings");

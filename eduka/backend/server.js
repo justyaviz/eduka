@@ -510,6 +510,15 @@ function isPanelHost(request) {
   return ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix));
 }
 
+function hostKind(request) {
+  const host = String(request.headers.host || "").split(":")[0].toLowerCase();
+  if (!host || host === "localhost" || host === "127.0.0.1" || host === "eduka.uz" || host === "www.eduka.uz") return "landing";
+  if (host === "admin.eduka.uz" || host.startsWith("admin.")) return "admin";
+  if (host === "app.eduka.uz" || ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix))) return "app";
+  if (host.endsWith(".eduka.uz")) return "tenant";
+  return "landing";
+}
+
 async function findSessionUser(request) {
   const token = parseCookies(request)[sessionCookieName];
   if (!token) return null;
@@ -2460,7 +2469,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/" && isPanelHost(request)) {
+  if (request.method === "GET" && urlPath === "/" && (query.has("tenant") || ["admin", "app", "tenant"].includes(hostKind(request)))) {
     sendAppShell(response);
     return;
   }
