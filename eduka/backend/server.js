@@ -468,6 +468,23 @@ function sendFile(response, filePath) {
   });
 }
 
+function sendRedirect(response, location) {
+  response.writeHead(302, {
+    "Location": location,
+    "Cache-Control": "no-store"
+  });
+  response.end();
+}
+
+function sendAppShell(response) {
+  sendFile(response, path.join(root, "app.html"));
+}
+
+function isPanelHost(request) {
+  const host = String(request.headers.host || "").split(":")[0].toLowerCase();
+  return ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix));
+}
+
 async function findSessionUser(request) {
   const token = parseCookies(request)[sessionCookieName];
   if (!token) return null;
@@ -1387,6 +1404,36 @@ const server = http.createServer((request, response) => {
     ["/api/telegram-test", "/api/telegram-test/", "/api/test-telegram", "/api/test-telegram/"].includes(urlPath)
   ) {
     handleTelegramTest(response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/" && isPanelHost(request)) {
+    sendAppShell(response);
+    return;
+  }
+
+  const appRouteRedirects = new Map([
+    ["/app/", "/app"],
+    ["/dashboard/", "/dashboard"],
+    ["/login/", "/login"],
+    ["/crm/", "/crm"],
+    ["/panel/", "/panel"]
+  ]);
+
+  if (request.method === "GET" && appRouteRedirects.has(urlPath)) {
+    sendRedirect(response, appRouteRedirects.get(urlPath));
+    return;
+  }
+
+  const appRoutes = new Set(["/app", "/dashboard", "/login", "/crm", "/panel"]);
+
+  if (request.method === "GET" && appRoutes.has(urlPath)) {
+    sendAppShell(response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/app.html") {
+    sendRedirect(response, "/app");
     return;
   }
 
