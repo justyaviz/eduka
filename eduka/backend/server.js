@@ -907,20 +907,50 @@ async function handleDebtsRequest(request, response) {
     const { page, limit, offset } = pageOptions(query);
     const search = asText(query.get("search"));
     const params = [user.organization_id];
-    let where = "WHERE s.organization_id=$1 AND s.balance > 0";
+    let searchWhere = "";
     if (search) {
       params.push(`%${search}%`);
-      where += ` AND (s.full_name ILIKE $${params.length} OR s.phone ILIKE $${params.length} OR s.parent_phone ILIKE $${params.length})`;
+      searchWhere = ` AND (s.full_name ILIKE $${params.length} OR s.phone ILIKE $${params.length} OR s.parent_phone ILIKE $${params.length} OR g.name ILIKE $${params.length})`;
     }
-    const countResult = await getDbPool().query(`SELECT COUNT(*)::int AS total FROM students s ${where}`, params);
+
+    const baseSql = `
+      WITH payment_debts AS (
+        SELECT
+          p.organization_id,
+          p.student_id,
+          COALESCE(SUM(COALESCE(p.due_amount, 0)), 0)::numeric AS amount_due,
+          COALESCE(SUM(COALESCE(p.amount, 0) + COALESCE(p.discount, 0)), 0)::numeric AS paid_amount,
+          GREATEST(COALESCE(SUM(COALESCE(p.due_amount, 0) - COALESCE(p.amount, 0) - COALESCE(p.discount, 0)), 0), 0)::numeric AS remaining_debt,
+          MAX(p.paid_at) AS last_payment_at,
+          MIN(p.paid_at) FILTER (
+            WHERE COALESCE(p.due_amount, 0) - COALESCE(p.amount, 0) - COALESCE(p.discount, 0) > 0
+          ) AS first_debt_at
+        FROM payments p
+        WHERE p.organization_id=$1
+          AND p.student_id IS NOT NULL
+          AND p.status <> 'cancelled'
+        GROUP BY p.organization_id, p.student_id
+      )
+      SELECT
+        s.*,
+        g.name AS group_name,
+        payment_debts.amount_due,
+        payment_debts.paid_amount,
+        payment_debts.remaining_debt,
+        payment_debts.remaining_debt AS balance,
+        payment_debts.last_payment_at,
+        GREATEST(0, (CURRENT_DATE - COALESCE(payment_debts.first_debt_at::date, s.created_at::date)))::int AS overdue_days
+      FROM payment_debts
+      JOIN students s ON s.id=payment_debts.student_id AND s.organization_id=payment_debts.organization_id
+      LEFT JOIN groups g ON g.id=s.group_id
+      WHERE payment_debts.remaining_debt > 0${searchWhere}
+    `;
+
+    const countResult = await getDbPool().query(`SELECT COUNT(*)::int AS total FROM (${baseSql}) debts`, params);
     params.push(limit, offset);
     const result = await getDbPool().query(
-      `SELECT s.*, g.name AS group_name,
-              COALESCE((SELECT MAX(p.paid_at) FROM payments p WHERE p.student_id=s.id), NULL) AS last_payment_at
-       FROM students s
-       LEFT JOIN groups g ON g.id=s.group_id
-       ${where}
-       ORDER BY s.balance DESC, s.id DESC
+      `${baseSql}
+       ORDER BY remaining_debt DESC, overdue_days DESC, id DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
@@ -1374,6 +1404,8 @@ async function listRows(request, response, config) {
     let where = "WHERE 1=1";
     const search = asText(query.get("search"));
     const status = asText(query.get("status"));
+    const dateFrom = asDate(query.get("date_from"));
+    const dateTo = asDate(query.get("date_to"));
 
     if (search && config.searchColumns?.length) {
       params.push(`%${search}%`);
@@ -1392,6 +1424,40 @@ async function listRows(request, response, config) {
       if (!value) continue;
       params.push(`%${value}%`);
       where += ` AND ${column}::text ILIKE $${params.length}`;
+    }
+
+    if (dateFrom) {
+      params.push(dateFrom);
+      where += ` AND created_at::date >= $${params.length}::date`;
+    }
+
+    if (dateTo) {
+      params.push(dateTo);
+      where += ` AND created_at::date <= $${params.length}::date`;
+    }
+
+    if (config.entity === "students") {
+      const finance = asText(query.get("finance"));
+      const groupId = asText(query.get("group_id"));
+      if (finance === "debt") where += " AND balance > 0";
+      if (finance === "clear") where += " AND balance <= 0";
+      if (groupId) {
+        params.push(groupId);
+        where += ` AND group_id=$${params.length}`;
+      }
+    }
+
+    if (config.entity === "groups") {
+      const startsAt = asDate(query.get("starts_at"));
+      const endsAt = asDate(query.get("ends_at"));
+      if (startsAt) {
+        params.push(startsAt);
+        where += ` AND starts_at >= $${params.length}::date`;
+      }
+      if (endsAt) {
+        params.push(endsAt);
+        where += ` AND COALESCE(ends_at, starts_at) <= $${params.length}::date`;
+      }
     }
 
     const sort = config.sortColumns?.includes(query.get("sort")) ? query.get("sort") : config.defaultSort || "id";
@@ -1610,6 +1676,41 @@ const crudConfigs = {
   }
 };
 
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+function paymentStatusFrom(amount, dueAmount, discount, fallback = "") {
+  const explicitStatus = asText(fallback);
+  if (explicitStatus) return explicitStatus;
+  const remaining = Math.max(Number(dueAmount || 0) - Number(amount || 0) - Number(discount || 0), 0);
+  if (remaining <= 0) return "paid";
+  if (Number(amount || 0) > 0 || Number(discount || 0) > 0) return "partial";
+  return "debt";
+}
+
+async function recalculateStudentBalance(pool, organizationId, studentId) {
+  if (!studentId) return;
+  const result = await pool.query(
+    `SELECT GREATEST(COALESCE(SUM(COALESCE(due_amount, 0) - COALESCE(amount, 0) - COALESCE(discount, 0)), 0), 0)::numeric AS balance
+     FROM payments
+     WHERE organization_id=$1 AND student_id=$2 AND status <> 'cancelled'`,
+    [organizationId, studentId]
+  );
+  const balance = result.rows[0]?.balance || 0;
+  await pool.query(
+    `UPDATE students
+     SET balance=$3,
+         status=CASE
+           WHEN $3::numeric > 0 AND status IN ('active', 'debtor') THEN 'debtor'
+           WHEN $3::numeric <= 0 AND status='debtor' THEN 'active'
+           ELSE status
+         END
+     WHERE organization_id=$1 AND id=$2`,
+    [organizationId, studentId, balance]
+  );
+}
+
 async function handlePaymentCreate(request, response) {
   try {
     const user = await requireUser(request, response, "payments:write");
@@ -1631,7 +1732,7 @@ async function handlePaymentCreate(request, response) {
         dueAmount,
         amount,
         discount,
-        asText(body.status, amount >= dueAmount ? "paid" : "partial"),
+        paymentStatusFrom(amount, dueAmount, discount, body.status),
         asText(body.payment_type, "naqd"),
         asText(body.note),
         user.id,
@@ -1640,17 +1741,88 @@ async function handlePaymentCreate(request, response) {
     );
 
     if (body.student_id) {
-      const balanceDelta = Math.max(dueAmount - amount - discount, 0);
-      await pool.query(
-        "UPDATE students SET balance = GREATEST(balance - $1, 0) + $2 WHERE id=$3 AND organization_id=$4",
-        [amount, balanceDelta, body.student_id, user.organization_id]
-      );
+      await recalculateStudentBalance(pool, user.organization_id, body.student_id);
     }
 
     await writeAudit(pool, user, "create", "payments", result.rows[0].id, body);
     sendJson(response, 201, { ok: true, item: result.rows[0] });
   } catch (error) {
     withError(response, "Create payments", error);
+  }
+}
+
+async function handlePaymentUpdate(request, response, paymentId) {
+  try {
+    const user = await requireUser(request, response, "payments:write");
+    if (!user) return;
+
+    const body = await readJsonBody(request);
+    const pool = getDbPool();
+    const beforeResult = await pool.query("SELECT * FROM payments WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
+    const before = beforeResult.rows[0];
+
+    if (!before) {
+      sendJson(response, 404, { ok: false, message: "To'lov topilmadi" });
+      return;
+    }
+
+    const amount = hasOwn(body, "amount") ? asNumber(body.amount) : Number(before.amount || 0);
+    const discount = hasOwn(body, "discount") ? asNumber(body.discount) : Number(before.discount || 0);
+    const dueAmount = hasOwn(body, "due_amount") ? asNumber(body.due_amount, amount + discount) : Number(before.due_amount || amount + discount);
+    const studentId = hasOwn(body, "student_id") ? body.student_id || null : before.student_id;
+    const groupId = hasOwn(body, "group_id") ? body.group_id || null : before.group_id;
+    const result = await pool.query(
+      `UPDATE payments
+       SET student_id=$3, group_id=$4, payment_month=$5, due_amount=$6, amount=$7, discount=$8, status=$9, payment_type=$10, note=$11, paid_at=COALESCE($12::timestamptz, paid_at)
+       WHERE id=$1 AND organization_id=$2
+       RETURNING *`,
+      [
+        paymentId,
+        user.organization_id,
+        studentId,
+        groupId,
+        hasOwn(body, "payment_month") ? asText(body.payment_month) : before.payment_month,
+        dueAmount,
+        amount,
+        discount,
+        paymentStatusFrom(amount, dueAmount, discount, hasOwn(body, "status") ? body.status : before.status),
+        hasOwn(body, "payment_type") ? asText(body.payment_type, "naqd") : before.payment_type,
+        hasOwn(body, "note") ? asText(body.note) : before.note,
+        hasOwn(body, "paid_at") ? asDate(body.paid_at) : null
+      ]
+    );
+
+    await recalculateStudentBalance(pool, user.organization_id, before.student_id);
+    if (String(before.student_id || "") !== String(studentId || "")) {
+      await recalculateStudentBalance(pool, user.organization_id, studentId);
+    }
+
+    await writeAudit(pool, user, "update", "payments", paymentId, { before, after: result.rows[0] });
+    sendJson(response, 200, { ok: true, item: result.rows[0] });
+  } catch (error) {
+    withError(response, "Update payments", error);
+  }
+}
+
+async function handlePaymentDelete(request, response, paymentId) {
+  try {
+    const user = await requireUser(request, response, "payments:write");
+    if (!user) return;
+
+    const pool = getDbPool();
+    const beforeResult = await pool.query("SELECT * FROM payments WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
+    const before = beforeResult.rows[0];
+    if (!before) {
+      sendJson(response, 404, { ok: false, message: "To'lov topilmadi" });
+      return;
+    }
+
+    await pool.query("DELETE FROM payments WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
+    await recalculateStudentBalance(pool, user.organization_id, before.student_id);
+    await writeAudit(pool, user, "delete", "payments", paymentId, { before });
+    sendJson(response, 200, { ok: true });
+  } catch (error) {
+    withError(response, "Delete payments", error);
   }
 }
 
@@ -1700,6 +1872,10 @@ async function listPayments(request, response) {
     const { page, limit, offset } = pageOptions(query);
     const search = asText(query.get("search"));
     const paymentType = asText(query.get("payment_type"));
+    const status = asText(query.get("status"));
+    const groupId = asText(query.get("group_id"));
+    const groupName = asText(query.get("group_name"));
+    const paymentMonth = asText(query.get("payment_month") || query.get("month"));
     const dateFrom = asDate(query.get("date_from"));
     const dateTo = asDate(query.get("date_to"));
     const params = [user.organization_id];
@@ -1712,6 +1888,22 @@ async function listPayments(request, response) {
       params.push(paymentType);
       where += ` AND p.payment_type=$${params.length}`;
     }
+    if (status) {
+      params.push(status);
+      where += ` AND p.status=$${params.length}`;
+    }
+    if (groupId) {
+      params.push(groupId);
+      where += ` AND p.group_id=$${params.length}`;
+    }
+    if (groupName) {
+      params.push(`%${groupName}%`);
+      where += ` AND g.name ILIKE $${params.length}`;
+    }
+    if (paymentMonth) {
+      params.push(paymentMonth);
+      where += ` AND p.payment_month=$${params.length}`;
+    }
     if (dateFrom) {
       params.push(dateFrom);
       where += ` AND p.paid_at::date >= $${params.length}::date`;
@@ -1721,7 +1913,11 @@ async function listPayments(request, response) {
       where += ` AND p.paid_at::date <= $${params.length}::date`;
     }
     const countResult = await getDbPool().query(
-      `SELECT COUNT(*)::int AS total FROM payments p LEFT JOIN students s ON s.id=p.student_id ${where}`,
+      `SELECT COUNT(*)::int AS total
+       FROM payments p
+       LEFT JOIN students s ON s.id=p.student_id
+       LEFT JOIN groups g ON g.id=p.group_id
+       ${where}`,
       params
     );
     params.push(limit, offset);
@@ -1755,6 +1951,7 @@ async function handleAttendance(request, response) {
       const { page, limit, offset } = pageOptions(query);
       const status = asText(query.get("status"));
       const search = asText(query.get("search"));
+      const groupName = asText(query.get("group_name"));
       const lessonDate = asDate(query.get("lesson_date"));
       const params = [user.organization_id];
       let where = "WHERE a.organization_id=$1";
@@ -1769,6 +1966,10 @@ async function handleAttendance(request, response) {
       if (search) {
         params.push(`%${search}%`);
         where += ` AND (s.full_name ILIKE $${params.length} OR g.name ILIKE $${params.length})`;
+      }
+      if (groupName) {
+        params.push(`%${groupName}%`);
+        where += ` AND g.name ILIKE $${params.length}`;
       }
       const countResult = await pool.query(
         `SELECT COUNT(*)::int AS total FROM attendance_records a LEFT JOIN students s ON s.id=a.student_id LEFT JOIN groups g ON g.id=a.group_id ${where}`,
@@ -1808,6 +2009,61 @@ async function handleAttendance(request, response) {
     sendJson(response, 200, { ok: true, item: saved[0], items: saved });
   } catch (error) {
     withError(response, "Attendance", error);
+  }
+}
+
+async function handleAttendanceUpdate(request, response, attendanceId) {
+  try {
+    const user = await requireUser(request, response, "attendance:write");
+    if (!user) return;
+
+    const body = await readJsonBody(request);
+    const pool = getDbPool();
+    const before = await pool.query("SELECT * FROM attendance_records WHERE id=$1 AND organization_id=$2", [attendanceId, user.organization_id]);
+    if (!before.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "Davomat yozuvi topilmadi" });
+      return;
+    }
+    const result = await pool.query(
+      `UPDATE attendance_records
+       SET group_id=$3, student_id=$4, lesson_date=$5, status=$6, note=$7, marked_by=$8
+       WHERE id=$1 AND organization_id=$2
+       RETURNING *`,
+      [
+        attendanceId,
+        user.organization_id,
+        body.group_id || before.rows[0].group_id || null,
+        body.student_id || before.rows[0].student_id || null,
+        asDate(body.lesson_date) || before.rows[0].lesson_date,
+        asText(body.status, before.rows[0].status || "present"),
+        hasOwn(body, "note") ? asText(body.note) : before.rows[0].note,
+        user.id
+      ]
+    );
+
+    await writeAudit(pool, user, "update", "attendance_records", attendanceId, { before: before.rows[0] || null, after: result.rows[0] });
+    sendJson(response, 200, { ok: true, item: result.rows[0] });
+  } catch (error) {
+    withError(response, "Update attendance", error);
+  }
+}
+
+async function handleAttendanceDelete(request, response, attendanceId) {
+  try {
+    const user = await requireUser(request, response, "attendance:write");
+    if (!user) return;
+
+    const pool = getDbPool();
+    const before = await pool.query("SELECT * FROM attendance_records WHERE id=$1 AND organization_id=$2", [attendanceId, user.organization_id]);
+    const result = await pool.query("DELETE FROM attendance_records WHERE id=$1 AND organization_id=$2 RETURNING id", [attendanceId, user.organization_id]);
+    if (!result.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "Davomat yozuvi topilmadi" });
+      return;
+    }
+    await writeAudit(pool, user, "delete", "attendance_records", attendanceId, { before: before.rows[0] || null });
+    sendJson(response, 200, { ok: true });
+  } catch (error) {
+    withError(response, "Delete attendance", error);
   }
 }
 
@@ -2122,21 +2378,49 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (urlPath === "/api/payments") {
-    if (request.method === "GET") {
+  const paymentMatch = urlPath.match(/^\/api\/payments(?:\/(\d+))?$/);
+  if (paymentMatch) {
+    const paymentId = paymentMatch[1] ? Number(paymentMatch[1]) : null;
+
+    if (request.method === "GET" && !paymentId) {
       listPayments(request, response);
       return;
     }
 
-    if (request.method === "POST") {
+    if (request.method === "POST" && !paymentId) {
       handlePaymentCreate(request, response);
+      return;
+    }
+
+    if (request.method === "PUT" && paymentId) {
+      handlePaymentUpdate(request, response, paymentId);
+      return;
+    }
+
+    if (request.method === "DELETE" && paymentId) {
+      handlePaymentDelete(request, response, paymentId);
       return;
     }
   }
 
-  if (urlPath === "/api/attendance" && ["GET", "POST"].includes(request.method)) {
-    handleAttendance(request, response);
-    return;
+  const attendanceMatch = urlPath.match(/^\/api\/attendance(?:\/(\d+))?$/);
+  if (attendanceMatch) {
+    const attendanceId = attendanceMatch[1] ? Number(attendanceMatch[1]) : null;
+
+    if (["GET", "POST"].includes(request.method) && !attendanceId) {
+      handleAttendance(request, response);
+      return;
+    }
+
+    if (request.method === "PUT" && attendanceId) {
+      handleAttendanceUpdate(request, response, attendanceId);
+      return;
+    }
+
+    if (request.method === "DELETE" && attendanceId) {
+      handleAttendanceDelete(request, response, attendanceId);
+      return;
+    }
   }
 
   if (urlPath === "/api/expenses") {
