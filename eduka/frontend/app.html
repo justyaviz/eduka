@@ -8,49 +8,56 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png" />
-    <link rel="stylesheet" href="app.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
+    <link rel="stylesheet" href="/app.css" />
   </head>
   <body>
     <main class="auth-screen" data-auth-screen>
       <section class="login-panel" aria-labelledby="login-title">
-        <a class="brand" href="index.html">
-          <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
+        <a class="brand" href="/">
+          <span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span>
           <span>EDUKA</span>
         </a>
         <div>
           <p class="muted">CRM kabinet</p>
           <h1 id="login-title">Platformaga kirish</h1>
-          <p class="login-copy">Telefon raqam va parol orqali kiring. Parol esdan chiqsa, Telegram admin bilan bog'laning.</p>
+          <p class="login-copy">Email yoki telefon raqam va parol orqali kiring. Parol esdan chiqsa, Telegram admin bilan bog'laning.</p>
         </div>
         <form class="login-form" data-login-form>
-          <label><span>Telefon raqam</span><input name="phone" type="tel" placeholder="+998 __ ___ __ __" autocomplete="tel" required /></label>
+          <label><span>Email yoki telefon</span><input name="login" type="text" placeholder="admin@center.uz yoki +998 __ ___ __ __" autocomplete="username" required /></label>
           <label><span>Parol</span><input name="password" type="password" placeholder="Parolingiz" autocomplete="current-password" required /></label>
           <button type="submit">Kirish</button>
         </form>
+        <button class="demo-login" type="button" data-demo-login>Demo akkaunt bilan kirish</button>
         <button class="forgot-link" type="button" data-forgot>Parol esdan chiqdimi?</button>
-        <p class="login-note" data-login-note>Haqiqiy kirish uchun foydalanuvchi PostgreSQL bazasida bo'lishi kerak.</p>
+        <p class="login-note" data-login-note>Demo akkaunt ham PostgreSQL bazasida haqiqiy ma'lumotlar bilan ochiladi.</p>
       </section>
     </main>
 
     <div class="app-shell" data-app-shell hidden>
       <aside class="sidebar">
-        <a class="brand sidebar-brand" href="index.html">
-          <span class="logo-mark"><img src="assets/logo_icon.png" alt="" /></span>
+        <a class="brand sidebar-brand" href="/">
+          <span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span>
           <span>EDUKA</span>
         </a>
         <button class="create-student" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
-          <button class="active" type="button" data-view="dashboard" data-icon="M4 5h16v4H4z M4 13h7v6H4z M15 13h5v6h-5z">Dashboard</button>
-          <button type="button" data-view="leads" data-icon="M5 5h14v14H5z M8 9h8 M8 13h5">Lidlar</button>
-          <button type="button" data-view="students" data-icon="M8 7a4 4 0 118 0 4 4 0 01-8 0z M4 21c2-5 14-5 16 0">Talabalar</button>
-          <button type="button" data-view="groups" data-icon="M4 7h16 M6 7v12h12V7 M8 11h8">Guruhlar</button>
-          <button type="button" data-view="teachers" data-icon="M12 4a4 4 0 110 8 4 4 0 010-8z M4 20c1.5-4 14.5-4 16 0">O'qituvchilar</button>
-          <button type="button" data-view="finance" data-icon="M4 8h16v10H4z M7 12h4">Moliya</button>
-          <button type="button" data-view="settings" data-icon="M12 8a4 4 0 100 8 4 4 0 000-8z M4 12h2 M18 12h2 M12 4v2 M12 18v2">Sozlamalar</button>
-          <button type="button" data-view="reports" data-icon="M5 19V9 M12 19V5 M19 19v-7">Hisobotlar</button>
-          <button type="button" data-view="archive-leads" data-icon="M5 4h14v16H5z M8 8h8">Arxiv</button>
-          <button type="button" data-view="market" data-icon="M6 7h15l-2 9H8z M6 7L5 4H3 M9 20h.01 M18 20h.01">Market</button>
+          <button class="active" type="button" data-view="dashboard" data-route="/app/dashboard" data-lucide-icon="layout-dashboard">Dashboard</button>
+          <button type="button" data-view="students" data-route="/app/students" data-lucide-icon="graduation-cap">O'quvchilar</button>
+          <button type="button" data-view="groups" data-route="/app/groups" data-lucide-icon="layers">Guruhlar</button>
+          <button type="button" data-view="courses" data-route="/app/courses" data-lucide-icon="book-open">Kurslar</button>
+          <button type="button" data-view="teachers" data-route="/app/teachers" data-lucide-icon="user-check">O'qituvchilar</button>
+          <button type="button" data-view="schedule" data-route="/app/schedule" data-lucide-icon="calendar-days">Dars jadvali</button>
+          <button type="button" data-view="attendance" data-route="/app/attendance" data-lucide-icon="clipboard-check">Davomad</button>
+          <button type="button" data-view="finance" data-route="/app/payments" data-lucide-icon="credit-card">To'lovlar</button>
+          <button type="button" data-view="debtors" data-route="/app/debts" data-lucide-icon="badge-alert">Qarzdorlik</button>
+          <button type="button" data-view="leads" data-route="/app/leads" data-lucide-icon="kanban">Leadlar</button>
+          <button type="button" data-view="reports" data-route="/app/reports" data-lucide-icon="bar-chart-3">Hisobotlar</button>
+          <button type="button" data-view="branches" data-route="/app/branches" data-lucide-icon="building-2">Filiallar</button>
+          <button type="button" data-view="rooms" data-route="/app/rooms" data-lucide-icon="door-open">Xonalar</button>
+          <button type="button" data-view="telegram" data-route="/app/telegram" data-lucide-icon="send">Telegram xabarlar</button>
+          <button type="button" data-view="settings" data-route="/app/settings" data-lucide-icon="settings">Sozlamalar</button>
+          <button type="button" data-view="super-dashboard" data-route="/super/dashboard" data-lucide-icon="shield" data-super-only>Super Admin</button>
         </nav>
         <div class="side-subnav" data-subnav="finance" hidden>
           <button type="button" data-view="finance">To'lovlar</button>
@@ -153,6 +160,18 @@
             <div class="table" data-table="teachers"><div><b>Ism</b><b>Telefon</b><b>Fanlar</b><b>Holat</b><b>Oylik stavka</b><b>Amallar</b></div></div>
           </section>
 
+          <section class="view" id="courses">
+            <div class="page-head list-head"><h1>Kurslar ro'yhati</h1><label><span>20</span><input value="20" /></label><span data-count="courses">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="courses" data-ui-icon="plus">Kurs qo'shish</button></div>
+            <div class="filters" data-filter-scope="courses"><input data-filter="search" placeholder="Kurs nomi bo'yicha qidirish" /><select data-filter="lesson_type"><option value="">Dars turi</option><option value="group">Guruh</option><option value="individual">Individual</option></select><select data-filter="status"><option value="">Holati</option><option value="active">Faol</option><option value="archived">Arxiv</option></select></div>
+            <div class="table" data-table="courses"><div><b>Kurs</b><b>Narx</b><b>Davomiyligi</b><b>Dars turi</b><b>Status</b><b>Amallar</b></div></div>
+          </section>
+
+          <section class="view" id="schedule">
+            <div class="page-head list-head"><h1>Dars jadvali</h1><div class="segmented"><button type="button" class="active">Kunlik</button><button type="button">Haftalik</button><button type="button">Oylik</button></div><button class="section-action" type="button" data-open-modal="schedule" data-ui-icon="plus">Dars qo'shish</button></div>
+            <div class="filters" data-filter-scope="schedule"><input data-filter="date_from" type="date" /><input data-filter="date_to" type="date" /><select data-filter="group_id"><option value="">Guruh tanlang</option></select></div>
+            <div class="schedule-board" data-schedule-board></div>
+          </section>
+
           <section class="view" id="groups">
             <div class="page-head list-head"><h1>Guruhlar ro'yhati</h1><label><span>20</span><input value="20" /></label><span data-count="groups">Miqdor - 0</span><button class="section-action" type="button" data-open-modal="groups" data-ui-icon="plus">Yangi guruh qo'shish</button></div>
             <div class="filters" data-filter-scope="groups"><select data-filter="status"><option value="">Barcha guruhlar</option><option value="active">Faol guruhlar</option><option value="archived">Arxiv</option></select><input data-filter="teacher" placeholder="O'qituvchi" /><input data-filter="course_name" placeholder="Kurslar bo'yicha" /><input data-filter="days" placeholder="Kunlar" /><input data-filter="starts_at" type="date" /><input data-filter="ends_at" type="date" /></div>
@@ -204,11 +223,35 @@
           <section class="view" id="expenses"><div class="page-head"><h1>Xarajatlar</h1><span>Miqdor - 0</span><button class="section-action" type="button" data-open-modal="expenses" data-ui-icon="plus">Xarajat qo'shish</button></div><div class="empty-state">Bo'sh</div></section>
           <section class="view" id="salary"><div class="finance-tabs"><button data-view="finance">To'lovlar</button><button data-view="extra-income">Qo'shimcha daromadlar</button><button class="active" data-view="salary">Ish haqi</button><button data-view="bonuses">Bonuslar</button><button data-view="expenses">Xarajatlar</button></div><div class="page-head list-head"><h1>Ish haqi ro'yhati</h1><label><span>15</span><input value="15" /></label></div><div class="table simple-table"><div><b>T/R</b><b>O'qituvchi</b><b>Oy</b><b>Hisoblangan</b><b>To'langan</b><b>Qoldiq</b></div><div class="table-empty">Ma'lumot topilmadi</div></div></section>
           <section class="view" id="bonuses"><div class="finance-tabs"><button data-view="finance">To'lovlar</button><button data-view="extra-income">Qo'shimcha daromadlar</button><button data-view="salary">Ish haqi</button><button class="active" data-view="bonuses">Bonuslar</button><button data-view="expenses">Xarajatlar</button></div><div class="page-head list-head"><h1>Bonuslar ro'yhati</h1><label><span>15</span><input value="15" /></label><button class="section-action" data-ui-icon="plus">Bonus qo'shish</button></div><div class="empty-state">Ma'lumot topilmadi</div></section>
-          <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span>Miqdor - 0</span></div><div class="empty-state">Balansi bor talabalar avtomatik qarzdor sifatida ko'rinadi.</div></section>
+          <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span data-count="debts">Miqdor - 0</span></div><div class="filters" data-filter-scope="debts"><input data-filter="search" placeholder="Ism yoki telefon orqali qidirish" /></div><div class="table" data-table="debts"><div><b>O'quvchi</b><b>Telefon</b><b>Ota-ona telefoni</b><b>Guruh</b><b>Qarzdorlik</b><b>Oxirgi to'lov</b><b>Amallar</b></div></div></section>
           <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1></div><div class="table" data-table="audit"><div><b>Vaqt</b><b>Xodim</b><b>Amal</b><b>Bo'lim</b><b>ID</b></div></div></section>
+          <section class="view" id="super-dashboard">
+            <div class="page-head"><h1>Platforma egasi paneli</h1><span>Super Admin</span></div>
+            <div class="metric-grid super-kpis">
+              <article><span>Jami markazlar</span><strong data-super-summary="centers">0</strong></article>
+              <article><span>Aktiv markazlar</span><strong data-super-summary="active_centers">0</strong></article>
+              <article><span>Trial markazlar</span><strong data-super-summary="trial_centers">0</strong></article>
+              <article><span>Bloklangan</span><strong data-super-summary="blocked_centers">0</strong></article>
+              <article><span>Oylik hajm</span><strong data-super-summary="monthly_volume">0</strong></article>
+              <article><span>Bugun yangi</span><strong data-super-summary="new_today">0</strong></article>
+            </div>
+            <div class="table" data-table="superCenters"><div><b>Markaz</b><b>Telefon</b><b>Status</b><b>Obuna</b><b>Talabalar</b><b>Guruhlar</b><b>Oxirgi aktivlik</b><b>Amallar</b></div></div>
+          </section>
           <section class="view" id="settings"><div class="page-head"><h1>Sozlamalar</h1></div><div class="settings-grid"><article><h2>Markaz ma'lumotlari</h2><p>Telegram, Instagram, YouTube va operator raqamlari.</p></article><article><h2>Umumiy sozlamalar</h2><p>Chek, davomat, qarzdorlik va SMS sozlamalari.</p></article><article><h2>Ofis</h2><p>Lavozimlar, xodimlar, xonalar va bayram kunlari.</p></article><article><h2>O'quv bo'limi</h2><p>Kurslar, sabablar, ballar va imtihon shablonlari.</p></article></div></section>
         </main>
       </div>
+    </div>
+
+    <div class="onboarding" data-onboarding hidden>
+      <section class="onboarding-card">
+        <div class="onboarding-head">
+          <span>Eduka setup wizard</span>
+          <h2>Markazingizni ishga tayyorlaymiz</h2>
+          <p>Bo'sh dashboard o'rniga kurs, o'qituvchi, guruh va birinchi o'quvchini kiritib boshlaysiz.</p>
+        </div>
+        <div class="onboarding-steps" data-onboarding-steps></div>
+        <form class="onboarding-form" data-onboarding-form></form>
+      </section>
     </div>
 
     <div class="modal-backdrop" data-modal hidden>
@@ -222,6 +265,7 @@
     </div>
 
     <div class="toast" data-toast></div>
-    <script src="app.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/app.js"></script>
   </body>
 </html>
