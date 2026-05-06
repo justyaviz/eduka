@@ -2484,7 +2484,7 @@ const server = http.createServer((request, response) => {
 
   if (
     request.method === "GET" &&
-    (appRoutes.has(urlPath) || urlPath.startsWith("/app/") || urlPath.startsWith("/super/"))
+    (appRoutes.has(urlPath) || urlPath.startsWith("/app/") || urlPath.startsWith("/super/") || urlPath.startsWith("/admin/") || urlPath === "/admin")
   ) {
     sendAppShell(response);
     return;
