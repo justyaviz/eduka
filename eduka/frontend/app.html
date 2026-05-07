@@ -125,10 +125,12 @@
         <header class="topbar">
           <button class="mobile-menu icon-button" type="button" data-mobile-menu data-ui-icon="menu" aria-label="Menyuni ochish"><span>Menu</span></button>
           <strong class="center-name" data-center-name>ilm academy uz</strong>
-          <label class="search-box"><span>Qidiruv</span><input type="search" aria-label="Qidiruv" data-global-search /></label>
+          <label class="search-box crm-search-wrap"><span>Qidiruv</span><input type="search" aria-label="Qidiruv" data-global-search /><div class="crm-search-results" data-global-results hidden></div></label>
           <button class="lang-button" type="button">uz</button>
-          <button class="ghost-icon icon-button" type="button" data-ui-icon="bell" aria-label="Bildirishnomalar"></button>
-          <button class="ghost-icon logout-button" type="button" data-logout data-ui-icon="log-out"><span>Chiqish</span></button>
+          <button class="ghost-icon icon-button" type="button" data-crm-action="quick-tools" data-ui-icon="layout-grid" aria-label="Tezkor menyu"></button>
+          <button class="ghost-icon icon-button" type="button" data-crm-action="notifications" data-ui-icon="bell" aria-label="Bildirishnomalar"></button>
+          <button class="ghost-icon icon-button" type="button" data-crm-action="tasks" data-ui-icon="calendar-check" aria-label="Bugungi vazifalar"></button>
+          <button class="ghost-icon logout-button" type="button" data-crm-action="avatar-menu" data-ui-icon="user"><span>Profil</span></button>
         </header>
 
         <main class="content">
@@ -140,7 +142,7 @@
               <select><option>May</option></select>
               <button type="button">ilm academy uz</button>
             </div>
-            <div class="metric-grid lcup-kpis">
+            <div class="metric-grid eduka-kpis">
               <article data-ui-icon="users"><span>Lidlar</span><strong data-summary="active_leads">0</strong><small>+0 / -0</small></article>
               <article data-ui-icon="user-plus"><span>Sinov darsida</span><strong data-summary="trial_students">0</strong><small>+0 / -0</small></article>
               <article data-ui-icon="users"><span>Faol talabalar</span><strong data-summary="active_students">0</strong><small>+0 / -0</small></article>

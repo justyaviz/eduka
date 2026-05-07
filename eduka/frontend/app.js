@@ -30,6 +30,9 @@ const state = {
   attendance: [],
   debts: [],
   schedule: [],
+  rooms: [],
+  paymentTypes: [],
+  staffAttendance: [],
   audit: [],
   superCenters: [],
   superTariffs: [],
@@ -143,10 +146,28 @@ const routeByView = {
   leads: "/app/leads",
   reports: "/app/reports",
   branches: "/app/branches",
-  rooms: "/app/rooms",
+  rooms: "/app/settings/office/rooms",
   telegram: "/app/telegram",
+  "teacher-attendance": "/app/staff-attendance",
   subscription: "/app/subscription",
   settings: "/app/settings",
+  "extra-income": "/app/finance/income",
+  expenses: "/app/finance/expenses",
+  salary: "/app/finance/salary",
+  bonuses: "/app/finance/bonuses",
+  "payment-types": "/app/settings/forms/payment-types",
+  "center-info": "/app/settings/general",
+  "general-settings": "/app/settings/general",
+  "office-settings": "/app/settings/office",
+  positions: "/app/settings/office/positions",
+  employees: "/app/settings/office/employees",
+  holidays: "/app/settings/office/holidays",
+  "receipt-settings": "/app/settings/office/receipt",
+  "sms-settings": "/app/settings/sms",
+  forms: "/app/settings/forms",
+  tags: "/app/settings/tags",
+  accounting: "/app/settings/accounting",
+  market: "/app/market",
   "super-dashboard": "/super/dashboard",
   "super-centers": "/super/centers",
   "super-tariffs": "/super/tariffs",
@@ -181,6 +202,9 @@ function viewFromPath(pathname = window.location.pathname) {
   if (/^\/app\/students\/\d+$/.test(normalized)) return "student-profile";
   if (/^\/app\/groups\/\d+$/.test(normalized)) return "group-profile";
   if (/^\/app\/teachers\/\d+$/.test(normalized)) return "teacher-profile";
+  if (normalized === "/app/rooms" || normalized === "/app/settings/office/rooms") return "rooms";
+  if (normalized === "/app/settings/learning/courses") return "courses";
+  if (normalized === "/app/settings/forms/payment-types") return "payment-types";
   if (/^\/super\/centers\/\d+$/.test(normalized)) return "super-center-profile";
   if (normalized === "/super/centers") return "super-centers";
   if (normalized === "/super/tariffs") return "super-tariffs";
@@ -544,11 +568,42 @@ const modalFields = {
   }
 };
 
-function showToast(message) {
-  window.clearTimeout(toastTimer);
-  toast.textContent = message;
-  toast.classList.add("show");
-  toastTimer = window.setTimeout(() => toast.classList.remove("show"), 3600);
+function toastTypeFromMessage(message, fallback = "success") {
+  const text = String(message || "").toLowerCase();
+  if (text.includes("xato") || text.includes("noto'g'ri") || text.includes("error") || text.includes("yopiq")) return "error";
+  if (text.includes("ogohlantirish") || text.includes("tekshiring") || text.includes("tanlang")) return "warning";
+  if (text.includes("ochildi") || text.includes("tayyor") || text.includes("qabul qilindi")) return "info";
+  return fallback;
+}
+
+function showToast(message, type = "") {
+  const kind = type || toastTypeFromMessage(message);
+  let stack = document.querySelector("[data-toast-stack]");
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.className = "toast-stack";
+    stack.dataset.toastStack = "";
+    document.body.append(stack);
+  }
+  const icons = { success: "check-circle-2", error: "x-circle", warning: "triangle-alert", info: "info" };
+  const item = document.createElement("div");
+  item.className = `toast toast-${kind} show`;
+  item.innerHTML = `<i data-lucide="${icons[kind] || icons.info}"></i><span>${escapeHtml(message)}</span><button type="button" aria-label="Yopish">x</button>`;
+  item.querySelector("button")?.addEventListener("click", () => item.remove());
+  stack.append(item);
+  refreshIcons();
+  window.setTimeout(() => {
+    item.classList.remove("show");
+    window.setTimeout(() => item.remove(), 220);
+  }, 4200);
+  if (toast) {
+    window.clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.add("show", `toast-${kind}`);
+    toastTimer = window.setTimeout(() => {
+      toast.className = "toast";
+    }, 2400);
+  }
 }
 
 async function readJson(response) {
@@ -891,6 +946,12 @@ async function loadCollection(name, endpoint) {
     state[name] = payload.items || [];
     stateMeta[name] = { total: payload.total ?? state[name].length, page: payload.page || uiState.page[name] || 1, limit: payload.limit || uiState.perPage[name] || 10 };
   } catch (error) {
+    if (currentTenant?.subdomain) {
+      const saved = loadCrmLocalState();
+      state[name] = Array.isArray(saved[name]) ? saved[name] : [];
+      delete stateMeta[name];
+      return;
+    }
     const service = serviceFor(name);
     if (service?.list) {
       state[name] = await service.list();
@@ -1150,6 +1211,23 @@ async function convertLead(leadId) {
   try {
     await safeApi(`/api/leads/${leadId}/convert-to-student`, { method: "POST", body: JSON.stringify({}) }, async () => {
       if (!lead) return {};
+      if (currentTenant?.subdomain) {
+        state.students.unshift({
+          id: nextCrmId("students"),
+          full_name: lead.full_name,
+          fullName: lead.full_name,
+          phone: lead.phone,
+          course_name: lead.course_name,
+          course: lead.course_name,
+          status: "active",
+          balance: 0,
+          note: `Liddan o'tkazildi: ${lead.note || ""}`,
+          created_at: new Date().toISOString()
+        });
+        lead.status = "paid";
+        persistCrmCollections();
+        return { ok: true };
+      }
       await window.crmServices?.studentService?.create?.({
         full_name: lead.full_name,
         phone: lead.phone,
@@ -1383,9 +1461,10 @@ function renderSubscription() {
       <h2>${current.plan || "Pro"}</h2>
       <p>Muddati: ${formatDate(current.licenseExpiresAt || current.license_expires_at || "2026-06-06")} gacha</p>
       <ul><li>O'quvchi limiti: 500</li><li>O'qituvchi limiti: 10</li><li>Filial limiti: 1</li></ul>
-      <div class="export-actions"><button type="button">Tarifni yangilash</button><button type="button">Invoice yuklab olish</button></div>
+      <div class="usage-progress"><span style="width:${Math.min(100, Math.round(((state.students || []).length / 500) * 100))}%"></span></div>
+      <div class="export-actions"><button type="button" data-crm-action="upgrade-plan">Tarifni yangilash</button><button type="button" data-crm-action="extend-subscription">Obunani uzaytirish</button><button type="button" data-crm-action="download-invoice">Invoice yuklab olish</button><button type="button" data-crm-action="contact-support">Support bilan bog'lanish</button></div>
     </article>
-    ${plans.map((plan) => `<article class="plan-card"><span>${plan.name}</span><h2>${formatMoney(plan.monthly_price || plan.price)}</h2><p>${plan.student_limit} o'quvchi, ${plan.teacher_limit} o'qituvchi, ${plan.branch_limit} filial</p><ul>${(plan.features || ["CRM", "Hisobotlar"]).map((feature) => `<li>${feature}</li>`).join("")}</ul><button type="button">Upgrade</button></article>`).join("")}`;
+    ${plans.map((plan) => `<article class="plan-card"><span>${escapeHtml(plan.name)}</span><h2>${formatMoney(plan.monthly_price || plan.price)}</h2><p>${plan.student_limit || 0} o'quvchi, ${plan.teacher_limit || 0} o'qituvchi, ${plan.branch_limit || 0} filial</p><ul>${(plan.features || ["CRM", "Hisobotlar"]).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul><button type="button" data-crm-action="upgrade-plan">Tarifni tanlash</button></article>`).join("")}`;
 }
 
 function findByPathOrFirst(collection, segment) {
@@ -1471,9 +1550,21 @@ function renderAll() {
   renderAnalytics();
   renderReports();
   renderSubscription();
+  renderCrmDashboard();
   renderCrmStudents();
   renderCrmGroups();
   renderCrmTeachers();
+  renderCrmCourses();
+  renderCrmPayments();
+  renderCrmDebts();
+  renderCrmLeads();
+  renderCrmAttendancePage();
+  renderCrmSchedulePage();
+  renderCrmReportsPage();
+  renderCrmSettingsPage();
+  renderCrmStaffAttendancePage();
+  renderCrmRoomsPage();
+  renderCrmPaymentTypesPage();
   renderCrmTopbar(viewFromPath());
   renderProfiles();
   renderCrmProfiles();
@@ -2771,9 +2862,9 @@ function updateAdminState(action, id, value = null) {
   renderAdminView(viewFromPath());
 }
 
-const crmCollections = ["students", "groups", "teachers", "courses", "payments", "attendance", "debts", "schedule", "leads"];
+const crmCollections = ["students", "groups", "teachers", "courses", "payments", "attendance", "debts", "schedule", "leads", "rooms", "paymentTypes", "staffAttendance"];
 const crmListState = { students: {}, groups: {}, teachers: {} };
-const crmDrawerState = { open: false, type: "", itemId: null, dirty: false };
+const crmDrawerState = { open: false, type: "", itemId: null, dirty: false, prefill: null };
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -2797,7 +2888,7 @@ function loadCrmLocalState() {
 function syncCrmLocalState() {
   const saved = loadCrmLocalState();
   crmCollections.forEach((key) => {
-    if (currentTenant?.subdomain) state[key] = Array.isArray(saved[key]) ? saved[key] : [];
+    if (currentTenant?.subdomain && !stateMeta[key] && Array.isArray(saved[key])) state[key] = saved[key];
     else if (Array.isArray(saved[key]) && saved[key].length) state[key] = saved[key];
   });
 }
@@ -2835,19 +2926,11 @@ function ensureCrmShell() {
   const topbar = document.querySelector(".topbar");
   if (topbar && !document.querySelector("[data-crm-topbar-tools]")) {
     topbar.insertAdjacentHTML("beforeend", `
-      <div class="crm-topbar-tools" data-crm-topbar-tools hidden>
-        <button class="crm-center-button" type="button" data-crm-action="center-menu">${escapeHtml(crmCenterTitle()).toUpperCase()}</button>
-        <button class="crm-icon-button" type="button" data-crm-action="notifications" aria-label="Bildirishnomalar"><i data-lucide="bell"></i></button>
-        <button class="crm-icon-button" type="button" data-crm-action="tasks" aria-label="Vazifalar"><i data-lucide="calendar-check"></i></button>
-        <div class="crm-avatar-wrap">
-          <button class="crm-avatar-button" type="button" data-crm-action="avatar-menu" aria-label="Profil">EA</button>
-          <div class="crm-avatar-menu" data-crm-avatar-menu hidden>
-            <button type="button" data-crm-action="profile-toast">Profil</button>
-            <button type="button" data-view="settings">Markaz sozlamalari</button>
-            <button type="button" data-view="subscription">Tarif/obuna</button>
-            <button type="button" data-logout>Chiqish</button>
-          </div>
-        </div>
+      <div class="crm-topbar-popovers" data-crm-topbar-tools hidden>
+        <div class="crm-popover crm-quick-panel" data-crm-panel="quick" hidden></div>
+        <div class="crm-popover crm-notification-panel" data-crm-panel="notifications" hidden></div>
+        <div class="crm-popover crm-task-panel" data-crm-panel="tasks" hidden></div>
+        <div class="crm-popover crm-avatar-menu" data-crm-panel="avatar" data-crm-avatar-menu hidden></div>
       </div>`);
   }
 }
@@ -2860,10 +2943,94 @@ function renderCrmTopbar(viewName = viewFromPath()) {
   if (tools) tools.hidden = !inApp;
   const search = document.querySelector("[data-global-search]");
   if (search && inApp) search.placeholder = "Qidirish";
-  const title = document.querySelector(".crm-center-button");
-  if (title) title.textContent = crmCenterTitle().toUpperCase();
-  const avatar = document.querySelector(".crm-avatar-button");
-  if (avatar) avatar.textContent = (currentUser?.fullName || currentTenant?.centerName || "EA").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  const title = document.querySelector(".center-name");
+  if (title && inApp) title.textContent = crmCenterTitle();
+  const profileButton = document.querySelector('[data-crm-action="avatar-menu"] span');
+  if (profileButton && inApp) profileButton.textContent = (currentUser?.fullName || currentTenant?.centerName || "Profil").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  renderCrmTopbarPanels();
+}
+
+function renderCrmTopbarPanels() {
+  const quick = document.querySelector('[data-crm-panel="quick"]');
+  if (quick) {
+    const items = [
+      ["schedule", "Dars jadvali", "calendar-days"],
+      ["rooms", "Xonalar", "door-open"],
+      ["courses", "Kurslar", "book-open"],
+      ["payment-types", "To'lov turlari", "credit-card"],
+      ["finance", "Kassa", "wallet"],
+      ["leads", "Lidlar", "kanban"],
+      ["attendance", "Davomat", "clipboard-check"],
+      ["reports", "Hisobotlar", "bar-chart-3"]
+    ];
+    quick.innerHTML = `<header><strong>Tezkor menyu</strong><span>Eng ko'p ishlatiladigan bo'limlar</span></header><div>${items.map(([view, label, icon]) => `<button type="button" data-view="${view}"><i data-lucide="${icon}"></i><span>${label}</span></button>`).join("")}</div>`;
+  }
+  const notifications = document.querySelector('[data-crm-panel="notifications"]');
+  if (notifications) {
+    const debts = debtItems().slice(0, 2);
+    const latestLead = (state.leads || [])[0];
+    const list = [
+      latestLead ? ["Yangi lid", `${latestLead.full_name || latestLead.name} - ${latestLead.phone || ""}`, "kanban"] : ["Leadlar", "Yangi murojaatlar shu yerda ko'rinadi", "kanban"],
+      debts[0] ? ["Qarzdorlik eslatmasi", `${debts[0].full_name || debts[0].fullName}: ${formatMoney(debts[0].balance || debts[0].remaining_debt)}`, "badge-alert"] : ["Qarzdorlik", "Bugun muhim qarzdorlik yo'q", "badge-check"],
+      ["Bugungi dars", `${(state.schedule || []).length || (state.groups || []).length} ta dars rejalashtirilgan`, "calendar-check"],
+      ["To'lov", `${formatMoney((state.payments || []).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0))} qabul qilingan`, "wallet"]
+    ];
+    notifications.innerHTML = `<header><strong>Bildirishnomalar</strong><button type="button" data-crm-action="mark-notifications">Hammasini o'qildi</button></header>${list.map(([title, text, icon]) => `<article><i data-lucide="${icon}"></i><div><b>${escapeHtml(title)}</b><span>${escapeHtml(text)}</span></div></article>`).join("")}`;
+  }
+  const tasks = document.querySelector('[data-crm-panel="tasks"]');
+  if (tasks) {
+    const lessons = (state.schedule || []).slice(0, 4);
+    const fallback = lessons.length ? lessons : (state.groups || []).slice(0, 4).map((group) => ({ group_name: group.name, teacher_name: group.teacher_full_name || group.teacher_name, lesson_at: `${new Date().toISOString().slice(0, 10)}T${group.start_time || group.startTime || "09:00"}` }));
+    tasks.innerHTML = `<header><strong>Bugungi vazifalar</strong><span>${new Date().toISOString().slice(0, 10)}</span></header>${fallback.map((lesson) => `<article><i data-lucide="clock-3"></i><div><b>${escapeHtml(String(lesson.lesson_at || "").slice(11, 16) || "09:00")}</b><span>${escapeHtml(lesson.group_name || crmGroupName(lesson.group_id))} / ${escapeHtml(lesson.teacher_name || "-")}</span></div></article>`).join("") || `<article><i data-lucide="sparkles"></i><div><b>Vazifa yo'q</b><span>Bugun uchun jadval bo'sh.</span></div></article>`}`;
+  }
+  const avatar = document.querySelector('[data-crm-panel="avatar"]');
+  if (avatar) {
+    avatar.innerHTML = `<div class="crm-profile-card"><b>${escapeHtml(currentUser?.fullName || currentUser?.full_name || "Eduka admin")}</b><span>${escapeHtml(currentUser?.role || "CENTER_ADMIN")} / ${escapeHtml(crmCenterTitle())}</span></div><button type="button" data-crm-action="profile-toast">Profil</button><button type="button" data-view="settings">Sozlamalar</button><button type="button" data-view="subscription">Tarif / Obuna</button><button type="button" data-crm-action="contact-support">Support</button><button type="button" data-logout>Chiqish</button>`;
+  }
+}
+
+function closeCrmPanels(except = "") {
+  document.querySelectorAll("[data-crm-panel]").forEach((panel) => {
+    panel.hidden = !except || panel.dataset.crmPanel !== except;
+  });
+}
+
+function toggleCrmPanel(name) {
+  document.querySelectorAll("[data-crm-panel]").forEach((panel) => {
+    if (panel.dataset.crmPanel === name) panel.hidden = !panel.hidden;
+    else panel.hidden = true;
+  });
+}
+
+function globalSearchItems(query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return [];
+  const sources = [
+    ["students", "Talaba", "students", state.students, (item) => `${item.full_name || item.fullName} ${item.phone || ""} ${item.group_name || ""}`],
+    ["groups", "Guruh", "groups", state.groups, (item) => `${item.name || ""} ${item.course_name || item.course || ""} ${item.teacher_name || ""}`],
+    ["teachers", "O'qituvchi", "teachers", state.teachers, (item) => `${item.full_name || item.fullName} ${item.phone || ""} ${item.course_name || item.course || ""}`],
+    ["leads", "Lid", "leads", state.leads, (item) => `${item.full_name || item.name || ""} ${item.phone || ""} ${item.course_name || ""}`],
+    ["payments", "To'lov", "finance", state.payments, (item) => `${item.student_name || ""} ${item.group_name || ""} ${item.payment_type || ""}`]
+  ];
+  return sources.flatMap(([resource, label, view, items, text]) => (items || []).filter((item) => text(item).toLowerCase().includes(q)).slice(0, 4).map((item) => ({
+    resource,
+    label,
+    view,
+    id: item.id,
+    title: item.full_name || item.fullName || item.name || item.student_name || item.group_name || label,
+    subtitle: item.phone || item.course_name || item.group_name || item.payment_type || ""
+  }))).slice(0, 10);
+}
+
+function renderGlobalSearchResults() {
+  const resultsNode = document.querySelector("[data-global-results]");
+  const search = document.querySelector("[data-global-search]");
+  if (!resultsNode || !search) return;
+  const items = globalSearchItems(search.value);
+  resultsNode.hidden = !search.value.trim();
+  resultsNode.innerHTML = items.length
+    ? items.map((item) => `<button type="button" data-global-result="${item.view}" data-resource="${item.resource}" data-id="${item.id}"><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.subtitle)}</small></button>`).join("")
+    : `<div class="crm-search-empty">Natija topilmadi</div>`;
 }
 
 function crmGroupName(groupId, fallback = "") {
@@ -2914,19 +3081,58 @@ function crmPill(items, empty = "-") {
 
 function crmActionMenu(resource, id) {
   const labels = {
-    students: ["Ko'rish", "Tahrirlash", "To'lov qo'shish", "Guruhga biriktirish", "O'chirish"],
+    students: ["Ko'rish", "Tahrirlash", "To'lov qo'shish", "Guruhga biriktirish", "Xabar yuborish", "O'chirish"],
     groups: ["Ko'rish", "Tahrirlash", "Talaba qo'shish", "Davomat olish", "To'lovlarni ko'rish", "O'chirish"],
-    teachers: ["Ko'rish", "Tahrirlash", "Guruhlarini ko'rish", "Dars jadvali", "Xabar yuborish", "O'chirish"]
+    teachers: ["Ko'rish", "Tahrirlash", "Guruhlarini ko'rish", "Dars jadvali", "Xabar yuborish", "O'chirish"],
+    courses: ["Tahrirlash", "Faol/Nofaol", "O'chirish"],
+    payments: ["Tahrirlash", "Chek", "Qarzdorlik", "O'chirish"],
+    leads: ["Tahrirlash", "Status", "O'quvchiga aylantirish", "O'chirish"],
+    rooms: ["Tahrirlash", "Jadvalni ko'rish", "O'chirish"],
+    paymentTypes: ["Tahrirlash", "Faol/Nofaol", "O'chirish"]
   }[resource];
   const actions = {
-    students: ["view", "edit", "payment", "assign-group", "delete"],
+    students: ["view", "edit", "payment", "assign-group", "message", "delete"],
     groups: ["view", "edit", "add-student", "attendance", "payments", "delete"],
-    teachers: ["view", "edit", "groups", "schedule", "message", "delete"]
+    teachers: ["view", "edit", "groups", "schedule", "message", "delete"],
+    courses: ["edit", "toggle-status", "delete"],
+    payments: ["edit", "invoice", "debt", "delete"],
+    leads: ["edit", "lead-status", "convert-lead", "delete"],
+    rooms: ["edit", "schedule", "delete"],
+    paymentTypes: ["edit", "toggle-payment-type", "delete"]
   }[resource];
+  if (!labels || !actions) return "";
   return `<details class="crm-actions-menu">
     <summary aria-label="Amallar"><i data-lucide="more-horizontal"></i></summary>
     <div>${actions.map((action, index) => `<button type="button" data-crm-action="${action}" data-resource="${resource}" data-id="${id}">${labels[index]}</button>`).join("")}</div>
   </details>`;
+}
+
+function crmEmptyState(text, actionLabel = "", action = "") {
+  return `<div class="crm-empty-state"><i data-lucide="inbox"></i><strong>${escapeHtml(text)}</strong>${actionLabel ? `<button type="button" class="crm-primary-button" ${action}>${escapeHtml(actionLabel)}</button>` : ""}</div>`;
+}
+
+function crmStatCard(label, value, icon, target, hint = "") {
+  return `<button class="crm-stat-card" type="button" data-view="${target}"><i data-lucide="${icon}"></i><span>${escapeHtml(label)}</span><strong>${value}</strong><small>${escapeHtml(hint)}</small></button>`;
+}
+
+function crmMiniPanel(title, items, mapper, empty, actionTarget = "") {
+  return `<section class="crm-panel"><div class="crm-panel-head"><h2>${escapeHtml(title)}</h2>${actionTarget ? `<button type="button" data-view="${actionTarget}">Ko'rish</button>` : ""}</div><div class="crm-mini-list">${items.length ? items.map(mapper).join("") : `<div class="crm-mini-empty">${escapeHtml(empty)}</div>`}</div></section>`;
+}
+
+function paymentRemainder(payment) {
+  return Math.max(Number(payment.due_amount || payment.dueAmount || payment.amount || 0) - Number(payment.amount || payment.paid_amount || 0) - Number(payment.discount || 0), 0);
+}
+
+function debtItems() {
+  const apiDebts = (state.debts || []).filter((item) => Number(item.balance || item.remaining_debt || 0) > 0);
+  if (apiDebts.length) return apiDebts;
+  return (state.students || []).filter((student) => Number(student.balance || 0) > 0).map((student) => ({
+    ...student,
+    full_name: student.full_name || student.fullName,
+    parent_phone: student.parent_phone || student.parentPhone,
+    group_name: student.group_name || crmStudentGroups(student)[0],
+    balance: Number(student.balance || 0)
+  }));
 }
 
 function filteredCrmStudents() {
@@ -2977,6 +3183,59 @@ function filteredCrmTeachers() {
   });
 }
 
+function renderCrmDashboard() {
+  const section = document.getElementById("dashboard");
+  if (!section || !isAppCrmRoute("dashboard")) return;
+  const students = state.students || [];
+  const groups = state.groups || [];
+  const teachers = state.teachers || [];
+  const payments = state.payments || [];
+  const leads = state.leads || [];
+  const attendance = state.attendance || [];
+  const revenue = payments.reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0);
+  const debts = debtItems();
+  const debtTotal = debts.reduce((sum, item) => sum + Number(item.balance || item.remaining_debt || 0), 0);
+  const present = attendance.filter((item) => ["present", "online"].includes(item.status)).length;
+  const attendancePercent = attendance.length ? Math.round((present / attendance.length) * 100) : 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const todayLessons = (state.schedule || []).filter((item) => String(item.lesson_at || item.lesson_date || "").slice(0, 10) === today);
+  const lessonsForToday = todayLessons.length ? todayLessons : (state.groups || []).slice(0, 6).map((group) => ({ group_id: group.id, group_name: group.name, teacher_name: group.teacher_full_name || group.teacher_name, lesson_at: `${today}T${group.start_time || group.startTime || "09:00"}`, room: group.room, student_count: group.student_count || group.studentCount || 0 }));
+  const newStudents = students.slice(0, 5);
+  const recentPayments = payments.slice(0, 5);
+  section.innerHTML = `
+    <div class="crm-dashboard">
+      <div class="crm-hero">
+        <div><span>${escapeHtml(crmCenterTitle())}</span><h1>CRM boshqaruv paneli</h1><p>O'quv markazingizning asosiy ko'rsatkichlari, talabalar statistikasi va umumiy faoliyatini bir ko'zda kuzating.</p></div>
+        <div class="crm-hero-actions"><button type="button" class="crm-primary-button" data-crm-action="quick-add-student"><i data-lucide="user-plus"></i>Yangi talaba</button><button type="button" class="crm-soft-button" data-view="reports">Hisobot</button></div>
+      </div>
+      <div class="dashboard-filter-row"><select><option>2026</option><option>2025</option></select><select><option>May</option><option>Iyun</option><option>Iyul</option></select><button type="button" data-crm-action="center-menu">${escapeHtml(crmCenterTitle())}</button></div>
+      <div class="crm-stat-grid">
+        ${crmStatCard("Jami talabalar", students.length, "graduation-cap", "students", "ro'yxatni ochish")}
+        ${crmStatCard("Faol guruhlar", groups.filter((g) => g.status !== "archived").length, "layers", "groups", "darslar nazorati")}
+        ${crmStatCard("Bugungi darslar", lessonsForToday.length, "calendar-days", "schedule", "jadvalga o'tish")}
+        ${crmStatCard("Oylik tushum", formatMoney(revenue), "wallet", "finance", "to'lovlar")}
+        ${crmStatCard("Qarzdorlik", formatMoney(debtTotal), "badge-alert", "debtors", `${debts.length} talaba`)}
+        ${crmStatCard("Yangi leadlar", leads.filter((l) => ["new", "contacted"].includes(l.status)).length, "kanban", "leads", "pipeline")}
+        ${crmStatCard("Davomat foizi", `${attendancePercent}%`, "clipboard-check", "attendance", "saqlangan yozuvlar")}
+        ${crmStatCard("O'qituvchilar", teachers.length, "user-check", "teachers", "jamoa")}
+      </div>
+      <div class="crm-dashboard-grid">
+        ${crmMiniPanel("Bugungi darslar", lessonsForToday, (item) => `<article><b>${escapeHtml(item.group_name || crmGroupName(item.group_id, "Guruh"))}</b><span>${String(item.lesson_at || "").slice(11, 16) || item.start_time || "-"}</span><button type="button" data-view="attendance">Davomat</button></article>`, "Bugun darslar mavjud emas", "schedule")}
+        ${crmMiniPanel("Oxirgi to'lovlar", recentPayments, (item) => `<article><b>${escapeHtml(item.student_name || crmStudentName(item.student_id))}</b><span>${formatMoney(item.amount || item.paid_amount)}</span><button type="button" data-view="finance">Batafsil</button></article>`, "Hali to'lovlar mavjud emas", "finance")}
+        ${crmMiniPanel("Qarzdor talabalar", debts.slice(0, 5), (item) => `<article><b>${escapeHtml(item.full_name || item.fullName)}</b><span>${formatMoney(item.balance || item.remaining_debt)}</span><button type="button" data-view="debtors">Ko'rish</button></article>`, "Qarzdor talabalar yo'q", "debtors")}
+        ${crmMiniPanel("Yangi talabalar", newStudents, (item) => `<article><b>${escapeHtml(item.full_name || item.fullName)}</b><span>${escapeHtml(item.phone || "-")}</span><button type="button" data-crm-action="view" data-resource="students" data-id="${item.id}">Profil</button></article>`, "Hali talabalar qo'shilmagan", "students")}
+        <section class="crm-panel wide"><div class="crm-panel-head"><h2>Oylik tushum grafigi</h2><button type="button" data-view="reports">Hisobot</button></div><div class="bar-chart" data-chart="monthly_payments"></div></section>
+        ${crmMiniPanel("Leadlar statusi", leads.slice(0, 6), (item) => `<article><b>${escapeHtml(item.full_name || item.name)}</b><span>${statusLabels[item.status] || item.status || "Yangi"}</span><button type="button" data-view="leads">Ochish</button></article>`, "Leadlar mavjud emas", "leads")}
+      </div>
+    </div>`;
+  renderBarChart('[data-chart="monthly_payments"]', state.analytics.monthly_payments || [], "amount", "month");
+}
+
+function crmStudentName(id) {
+  const student = (state.students || []).find((item) => String(item.id) === String(id));
+  return student?.full_name || student?.fullName || "-";
+}
+
 function renderCrmStudents() {
   const section = document.getElementById("students");
   if (!section) return;
@@ -3000,11 +3259,11 @@ function renderCrmStudents() {
         <button class="crm-icon-button" type="button" data-crm-action="filter-settings" aria-label="Filter sozlamalari"><i data-lucide="sliders-horizontal"></i></button>
       </div>
       <div class="crm-total-badge">Jami: ${items.length}</div>
-      <div class="crm-table-card"><table class="crm-table"><thead><tr><th>T/R</th><th><input type="checkbox" aria-label="Barchasini tanlash" /></th><th>FISH</th><th>Telefon raqam</th><th>Guruhlar</th><th>Balans</th><th>O'qituvchilar</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((student, index) => {
+      <div class="crm-table-card"><table class="crm-table"><thead><tr><th>T/R</th><th><input type="checkbox" aria-label="Barchasini tanlash" /></th><th>FISH</th><th>Telefon</th><th>Ota-ona telefoni</th><th>Guruhlar</th><th>Kurs</th><th>Balans</th><th>Status</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((student, index) => {
         const name = student.fullName || student.full_name || "-";
         const balance = Number(student.balance || 0);
-        return `<tr data-crm-row="students" data-id="${student.id}"><td>${index + 1}</td><td><input type="checkbox" aria-label="${escapeHtml(name)}" /></td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="students" data-id="${student.id}">${escapeHtml(name)}</button></td><td>${escapeHtml(student.phone || "-")}</td><td>${crmPill(crmStudentGroups(student))}</td><td><strong class="${balance > 0 ? "crm-money debt" : "crm-money"}">${formatMoney(balance)}</strong></td><td>${escapeHtml(student.teacher || student.teacher_full_name || "-")}</td><td><button class="crm-row-icon" type="button" data-crm-action="flag" data-resource="students" data-id="${student.id}" aria-label="Belgilash"><i data-lucide="flag"></i></button>${crmActionMenu("students", student.id)}</td></tr>`;
-      }).join("") : `<tr><td colspan="8"><div class="empty-state">Hali talaba qo'shilmagan. Yangi talaba qo'shish tugmasidan boshlang.</div></td></tr>`}</tbody></table></div>
+        return `<tr data-crm-row="students" data-id="${student.id}"><td>${index + 1}</td><td><input type="checkbox" aria-label="${escapeHtml(name)}" /></td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="students" data-id="${student.id}">${escapeHtml(name)}</button></td><td>${escapeHtml(student.phone || "-")}</td><td>${escapeHtml(student.parentPhone || student.parent_phone || "-")}</td><td>${crmPill(crmStudentGroups(student))}</td><td>${escapeHtml(student.course || student.course_name || "-")}</td><td><strong class="${balance > 0 ? "crm-money debt" : "crm-money"}">${formatMoney(balance)}</strong></td><td>${renderBadge(student.status || (balance > 0 ? "debtor" : "active"))}</td><td><button class="crm-row-icon" type="button" data-crm-action="flag" data-resource="students" data-id="${student.id}" aria-label="Belgilash"><i data-lucide="flag"></i></button>${crmActionMenu("students", student.id)}</td></tr>`;
+      }).join("") : `<tr><td colspan="10">${crmEmptyState("Hali talabalar qo'shilmagan", "Yangi talaba qo'shish", 'data-open-modal="students"')}</td></tr>`}</tbody></table></div>
       <div class="crm-export-actions"><button type="button" data-crm-action="import-excel" data-resource="students">Exceldan import qilish</button><button type="button" data-crm-action="export-excel" data-resource="students">Excelga eksport qilish</button></div>
     </div>`;
 }
@@ -3030,11 +3289,11 @@ function renderCrmGroups() {
         <button class="crm-icon-button" type="button" data-crm-action="filter-settings" aria-label="Filter sozlamalari"><i data-lucide="sliders-horizontal"></i></button>
       </div>
       <div class="crm-legend"><span><i></i>Barchasi</span><span><i class="trial"></i>Sinov darsida</span></div>
-      <div class="crm-table-card"><table class="crm-table"><thead><tr><th>T/R</th><th>Nomi</th><th>Narx</th><th>Dars vaqti</th><th>Kurs</th><th>O'qituvchilar</th><th>Dars kunlari</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((group, index) => {
+      <div class="crm-table-card"><table class="crm-table"><thead><tr><th>T/R</th><th>Nomi</th><th>Narx</th><th>Dars vaqti</th><th>Kurs</th><th>O'qituvchi</th><th>Dars kunlari</th><th>Talabalar soni</th><th>Status</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((group, index) => {
         const days = Array.isArray(group.lessonDays) ? group.lessonDays.join(", ") : group.days || "-";
         const price = group.price || group.monthly_price || 0;
-        return `<tr data-crm-row="groups" data-id="${group.id}"><td>${index + 1}</td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="groups" data-id="${group.id}">${escapeHtml(group.name || "-")}</button><div class="crm-count-pills"><span>${group.studentCount || group.student_count || 0}</span><span>${crmGroupTeachers(group).length || 1}</span></div></td><td>${formatMoney(price)}</td><td>${escapeHtml(group.startTime || group.start_time || "08:30")} - ${escapeHtml(group.endTime || group.end_time || "10:00")}</td><td>${escapeHtml(group.course || group.course_name || "KURS")} <span class="crm-tag">AAA</span></td><td>${crmPill(crmGroupTeachers(group), "O'qituvchi tanlanmagan")}</td><td>${crmPill(days.split(",").map((day) => day.trim()))}</td><td>${crmActionMenu("groups", group.id)}</td></tr>`;
-      }).join("") : `<tr><td colspan="8"><div class="empty-state">Hali guruh qo'shilmagan.</div></td></tr>`}</tbody></table></div>
+        return `<tr data-crm-row="groups" data-id="${group.id}"><td>${index + 1}</td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="groups" data-id="${group.id}">${escapeHtml(group.name || "-")}</button><div class="crm-count-pills"><span>${group.studentCount || group.student_count || 0}</span><span>${crmGroupTeachers(group).length || 1}</span></div></td><td>${formatMoney(price)}</td><td>${escapeHtml(group.startTime || group.start_time || "08:30")} - ${escapeHtml(group.endTime || group.end_time || "10:00")}</td><td>${escapeHtml(group.course || group.course_name || "-")}</td><td>${crmPill(crmGroupTeachers(group), "O'qituvchi tanlanmagan")}</td><td>${crmPill(days.split(",").map((day) => day.trim()))}</td><td>${group.studentCount || group.student_count || 0}</td><td>${renderBadge(group.status || "active")}</td><td>${crmActionMenu("groups", group.id)}</td></tr>`;
+      }).join("") : `<tr><td colspan="10">${crmEmptyState("Hali guruhlar mavjud emas", "Yangi guruh yaratish", 'data-open-modal="groups"')}</td></tr>`}</tbody></table></div>
       <div class="crm-export-actions"><button type="button" data-crm-action="export-excel" data-resource="groups">Excelga eksport qilish</button></div>
     </div>`;
 }
@@ -3054,27 +3313,299 @@ function renderCrmTeachers() {
         <select data-crm-filter="group">${groupOptions}</select>
         <button class="crm-soft-button" type="button" data-crm-action="reset-filters" data-resource="teachers">Tozalash</button>
       </div>
-      <div class="crm-table-card"><table class="crm-table"><thead><tr><th>T/R</th><th><input type="checkbox" aria-label="Barchasini tanlash" /></th><th>Nomi</th><th>Telefon raqam</th><th>Ish haqi turi</th><th>Tug'ilgan sana</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((teacher, index) => {
+      <div class="crm-table-card"><table class="crm-table"><thead><tr><th>T/R</th><th><input type="checkbox" aria-label="Barchasini tanlash" /></th><th>Nomi</th><th>Telefon</th><th>Email</th><th>Guruhlar</th><th>Ish haqi turi</th><th>Tug'ilgan sana</th><th>Status</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((teacher, index) => {
         const name = teacher.fullName || teacher.full_name || "-";
         const groups = crmTeacherGroups(teacher);
         const salaryType = teacher.salaryType || teacher.salary_type || "percentage";
         const salaryValue = teacher.salaryValue || teacher.salary_rate || 50;
-        return `<tr data-crm-row="teachers" data-id="${teacher.id}"><td>${index + 1}</td><td><input type="checkbox" aria-label="${escapeHtml(name)}" /></td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="teachers" data-id="${teacher.id}">${escapeHtml(name)}</button><span class="crm-muted">(${groups.length || Number(teacher.group_count || 1)} ta guruh)</span></td><td>${escapeHtml(teacher.phone || "-")}</td><td>${escapeHtml(salaryValue)} [${statusLabels[salaryType] || salaryType}]</td><td>${formatDate(teacher.birthDate || teacher.birth_date) || "-"}</td><td>${crmActionMenu("teachers", teacher.id)}</td></tr>`;
-      }).join("") : `<tr><td colspan="7"><div class="empty-state">Hali o'qituvchi qo'shilmagan.</div></td></tr>`}</tbody></table></div>
+        return `<tr data-crm-row="teachers" data-id="${teacher.id}"><td>${index + 1}</td><td><input type="checkbox" aria-label="${escapeHtml(name)}" /></td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="teachers" data-id="${teacher.id}">${escapeHtml(name)}</button></td><td>${escapeHtml(teacher.phone || "-")}</td><td>${escapeHtml(teacher.email || "-")}</td><td>${crmPill(groups, "Guruh biriktirilmagan")}</td><td>${escapeHtml(salaryValue)} [${statusLabels[salaryType] || salaryType}]</td><td>${formatDate(teacher.birthDate || teacher.birth_date) || "-"}</td><td>${renderBadge(teacher.status || "active")}</td><td>${crmActionMenu("teachers", teacher.id)}</td></tr>`;
+      }).join("") : `<tr><td colspan="10">${crmEmptyState("Hali o'qituvchi qo'shilmagan", "Yangi o'qituvchi qo'shish", 'data-open-modal="teachers"')}</td></tr>`}</tbody></table></div>
       <div class="crm-export-actions"><button type="button" data-crm-action="export-excel" data-resource="teachers">Excelga eksport qilish</button></div>
     </div>`;
+}
+
+function renderCrmCourses() {
+  const section = document.getElementById("courses");
+  if (!section) return;
+  const courses = filteredItems("courses");
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Kurslar</h1><p>Kurs narxi, davomiyligi va statusini boshqaring</p></div><button class="crm-primary-button" type="button" data-open-modal="courses"><i data-lucide="plus"></i>Yangi kurs qo'shish</button></div>
+    <div class="crm-filter-grid" data-filter-scope="courses"><input data-filter="search" placeholder="Kurs nomi bo'yicha qidirish" /><select data-filter="status"><option value="">Status</option><option value="active">Faol</option><option value="archived">Arxiv</option></select><button class="crm-soft-button" type="button" data-crm-action="reset-ui-filters" data-resource="courses">Filtrlarni tozalash</button></div>
+    <div class="crm-card-grid">${courses.length ? courses.map((course) => `<article class="crm-course-card"><div><span>${renderBadge(course.status || "active")}</span><h2>${escapeHtml(course.name || "-")}</h2><p>${escapeHtml(course.description || "Tavsif kiritilmagan")}</p></div><div class="crm-course-meta"><span>${formatMoney(course.price)}</span><span>${escapeHtml(course.duration || "-")}</span><span>${course.lesson_type === "individual" ? "Individual" : "Guruh"}</span></div><div class="crm-card-actions"><button type="button" data-crm-action="edit" data-resource="courses" data-id="${course.id}">Tahrirlash</button>${crmActionMenu("courses", course.id)}</div></article>`).join("") : crmEmptyState("Hali kurslar mavjud emas", "Yangi kurs qo'shish", 'data-open-modal="courses"')}</div>
+  </div>`;
+}
+
+function renderCrmPayments() {
+  const section = document.getElementById("finance");
+  if (!section) return;
+  const items = filteredItems("payments");
+  const revenue = (state.payments || []).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0);
+  const debtTotal = debtItems().reduce((sum, item) => sum + Number(item.balance || item.remaining_debt || 0), 0);
+  const cash = items.filter((item) => ["naqd", "cash"].includes(String(item.payment_type || item.method || "").toLowerCase())).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0);
+  const card = items.filter((item) => ["karta", "card", "click", "payme", "uzum"].includes(String(item.payment_type || item.method || "").toLowerCase())).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0);
+  const bank = items.filter((item) => ["bank"].includes(String(item.payment_type || item.method || "").toLowerCase())).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0);
+  const total = Math.max(1, cash + card + bank);
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Moliya va kassa</h1><p>Daromad va xarajatlarni kuzatib boring, to'lovlarni boshqaring va markaz moliyasini nazorat qiling</p></div><button class="crm-primary-button" type="button" data-open-modal="payments"><i data-lucide="wallet"></i>To'lov qo'shish</button></div>
+    <div class="finance-cash-grid">
+      <section class="finance-total-card"><article><strong class="success">${formatMoney(cash)}</strong><span>Kassadagi jami naqd pullar</span></article><article><strong class="danger">${formatMoney(card)}</strong><span>Kassadagi jami boshqa pullar</span></article></section>
+      <section class="finance-total-card wide"><article><strong class="success">${formatMoney(revenue)}</strong><span>Hisobdagi naqd pul</span></article><article><strong class="danger">-${formatMoney(debtTotal).replace("-", "")}</strong><span>Hisobdagi naqd bo'lmagan pul</span></article></section>
+      <section class="finance-flow-card"><header><h2>Kirimlar</h2><button type="button" data-crm-action="export-excel" data-resource="payments">batafsil</button></header>${[["Naqd pul", cash, "banknote"], ["Plastik karta", card, "credit-card"], ["Bank hisobi", bank, "landmark"]].map(([label, value, icon]) => `<div><i data-lucide="${icon}"></i><b>${formatMoney(value)}</b><span>${label}</span><em><strong style="width:${Math.round((Number(value) / total) * 100)}%"></strong></em><small>${Math.round((Number(value) / total) * 100)}%</small></div>`).join("")}</section>
+      <section class="finance-flow-card"><header><h2>Chiqimlar</h2><button type="button" data-crm-action="export-excel" data-resource="expenses">batafsil</button></header>${[["Naqd pul", 0, "banknote"], ["Plastik karta", 0, "credit-card"], ["Bank hisobi", 0, "landmark"]].map(([label, value, icon]) => `<div><i data-lucide="${icon}"></i><b>${formatMoney(value)}</b><span>${label}</span><em><strong style="width:0%"></strong></em><small>0%</small></div>`).join("")}</section>
+      <button class="finance-transfer-cta" type="button" data-crm-action="cash-transfer">Kassadagi pulni hisobga o'tkazish -></button>
+    </div>
+    <div class="crm-summary-strip"><article><span>Oylik tushum</span><strong>${formatMoney(revenue)}</strong></article><article><span>Jami qarzdorlik</span><strong>${formatMoney(debtTotal)}</strong></article><article><span>To'lovlar soni</span><strong>${items.length}</strong></article></div>
+    <div class="crm-filter-grid" data-filter-scope="payments"><input data-filter="search" placeholder="Talaba yoki guruh" /><input data-filter="payment_month" placeholder="Oy" /><select data-filter="status"><option value="">Status</option><option value="paid">To'langan</option><option value="partial">Qisman</option><option value="debt">Qarzdor</option></select><select data-filter="payment_type"><option value="">To'lov usuli</option><option value="naqd">Naqd</option><option value="karta">Karta</option><option value="click">Click</option><option value="payme">Payme</option><option value="bank">Bank</option></select><button class="crm-soft-button" type="button" data-crm-action="reset-ui-filters" data-resource="payments">Filtrlarni tozalash</button></div>
+    <div class="crm-table-card"><table class="crm-table"><thead><tr><th>Talaba</th><th>Guruh</th><th>Oy</th><th>To'lanishi kerak</th><th>To'langan</th><th>Chegirma</th><th>Qoldiq</th><th>Status</th><th>Sana</th><th>Usul</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((item) => `<tr><td>${escapeHtml(item.student_name || crmStudentName(item.student_id))}</td><td>${escapeHtml(item.group_name || crmGroupName(item.group_id))}</td><td>${escapeHtml(item.payment_month || "-")}</td><td>${formatMoney(item.due_amount || item.amount)}</td><td>${formatMoney(item.amount || item.paid_amount)}</td><td>${formatMoney(item.discount || 0)}</td><td>${formatMoney(paymentRemainder(item))}</td><td>${renderBadge(item.status || (paymentRemainder(item) ? "partial" : "paid"))}</td><td>${formatDate(item.paid_at || item.paymentDate)}</td><td>${escapeHtml(item.payment_type || item.method || "-")}</td><td>${crmActionMenu("payments", item.id)}</td></tr>`).join("") : `<tr><td colspan="11">${crmEmptyState("Hali to'lovlar mavjud emas", "To'lov qo'shish", 'data-open-modal="payments"')}</td></tr>`}</tbody></table></div>
+  </div>`;
+}
+
+function renderCrmDebts() {
+  const section = document.getElementById("debtors");
+  if (!section) return;
+  const items = debtItems();
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Qarzdorlik</h1><p>Qarzdor talabalar va eslatma yuborish</p></div><button class="crm-soft-button" type="button" data-crm-action="debt-message-all">Eslatma yuborish</button></div>
+    <div class="crm-summary-strip"><article><span>Jami qarzdorlik</span><strong>${formatMoney(items.reduce((sum, item) => sum + Number(item.balance || item.remaining_debt || 0), 0))}</strong></article><article><span>Qarzdor talabalar</span><strong>${items.length}</strong></article></div>
+    <div class="crm-table-card"><table class="crm-table"><thead><tr><th>Talaba</th><th>Telefon</th><th>Ota-ona telefoni</th><th>Guruh</th><th>Qarzdorlik</th><th>Necha kundan beri</th><th>Oxirgi to'lov</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((item) => `<tr><td>${escapeHtml(item.full_name || item.fullName)}</td><td>${escapeHtml(item.phone || "-")}</td><td>${escapeHtml(item.parent_phone || item.parentPhone || "-")}</td><td>${escapeHtml(item.group_name || "-")}</td><td><strong class="crm-money debt">${formatMoney(item.balance || item.remaining_debt)}</strong></td><td>${overdueDays(item)}</td><td>${formatDate(item.last_payment_at)}</td><td><button type="button" data-crm-action="payment" data-resource="students" data-id="${item.id}">To'lov</button><button type="button" data-crm-action="debt-message" data-id="${item.id}">Xabar</button><button type="button" data-crm-action="called" data-id="${item.id}">Qo'ng'iroq</button></td></tr>`).join("") : `<tr><td colspan="8">${crmEmptyState("Qarzdor talabalar yo'q")}</td></tr>`}</tbody></table></div>
+  </div>`;
+}
+
+function renderCrmLeads() {
+  const section = document.getElementById("leads");
+  if (!section) return;
+  const items = filteredItems("leads");
+  const columns = [
+    { key: "new", title: "So'rov", statuses: ["new", "contacted", "later"], tone: "blue" },
+    { key: "trial", title: "Sinov darsidagi talabalar", statuses: ["trial"], tone: "cyan" },
+    { key: "active", title: "Aktiv talabalar", statuses: ["active", "became_student", "BECAME_STUDENT"], tone: "green" },
+    { key: "paid", title: "To'lov qilgan talabalar", statuses: ["paid"], tone: "violet" }
+  ];
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Leadlar pipeline</h1><p>Yangi murojaatlar, sinov darslari va o'quvchiga aylanish jarayonini kanban ko'rinishida boshqaring</p></div><div class="crm-head-actions"><button class="crm-soft-button" type="button" data-crm-action="filter-settings">Filtrlar</button><button class="crm-primary-button" type="button" data-open-modal="leads"><i data-lucide="plus"></i>Lead qo'shish</button></div></div>
+    <div class="crm-filter-grid" data-filter-scope="leads"><input data-filter="search" placeholder="Ism yoki telefon" /><input data-filter="course_name" placeholder="Kurs" /><input data-filter="manager_name" placeholder="Mas'ul manager" /><select data-filter="status"><option value="">Barcha statuslar</option><option value="new">Yangi</option><option value="trial">Sinov darsi</option><option value="paid">To'lov qildi</option></select><button class="crm-soft-button" type="button" data-crm-action="reset-ui-filters" data-resource="leads">Tozalash</button></div>
+    <div class="crm-kanban crm-lead-kanban">${columns.map((column) => {
+      const leads = items.filter((lead) => column.statuses.includes(lead.status || "new"));
+      return `<section class="lead-column lead-${column.tone}" data-status="${column.key}"><h2>${column.title}<span>${leads.length}</span></h2><button class="lead-add-button" type="button" data-open-modal="leads"><i data-lucide="plus"></i>Qo'shish</button>${leads.map((lead) => `<article class="lead-card" draggable="true" data-lead-id="${lead.id}"><div><b>${escapeHtml(lead.full_name || lead.name || "-")}</b><span>${escapeHtml(lead.phone || "-")}</span></div><small>${escapeHtml(lead.course_name || lead.course || "Kurs tanlanmagan")} / ${escapeHtml(lead.source || "Manba yo'q")}</small><em>${formatDate(lead.created_at || lead.next_contact_at) || "Bugun"}</em><div class="lead-actions"><button type="button" data-crm-action="lead-status" data-resource="leads" data-id="${lead.id}">Status</button><button type="button" data-crm-action="convert-lead" data-resource="leads" data-id="${lead.id}">O'quvchi</button>${crmActionMenu("leads", lead.id)}</div></article>`).join("") || `<div class="lead-empty"><i data-lucide="sparkles"></i><span>Yangi card qo'shing</span></div>`}</section>`;
+    }).join("")}</div>
+    <div class="crm-table-card"><table class="crm-table"><thead><tr><th>Lead</th><th>Telefon</th><th>Kurs</th><th>Manba</th><th>Status</th><th>Mas'ul</th><th>Sana</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((lead) => `<tr><td>${escapeHtml(lead.full_name || lead.name || "-")}</td><td>${escapeHtml(lead.phone || "-")}</td><td>${escapeHtml(lead.course_name || "-")}</td><td>${escapeHtml(lead.source || "-")}</td><td>${renderBadge(lead.status || "new")}</td><td>${escapeHtml(lead.manager_name || "-")}</td><td>${formatDate(lead.created_at || lead.next_contact_at)}</td><td>${crmActionMenu("leads", lead.id)}</td></tr>`).join("") : `<tr><td colspan="8">${crmEmptyState("Leadlar ro'yxati bo'sh", "Lead qo'shish", 'data-open-modal="leads"')}</td></tr>`}</tbody></table></div>
+  </div>`;
+}
+
+function renderCrmAttendancePage() {
+  const section = document.getElementById("attendance");
+  if (!section) return;
+  const groupOptions = selectOptions("groups", state.groups[0]?.id || "");
+  const records = state.attendance || [];
+  const selectedGroup = state.groups[0] || {};
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Davomat jurnali</h1><p>Guruh bo'yicha dars sanalari, talaba statuslari va oylik davomatni rangli jurnal-gridda boshqaring</p></div><button class="crm-primary-button" type="button" data-crm-action="save-attendance-page"><i data-lucide="check"></i>Davomatni saqlash</button></div>
+    <section class="crm-attendance-builder attendance-journal-shell">
+      <aside class="journal-group-card">
+        <h2>${escapeHtml(selectedGroup.name || "Guruh tanlang")}</h2>
+        <p><b>O'qituvchi:</b> ${escapeHtml(selectedGroup.teacher_full_name || selectedGroup.teacher_name || crmGroupTeachers(selectedGroup)[0] || "-")}</p>
+        <p><b>Narx:</b> ${formatMoney(selectedGroup.monthly_price || selectedGroup.price || 0)}</p>
+        <p><b>Vaqt:</b> ${escapeHtml(selectedGroup.start_time || selectedGroup.startTime || "09:00")} - ${escapeHtml(selectedGroup.end_time || selectedGroup.endTime || "10:30")}</p>
+        <p><b>Kurs:</b> ${escapeHtml(selectedGroup.course_name || selectedGroup.course || "-")}</p>
+        <p><b>Xona:</b> ${escapeHtml(selectedGroup.room || "-")}</p>
+        <div class="journal-legend"><span class="present-dot"></span>Keldi <span class="absent-dot"></span>Kelmadi <span class="late-dot"></span>Kechikdi <span class="excused-dot"></span>Sababli</div>
+      </aside>
+      <div class="journal-main">
+        <div class="crm-filter-grid"><select data-attendance-group>${groupOptions}</select><input type="date" data-attendance-date value="${new Date().toISOString().slice(0, 10)}" /><input type="time" data-attendance-time value="09:00" /><button type="button" class="crm-soft-button" data-attendance-mark-all>Keldi: hammasi</button></div>
+        ${attendanceJournalHtml(selectedGroup)}
+        <div class="attendance-students" data-attendance-students hidden></div>
+      </div>
+    </section>
+    <div class="crm-table-card"><table class="crm-table"><thead><tr><th>Sana</th><th>Guruh</th><th>O'qituvchi</th><th>Keldi</th><th>Kelmadi</th><th>Kechikdi</th><th>Amallar</th></tr></thead><tbody>${records.length ? records.slice(0, 20).map((item) => `<tr><td>${formatDate(item.lesson_date)}</td><td>${escapeHtml(item.group_name || crmGroupName(item.group_id))}</td><td>${escapeHtml(item.teacher_name || "-")}</td><td>${item.status === "present" ? 1 : 0}</td><td>${item.status === "absent" ? 1 : 0}</td><td>${item.status === "late" ? 1 : 0}</td><td><button type="button" data-view="attendance">Batafsil</button></td></tr>`).join("") : `<tr><td colspan="7">${crmEmptyState("Hali davomat belgilanmagan")}</td></tr>`}</tbody></table></div>
+  </div>`;
+  renderAttendanceFlow();
+}
+
+function attendanceJournalHtml(group) {
+  const groupId = group?.id || state.groups[0]?.id || "";
+  const students = state.students.filter((student) => String(student.group_id || student.groupIds?.[0] || "") === String(groupId)).slice(0, 12);
+  const list = students.length ? students : (state.students || []).slice(0, 8);
+  const dates = ["03", "05", "07", "10", "12", "14", "17", "19"].map((day) => `${day} may`);
+  const statuses = ["present", "present", "late", "present", "excused", "present", "absent", "present"];
+  return `<div class="attendance-journal"><div class="journal-head"><b>Talabalar</b>${dates.map((date) => `<span>${date}</span>`).join("")}</div>${list.map((student, rowIndex) => `<div class="journal-row" data-attendance-student="${student.id}"><b>${rowIndex + 1}. ${escapeHtml(student.full_name || student.fullName)}</b>${dates.map((_, index) => {
+    const status = statuses[(rowIndex + index) % statuses.length];
+    const icons = { present: "check", absent: "flag", late: "clock-3", excused: "badge-help", online: "wifi" };
+    return `<button type="button" class="attendance-cell status-${status}" data-attendance-cell data-status="${status}" aria-label="${statusLabels[status] || status}"><i data-lucide="${icons[status]}"></i></button>`;
+  }).join("")}<select data-attendance-status hidden><option value="present">Keldi</option><option value="absent">Kelmadi</option><option value="late">Kechikdi</option><option value="excused">Sababli</option><option value="online">Online</option></select></div>`).join("") || `<div class="journal-empty">${crmEmptyState("Bu guruhda talaba topilmadi", "Talaba qo'shish", 'data-open-modal="students"')}</div>`}</div>`;
+}
+
+function renderCrmSchedulePage() {
+  const section = document.getElementById("schedule");
+  if (!section) return;
+  const items = scheduleItems();
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Dars jadvali va xonalar</h1><p>Jurnal va xonalar boshqaruvi: darslarni vaqt, xona va o'qituvchi bo'yicha rangli gridda kuzating</p></div><div class="crm-head-actions"><div class="segmented"><button type="button" class="active" data-crm-action="schedule-mode">Gorizontal</button><button type="button" data-crm-action="schedule-mode">Kunlik</button><button type="button" data-crm-action="schedule-mode">Haftalik</button></div><button class="crm-primary-button" type="button" data-open-modal="schedule"><i data-lucide="plus"></i>Dars qo'shish</button></div></div>
+    <div class="crm-filter-grid"><input type="date" value="${new Date().toISOString().slice(0, 10)}" /><select><option>${escapeHtml(crmCenterTitle())}</option></select><select><option>O'qituvchi bo'yicha</option>${(state.teachers || []).map((teacher) => `<option>${escapeHtml(teacher.full_name || teacher.fullName)}</option>`).join("")}</select><select><option>Xona bo'yicha</option>${crmRooms().map((room) => `<option>${escapeHtml(room.name)}</option>`).join("")}</select><button class="crm-soft-button" type="button" data-crm-action="filter-settings">Filtr</button></div>
+    ${scheduleGridHtml(items)}
+  </div>`;
+}
+
+function scheduleItems() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (state.schedule?.length) {
+    return state.schedule.map((lesson) => ({
+      ...lesson,
+      group_name: lesson.group_name || crmGroupName(lesson.group_id),
+      start_time: String(lesson.lesson_at || "").slice(11, 16) || lesson.start_time || "09:00",
+      end_time: lesson.end_time || "10:30",
+      room: lesson.room || crmGroupName(lesson.group_id, "") || "1-xona",
+      student_count: lesson.student_count || 0
+    }));
+  }
+  return (state.groups || []).map((group, index) => ({
+    id: group.id,
+    group_id: group.id,
+    group_name: group.name,
+    teacher_name: group.teacher_full_name || group.teacher_name || crmGroupTeachers(group)[0],
+    room: group.room || `${(index % 6) + 1}-xona`,
+    lesson_at: `${today}T${group.start_time || group.startTime || "09:00"}`,
+    start_time: group.start_time || group.startTime || "09:00",
+    end_time: group.end_time || group.endTime || "10:30",
+    student_count: group.student_count || group.studentCount || 0,
+    course_name: group.course_name || group.course
+  }));
+}
+
+function scheduleGridHtml(items) {
+  const times = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
+  const rooms = crmRooms();
+  const lessonColors = ["#8b5cf6", "#22c55e", "#06b6d4", "#f43f5e", "#eab308", "#3b82f6", "#f97316"];
+  const timeIndex = (value) => Math.max(1, times.indexOf(value) + 1 || 1);
+  return `<div class="room-schedule"><div class="room-time-head"><b>Xona/vaqt</b>${times.map((time) => `<span>${time}</span>`).join("")}</div>${rooms.map((room) => {
+    const roomLessons = items.filter((lesson) => String(lesson.room || "1-xona").toLowerCase() === String(room.name).toLowerCase());
+    return `<div class="room-row"><button type="button" data-view="rooms">${escapeHtml(room.name)}</button><div class="room-track">${roomLessons.map((lesson, index) => {
+      const start = timeIndex(lesson.start_time || String(lesson.lesson_at || "").slice(11, 16));
+      const end = Math.max(start + 2, timeIndex(lesson.end_time || "10:30"));
+      const color = lessonColors[(Number(lesson.group_id || lesson.id || index) || index) % lessonColors.length];
+      return `<article class="lesson-block" style="--start:${start};--end:${Math.min(end, times.length + 1)};--lesson:${color}" data-crm-action="schedule-edit"><b>${escapeHtml(lesson.group_name || crmGroupName(lesson.group_id))}</b><span>${escapeHtml(lesson.teacher_name || "-")}</span><small>${escapeHtml(lesson.start_time || String(lesson.lesson_at || "").slice(11, 16) || "09:00")} - ${escapeHtml(lesson.end_time || "10:30")}</small><em>talabalar: ${lesson.student_count || 0}</em></article>`;
+    }).join("")}</div></div>`;
+  }).join("")}</div>`;
+}
+
+function renderCrmReportsPage() {
+  const section = document.getElementById("reports");
+  if (!section) return;
+  const revenue = (state.payments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const debt = debtItems().reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Hisobotlar</h1><p>Moliyaviy, o'quv va konversiya ko'rsatkichlari</p></div><div class="crm-head-actions"><button class="crm-soft-button" type="button" data-crm-action="export-excel" data-resource="reports">Excel</button><button class="crm-soft-button" type="button" data-crm-action="export-pdf">PDF</button></div></div>
+    <div class="crm-filter-grid"><input type="date" value="${new Date().toISOString().slice(0, 10)}" /><input type="date" value="${new Date().toISOString().slice(0, 10)}" /></div>
+    <div class="crm-stat-grid">${crmStatCard("Kunlik tushum", formatMoney(Math.round(revenue / 30)), "wallet", "finance")}${crmStatCard("Oylik tushum", formatMoney(revenue), "bar-chart-3", "finance")}${crmStatCard("Jami qarzdorlik", formatMoney(debt), "badge-alert", "debtors")}${crmStatCard("Yangi talabalar", state.students.length, "user-plus", "students")}${crmStatCard("Faol guruhlar", state.groups.filter((g) => g.status !== "archived").length, "layers", "groups")}${crmStatCard("Davomat foizi", "92%", "clipboard-check", "attendance")}</div>
+    <div class="crm-dashboard-grid"><section class="crm-panel wide"><div class="crm-panel-head"><h2>Kunlik tushum</h2></div><div class="bar-chart" data-report-chart="daily"></div></section><section class="crm-panel"><div class="crm-panel-head"><h2>Lead conversion</h2></div><div class="funnel-chart" data-report-chart="conversion"></div></section><section class="crm-panel"><div class="crm-panel-head"><h2>O'qituvchi samaradorligi</h2></div><div class="rank-list" data-report-chart="teachers"></div></section></div>
+  </div>`;
+  renderBarChart('[data-report-chart="daily"]', state.analytics.monthly_payments || [], "amount", "month");
+  renderBarChart('[data-report-chart="conversion"]', state.analytics.lead_funnel || [], "count", "status");
+}
+
+function renderCrmSettingsPage() {
+  const section = document.getElementById("settings");
+  if (!section) return;
+  const saved = loadCrmLocalState().settings || {};
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Sozlamalar</h1><p>Markaz ma'lumotlari, rollar va bildirishnomalar</p></div><button class="crm-primary-button" type="button" data-crm-action="save-settings">Saqlash</button></div>
+    <form class="crm-settings-grid" data-crm-settings-form>
+      <article><h2>Markaz ma'lumotlari</h2><label>Nomi<input name="centerName" value="${escapeHtml(saved.centerName || crmCenterTitle())}" /></label><label>Telefon<input name="phone" value="${escapeHtml(saved.phone || "")}" /></label><label>Manzil<input name="address" value="${escapeHtml(saved.address || "")}" /></label></article>
+      <article><h2>To'lov sozlamalari</h2><label>Oylik to'lov kuni<input name="paymentDay" type="number" value="${saved.paymentDay || 5}" /></label><label>Valyuta<select name="currency"><option>UZS</option></select></label></article>
+      <article><h2>Telegram bot</h2><label>Bot token<input name="telegramToken" value="${escapeHtml(saved.telegramToken || "")}" /></label><label class="crm-check-field"><input name="telegramEnabled" type="checkbox" ${saved.telegramEnabled ? "checked" : ""} /><span>Davomat va qarzdorlik xabarlari</span></label><strong>${saved.telegramToken ? "Ulandi" : "Token kiritilmagan"}</strong></article>
+      <article><h2>Xavfsizlik</h2><label class="crm-check-field"><input name="require2fa" type="checkbox" ${saved.require2fa ? "checked" : ""} /><span>2FA talab qilinsin</span></label><label>Session timeout<input name="timeout" type="number" value="${saved.timeout || 60}" /></label></article>
+    </form>
+  </div>`;
+}
+
+function crmRooms() {
+  const saved = Array.isArray(state.rooms) && state.rooms.length ? state.rooms : [];
+  const fromGroups = [...new Set((state.groups || []).map((group) => group.room).filter(Boolean))].map((name, index) => ({ id: index + 1, name, capacity: 10 + index * 2 }));
+  const base = saved.length ? saved : fromGroups;
+  return base.length ? base : Array.from({ length: 8 }, (_, index) => ({ id: index + 1, name: `${index + 1}-xona`, capacity: 12 + index }));
+}
+
+function crmPaymentTypes() {
+  const saved = Array.isArray(state.paymentTypes) && state.paymentTypes.length ? state.paymentTypes : [];
+  return saved.length ? saved : [
+    { id: 1, name: "Bank hisobi", type: "Tizim", active: true },
+    { id: 2, name: "Plastik karta", type: "Tizim", active: true },
+    { id: 3, name: "Naqd pul", type: "Tizim", active: true }
+  ];
+}
+
+function crmCollectionFor(resource) {
+  if (resource === "rooms") return crmRooms();
+  if (resource === "paymentTypes") return crmPaymentTypes();
+  return state[resource] || [];
+}
+
+function ensureEditableCrmCollection(resource) {
+  if ((resource === "rooms" || resource === "paymentTypes") && !(state[resource] || []).length) {
+    state[resource] = crmCollectionFor(resource).map((item) => ({ ...item }));
+    persistCrmCollections();
+  }
+}
+
+function renderCrmStaffAttendancePage() {
+  const section = document.getElementById("teacher-attendance");
+  if (!section) return;
+  const employees = (state.teachers || []).map((teacher, index) => ({
+    id: teacher.id,
+    name: teacher.full_name || teacher.fullName,
+    role: "O'qituvchi",
+    photo: "",
+    checkedIn: state.staffAttendance.find((entry) => String(entry.id) === String(teacher.id))?.checkedIn || false,
+    arrived: state.staffAttendance.find((entry) => String(entry.id) === String(teacher.id))?.arrived || ""
+  }));
+  const rows = employees.length ? employees : [{ id: 1, name: "Eduka Admin", role: "Administrator", checkedIn: false, arrived: "" }];
+  const onTime = rows.filter((row) => row.checkedIn).length;
+  section.innerHTML = `<div class="crm-list-page staff-attendance-page">
+    <div class="crm-list-head"><div><h1>Xodimlar davomati</h1><p>Ustozlar va xodimlarning kelish-ketish vaqtini nazorat qiling</p></div><div class="crm-head-actions"><div class="segmented"><button type="button" class="active">Barchasi</button><button type="button">Ustozlar</button><button type="button">Hodimlar</button></div><button class="crm-soft-button" type="button"><i data-lucide="calendar"></i>${new Date().toISOString().slice(0, 10)}</button></div></div>
+    <div class="crm-stat-grid staff-kpis">${crmStatCard("Jami xodimlar", rows.length, "users", "teacher-attendance")}${crmStatCard("O'z vaqtida", onTime, "check-circle-2", "teacher-attendance")}${crmStatCard("Kech qolgan", 0, "clock-3", "teacher-attendance")}${crmStatCard("Kelmagan", rows.length - onTime, "x-circle", "teacher-attendance")}</div>
+    <div class="crm-table-card"><table class="crm-table staff-table"><thead><tr><th>F.I</th><th>Lavozim</th><th>Keldi</th><th>Ketdi</th><th>Harakat</th></tr></thead><tbody>${rows.map((row) => `<tr><td><span class="staff-avatar">${escapeHtml(row.name).slice(0, 1).toUpperCase()}</span>${escapeHtml(row.name)}</td><td>${escapeHtml(row.role)}</td><td>${row.arrived || "-"}</td><td>${row.checkedIn ? "-" : "18:00"}</td><td><button type="button" class="crm-primary-button" data-staff-check="${row.id}">${row.checkedIn ? "Ketdi" : "Keldi"}</button></td></tr>`).join("")}</tbody></table></div>
+  </div>`;
+}
+
+function renderCrmRoomsPage() {
+  const section = document.getElementById("rooms");
+  if (!section) return;
+  ensureEditableCrmCollection("rooms");
+  const rooms = crmRooms();
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Xonalar ro'yxati</h1><p>Xona sig'imi, bandligi va guruhlar bilan bog'lanishini kuzating</p></div><button class="crm-primary-button" type="button" data-open-modal="rooms"><i data-lucide="plus"></i>Xona qo'shish</button></div>
+    <div class="crm-table-card"><table class="crm-table rooms-table"><thead><tr><th>T/R</th><th>Nomi</th><th>Sig'imi</th><th>Guruhlar</th><th>Vaqt</th><th>Harakatlar</th></tr></thead><tbody>${rooms.map((room, index) => {
+      const groups = (state.groups || []).filter((group) => String(group.room || "").toLowerCase() === String(room.name).toLowerCase());
+      return `<tr><td>${index + 1}</td><td><b>${escapeHtml(room.name)}</b></td><td>${room.capacity || "-"} o'rin</td><td>${groups.map((group) => escapeHtml(group.name)).join("<br>") || "-"}</td><td>${groups.map((group) => `${escapeHtml(group.start_time || group.startTime || "09:00")}-${escapeHtml(group.end_time || group.endTime || "10:30")}`).join("<br>") || "-"}</td><td>${crmActionMenu("rooms", room.id)}</td></tr>`;
+    }).join("")}</tbody></table></div>
+  </div>`;
+}
+
+function renderCrmPaymentTypesPage() {
+  const section = document.getElementById("payment-types");
+  if (!section) return;
+  ensureEditableCrmCollection("paymentTypes");
+  const types = crmPaymentTypes();
+  section.innerHTML = `<div class="crm-list-page">
+    <div class="crm-list-head"><div><h1>Mavjud to'lov turlari</h1><p>Naqd, karta, bank va boshqa to'lov usullarini boshqaring</p></div><button class="crm-primary-button" type="button" data-open-modal="paymentTypes"><i data-lucide="plus"></i>To'lov turi qo'shish</button></div>
+    <div class="crm-table-card"><table class="crm-table payment-type-table"><thead><tr><th>T/R</th><th>Nomi</th><th>Turi</th><th>Holati</th><th>Harakatlar</th></tr></thead><tbody>${types.map((type, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(type.name)}</td><td>${escapeHtml(type.type || "Markaz")}</td><td><button type="button" class="crm-toggle ${type.active ? "active" : ""}" data-crm-action="toggle-payment-type" data-id="${type.id}"><span></span></button></td><td>${crmActionMenu("paymentTypes", type.id)}</td></tr>`).join("")}</tbody></table></div>
+  </div>`;
 }
 
 function crmDrawerTitle() {
   return {
     students: crmDrawerState.itemId ? "Talabani tahrirlash" : "Yangi talaba qo'shish",
     groups: crmDrawerState.itemId ? "Guruhni tahrirlash" : "Yangi guruh qo'shish",
-    teachers: crmDrawerState.itemId ? "O'qituvchini tahrirlash" : "Yangi o'qituvchi qo'shish"
+    teachers: crmDrawerState.itemId ? "O'qituvchini tahrirlash" : "Yangi o'qituvchi qo'shish",
+    courses: crmDrawerState.itemId ? "Kursni tahrirlash" : "Yangi kurs qo'shish",
+    payments: crmDrawerState.itemId ? "To'lovni tahrirlash" : "To'lov qo'shish",
+    leads: crmDrawerState.itemId ? "Leadni tahrirlash" : "Lead qo'shish",
+    rooms: crmDrawerState.itemId ? "Xonani tahrirlash" : "Xona qo'shish",
+    paymentTypes: crmDrawerState.itemId ? "To'lov turini tahrirlash" : "To'lov turi qo'shish"
   }[crmDrawerState.type] || "Ma'lumot";
 }
 
 function crmDrawerItem() {
-  return (state[crmDrawerState.type] || []).find((item) => String(item.id) === String(crmDrawerState.itemId)) || {};
+  return (state[crmDrawerState.type] || []).find((item) => String(item.id) === String(crmDrawerState.itemId)) || crmDrawerState.prefill || {};
 }
 
 function crmDrawerFields(type, item = {}) {
@@ -3117,6 +3648,52 @@ function crmDrawerFields(type, item = {}) {
       <label><span>Status</span><select name="status"><option value="active" ${item.status === "active" ? "selected" : ""}>Faol</option><option value="trial" ${item.status === "trial" ? "selected" : ""}>Sinov darsida</option><option value="archived" ${item.status === "archived" ? "selected" : ""}>Arxiv</option></select></label>
       <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
   }
+  if (type === "courses") {
+    return `
+      <label><span>Kurs nomi *</span><input name="name" required value="${escapeHtml(item.name)}" /></label>
+      <label><span>Oylik narx</span><input name="price" type="number" min="0" value="${Number(item.price || 0)}" /></label>
+      <label><span>Davomiylik</span><input name="duration" value="${escapeHtml(item.duration)}" /></label>
+      <label><span>Daraja</span><input name="level" value="${escapeHtml(item.level)}" /></label>
+      <label><span>Turi</span><select name="lesson_type"><option value="group" ${item.lesson_type !== "individual" ? "selected" : ""}>Guruh</option><option value="individual" ${item.lesson_type === "individual" ? "selected" : ""}>Individual</option></select></label>
+      <label><span>Status</span><select name="status"><option value="active" ${item.status !== "archived" ? "selected" : ""}>Faol</option><option value="archived" ${item.status === "archived" ? "selected" : ""}>Arxiv</option></select></label>
+      <label class="wide"><span>Tavsif</span><textarea name="description">${escapeHtml(item.description)}</textarea></label>`;
+  }
+  if (type === "rooms") {
+    return `
+      <label class="wide"><span>Nomi *</span><input name="name" required value="${escapeHtml(item.name)}" placeholder="1-xona" /></label>
+      <label class="wide"><span>Xona sig'imi</span><input name="capacity" type="number" min="1" value="${Number(item.capacity || 12)}" /></label>
+      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
+  }
+  if (type === "paymentTypes") {
+    return `
+      <label class="wide"><span>Nomi *</span><input name="name" required value="${escapeHtml(item.name)}" placeholder="Naqd pul" /></label>
+      <label><span>Turi</span><select name="type"><option value="Markaz">Markaz</option><option value="Tizim" ${item.type === "Tizim" ? "selected" : ""}>Tizim</option></select></label>
+      <label class="crm-check-field"><input name="active" type="checkbox" ${item.active !== false ? "checked" : ""} /><span>Faol</span></label>`;
+  }
+  if (type === "payments") {
+    const studentOptions = (state.students || []).map((student) => `<option value="${student.id}" ${String(item.student_id) === String(student.id) ? "selected" : ""}>${escapeHtml(student.full_name || student.fullName)}</option>`).join("");
+    const groupOptionsPayment = (state.groups || []).map((group) => `<option value="${group.id}" ${String(item.group_id) === String(group.id) ? "selected" : ""}>${escapeHtml(group.name)}</option>`).join("");
+    return `
+      <label><span>Talaba *</span><select name="student_id" required><option value="">Talaba tanlang</option>${studentOptions}</select></label>
+      <label><span>Guruh</span><select name="group_id"><option value="">Guruh</option>${groupOptionsPayment}</select></label>
+      <label><span>Oy</span><input name="payment_month" value="${escapeHtml(item.payment_month || new Date().toISOString().slice(0, 7))}" /></label>
+      <label><span>To'lanishi kerak</span><input name="due_amount" type="number" value="${Number(item.due_amount || item.amount || 0)}" /></label>
+      <label><span>To'langan summa</span><input name="amount" type="number" value="${Number(item.amount || 0)}" /></label>
+      <label><span>Chegirma</span><input name="discount" type="number" value="${Number(item.discount || 0)}" /></label>
+      <label><span>To'lov usuli</span><select name="payment_type"><option value="naqd">Naqd</option><option value="karta">Karta</option><option value="click">Click</option><option value="payme">Payme</option><option value="bank">Bank</option></select></label>
+      <label><span>Sana</span><input name="paid_at" type="date" value="${formatDate(item.paid_at) || new Date().toISOString().slice(0, 10)}" /></label>
+      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
+  }
+  if (type === "leads") {
+    return `
+      <label><span>Ism *</span><input name="full_name" required value="${escapeHtml(item.full_name || item.name)}" /></label>
+      <label><span>Telefon *</span><input name="phone" required value="${escapeHtml(item.phone)}" /></label>
+      <label><span>Qiziqqan kurs</span><select name="course_name"><option value="">Kurs</option>${courseOptions}</select></label>
+      <label><span>Manba</span><input name="source" value="${escapeHtml(item.source || "Instagram")}" /></label>
+      <label><span>Status</span><select name="status"><option value="new">Yangi</option><option value="contacted">Aloqa qilindi</option><option value="trial">Sinov dars</option><option value="paid">O'quvchiga aylandi</option><option value="lost">Rad etdi</option><option value="later">Keyinroq</option></select></label>
+      <label><span>Mas'ul manager</span><input name="manager_name" value="${escapeHtml(item.manager_name)}" /></label>
+      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
+  }
   return `
     <label><span>FISH *</span><input name="fullName" required value="${escapeHtml(item.fullName || item.full_name)}" /></label>
     <label><span>Telefon raqam *</span><input name="phone" required placeholder="+(998) __-___-__-__" value="${escapeHtml(item.phone)}" /></label>
@@ -3155,6 +3732,7 @@ function openDrawer(type, item = null) {
   crmDrawerState.open = true;
   crmDrawerState.type = type;
   crmDrawerState.itemId = item?.id || null;
+  crmDrawerState.prefill = item && !item.id ? item : null;
   crmDrawerState.dirty = false;
   renderDrawer();
 }
@@ -3164,6 +3742,7 @@ function closeDrawer(force = false) {
   crmDrawerState.open = false;
   crmDrawerState.type = "";
   crmDrawerState.itemId = null;
+  crmDrawerState.prefill = null;
   crmDrawerState.dirty = false;
   renderDrawer();
 }
@@ -3171,12 +3750,28 @@ function closeDrawer(force = false) {
 function validateCrmDrawer(type, data) {
   if ((type === "students" || type === "teachers") && !data.fullName?.trim()) return "FISH majburiy.";
   if (type === "groups" && !data.name?.trim()) return "Guruh nomi majburiy.";
+  if (type === "courses" && !data.name?.trim()) return "Kurs nomi majburiy.";
+  if (type === "rooms" && !data.name?.trim()) return "Xona nomi majburiy.";
+  if (type === "paymentTypes" && !data.name?.trim()) return "To'lov turi nomi majburiy.";
+  if (type === "leads" && !data.full_name?.trim()) return "Ism majburiy.";
+  if (type === "payments" && !data.student_id) return "Talaba tanlang.";
   if ((type === "students" || type === "teachers") && normalizeDigits(data.phone).length < 9) return "Telefon raqamni to'g'ri kiriting.";
+  if (type === "leads" && normalizeDigits(data.phone).length < 9) return "Telefon raqamni to'g'ri kiriting.";
   if (data.email && !validateEmail(data.email)) return "Email formatini tekshiring.";
   return "";
 }
 
-function saveCrmDrawer(form) {
+function crmApiPayload(resource, item) {
+  if (resource === "students") return { full_name: item.full_name, phone: item.phone, parent_phone: item.parent_phone, birth_date: item.birth_date, address: item.address, course_name: item.course_name, group_id: item.group_id || null, payment_type: item.paymentType || item.payment_type, discount: item.discount, status: item.status, balance: item.balance, note: item.note };
+  if (resource === "groups") return { name: item.name, course_name: item.course_name, status: item.status, teacher_id: item.teacher_id || null, teacher_name: item.teacher_name, days: item.days, start_time: item.start_time, end_time: item.end_time, monthly_price: item.monthly_price, starts_at: item.starts_at, room: item.room, note: item.note };
+  if (resource === "teachers") return { full_name: item.full_name, phone: item.phone, email: item.email, course_name: item.course_name, groups: crmTeacherGroups(item).join(", "), login_enabled: item.loginEnabled, status: item.status, salary_type: item.salary_type, salary_rate: item.salary_rate, note: item.note };
+  if (resource === "courses") return { name: item.name, description: item.description, price: item.price, duration: item.duration, level: item.level, lesson_type: item.lesson_type, status: item.status };
+  if (resource === "payments") return { student_id: item.student_id || null, group_id: item.group_id || null, payment_month: item.payment_month, due_amount: item.due_amount, amount: item.amount, discount: item.discount, payment_type: item.payment_type, paid_at: item.paid_at, note: item.note };
+  if (resource === "leads") return { full_name: item.full_name, phone: item.phone, course_name: item.course_name, source: item.source, status: item.status, manager_name: item.manager_name, note: item.note };
+  return item;
+}
+
+async function saveCrmDrawer(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   const error = validateCrmDrawer(crmDrawerState.type, data);
   const errorNode = form.querySelector("[data-crm-drawer-error]");
@@ -3192,18 +3787,69 @@ function saveCrmDrawer(form) {
     item = { ...existing, id: editing ? existing.id : nextCrmId("students"), fullName: data.fullName.trim(), full_name: data.fullName.trim(), phone: data.phone, parentPhone: data.parentPhone, parent_phone: data.parentPhone, birthDate: data.birthDate, birth_date: data.birthDate, gender: data.gender, address: data.address, fatherName: data.fatherName, motherName: data.motherName, note: data.note, groupIds: data.groupId ? [Number(data.groupId)] : [], group_id: data.groupId || "", group_name: crmGroupName(data.groupId, existing.group_name), course: data.course, course_name: data.course, teacher: crmTeacherName(data.teacherId, existing.teacher || existing.teacher_full_name), teacher_id: data.teacherId || "", status: data.status || "active", tags: String(data.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean), balance: Number(existing.balance || 0), discount: Number(data.discount || 0) };
   } else if (resource === "groups") {
     item = { ...existing, id: editing ? existing.id : nextCrmId("groups"), name: data.name.trim(), course: data.course, course_name: data.course, teacherIds: data.teacherId ? [Number(data.teacherId)] : [], teacher_id: data.teacherId || "", teacher_name: crmTeacherName(data.teacherId, existing.teacher_name), teacher_full_name: crmTeacherName(data.teacherId, existing.teacher_full_name), room: data.room, price: Number(data.price || 0), monthly_price: Number(data.price || 0), startTime: data.startTime, start_time: data.startTime, endTime: data.endTime, end_time: data.endTime, lessonDays: String(data.lessonDays || "").split(",").map((day) => day.trim()).filter(Boolean), days: data.lessonDays, startDate: data.startDate, starts_at: data.startDate, status: data.status || "active", note: data.note, studentCount: existing.studentCount || existing.student_count || 0, student_count: existing.student_count || existing.studentCount || 0 };
+  } else if (resource === "courses") {
+    item = { ...existing, id: editing ? existing.id : nextCrmId("courses"), name: data.name.trim(), description: data.description, price: Number(data.price || 0), duration: data.duration, level: data.level, lesson_type: data.lesson_type || "group", status: data.status || "active" };
+  } else if (resource === "rooms") {
+    item = { ...existing, id: editing ? existing.id : nextCrmId("rooms"), name: data.name.trim(), capacity: Number(data.capacity || 0), note: data.note };
+  } else if (resource === "paymentTypes") {
+    item = { ...existing, id: editing ? existing.id : nextCrmId("paymentTypes"), name: data.name.trim(), type: data.type || "Markaz", active: data.active === "on" };
+  } else if (resource === "payments") {
+    const student = state.students.find((entry) => String(entry.id) === String(data.student_id));
+    const group = state.groups.find((entry) => String(entry.id) === String(data.group_id || student?.group_id));
+    item = { ...existing, id: editing ? existing.id : nextCrmId("payments"), student_id: data.student_id, student_name: student?.full_name || student?.fullName || "", group_id: data.group_id || student?.group_id || "", group_name: group?.name || student?.group_name || "", payment_month: data.payment_month, due_amount: Number(data.due_amount || 0), amount: Number(data.amount || 0), discount: Number(data.discount || 0), status: paymentStatusFrom(data.amount, data.due_amount, data.discount), payment_type: data.payment_type, paid_at: data.paid_at, note: data.note };
+    if (student) student.balance = paymentRemainder(item);
+  } else if (resource === "leads") {
+    item = { ...existing, id: editing ? existing.id : nextCrmId("leads"), full_name: data.full_name.trim(), phone: data.phone, course_name: data.course_name, source: data.source, status: data.status || "new", manager_name: data.manager_name, note: data.note, created_at: existing.created_at || new Date().toISOString() };
   } else {
     item = { ...existing, id: editing ? existing.id : nextCrmId("teachers"), fullName: data.fullName.trim(), full_name: data.fullName.trim(), phone: data.phone, email: data.email, birthDate: data.birthDate, birth_date: data.birthDate, gender: data.gender, address: data.address, course: data.course, course_name: data.course, groupIds: data.groupId ? [Number(data.groupId)] : [], salaryType: data.salaryType, salary_type: data.salaryType, salaryValue: Number(data.salaryValue || 0), salary_rate: Number(data.salaryValue || 0), loginEnabled: data.loginEnabled === "on", status: existing.status || "active", note: data.note };
   }
-  if (editing) state[resource] = state[resource].map((entry) => String(entry.id) === String(item.id) ? item : entry);
-  else state[resource].unshift(item);
-  persistCrmCollections();
+  try {
+    const endpoint = endpoints[resource] || modalFields[resource]?.endpoint;
+    if (endpoint) {
+      const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)) });
+      if (result.item) item = { ...item, ...result.item };
+    } else {
+      if (editing) state[resource] = state[resource].map((entry) => String(entry.id) === String(item.id) ? item : entry);
+      else state[resource].unshift(item);
+      persistCrmCollections();
+    }
+  } catch {
+    if (editing) state[resource] = state[resource].map((entry) => String(entry.id) === String(item.id) ? item : entry);
+    else state[resource].unshift(item);
+    persistCrmCollections();
+  }
   closeDrawer(true);
-  renderAll();
+  if (stateMeta[resource]) await refreshAll();
+  else renderAll();
   showToast(editing ? "Ma'lumotlar saqlandi." : "Yangi ma'lumot ro'yxatga qo'shildi.");
 }
 
 function renderCrmProfiles() {
+  const studentNode = document.querySelector("[data-student-profile]");
+  if (studentNode) {
+    const student = findByPathOrFirst(state.students, "students");
+    if (student) {
+      const studentPayments = state.payments.filter((item) => String(item.student_id) === String(student.id));
+      const studentAttendance = state.attendance.filter((item) => item.student_name === (student.full_name || student.fullName) || String(item.student_id) === String(student.id));
+      studentNode.innerHTML = `
+        <div class="page-head"><div><h1>${escapeHtml(student.full_name || student.fullName)}</h1><p>${escapeHtml(student.course_name || student.course || "-")} / ${escapeHtml(student.group_name || crmStudentGroups(student)[0] || "-")}</p></div><div class="crm-head-actions"><button type="button" data-view="students">Ro'yxatga qaytish</button><button type="button" data-crm-action="edit" data-resource="students" data-id="${student.id}">Tahrirlash</button><button type="button" data-crm-action="payment" data-resource="students" data-id="${student.id}">To'lov qo'shish</button></div></div>
+        <div class="profile-tabs"><button class="active" type="button" data-crm-action="profile-tab">Asosiy ma'lumotlar</button><button type="button" data-crm-action="profile-tab">Guruhlar</button><button type="button" data-crm-action="profile-tab">To'lov tarixi</button><button type="button" data-crm-action="profile-tab">Davomat tarixi</button><button type="button" data-crm-action="profile-tab">Izohlar</button><button type="button" data-crm-action="profile-tab">Hujjatlar</button></div>
+        <div class="profile-grid"><article><span>Telefon</span><strong>${escapeHtml(student.phone || "-")}</strong></article><article><span>Ota-ona telefoni</span><strong>${escapeHtml(student.parent_phone || student.parentPhone || "-")}</strong></article><article><span>Tug'ilgan sana</span><strong>${formatDate(student.birth_date || student.birthDate) || "-"}</strong></article><article><span>Balans</span><strong>${formatMoney(student.balance)}</strong></article></div>
+        <div class="profile-columns"><section><h3>To'lov tarixi</h3>${studentPayments.map((item) => `<p><b>${formatDate(item.paid_at)}</b><span>${formatMoney(item.amount)} - ${statusLabels[item.status] || item.status}</span></p>`).join("") || "<p>To'lov yo'q</p>"}</section><section><h3>Davomat tarixi</h3>${studentAttendance.map((item) => `<p><b>${formatDate(item.lesson_date)}</b><span>${statusLabels[item.status] || item.status} - ${item.group_name || ""}</span></p>`).join("") || "<p>Davomat yo'q</p>"}</section></div>`;
+    }
+  }
+  const groupNode = document.querySelector("[data-group-profile]");
+  if (groupNode) {
+    const group = findByPathOrFirst(state.groups, "groups");
+    if (group) {
+      const groupStudents = state.students.filter((student) => String(student.group_id) === String(group.id));
+      groupNode.innerHTML = `
+        <div class="page-head"><div><h1>${escapeHtml(group.name)}</h1><p>${escapeHtml(group.course_name || group.course || "-")} / ${escapeHtml(group.teacher_full_name || group.teacher_name || "-")}</p></div><div class="crm-head-actions"><button type="button" data-view="groups">Ro'yxatga qaytish</button><button type="button" data-crm-action="edit" data-resource="groups" data-id="${group.id}">Tahrirlash</button><button type="button" data-view="attendance">Davomat olish</button></div></div>
+        <div class="profile-tabs"><button class="active" type="button" data-crm-action="profile-tab">Guruh ma'lumotlari</button><button type="button" data-crm-action="profile-tab">Talabalar</button><button type="button" data-crm-action="profile-tab">Davomat</button><button type="button" data-crm-action="profile-tab">To'lovlar</button><button type="button" data-crm-action="profile-tab">Dars jadvali</button><button type="button" data-crm-action="profile-tab">O'qituvchi</button></div>
+        <div class="profile-grid"><article><span>Dars kunlari</span><strong>${escapeHtml(group.days || "-")}</strong></article><article><span>Vaqt</span><strong>${escapeHtml(group.start_time || group.startTime || "")} - ${escapeHtml(group.end_time || group.endTime || "")}</strong></article><article><span>Xona</span><strong>${escapeHtml(group.room || "-")}</strong></article><article><span>Narx</span><strong>${formatMoney(group.monthly_price || group.price)}</strong></article></div>
+        <section class="settings-panel"><h3>Talabalar</h3><div class="mini-list">${groupStudents.map((student) => `<span>${escapeHtml(student.full_name || student.fullName)}</span>`).join("") || "Talaba yo'q"}</div></section>`;
+    }
+  }
   const teacherNode = document.querySelector("[data-teacher-profile]");
   if (teacherNode) {
     const teacher = findByPathOrFirst(state.teachers, "teachers");
@@ -3221,31 +3867,62 @@ function renderCrmProfiles() {
   }
 }
 
-function handleCrmAction(action, button) {
+async function handleCrmAction(action, button) {
   const resource = button.dataset.resource;
   const id = button.dataset.id;
-  const collection = state[resource] || [];
+  ensureEditableCrmCollection(resource);
+  const collection = crmCollectionFor(resource);
   const item = collection.find((entry) => String(entry.id) === String(id));
   if (action === "avatar-menu") {
-    const menu = document.querySelector("[data-crm-avatar-menu]");
-    if (menu) menu.hidden = !menu.hidden;
+    toggleCrmPanel("avatar");
     return;
   }
+  if (action === "quick-tools") return toggleCrmPanel("quick");
   if (action === "center-menu") return showToast("Markaz profili ochildi.");
-  if (action === "notifications") return showToast("Bildirishnomalar ko'rib chiqildi.");
-  if (action === "tasks") return showToast("Vazifalar va kalendar oynasi tayyor.");
+  if (action === "notifications") return toggleCrmPanel("notifications");
+  if (action === "tasks") return toggleCrmPanel("tasks");
+  if (action === "mark-notifications") {
+    document.querySelector('[data-crm-panel="notifications"]')?.setAttribute("hidden", "");
+    showToast("Bildirishnomalar o'qildi deb belgilandi.");
+    return;
+  }
   if (action === "profile-toast") return showToast("Profil sozlamalari ochildi.");
+  if (action === "cash-transfer") return showToast("Kassadagi pulni hisobga o'tkazish so'rovi tayyorlandi.", "info");
+  if (action === "toggle-payment-type") {
+    const paymentType = (state.paymentTypes || []).find((entry) => String(entry.id) === String(id));
+    if (paymentType) {
+      paymentType.active = !paymentType.active;
+      persistCrmCollections();
+      renderAll();
+      showToast(paymentType.active ? "To'lov turi faollashtirildi." : "To'lov turi o'chirildi.", paymentType.active ? "success" : "warning");
+    }
+    return;
+  }
   if (action === "close-drawer") return closeDrawer();
+  if (action === "quick-add-student") return openDrawer("students");
   if (action === "reset-filters") {
     crmListState[resource] = {};
     renderAll();
     showToast("Filterlar tozalandi.");
     return;
   }
+  if (action === "reset-ui-filters") {
+    uiState.filters[resource] = {};
+    renderAll();
+    showToast("Filtrlar tozalandi.");
+    return;
+  }
   if (action === "view" && resource === "students") return setView("student-profile", { route: `/app/students/${id}` });
   if (action === "view" && resource === "groups") return setView("group-profile", { route: `/app/groups/${id}` });
   if (action === "view" && resource === "teachers") return setView("teacher-profile", { route: `/app/teachers/${id}` });
   if (action === "edit" && item) return openDrawer(resource, item);
+  if (action === "toggle-status" && item) {
+    item.status = item.status === "active" ? "archived" : "active";
+    persistCrmCollections();
+    renderAll();
+    showToast("Status yangilandi.");
+    return;
+  }
   if (action === "delete" && item) {
     if (!window.confirm("O'chirishni tasdiqlaysizmi?")) return;
     state[resource] = collection.filter((entry) => String(entry.id) !== String(id));
@@ -3254,19 +3931,86 @@ function handleCrmAction(action, button) {
     showToast("Ma'lumot o'chirildi.");
     return;
   }
+  if (action === "convert-lead") {
+    await convertLead(id);
+    return;
+  }
+  if (action === "lead-status" && item) {
+    const flow = ["new", "contacted", "trial", "became_student", "paid", "later"];
+    const current = flow.indexOf(item.status || "new");
+    item.status = flow[(current + 1) % flow.length];
+    persistCrmCollections();
+    renderAll();
+    showToast("Lead statusi yangilandi.");
+    return;
+  }
   if (action === "import-excel") return showToast("Import oynasi ochildi.");
   if (action === "export-excel") return showToast("Eksport jarayoni boshlandi.");
+  if (action === "export-pdf") return showToast("PDF eksport jarayoni boshlandi.");
   if (action === "active-students-report") return showToast("Aktiv talabalar hisoboti tayyorlandi.");
   if (action === "toggle-view" || action === "filter-settings") return showToast("Ko'rinish sozlamalari yangilandi.");
-  if (action === "payment") return showToast("To'lov qo'shish oynasi ochildi.");
+  if (action === "payment") {
+    const student = state.students.find((entry) => String(entry.id) === String(id));
+    return openDrawer("payments", { student_id: id, group_id: student?.group_id, due_amount: student?.balance || 0, amount: 0, discount: 0, payment_month: new Date().toISOString().slice(0, 7), _prefill: true });
+  }
   if (action === "assign-group") return showToast("Guruhga biriktirish oynasi ochildi.");
   if (action === "flag") return showToast("Talaba kuzatuvga olindi.");
   if (action === "add-student") return openDrawer("students");
   if (action === "attendance") return setView("attendance");
   if (action === "payments") return setView("finance");
+  if (action === "invoice" || action === "download-invoice") return showToast("Invoice tayyorlandi.");
+  if (action === "debt") return setView("debtors");
+  if (action === "debt-message" || action === "debt-message-all") return showToast("Telegram/SMS xabar preview tayyorlandi: qarzdorlik eslatmasi yuborish navbatga qo'shildi.", "info");
+  if (action === "called") return showToast("Qo'ng'iroq holati belgilandi.");
   if (action === "groups") return showToast("O'qituvchi guruhlari ko'rsatildi.");
   if (action === "schedule") return setView("schedule");
+  if (action === "schedule-edit" || action === "schedule-mode") return showToast("Jadval ko'rinishi yangilandi.");
   if (action === "message" || action === "teacher-message") return showToast("Xabar yuborish oynasi ochildi.");
+  if (action === "profile-tab") return showToast("Bo'lim ochildi.");
+  if (action === "upgrade-plan" || action === "extend-subscription" || action === "contact-support") return showToast("So'rov qabul qilindi.");
+  if (action === "save-settings") {
+    const form = document.querySelector("[data-crm-settings-form]");
+    const saved = loadCrmLocalState();
+    saved.settings = Object.fromEntries(new FormData(form).entries());
+    saved.settings.telegramEnabled = Boolean(form?.querySelector('[name="telegramEnabled"]')?.checked);
+    saved.settings.require2fa = Boolean(form?.querySelector('[name="require2fa"]')?.checked);
+    localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+    if (saved.settings.centerName) {
+      centerName.textContent = saved.settings.centerName;
+      if (currentUser?.organization) currentUser.organization.name = saved.settings.centerName;
+    }
+    renderCrmTopbar();
+    showToast("Sozlamalar saqlandi.");
+    return;
+  }
+  if (action === "save-attendance-page") {
+    const groupId = document.querySelector("[data-attendance-group]")?.value;
+    const lessonDate = document.querySelector("[data-attendance-date]")?.value;
+    const records = [...document.querySelectorAll("[data-attendance-student]")].map((item) => ({
+      group_id: groupId,
+      student_id: item.dataset.attendanceStudent,
+      lesson_date: lessonDate,
+      status: item.querySelector("[data-attendance-status]")?.value || "present"
+    }));
+    if (!groupId || !lessonDate || !records.length) {
+      showToast("Guruh, sana va o'quvchilarni tekshiring.");
+      return;
+    }
+    try {
+      await api("/api/attendance", { method: "POST", body: JSON.stringify({ records }) });
+    } catch {
+      records.forEach((record) => {
+        const student = state.students.find((entry) => String(entry.id) === String(record.student_id));
+        const group = state.groups.find((entry) => String(entry.id) === String(groupId));
+        state.attendance.unshift({ id: nextCrmId("attendance"), ...record, student_name: student?.full_name || student?.fullName, group_name: group?.name, teacher_name: group?.teacher_full_name || group?.teacher_name });
+      });
+      persistCrmCollections();
+    }
+    if (stateMeta.attendance) await refreshAll();
+    else renderAll();
+    showToast("Davomat saqlandi.");
+    return;
+  }
   showToast("So'rov qabul qilindi.");
 }
 
@@ -3456,8 +4200,67 @@ document.addEventListener("click", async (event) => {
   const crmActionButton = event.target.closest("[data-crm-action]");
   if (crmActionButton) {
     event.preventDefault();
-    handleCrmAction(crmActionButton.dataset.crmAction, crmActionButton);
+    await handleCrmAction(crmActionButton.dataset.crmAction, crmActionButton);
     return;
+  }
+
+  const globalResult = event.target.closest("[data-global-result]");
+  if (globalResult) {
+    const resource = globalResult.dataset.resource;
+    const id = globalResult.dataset.id;
+    document.querySelector("[data-global-results]")?.setAttribute("hidden", "");
+    if (resource === "students") setView("student-profile", { route: `/app/students/${id}` });
+    else if (resource === "groups") setView("group-profile", { route: `/app/groups/${id}` });
+    else if (resource === "teachers") setView("teacher-profile", { route: `/app/teachers/${id}` });
+    else setView(globalResult.dataset.globalResult || "dashboard");
+    return;
+  }
+
+  const attendanceCell = event.target.closest("[data-attendance-cell]");
+  if (attendanceCell) {
+    const nextStatus = {
+      present: "absent",
+      absent: "late",
+      late: "excused",
+      excused: "online",
+      online: "present"
+    };
+    const icons = { present: "check", absent: "flag", late: "clock-3", excused: "badge-help", online: "wifi" };
+    const current = attendanceCell.dataset.status || "present";
+    const status = nextStatus[current] || "present";
+    attendanceCell.dataset.status = status;
+    attendanceCell.className = `attendance-cell status-${status}`;
+    attendanceCell.innerHTML = `<i data-lucide="${icons[status]}"></i>`;
+    const select = attendanceCell.closest("[data-attendance-student]")?.querySelector("[data-attendance-status]");
+    if (select) select.value = status;
+    refreshIcons();
+    showToast(`Davomat statusi: ${statusLabels[status] || status}`, "info");
+    return;
+  }
+
+  const staffButton = event.target.closest("[data-staff-check]");
+  if (staffButton) {
+    const id = staffButton.dataset.staffCheck;
+    const now = new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
+    const existing = (state.staffAttendance || []).find((entry) => String(entry.id) === String(id));
+    if (existing) {
+      existing.checkedIn = !existing.checkedIn;
+      if (existing.checkedIn) existing.arrived = existing.arrived || now;
+      else existing.left = now;
+    } else {
+      state.staffAttendance.unshift({ id, checkedIn: true, arrived: now, left: "" });
+    }
+    persistCrmCollections();
+    renderAll();
+    showToast(existing?.checkedIn === false ? "Xodim ketish vaqti belgilandi." : "Xodim kelish vaqti belgilandi.");
+    return;
+  }
+
+  if (!event.target.closest(".topbar, [data-crm-panel]")) {
+    document.querySelectorAll("[data-crm-panel]").forEach((panel) => {
+      panel.hidden = true;
+    });
+    document.querySelector("[data-global-results]")?.setAttribute("hidden", "");
   }
 
   if (event.target.closest("[data-crm-drawer-backdrop]")) {
@@ -3483,7 +4286,7 @@ document.addEventListener("click", async (event) => {
   const openButton = event.target.closest("[data-open-modal]");
   if (openButton) {
     const resource = openButton.dataset.openModal;
-    if (["students", "groups", "teachers"].includes(resource)) openDrawer(resource);
+    if (["students", "groups", "teachers", "courses", "payments", "leads", "rooms", "paymentTypes"].includes(resource)) openDrawer(resource);
     else openModal(resource);
   }
   if (event.target.closest("[data-close-modal]")) closeModal();
@@ -3561,16 +4364,74 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+document.addEventListener("dragstart", (event) => {
+  const card = event.target.closest("[data-lead-id]");
+  if (!card) return;
+  event.dataTransfer?.setData("text/plain", card.dataset.leadId);
+  card.classList.add("dragging");
+});
+
+document.addEventListener("dragend", (event) => {
+  event.target.closest("[data-lead-id]")?.classList.remove("dragging");
+});
+
+document.addEventListener("dragover", (event) => {
+  const column = event.target.closest(".lead-column");
+  if (!column) return;
+  event.preventDefault();
+  column.classList.add("drop-ready");
+});
+
+document.addEventListener("dragleave", (event) => {
+  event.target.closest(".lead-column")?.classList.remove("drop-ready");
+});
+
+document.addEventListener("drop", async (event) => {
+  const column = event.target.closest(".lead-column");
+  if (!column) return;
+  event.preventDefault();
+  document.querySelectorAll(".lead-column.drop-ready").forEach((item) => item.classList.remove("drop-ready"));
+  const leadId = event.dataTransfer?.getData("text/plain");
+  const lead = (state.leads || []).find((item) => String(item.id) === String(leadId));
+  if (!lead) return;
+  const statusMap = { new: "new", trial: "trial", active: "became_student", paid: "paid" };
+  const status = statusMap[column.dataset.status] || "new";
+  if (lead.status === status) return;
+  const previous = lead.status;
+  lead.status = status;
+  persistCrmCollections();
+  try {
+    await api(`/api/leads/${lead.id}`, { method: "PUT", body: JSON.stringify(crmApiPayload("leads", lead)) });
+  } catch {
+    lead.status = status;
+  }
+  renderAll();
+  showToast(`Lead "${lead.full_name || lead.name}" statusi ${statusLabels[status] || status} holatiga o'tdi.`, previous === "paid" ? "warning" : "success");
+});
+
 document.querySelector("[data-global-search]")?.addEventListener("input", (event) => {
   uiState.globalSearch = event.target.value;
   Object.keys(uiState.page).forEach((resource) => {
     uiState.page[resource] = 1;
   });
+  renderGlobalSearchResults();
   refreshAll();
 });
 
 document.addEventListener("input", (event) => {
   if (event.target.closest("[data-crm-drawer]")) crmDrawerState.dirty = true;
+  const uiField = event.target.closest("[data-filter]");
+  if (uiField) {
+    const scope = uiField.closest("[data-filter-scope]");
+    const resource = scope?.dataset.filterScope;
+    if (resource) {
+      uiState.filters[resource] = uiState.filters[resource] || {};
+      uiState.filters[resource][uiField.dataset.filter] = uiField.value;
+      uiState.page[resource] = 1;
+      renderAll();
+    }
+    return;
+  }
   const crmField = event.target.closest("[data-crm-filter]");
   if (crmField) {
     const scope = crmField.closest("[data-crm-filter-scope]");
@@ -3590,6 +4451,18 @@ document.addEventListener("input", (event) => {
 
 document.addEventListener("change", (event) => {
   if (event.target.closest("[data-crm-drawer]")) crmDrawerState.dirty = true;
+  const uiField = event.target.closest("[data-filter]");
+  if (uiField) {
+    const scope = uiField.closest("[data-filter-scope]");
+    const resource = scope?.dataset.filterScope;
+    if (resource) {
+      uiState.filters[resource] = uiState.filters[resource] || {};
+      uiState.filters[resource][uiField.dataset.filter] = uiField.value;
+      uiState.page[resource] = 1;
+      renderAll();
+    }
+    return;
+  }
   const crmField = event.target.closest("[data-crm-filter]");
   if (crmField) {
     const scope = crmField.closest("[data-crm-filter-scope]");
@@ -3618,7 +4491,7 @@ document.addEventListener("submit", async (event) => {
   const crmDrawerForm = event.target.closest("[data-crm-drawer-form]");
   if (crmDrawerForm) {
     event.preventDefault();
-    saveCrmDrawer(crmDrawerForm);
+    await saveCrmDrawer(crmDrawerForm);
     return;
   }
 
