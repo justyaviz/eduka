@@ -397,7 +397,7 @@ function getStudentWebAppUrlBase() {
 }
 
 function telegramConfiguredLabel(isConfigured) {
-  return isConfigured ? "configured" : "missing";
+  return isConfigured ? "yes" : "no";
 }
 
 function logTelegramConfigSummary() {
@@ -2441,6 +2441,8 @@ async function handleDemoRequest(request, response) {
     const phone = String(body.phone || "").trim();
     const center = String(body.center || "Kiritilmagan").trim();
     const students = String(body.students || "Kiritilmagan").trim();
+    const course = String(body.course || body.service || body.subject || "Kiritilmagan").trim();
+    const note = String(body.note || body.comment || body.message || "").trim();
     const lang = String(body.lang || "uz").trim().toUpperCase();
 
     if (!name || !phone) {
@@ -2461,7 +2463,9 @@ async function handleDemoRequest(request, response) {
       `<b>Ism:</b> ${escapeHtml(name)}`,
       `<b>Telefon:</b> ${escapeHtml(phone)}`,
       `<b>Markaz:</b> ${escapeHtml(center)}`,
+      `<b>Kurs/xizmat:</b> ${escapeHtml(course)}`,
       `<b>O'quvchi soni:</b> ${escapeHtml(students)}`,
+      `<b>Izoh:</b> ${escapeHtml(note || "-")}`,
       `<b>Til:</b> ${escapeHtml(lang)}`,
       `<b>Manba:</b> eduka.uz landing`,
       `<b>Vaqt:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
@@ -3345,9 +3349,12 @@ async function handleTelegramWebhook(request, response) {
   if (expectedSecret) {
     const actualSecret = String(request.headers["x-telegram-bot-api-secret-token"] || "").trim();
     if (actualSecret !== expectedSecret) {
-      console.error("Telegram webhook secret mismatch: update rejected. Check setWebhook secret_token and TELEGRAM_WEBHOOK_SECRET.");
-      sendJson(response, 200, { ok: false, message: "Forbidden" });
-      return;
+      console.error("invalid webhook secret: check Telegram setWebhook secret_token and TELEGRAM_WEBHOOK_SECRET");
+      if (actualSecret) {
+        sendJson(response, 200, { ok: false, message: "Invalid webhook secret" });
+        return;
+      }
+      console.error("invalid webhook secret: missing Telegram secret header; accepting update with ordinary webhook fallback");
     }
   }
   try {
@@ -3433,12 +3440,33 @@ async function handleStudentBotInfo(response) {
   }
 }
 
+async function handleLandingBotInfo(response) {
+  const config = getLandingTelegramConfig({ allowMissing: true });
+  if (!config.tokenPresent) {
+    sendJson(response, 503, { ok: false, message: "LANDING_BOT_TOKEN sozlanmagan" });
+    return;
+  }
+
+  try {
+    const botInfo = await telegramApiRequest(config.token, "getMe");
+    sendJson(response, 200, {
+      ok: true,
+      id: botInfo.result?.id || null,
+      username: botInfo.result?.username || null,
+      first_name: botInfo.result?.first_name || null
+    });
+  } catch (error) {
+    console.error(`Landing bot getMe failed: ${safeTelegramErrorMessage(error)}`);
+    sendJson(response, 502, { ok: false, message: safeTelegramErrorMessage(error) });
+  }
+}
+
 const server = http.createServer((request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
   const query = new URLSearchParams(rawQuery);
 
-  if (request.method === "POST" && urlPath === "/api/demo") {
+  if (request.method === "POST" && ["/api/demo", "/api/demo-request", "/api/contact", "/api/lead"].includes(urlPath)) {
     handleDemoRequest(request, response);
     return;
   }
@@ -3701,6 +3729,11 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/api/telegram/student-bot-info") {
     handleStudentBotInfo(response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/telegram/landing-bot-info") {
+    handleLandingBotInfo(response);
     return;
   }
 

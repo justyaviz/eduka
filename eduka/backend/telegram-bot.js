@@ -172,8 +172,10 @@ async function handleCallback(update, deps) {
       loginFlows.set(String(chatId), flow);
       await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id });
       await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());
+      return;
     }
   }
+  if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id });
 }
 
 async function handleCommand(token, message, deps) {
@@ -217,7 +219,10 @@ async function handleCommand(token, message, deps) {
 
 async function handleUpdate(update, deps) {
   const token = safeToken();
-  if (!token) return;
+  if (!token) {
+    console.log("Student bot not configured");
+    return;
+  }
   if (update.callback_query) {
     await handleCallback(update, deps);
     return;
@@ -240,15 +245,13 @@ async function handleUpdate(update, deps) {
     await handlePassword(token, chatId, message, flow, deps);
     return;
   }
-  await sendMessage(token, chatId, "Kerakli amalni tanlang.", {
-    inline_keyboard: [[{ text: "Student App", callback_data: "noop" }]]
-  });
+  await sendMessage(token, chatId, "Kerakli amalni tanlang. /app komandasi orqali Student App'ni ochishingiz mumkin.");
 }
 
 function startPollingIfEnabled(deps) {
   const token = safeToken();
   if (!token) {
-    console.log("STUDENT_BOT_TOKEN not configured, skipping Student Telegram bot startup");
+    console.log("Student bot not configured");
     return;
   }
   if (String(process.env.ENABLE_BOT_POLLING || "").toLowerCase() !== "true") {

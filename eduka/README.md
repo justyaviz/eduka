@@ -62,11 +62,18 @@ Webhook secret ishlatilsa:
 https://api.telegram.org/bot<STUDENT_BOT_TOKEN>/setWebhook?url=https://eduka.uz/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 ```
 
+`TELEGRAM_WEBHOOK_SECRET` sozlangan bo'lsa, Telegram webhook ham aynan shu
+`secret_token` bilan qayta set qilinishi kerak. Secret header kelmasa backend
+ordinary webhook fallback sifatida update'ni qabul qiladi va logda ogohlantiradi;
+noto'g'ri secret header kelsa update bajarilmaydi, lekin Telegram retry loop
+bo'lmasligi uchun 200 qaytariladi.
+
 Safe debug endpointlar token qiymatini qaytarmaydi:
 
 ```txt
 GET /api/telegram/status
 GET /api/telegram/student-bot-info
+GET /api/telegram/landing-bot-info
 ```
 
 ## PostgreSQL login

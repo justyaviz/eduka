@@ -1,0 +1,241 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #eef3f8;
+  color: #142033;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.student-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.student-phone {
+  width: min(430px, 100%);
+  min-height: min(860px, calc(100vh - 48px));
+  background: #f8fafc;
+  border: 1px solid #dbe4ef;
+  border-radius: 28px;
+  box-shadow: 0 22px 70px rgba(20, 32, 51, 0.16);
+  overflow: hidden;
+}
+
+.student-statusbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 22px 8px;
+  color: #53657d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-screen {
+  min-height: 780px;
+  display: flex;
+  flex-direction: column;
+}
+
+.student-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+}
+
+.student-header span,
+.app-badge,
+.muted,
+.item span,
+.stat-card span,
+.profile-card p {
+  color: #66758a;
+}
+
+.student-header h1,
+.empty-state h1,
+.profile-card h2,
+.student-content h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.student-header h1 {
+  margin-top: 4px;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.student-header button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #e7edf5;
+  color: #142033;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.student-content {
+  flex: 1;
+  padding: 0 22px 96px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0 22px;
+}
+
+.stat-card,
+.item,
+.profile-card,
+.empty-state {
+  background: #ffffff;
+  border: 1px solid #e1e9f2;
+  border-radius: 8px;
+}
+
+.stat-card {
+  min-height: 84px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.stat-card strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.student-content h2 {
+  margin: 18px 0 10px;
+  font-size: 17px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.item {
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.item b {
+  overflow-wrap: anywhere;
+}
+
+.rating-row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.profile-card {
+  padding: 22px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0a84ff;
+  color: white;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.empty-state,
+.loading {
+  margin: auto 22px;
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.empty-state h1 {
+  margin-top: 8px;
+  font-size: 28px;
+}
+
+.empty-state p {
+  color: #53657d;
+  line-height: 1.55;
+}
+
+.primary-action {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: #0a84ff;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.student-nav {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: rgba(248, 250, 252, 0.96);
+  border-top: 1px solid #e1e9f2;
+  backdrop-filter: blur(10px);
+}
+
+.student-nav a {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #53657d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.student-nav a.active {
+  background: #0a84ff;
+  color: #ffffff;
+}
+
+@media (max-width: 560px) {
+  .student-shell {
+    padding: 0;
+  }
+
+  .student-phone {
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .student-screen {
+    min-height: calc(100vh - 38px);
+  }
+}
