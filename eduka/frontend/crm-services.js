@@ -235,6 +235,21 @@
         }
       }
     },
+    studentAppAdminService: {
+      dashboard: async () => request("/api/app/student-app/dashboard"),
+      status: async () => request("/api/telegram/status"),
+      webhookInfo: async () => request("/api/telegram/webhook-info"),
+      settings: async () => request("/api/app/student-app/settings"),
+      saveSettings: async (payload) => request("/api/app/student-app/settings", { method: "PUT", body: JSON.stringify(payload) }),
+      modules: async () => (await request("/api/app/student-app/modules")).items || [],
+      saveModules: async (modules) => (await request("/api/app/student-app/modules", { method: "PUT", body: JSON.stringify({ modules }) })).items || [],
+      access: async () => (await request("/api/app/student-app/access/students")).items || [],
+      accessAction: async (studentId, action) => request(`/api/app/student-app/access/${studentId}/${action}`, { method: "POST", body: JSON.stringify({}) }),
+      list: async (resource) => (await request(`/api/app/student-app/${resource}`)).items || [],
+      create: async (resource, payload) => (await request(`/api/app/student-app/${resource}`, { method: "POST", body: JSON.stringify(payload) })).item,
+      update: async (resource, id, payload) => (await request(`/api/app/student-app/${resource}/${id}`, { method: "PUT", body: JSON.stringify(payload) })).item,
+      remove: async (resource, id) => request(`/api/app/student-app/${resource}/${id}`, { method: "DELETE" })
+    },
     superAdminService: {
       centers: async () => {
         try {

@@ -20,7 +20,7 @@ const routeAliases = {
   "mock-exams": "exam-results",
   "my-group": "my-group",
   group: "my-group",
-  payments: "my-group",
+  payments: "payments",
   settings: "profile-settings"
 };
 
@@ -34,7 +34,8 @@ const resourceByRoute = {
   dictionary: "dictionary",
   library: "library",
   "exam-results": "exams",
-  "my-group": "group"
+  "my-group": "group",
+  payments: "payments"
 };
 
 const navItems = [
@@ -793,6 +794,60 @@ function renderMyGroup(data) {
   );
 }
 
+function renderPayments(data) {
+  const student = data.student;
+  const payments = data.payments || [];
+  const totalDue = payments.reduce((sum, item) => sum + Number(field(item, ["amount_due", "due_amount"], 0)), 0);
+  const totalPaid = payments.reduce((sum, item) => sum + Number(field(item, ["paid_amount", "amount"], 0)), 0);
+  const calculatedDebt = Math.max(totalDue - totalPaid, 0);
+  const debt = Math.max(calculatedDebt, Math.abs(Math.min(Number(student.balance || 0), 0)));
+  const statusLabels = {
+    paid: "To'langan",
+    partial: "Qisman",
+    debt: "Qarzdor",
+    overdue: "Kechikkan",
+    cancelled: "Bekor qilingan"
+  };
+  const rows = payments
+    .slice(0, 8)
+    .map((item) => {
+      const due = Number(field(item, ["amount_due", "due_amount"], 0));
+      const paid = Number(field(item, ["paid_amount", "amount"], 0));
+      const status = String(field(item, ["status"], paid >= due ? "paid" : "debt")).toLowerCase();
+      const date = String(field(item, ["payment_date", "paid_at", "created_at"], "")).slice(0, 10);
+      const month = field(item, ["payment_month", "month"], "Joriy oy");
+      return `
+        <article class="sa-small-card">
+          <span class="sa-small-icon">💳</span>
+          <div class="sa-list-main">
+            <strong>${escapeHtml(month)}</strong>
+            <span>${escapeHtml(date || "Sana kiritilmagan")} · ${escapeHtml(statusLabels[status] || status)}</span>
+          </div>
+          <span class="sa-pill">${escapeHtml(money(paid || due))}</span>
+        </article>
+      `;
+    })
+    .join("");
+  mount(
+    `
+      ${simpleHeader("Balans va to'lov", `<button class="sa-icon-button" type="button" data-action="retry" aria-label="Yangilash">↻</button>`, "profile-settings")}
+      <section class="sa-balance-grid">
+        ${statCard({ label: "To'langan", value: money(totalPaid), icon: "💳", tone: "blue" })}
+        ${statCard({ label: "Qoldiq", value: money(debt), icon: "⚠️", tone: "gold" })}
+      </section>
+      <section class="sa-content-card" style="margin-top: 14px; padding: 16px;">
+        <h2 class="sa-card-title">To'lov tarixi</h2>
+        ${
+          payments.length
+            ? `<div class="sa-card-list" style="margin-top: 12px;">${rows}</div>`
+            : emptyState("exam", "Ma'lumot topilmadi", "Hozircha to'lovlar mavjud emas.", true)
+        }
+      </section>
+    `,
+    { active: "profile" }
+  );
+}
+
 function infoRow(icon, title, value) {
   return `
     <button class="sa-menu-item" type="button" data-action="soft-toast" data-message="${escapeHtml(title)} ochildi">
@@ -837,7 +892,8 @@ async function renderCurrent() {
       dictionary: renderDictionary,
       library: renderLibrary,
       "exam-results": renderExamResults,
-      "my-group": renderMyGroup
+      "my-group": renderMyGroup,
+      payments: renderPayments
     };
     (renderers[route] || renderHome)(data);
   } catch (error) {

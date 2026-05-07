@@ -62,13 +62,13 @@ function contactKeyboard() {
   return {
     resize_keyboard: true,
     one_time_keyboard: true,
-    keyboard: [[{ text: "📱 Telefon raqamni yuborish", request_contact: true }]]
+    keyboard: [[{ text: "Telefon raqamni yuborish", request_contact: true }]]
   };
 }
 
 function webAppKeyboard(url) {
   return {
-    inline_keyboard: [[{ text: "🚀 Student App'ni ochish", web_app: { url } }]]
+    inline_keyboard: [[{ text: "Student App'ni ochish", web_app: { url } }]]
   };
 }
 
@@ -86,7 +86,7 @@ async function askForContact(token, chatId) {
   await sendMessage(
     token,
     chatId,
-    "Assalomu alaykum! 👋\nEduka Student App'ga xush kelibsiz.\n\nKabinetga kirish uchun telefon raqamingizni yuboring.",
+    "Assalomu alaykum!\nEduka Student App'ga xush kelibsiz.\n\nKabinetga kirish uchun telefon raqamingizni yuboring.",
     contactKeyboard()
   );
 }
@@ -132,17 +132,23 @@ async function handlePhone(token, chatId, message, deps) {
     return;
   }
   if (students.length > 1) {
-    loginFlows.set(String(chatId), { step: "organization", phone });
+    loginFlows.set(String(chatId), { step: "organization", phone, attempts: 0 });
     await sendMessage(token, chatId, "Telefon raqam bir nechta markazda topildi. Markazingizni tanlang.", {
       inline_keyboard: students.map((student) => [{ text: student.organization_name, callback_data: `org:${student.organization_id}` }])
     });
     return;
   }
-  loginFlows.set(String(chatId), { step: "password", phone, organizationId: students[0].organization_id });
+  loginFlows.set(String(chatId), { step: "password", phone, organizationId: students[0].organization_id, attempts: 0 });
   await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());
 }
 
 async function handlePassword(token, chatId, message, flow, deps) {
+  if (flow.delayUntil && Date.now() < flow.delayUntil) {
+    const seconds = Math.ceil((flow.delayUntil - Date.now()) / 1000);
+    await sendMessage(token, chatId, `Juda ko'p noto'g'ri urinish bo'ldi. ${seconds} soniyadan keyin qayta urinib ko'ring.`);
+    return;
+  }
+
   try {
     const payload = await deps.studentAppPasswordLogin(
       {
@@ -155,9 +161,17 @@ async function handlePassword(token, chatId, message, flow, deps) {
       { userAgent: "telegram-bot", ipAddress: "telegram" }
     );
     loginFlows.delete(String(chatId));
-    await sendMessage(token, chatId, "✅ Muvaffaqiyatli kirdingiz.\n\nQuyidagi tugma orqali Student App'ni ochishingiz mumkin.", webAppKeyboard(payload.webAppUrl));
-  } catch (error) {
-    await sendMessage(token, chatId, "Telefon raqam yoki parol noto'g'ri. Qayta urinib ko'ring.");
+    await sendMessage(token, chatId, "Muvaffaqiyatli kirdingiz.\n\nQuyidagi tugma orqali Student App'ni ochishingiz mumkin.", webAppKeyboard(payload.webAppUrl));
+  } catch {
+    flow.attempts = Number(flow.attempts || 0) + 1;
+    if (flow.attempts >= 5) {
+      flow.delayUntil = Date.now() + 60_000;
+      loginFlows.set(String(chatId), flow);
+      await sendMessage(token, chatId, "Parol 5 marta noto'g'ri kiritildi. Xavfsizlik uchun 1 daqiqadan keyin qayta urinib ko'ring.");
+      return;
+    }
+    loginFlows.set(String(chatId), flow);
+    await sendMessage(token, chatId, `Telefon raqam yoki parol noto'g'ri. Yana ${5 - flow.attempts} ta urinish qoldi.`);
   }
 }
 
@@ -172,6 +186,7 @@ async function handleCallback(update, deps) {
     if (flow?.phone) {
       flow.step = "password";
       flow.organizationId = Number(data.slice(4));
+      flow.attempts = Number(flow.attempts || 0);
       loginFlows.set(String(chatId), flow);
       await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id });
       await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());

@@ -40,7 +40,28 @@ const state = {
   superPayments: [],
   superSupport: [],
   analytics: {},
-  superSummary: {}
+  superSummary: {},
+  studentApp: {
+    dashboard: {},
+    latestLogins: [],
+    latestReferrals: [],
+    latestFeedback: [],
+    access: [],
+    modules: [],
+    settings: {},
+    library: [],
+    dictionary: [],
+    news: [],
+    events: [],
+    referrals: [],
+    extraLessons: [],
+    exams: [],
+    feedback: [],
+    telegramStatus: {},
+    webhookInfo: {},
+    loading: false,
+    error: ""
+  }
 };
 const adminRouteKeys = [
   "login",
@@ -133,6 +154,36 @@ const generatedViews = {
   market: ["Market", "Qo'shimcha modullar va integratsiyalar", "market"]
 };
 
+const studentAppAdminViews = [
+  "student-app-dashboard",
+  "student-app-access",
+  "student-app-modules",
+  "student-app-library",
+  "student-app-dictionary",
+  "student-app-news",
+  "student-app-events",
+  "student-app-referrals",
+  "student-app-extra-lessons",
+  "student-app-exams",
+  "student-app-feedback",
+  "student-app-settings"
+];
+
+const studentAppRouteByView = {
+  "student-app-dashboard": "/app/settings/student-app/dashboard",
+  "student-app-access": "/app/settings/student-app/access",
+  "student-app-modules": "/app/settings/student-app/modules",
+  "student-app-library": "/app/settings/student-app/library",
+  "student-app-dictionary": "/app/settings/student-app/dictionary",
+  "student-app-news": "/app/settings/student-app/news",
+  "student-app-events": "/app/settings/student-app/events",
+  "student-app-referrals": "/app/settings/student-app/referrals",
+  "student-app-extra-lessons": "/app/settings/student-app/extra-lessons",
+  "student-app-exams": "/app/settings/student-app/exams",
+  "student-app-feedback": "/app/settings/student-app/feedback",
+  "student-app-settings": "/app/settings/student-app/settings"
+};
+
 const routeByView = {
   dashboard: "/app/dashboard",
   students: "/app/students",
@@ -176,6 +227,7 @@ const routeByView = {
   "super-support": "/super/support",
   "super-settings": "/super/settings"
 };
+Object.assign(routeByView, studentAppRouteByView);
 adminRouteKeys.forEach((key) => {
   routeByView[`admin-${key}`] = `/admin/${key}`;
 });
@@ -198,6 +250,12 @@ function viewFromPath(pathname = window.location.pathname) {
     const slug = normalized.replace("/admin/", "");
     const view = `admin-${slug}`;
     return adminViews.has(view) ? view : "admin-not-found";
+  }
+  if (normalized === "/app/settings/student-app") return "student-app-dashboard";
+  if (normalized.startsWith("/app/settings/student-app/")) {
+    const slug = normalized.replace("/app/settings/student-app/", "");
+    const view = `student-app-${slug}`;
+    return studentAppAdminViews.includes(view) ? view : "student-app-dashboard";
   }
   if (/^\/app\/students\/\d+$/.test(normalized)) return "student-profile";
   if (/^\/app\/groups\/\d+$/.test(normalized)) return "group-profile";
@@ -278,6 +336,7 @@ const centerAdminViews = new Set([
   "tags",
   "payment-types",
   "accounting",
+  ...studentAppAdminViews,
   "course-report",
   "teacher-efficiency",
   "cashflow-report",
@@ -375,6 +434,41 @@ function createGeneratedViews() {
   refreshIcons();
 }
 
+function ensureStudentAppNavigation() {
+  if (!settingsSubnav || settingsSubnav.querySelector("[data-student-app-nav]")) return;
+  settingsSubnav.insertAdjacentHTML("beforeend", `
+    <div class="subnav-group student-app-nav" data-student-app-nav>
+      <button type="button" data-view="student-app-dashboard">Student App</button>
+      <div class="nested">
+        <button type="button" data-view="student-app-dashboard">Dashboard</button>
+        <button type="button" data-view="student-app-access">O'quvchilar kirishi</button>
+        <button type="button" data-view="student-app-modules">Modullar</button>
+        <button type="button" data-view="student-app-library">Kutubxona</button>
+        <button type="button" data-view="student-app-dictionary">Lug'atlar</button>
+        <button type="button" data-view="student-app-news">Yangiliklar</button>
+        <button type="button" data-view="student-app-events">Tadbirlar</button>
+        <button type="button" data-view="student-app-referrals">Referral</button>
+        <button type="button" data-view="student-app-extra-lessons">Qo'shimcha dars</button>
+        <button type="button" data-view="student-app-exams">Imtihonlar</button>
+        <button type="button" data-view="student-app-feedback">Taklif va shikoyatlar</button>
+        <button type="button" data-view="student-app-settings">Sozlamalar</button>
+      </div>
+    </div>`);
+}
+
+function ensureStudentAppViews() {
+  const content = document.querySelector(".content");
+  if (!content) return;
+  studentAppAdminViews.forEach((view) => {
+    if (document.getElementById(view)) return;
+    const section = document.createElement("section");
+    section.className = "view student-app-admin-view";
+    section.id = view;
+    section.innerHTML = `<div class="student-app-admin-page" data-student-app-page="${view}"></div>`;
+    content.append(section);
+  });
+}
+
 function generatedViewHtml(title, description, type) {
   if (type === "form") {
     return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-form"><label>Administrator telegram username<input placeholder="https://t.me/" /></label><label>Telegram kanal<input placeholder="https://t.me/" /></label><label>YouTube<input placeholder="https://www.youtube.com/" /></label><label>Instagram<input placeholder="https://www.instagram.com/" /></label><label>Operator raqami<input placeholder="+998 __ ___ __ __" /></label><label>Viloyat<select><option>Farg'ona viloyati</option><option>Toshkent shahri</option></select></label></div><div class="modal-actions"><button type="button">Saqlash</button></div></section>`;
@@ -395,7 +489,9 @@ function generatedViewHtml(title, description, type) {
   return `<section class="settings-panel"><div class="page-head list-head"><h1>${title}</h1><label><span>15</span><input value="15" /></label><button class="section-action" type="button">Qo'shish</button></div><p>${description}</p><div class="filters"><input placeholder="Qidirish" /><button>Tozalash</button><button>Excelga eksport qilish</button></div><div class="table simple-table"><div><b>T/R</b><b>Nomi</b><b>Holat</b><b>Yaratilgan vaqt</b><b>Amallar</b></div><div class="table-empty">Ma'lumot topilmadi</div></div></section>`;
 }
 
+ensureStudentAppNavigation();
 createGeneratedViews();
+ensureStudentAppViews();
 
 const statusLabels = {
   NEW: "Yangi",
@@ -869,7 +965,7 @@ function setView(viewName, options = {}) {
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewName));
   document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === navViewFor(viewName)));
   const financeViews = ["finance", "withdrawals", "extra-income", "expenses", "salary", "bonuses", "debtors"];
-  const settingsViews = ["settings", "center-info", "general-settings", "office-settings", "positions", "employees", "rooms", "holidays", "receipt-settings", "sms-settings", "forms", "tags", "payment-types", "accounting"];
+  const settingsViews = ["settings", "center-info", "general-settings", "office-settings", "positions", "employees", "rooms", "holidays", "receipt-settings", "sms-settings", "forms", "tags", "payment-types", "accounting", ...studentAppAdminViews];
   const reportViews = ["reports", "course-report", "teacher-efficiency", "cashflow-report", "salary-report", "lead-report", "removed-students-report", "points-report", "exam-report", "discount-report", "sent-sms-report", "worktime-report", "journals", "coin-report"];
   const archiveViews = ["archive-leads", "archive-students", "archive-teachers", "archive-employees", "archive-groups", "archive-finance"];
   const superSubnav = document.querySelector('[data-subnav="super"]');
@@ -1001,6 +1097,70 @@ async function loadSuperData() {
   }
 }
 
+async function loadStudentAppAdminData() {
+  if (!currentUser || isSuperRole(currentUser.role)) return;
+  const service = window.crmServices?.studentAppAdminService;
+  if (!service) return;
+  state.studentApp.loading = true;
+  state.studentApp.error = "";
+  try {
+    const [
+      dashboard,
+      telegramStatus,
+      webhookInfo,
+      settings,
+      modules,
+      access,
+      library,
+      dictionary,
+      news,
+      events,
+      referrals,
+      extraLessons,
+      exams,
+      feedback
+    ] = await Promise.allSettled([
+      service.dashboard(),
+      service.status(),
+      service.webhookInfo(),
+      service.settings(),
+      service.modules(),
+      service.access(),
+      service.list("library"),
+      service.list("dictionary"),
+      service.list("news"),
+      service.list("events"),
+      service.list("referrals"),
+      service.list("extra-lessons"),
+      service.list("exams"),
+      service.list("feedback")
+    ]);
+    const value = (result, fallback) => result.status === "fulfilled" ? result.value : fallback;
+    const dashboardPayload = value(dashboard, {});
+    state.studentApp.dashboard = dashboardPayload.summary || {};
+    state.studentApp.latestLogins = dashboardPayload.latestLogins || [];
+    state.studentApp.latestReferrals = dashboardPayload.latestReferrals || [];
+    state.studentApp.latestFeedback = dashboardPayload.latestFeedback || [];
+    state.studentApp.telegramStatus = value(telegramStatus, {});
+    state.studentApp.webhookInfo = value(webhookInfo, {});
+    state.studentApp.settings = value(settings, {}).settings || {};
+    state.studentApp.modules = value(modules, []);
+    state.studentApp.access = value(access, []);
+    state.studentApp.library = value(library, []);
+    state.studentApp.dictionary = value(dictionary, []);
+    state.studentApp.news = value(news, []);
+    state.studentApp.events = value(events, []);
+    state.studentApp.referrals = value(referrals, []);
+    state.studentApp.extraLessons = value(extraLessons, []);
+    state.studentApp.exams = value(exams, []);
+    state.studentApp.feedback = value(feedback, []);
+  } catch (error) {
+    state.studentApp.error = error.message;
+  } finally {
+    state.studentApp.loading = false;
+  }
+}
+
 function withQuery(resource, endpoint) {
   const query = new URLSearchParams();
   const filters = uiState.filters[resource] || {};
@@ -1029,7 +1189,7 @@ async function refreshAll() {
     loadCollection("debts", endpoints.debts),
     loadCollection("audit", endpoints.audit)
   ]);
-  await Promise.all([loadSchedule(), loadSuperData()]);
+  await Promise.all([loadSchedule(), loadSuperData(), loadStudentAppAdminData()]);
   syncCrmLocalState();
   renderAll();
 }
@@ -1565,6 +1725,7 @@ function renderAll() {
   renderCrmStaffAttendancePage();
   renderCrmRoomsPage();
   renderCrmPaymentTypesPage();
+  renderCrmStudentAppPages();
   renderCrmTopbar(viewFromPath());
   renderProfiles();
   renderCrmProfiles();
@@ -3119,6 +3280,485 @@ function crmMiniPanel(title, items, mapper, empty, actionTarget = "") {
   return `<section class="crm-panel"><div class="crm-panel-head"><h2>${escapeHtml(title)}</h2>${actionTarget ? `<button type="button" data-view="${actionTarget}">Ko'rish</button>` : ""}</div><div class="crm-mini-list">${items.length ? items.map(mapper).join("") : `<div class="crm-mini-empty">${escapeHtml(empty)}</div>`}</div></section>`;
 }
 
+const studentAppResourceConfig = {
+  library: {
+    title: "Kutubxona",
+    backend: "library",
+    stateKey: "library",
+    columns: ["Nomi", "Turi", "Daraja", "Holat"],
+    fields: [
+      ["title", "Nomi", "text", true],
+      ["type", "Turi", "select", true, ["book", "audio", "video", "podcast", "file"]],
+      ["description", "Izoh", "textarea"],
+      ["level", "Daraja", "text"],
+      ["external_url", "Havola", "url"],
+      ["cover_url", "Muqova URL", "url"],
+      ["status", "Holat", "select", true, ["published", "draft"]]
+    ],
+    row: (item) => [item.title, item.type, item.level || "-", item.status]
+  },
+  dictionary: {
+    title: "Lug'atlar",
+    backend: "dictionary",
+    stateKey: "dictionary",
+    columns: ["So'z", "Tarjima", "Daraja", "Holat"],
+    fields: [
+      ["word", "So'z", "text", true],
+      ["translation", "Tarjima", "text", true],
+      ["pronunciation", "Talaffuz", "text"],
+      ["example", "Misol", "textarea"],
+      ["category", "Kategoriya", "text"],
+      ["level", "Daraja", "text"],
+      ["status", "Holat", "select", true, ["published", "draft"]]
+    ],
+    row: (item) => [item.word, item.translation, item.level || "-", item.status]
+  },
+  news: {
+    title: "Yangiliklar",
+    backend: "news",
+    stateKey: "news",
+    columns: ["Sarlavha", "Sana", "Target", "Holat"],
+    fields: [
+      ["title", "Sarlavha", "text", true],
+      ["description", "Matn", "textarea"],
+      ["image_url", "Rasm URL", "url"],
+      ["publish_date", "Chop etish sanasi", "date"],
+      ["target_type", "Target", "select", true, ["all", "group"]],
+      ["status", "Holat", "select", true, ["published", "draft"]]
+    ],
+    row: (item) => [item.title, formatDate(item.publish_date), item.target_type || "all", item.status]
+  },
+  events: {
+    title: "Tadbirlar",
+    backend: "events",
+    stateKey: "events",
+    columns: ["Nomi", "Sana", "Vaqt", "Holat"],
+    fields: [
+      ["title", "Nomi", "text", true],
+      ["description", "Izoh", "textarea"],
+      ["image_url", "Rasm URL", "url"],
+      ["event_date", "Tadbir sanasi", "date"],
+      ["event_time", "Vaqt", "time"],
+      ["registration_enabled", "Ro'yxatdan o'tish", "checkbox"],
+      ["status", "Holat", "select", true, ["active", "draft", "closed"]]
+    ],
+    row: (item) => [item.title, formatDate(item.event_date), item.event_time || "-", item.status]
+  },
+  referrals: {
+    title: "Referral",
+    backend: "referrals",
+    stateKey: "referrals",
+    columns: ["Taklif qiluvchi", "Taklif qilingan", "Telefon", "Mukofot"],
+    fields: [
+      ["referrer_student_id", "Taklif qiluvchi student ID", "number", true],
+      ["referred_name", "Taklif qilingan FISH", "text", true],
+      ["referred_phone", "Telefon", "text"],
+      ["status", "Holat", "select", true, ["new", "trial", "active", "rewarded"]],
+      ["reward_type", "Mukofot turi", "select", true, ["crystal", "coin"]],
+      ["reward_amount", "Mukofot miqdori", "number"]
+    ],
+    row: (item) => [item.referrer_name || item.referrer_student_id, item.referred_name, item.referred_phone || "-", `${item.reward_amount || 0} ${item.reward_type || ""}`]
+  },
+  "extra-lessons": {
+    title: "Qo'shimcha dars",
+    backend: "extra-lessons",
+    stateKey: "extraLessons",
+    columns: ["Student", "Sana", "Vaqt", "Holat"],
+    fields: [
+      ["student_id", "Student ID", "number", true],
+      ["teacher_id", "O'qituvchi ID", "number"],
+      ["requested_date", "Sana", "date"],
+      ["requested_time", "Vaqt", "time"],
+      ["purpose", "Maqsad", "textarea"],
+      ["price", "Narx", "number"],
+      ["status", "Holat", "select", true, ["pending", "approved", "rejected", "done"]],
+      ["admin_note", "Admin izohi", "textarea"]
+    ],
+    row: (item) => [item.student_name || item.student_id, formatDate(item.requested_date), item.requested_time || "-", item.status]
+  },
+  exams: {
+    title: "Imtihonlar",
+    backend: "exams",
+    stateKey: "exams",
+    columns: ["Student", "Imtihon", "Ball", "Sana"],
+    fields: [
+      ["student_id", "Student ID", "number", true],
+      ["title", "Imtihon nomi", "text", true],
+      ["score", "Ball", "number"],
+      ["max_score", "Maksimal ball", "number"],
+      ["grade", "Baho", "text"],
+      ["exam_date", "Sana", "date"],
+      ["status", "Holat", "select", true, ["published", "draft"]]
+    ],
+    row: (item) => [item.student_name || item.student_id, item.title, `${item.score || 0}/${item.max_score || 100}`, formatDate(item.exam_date)]
+  },
+  feedback: {
+    title: "Taklif va shikoyatlar",
+    backend: "feedback",
+    stateKey: "feedback",
+    columns: ["Student", "Turi", "Mavzu", "Holat"],
+    fields: [
+      ["student_id", "Student ID", "number", true],
+      ["type", "Turi", "select", true, ["suggestion", "question", "complaint"]],
+      ["subject", "Mavzu", "text"],
+      ["message", "Xabar", "textarea", true],
+      ["status", "Holat", "select", true, ["new", "in_progress", "closed"]],
+      ["admin_reply", "Javob", "textarea"]
+    ],
+    row: (item) => [item.student_name || item.student_id, item.type, item.subject || "-", item.status]
+  }
+};
+
+function studentAppStatusBadge(value) {
+  const normalized = String(value ?? "").toLowerCase();
+  const label = {
+    true: "Yoqilgan",
+    false: "O'chirilgan",
+    set: "Parol bor",
+    temporary_last4: "Oxirgi 4 raqam",
+    reset_required: "Reset kerak",
+    published: "Chop etilgan",
+    draft: "Qoralama",
+    active: "Faol",
+    pending: "Kutilmoqda",
+    approved: "Tasdiqlandi",
+    rejected: "Rad etildi",
+    closed: "Yopildi",
+    new: "Yangi"
+  }[normalized] || value || "-";
+  const type = ["true", "set", "published", "active", "approved"].includes(normalized) ? "success" : ["false", "rejected", "closed"].includes(normalized) ? "danger" : "warning";
+  return `<span class="crm-badge badge-${type}">${escapeHtml(label)}</span>`;
+}
+
+function studentAppCard(label, value, icon, hint = "") {
+  return `<article class="student-app-kpi"><i data-lucide="${icon}"></i><span>${escapeHtml(label)}</span><strong>${Number(value || 0).toLocaleString("uz-UZ")}</strong><small>${escapeHtml(hint)}</small></article>`;
+}
+
+function studentAppPageShell(view, title, description, action = "") {
+  const node = document.querySelector(`[data-student-app-page="${view}"]`);
+  if (!node) return null;
+  node.innerHTML = `<header class="student-app-admin-head"><div><span>Sozlamalar / Student App</span><h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p></div>${action}</header><div data-student-app-body></div>`;
+  return node.querySelector("[data-student-app-body]");
+}
+
+function renderStudentAppDashboard() {
+  const summary = state.studentApp.dashboard || {};
+  const status = state.studentApp.telegramStatus || {};
+  const webhook = state.studentApp.webhookInfo || {};
+  const body = studentAppPageShell(
+    "student-app-dashboard",
+    "Student App boshqaruvi",
+    "O'quvchilar Telegram orqali kirishi, mobil kabinet modullari va bot holatini shu yerdan boshqaring.",
+    `<button type="button" class="crm-primary-button" data-student-app-action="preview">Student App preview</button>`
+  );
+  if (!body) return;
+  body.innerHTML = `
+    <section class="student-app-kpi-grid">
+      ${studentAppCard("Student App yoqilgan", summary.enabled_students, "smartphone", "O'quvchilar")}
+      ${studentAppCard("Telegram ulangan", summary.telegram_linked, "send", "Bog'langanlar")}
+      ${studentAppCard("Bugun kirganlar", summary.today_logins, "calendar-check", "Bugungi login")}
+      ${studentAppCard("Faol sessiyalar", summary.active_sessions, "key-round", "Tokenlar")}
+      ${studentAppCard("Referral soni", summary.referrals, "gift", "Takliflar")}
+      ${studentAppCard("Kutubxona", summary.library_items, "library", "Materiallar")}
+      ${studentAppCard("Lug'at", summary.dictionary_words, "book-open", "So'zlar")}
+      ${studentAppCard("Qo'shimcha dars", summary.extra_lesson_requests, "graduation-cap", "Kutilmoqda")}
+    </section>
+    <section class="student-app-admin-grid">
+      <article class="student-app-status-card">
+        <h2>Bot holati</h2>
+        <div><span>Landing bot</span>${studentAppStatusBadge(Boolean(status.landingBotConfigured))}</div>
+        <div><span>Landing chat</span>${studentAppStatusBadge(Boolean(status.landingChatConfigured))}</div>
+        <div><span>Student bot</span>${studentAppStatusBadge(Boolean(status.studentBotConfigured))}</div>
+        <div><span>WebApp URL</span>${studentAppStatusBadge(Boolean(status.studentWebAppUrlConfigured))}</div>
+        <div><span>Webhook secret</span>${studentAppStatusBadge(Boolean(status.webhookSecretConfigured))}</div>
+        <small>${escapeHtml(status.studentWebAppUrl || "https://eduka.uz/student-app")}</small>
+      </article>
+      <article class="student-app-status-card">
+        <h2>Webhook</h2>
+        <div><span>URL</span><b>${escapeHtml(webhook.url || "Sozlanmagan")}</b></div>
+        <div><span>Pending updates</span><b>${Number(webhook.pending_update_count || 0)}</b></div>
+        <div><span>Oxirgi xato</span><b>${escapeHtml(webhook.last_error_message || "Yo'q")}</b></div>
+        <button type="button" data-student-app-action="open-webhook-doc">Webhook ko'rsatmasi</button>
+      </article>
+    </section>
+    <section class="student-app-admin-grid">
+      ${studentAppMiniList("Oxirgi kirganlar", state.studentApp.latestLogins, (item) => `${item.full_name || "-"} <small>${formatDate(item.last_student_app_login)}</small>`)}
+      ${studentAppMiniList("Oxirgi referral", state.studentApp.latestReferrals, (item) => `${item.referred_name || "-"} <small>${item.status || "new"}</small>`)}
+      ${studentAppMiniList("Oxirgi feedback", state.studentApp.latestFeedback, (item) => `${item.student_name || item.subject || "-"} <small>${item.status || "new"}</small>`)}
+    </section>`;
+}
+
+function studentAppMiniList(title, items, mapper) {
+  return `<article class="crm-panel"><div class="crm-panel-head"><h2>${escapeHtml(title)}</h2></div><div class="student-app-mini-list">${items?.length ? items.map((item) => `<div>${mapper(item)}</div>`).join("") : `<div class="crm-mini-empty">Hozircha ma'lumot yo'q</div>`}</div></article>`;
+}
+
+function renderStudentAppAccess() {
+  const body = studentAppPageShell("student-app-access", "O'quvchilar kirishi", "Telegram bot orqali Student Appga kiradigan o'quvchilar paroli va access holatini boshqaring.");
+  if (!body) return;
+  const rows = (state.studentApp.access || []).map((student) => `
+    <tr>
+      <td><b>${escapeHtml(student.full_name)}</b><small>${escapeHtml(student.course_name || "")}</small></td>
+      <td>${escapeHtml(student.phone || "-")}</td>
+      <td>${escapeHtml(student.group_name || "-")}</td>
+      <td>${studentAppStatusBadge(Boolean(student.student_app_enabled) && !student.student_app_blocked)}</td>
+      <td>${studentAppStatusBadge(Boolean(student.telegram_chat_id))}</td>
+      <td>${formatDate(student.last_student_app_login) || "-"}</td>
+      <td>${studentAppStatusBadge(student.password_state)}</td>
+      <td>
+        <div class="student-app-actions">
+          <button type="button" data-student-app-action="${student.student_app_enabled ? "disable-access" : "enable-access"}" data-id="${student.id}">${student.student_app_enabled ? "O'chirish" : "Yoqish"}</button>
+          <button type="button" data-student-app-action="generate-password" data-id="${student.id}">Parol</button>
+          <button type="button" data-student-app-action="reset-password" data-id="${student.id}">Reset</button>
+          <button type="button" data-student-app-action="instruction" data-id="${student.id}">Instruksiya</button>
+          <button type="button" data-student-app-action="send-instruction" data-id="${student.id}">Telegram</button>
+          <button type="button" data-student-app-action="unlink-telegram" data-id="${student.id}">Unlink</button>
+        </div>
+      </td>
+    </tr>`).join("");
+  body.innerHTML = `<section class="crm-table-card"><table class="crm-table student-app-table"><thead><tr><th>FISH</th><th>Telefon</th><th>Guruh</th><th>Student App</th><th>Telegram</th><th>Oxirgi kirish</th><th>Parol</th><th>Harakatlar</th></tr></thead><tbody>${rows || `<tr><td colspan="8">${crmEmptyState("O'quvchilar topilmadi")}</td></tr>`}</tbody></table></section>`;
+}
+
+function renderStudentAppModules() {
+  const body = studentAppPageShell("student-app-modules", "Modullar", "Student App ichida ko'rinadigan foydali bo'limlarni yoqing, o'chiring va tartiblang.");
+  if (!body) return;
+  body.innerHTML = `<section class="student-app-module-grid">${(state.studentApp.modules || []).map((module) => `
+    <article class="student-app-module-card">
+      <div><i>${escapeHtml(module.icon || "App")}</i><h2>${escapeHtml(module.title)}</h2><p>${escapeHtml(module.description || "")}</p></div>
+      <button type="button" class="crm-toggle ${module.enabled ? "active" : ""}" data-student-app-action="toggle-module" data-id="${module.id}"><span></span></button>
+    </article>`).join("") || crmEmptyState("Modullar topilmadi")}</section>`;
+}
+
+function renderStudentAppResource(resource) {
+  const config = studentAppResourceConfig[resource];
+  if (!config) return;
+  const view = `student-app-${resource}`;
+  const body = studentAppPageShell(view, config.title, `${config.title} bo'limini Student App uchun boshqaring.`, `<button type="button" class="crm-primary-button" data-student-app-action="add-resource" data-resource="${resource}">Qo'shish</button>`);
+  if (!body) return;
+  const items = state.studentApp[config.stateKey] || [];
+  body.innerHTML = `<section class="crm-table-card"><table class="crm-table student-app-table"><thead><tr>${config.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}<th>Harakatlar</th></tr></thead><tbody>${items.length ? items.map((item) => `<tr>${config.row(item).map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}<td><div class="student-app-actions"><button type="button" data-student-app-action="edit-resource" data-resource="${resource}" data-id="${item.id}">Tahrirlash</button><button type="button" data-student-app-action="delete-resource" data-resource="${resource}" data-id="${item.id}">O'chirish</button></div></td></tr>`).join("") : `<tr><td colspan="${config.columns.length + 1}">${crmEmptyState("Hozircha ma'lumot yo'q", "Qo'shish", `data-student-app-action="add-resource" data-resource="${resource}"`)}</td></tr>`}</tbody></table></section>`;
+}
+
+function renderStudentAppSettings() {
+  const settings = state.studentApp.settings || {};
+  const body = studentAppPageShell("student-app-settings", "Student App sozlamalari", "Mobil kabinet nomi, ranglari, modul ruxsatlari va sessiya muddatini sozlang.", `<button type="button" class="crm-primary-button" data-student-app-action="save-settings">Saqlash</button>`);
+  if (!body) return;
+  const toggles = [
+    ["enabled", "Student App faol"],
+    ["crystals_enabled", "Kristallar"],
+    ["coins_enabled", "Tangalar"],
+    ["rating_enabled", "Reyting"],
+    ["referral_enabled", "Referral"],
+    ["library_enabled", "Kutubxona"],
+    ["dictionary_enabled", "Lug'at"],
+    ["extra_lessons_enabled", "Qo'shimcha dars"],
+    ["exams_enabled", "Imtihonlar"],
+    ["news_enabled", "Yangiliklar"],
+    ["payments_enabled", "To'lovlar"],
+    ["complaints_enabled", "Taklif va shikoyatlar"]
+  ];
+  body.innerHTML = `<section class="settings-panel student-app-settings-form" data-student-app-settings-form>
+    <div class="settings-form">
+      <label>App nomi<input name="app_name" value="${escapeHtml(settings.app_name || "Eduka Student App")}" /></label>
+      <label>Asosiy rang<input name="theme_primary" type="color" value="${escapeHtml(settings.theme_primary || "#0A84FF")}" /></label>
+      <label>Sessiya muddati (kun)<input name="session_days" type="number" min="1" value="${escapeHtml(settings.session_days || 30)}" /></label>
+      <label>Support matni<textarea name="support_text">${escapeHtml(settings.support_text || "")}</textarea></label>
+    </div>
+    <div class="student-app-toggle-grid">${toggles.map(([key, label]) => `<label><span>${escapeHtml(label)}</span><input type="checkbox" name="${key}" ${settings[key] !== false ? "checked" : ""} /></label>`).join("")}</div>
+  </section>`;
+}
+
+function renderCrmStudentAppPages() {
+  ensureStudentAppNavigation();
+  ensureStudentAppViews();
+  renderStudentAppDashboard();
+  renderStudentAppAccess();
+  renderStudentAppModules();
+  ["library", "dictionary", "news", "events", "referrals", "extra-lessons", "exams", "feedback"].forEach(renderStudentAppResource);
+  renderStudentAppSettings();
+}
+
+function studentAppFieldHtml(field, item = {}) {
+  const [name, label, type = "text", required = false, options = []] = field;
+  const value = item[name] ?? "";
+  if (type === "textarea") {
+    return `<label><span>${escapeHtml(label)}${required ? " *" : ""}</span><textarea name="${name}" ${required ? "required" : ""}>${escapeHtml(value)}</textarea></label>`;
+  }
+  if (type === "select") {
+    return `<label><span>${escapeHtml(label)}${required ? " *" : ""}</span><select name="${name}" ${required ? "required" : ""}>${options.map((option) => `<option value="${escapeHtml(option)}" ${String(option) === String(value) ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></label>`;
+  }
+  if (type === "checkbox") {
+    return `<label class="student-app-modal-check"><input type="checkbox" name="${name}" ${value === true || value === "true" ? "checked" : ""} /><span>${escapeHtml(label)}</span></label>`;
+  }
+  return `<label><span>${escapeHtml(label)}${required ? " *" : ""}</span><input name="${name}" type="${type}" value="${escapeHtml(value)}" ${required ? "required" : ""} /></label>`;
+}
+
+function openStudentAppResourceModal(resource, id = "") {
+  const config = studentAppResourceConfig[resource];
+  if (!config) return;
+  const item = (state.studentApp[config.stateKey] || []).find((entry) => String(entry.id) === String(id)) || {};
+  activeModal = "student-app-resource";
+  editingId = item.id || null;
+  modalTitle.textContent = editingId ? `${config.title}: tahrirlash` : `${config.title}: qo'shish`;
+  modalForm.dataset.studentAppResource = resource;
+  modalForm.innerHTML = `<div class="student-app-modal-grid">${config.fields.map((field) => studentAppFieldHtml(field, item)).join("")}</div><div class="modal-actions"><button type="button" data-close-modal>Bekor qilish</button><button type="submit">Saqlash</button></div>`;
+  modal.hidden = false;
+  modalForm.querySelector("[name]")?.focus();
+}
+
+async function handleStudentAppResourceSubmit() {
+  const resource = modalForm.dataset.studentAppResource;
+  const config = studentAppResourceConfig[resource];
+  if (!config) return;
+  const service = window.crmServices?.studentAppAdminService;
+  const data = Object.fromEntries(new FormData(modalForm).entries());
+  config.fields.forEach(([name, , type]) => {
+    if (type === "checkbox") data[name] = Boolean(modalForm.querySelector(`[name="${name}"]`)?.checked);
+  });
+  try {
+    if (editingId) await service.update(config.backend, editingId, data);
+    else await service.create(config.backend, data);
+    closeModal();
+    await loadStudentAppAdminData();
+    renderCrmStudentAppPages();
+    showToast(editingId ? "Ma'lumot yangilandi." : "Ma'lumot yaratildi.", "success");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+function showStudentAppPasswordModal(studentId, password) {
+  const student = (state.studentApp.access || []).find((item) => String(item.id) === String(studentId));
+  activeModal = null;
+  editingId = null;
+  modalTitle.textContent = "Student App paroli";
+  modalForm.innerHTML = `<div class="student-app-secret-box">
+    <p>${escapeHtml(student?.full_name || "O'quvchi")} uchun parol yaratildi. Bu parol faqat bir marta ko'rsatiladi.</p>
+    <strong>${escapeHtml(password)}</strong>
+    <small>Telegram botga kiring, telefon raqamingizni yuboring va parolingizni kiriting.</small>
+  </div>
+  <div class="modal-actions">
+    <button type="button" data-student-app-action="copy-password" data-password="${escapeHtml(password)}">Copy</button>
+    <button type="button" data-close-modal>Yopish</button>
+  </div>`;
+  modal.hidden = false;
+}
+
+function showStudentAppInstructionModal(studentId) {
+  const student = (state.studentApp.access || []).find((item) => String(item.id) === String(studentId));
+  const instruction = "Telegram'da @edukauz_bot ga kiring, /start bosing, telefon raqamingizni yuboring va parolingizni kiriting.";
+  activeModal = null;
+  editingId = null;
+  modalTitle.textContent = "Login instruktsiyasi";
+  modalForm.innerHTML = `<div class="student-app-secret-box">
+    <p><b>${escapeHtml(student?.full_name || "O'quvchi")}</b></p>
+    <textarea readonly>${instruction}</textarea>
+  </div>
+  <div class="modal-actions">
+    <button type="button" data-student-app-action="copy-instruction" data-instruction="${escapeHtml(instruction)}">Copy instruction</button>
+    <button type="button" data-student-app-action="open-bot">Open bot link</button>
+    <button type="button" data-close-modal>Yopish</button>
+  </div>`;
+  modal.hidden = false;
+}
+
+async function handleStudentAppAction(button) {
+  const action = button.dataset.studentAppAction;
+  const service = window.crmServices?.studentAppAdminService;
+  if (action === "preview") {
+    window.open("/student-app/home?preview=1", "_blank", "noopener,noreferrer");
+    return;
+  }
+  if (action === "open-webhook-doc") {
+    showToast("Webhook: node backend/set-telegram-webhook.js orqali STUDENT_BOT_TOKEN va TELEGRAM_WEBHOOK_SECRET bilan sozlanadi.", "info");
+    return;
+  }
+  if (action === "open-bot") {
+    window.open("https://t.me/edukauz_bot", "_blank", "noopener,noreferrer");
+    return;
+  }
+  if (action === "copy-password" || action === "copy-instruction") {
+    const value = button.dataset.password || button.dataset.instruction || "";
+    await navigator.clipboard?.writeText(value).catch(() => {});
+    showToast("Nusxalandi.", "success");
+    return;
+  }
+  if (action === "instruction") {
+    showStudentAppInstructionModal(button.dataset.id);
+    return;
+  }
+  if (["enable-access", "disable-access", "generate-password", "reset-password", "unlink-telegram", "send-instruction"].includes(action)) {
+    const apiAction = {
+      "enable-access": "enable",
+      "disable-access": "disable",
+      "generate-password": "generate-password",
+      "reset-password": "reset-password",
+      "unlink-telegram": "unlink-telegram",
+      "send-instruction": "send-instruction"
+    }[action];
+    try {
+      const result = await service.accessAction(button.dataset.id, apiAction);
+      await loadStudentAppAdminData();
+      renderCrmStudentAppPages();
+      if (result.password) showStudentAppPasswordModal(button.dataset.id, result.password);
+      showToast(result.message || "Amal bajarildi.", result.ok === false ? "warning" : "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+    return;
+  }
+  if (action === "toggle-module") {
+    const module = (state.studentApp.modules || []).find((item) => String(item.id) === String(button.dataset.id));
+    if (!module) return;
+    module.enabled = !module.enabled;
+    try {
+      state.studentApp.modules = await service.saveModules(state.studentApp.modules);
+      renderStudentAppModules();
+      showToast(module.enabled ? "Modul faollashtirildi." : "Modul o'chirildi.", module.enabled ? "success" : "warning");
+    } catch (error) {
+      module.enabled = !module.enabled;
+      showToast(error.message, "error");
+    }
+    return;
+  }
+  if (action === "add-resource") {
+    openStudentAppResourceModal(button.dataset.resource);
+    return;
+  }
+  if (action === "edit-resource") {
+    openStudentAppResourceModal(button.dataset.resource, button.dataset.id);
+    return;
+  }
+  if (action === "delete-resource") {
+    if (!window.confirm("Ma'lumotni o'chirishni tasdiqlaysizmi?")) return;
+    const config = studentAppResourceConfig[button.dataset.resource];
+    try {
+      await service.remove(config.backend, button.dataset.id);
+      await loadStudentAppAdminData();
+      renderCrmStudentAppPages();
+      showToast("Ma'lumot o'chirildi.", "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+    return;
+  }
+  if (action === "save-settings") {
+    const form = document.querySelector("[data-student-app-settings-form]");
+    if (!form) return;
+    const data = Object.fromEntries(new FormData(form).entries());
+    form.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      data[input.name] = input.checked;
+    });
+    try {
+      const result = await service.saveSettings(data);
+      state.studentApp.settings = result.settings || data;
+      renderStudentAppSettings();
+      showToast("Student App sozlamalari saqlandi.", "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  }
+}
+
 function paymentRemainder(payment) {
   return Math.max(Number(payment.due_amount || payment.dueAmount || payment.amount || 0) - Number(payment.amount || payment.paid_amount || 0) - Number(payment.discount || 0), 0);
 }
@@ -4077,6 +4717,10 @@ modalForm?.addEventListener("submit", async (event) => {
     handleAdminModalSubmit();
     return;
   }
+  if (activeModal === "student-app-resource") {
+    await handleStudentAppResourceSubmit();
+    return;
+  }
   const config = modalFields[activeModal];
   const data = Object.fromEntries(new FormData(modalForm).entries());
   const phoneFields = ["phone", "parent_phone"].filter((name) => data[name]);
@@ -4201,6 +4845,13 @@ document.addEventListener("click", async (event) => {
   if (crmActionButton) {
     event.preventDefault();
     await handleCrmAction(crmActionButton.dataset.crmAction, crmActionButton);
+    return;
+  }
+
+  const studentAppButton = event.target.closest("[data-student-app-action]");
+  if (studentAppButton) {
+    event.preventDefault();
+    await handleStudentAppAction(studentAppButton);
     return;
   }
 

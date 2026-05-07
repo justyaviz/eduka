@@ -2623,6 +2623,10 @@ function studentPublic(row) {
 function studentAppWebUrl(organization, token = "") {
   const base = getStudentWebAppUrlBase();
   const url = new URL(base);
+  const cleanPath = url.pathname.replace(/\/+$/, "");
+  if (cleanPath === "" || cleanPath.endsWith("/student-app")) {
+    url.pathname = `${cleanPath || "/student-app"}/home`;
+  }
   if (token) url.searchParams.set("token", token);
   return url.toString();
 }
@@ -3110,6 +3114,12 @@ const studentAppAdminTables = {
     defaults: { registration_enabled: true, status: "active" },
     search: ["title", "description"]
   },
+  exams: {
+    table: "student_exam_results",
+    fields: ["student_id", "title", "score", "max_score", "grade", "exam_date", "status"],
+    defaults: { max_score: 100, status: "published" },
+    search: ["title", "grade", "status"]
+  },
   "extra-lessons": {
     table: "student_extra_lesson_requests",
     fields: ["student_id", "teacher_id", "requested_date", "requested_time", "purpose", "price", "status", "admin_note"],
@@ -3137,19 +3147,54 @@ async function handleAdminStudentAppDashboard(request, response) {
     const pool = getDbPool();
     await ensureSchema(pool);
     await ensureStudentAppDefaults(pool, user.organization_id);
-    const result = await pool.query(
+    const [result, latestLogins, latestReferrals, latestFeedback] = await Promise.all([
+      pool.query(
       `SELECT
         (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND student_app_enabled=TRUE) AS enabled_students,
         (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND telegram_chat_id IS NOT NULL) AS telegram_linked,
+        (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND last_student_app_login::date=CURRENT_DATE) AS today_logins,
         (SELECT COUNT(*)::int FROM student_app_sessions WHERE organization_id=$1 AND revoked_at IS NULL AND expires_at > NOW()) AS active_sessions,
         (SELECT COUNT(*)::int FROM student_referrals WHERE organization_id=$1) AS referrals,
         (SELECT COUNT(*)::int FROM student_library_items WHERE organization_id=$1) AS library_items,
         (SELECT COUNT(*)::int FROM student_dictionary_words WHERE organization_id=$1) AS dictionary_words,
         (SELECT COUNT(*)::int FROM student_extra_lesson_requests WHERE organization_id=$1 AND status='pending') AS extra_lesson_requests,
         (SELECT COUNT(*)::int FROM student_feedback WHERE organization_id=$1 AND status='new') AS latest_feedback`,
-      [user.organization_id]
-    );
-    sendJson(response, 200, { ok: true, summary: result.rows[0] });
+        [user.organization_id]
+      ),
+      pool.query(
+        `SELECT id, full_name, phone, last_student_app_login
+         FROM students
+         WHERE organization_id=$1 AND last_student_app_login IS NOT NULL
+         ORDER BY last_student_app_login DESC
+         LIMIT 8`,
+        [user.organization_id]
+      ),
+      pool.query(
+        `SELECT r.*, s.full_name AS referrer_name
+         FROM student_referrals r
+         LEFT JOIN students s ON s.id=r.referrer_student_id
+         WHERE r.organization_id=$1
+         ORDER BY r.id DESC
+         LIMIT 8`,
+        [user.organization_id]
+      ),
+      pool.query(
+        `SELECT f.*, s.full_name AS student_name
+         FROM student_feedback f
+         LEFT JOIN students s ON s.id=f.student_id
+         WHERE f.organization_id=$1
+         ORDER BY f.id DESC
+         LIMIT 8`,
+        [user.organization_id]
+      )
+    ]);
+    sendJson(response, 200, {
+      ok: true,
+      summary: result.rows[0],
+      latestLogins: latestLogins.rows,
+      latestReferrals: latestReferrals.rows,
+      latestFeedback: latestFeedback.rows
+    });
   } catch (error) {
     withError(response, "Student app dashboard", error);
   }
@@ -3238,11 +3283,19 @@ async function handleAdminStudentAppAccess(request, response, action = "", stude
     await ensureSchema(pool);
     if (!action) {
       const result = await pool.query(
-        `SELECT id, full_name, phone, telegram_user_id, telegram_chat_id, student_app_enabled, student_app_blocked,
-                app_password_set_at, app_password_reset_required, last_student_app_login
-         FROM students
-         WHERE organization_id=$1
-         ORDER BY id DESC`,
+        `SELECT s.id, s.full_name, s.phone, s.telegram_user_id, s.telegram_chat_id,
+                s.student_app_enabled, s.student_app_blocked, s.app_password_set_at,
+                s.app_password_reset_required, s.last_student_app_login, s.course_name,
+                COALESCE(g.name, s.group_name) AS group_name,
+                CASE
+                  WHEN s.app_password_hash IS NULL THEN 'temporary_last4'
+                  WHEN s.app_password_reset_required THEN 'reset_required'
+                  ELSE 'set'
+                END AS password_state
+         FROM students s
+         LEFT JOIN groups g ON g.id=s.group_id AND g.organization_id=s.organization_id
+         WHERE s.organization_id=$1
+         ORDER BY s.id DESC`,
         [user.organization_id]
       );
       sendJson(response, 200, { ok: true, items: result.rows });
@@ -3920,7 +3973,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|news|events|referrals|extra-lessons|mock-exams|feedback)(?:\/(\d+))?$/);
+  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|news|events|referrals|extra-lessons|mock-exams|exams|feedback)(?:\/(\d+))?$/);
   if (studentAdminTableMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
     handleAdminStudentAppTable(request, response, studentAdminTableMatch[1], studentAdminTableMatch[2] ? Number(studentAdminTableMatch[2]) : null);
     return;

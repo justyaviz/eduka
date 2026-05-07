@@ -4877,3 +4877,285 @@ body {
   font-weight: 800;
   text-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
 }
+
+.student-app-nav {
+  margin-top: 8px;
+}
+
+.student-app-admin-page {
+  display: grid;
+  gap: 18px;
+}
+
+.student-app-admin-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #dbe7ff;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(49, 130, 255, 0.16), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f7fbff);
+  box-shadow: 0 20px 50px rgba(23, 84, 181, 0.08);
+}
+
+.student-app-admin-head span {
+  color: #3575e6;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.student-app-admin-head h1 {
+  margin: 5px 0 6px;
+  color: #10203f;
+  font-size: 28px;
+}
+
+.student-app-admin-head p {
+  max-width: 760px;
+  margin: 0;
+  color: #61728c;
+  line-height: 1.55;
+}
+
+.student-app-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.student-app-kpi {
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 18px;
+  border: 1px solid #e1ebff;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(22, 76, 155, 0.07);
+}
+
+.student-app-kpi i {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: #1e6cff;
+  border-radius: 16px;
+  background: #eaf2ff;
+}
+
+.student-app-kpi span {
+  color: #61728c;
+}
+
+.student-app-kpi strong {
+  color: #10203f;
+  font-size: 28px;
+}
+
+.student-app-kpi small,
+.student-app-status-card small {
+  color: #7b8ba5;
+}
+
+.student-app-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.student-app-status-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #e2eafa;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(22, 76, 155, 0.07);
+}
+
+.student-app-status-card h2 {
+  margin: 0;
+  color: #10203f;
+}
+
+.student-app-status-card div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef3fb;
+}
+
+.student-app-status-card button,
+.student-app-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #2457d6;
+  border: 1px solid #d9e5ff;
+  border-radius: 10px;
+  background: #f7faff;
+}
+
+.student-app-mini-list {
+  display: grid;
+  gap: 8px;
+}
+
+.student-app-mini-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef3fb;
+}
+
+.student-app-table small {
+  display: block;
+  margin-top: 4px;
+  color: #7b8ba5;
+}
+
+.student-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.student-app-module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.student-app-module-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e2eafa;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ffffff, #f7fbff);
+  box-shadow: 0 18px 40px rgba(22, 76, 155, 0.07);
+}
+
+.student-app-module-card i {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  font-style: normal;
+  border-radius: 18px;
+  background: #eaf2ff;
+}
+
+.student-app-module-card h2 {
+  margin: 0 0 5px;
+  color: #10203f;
+  font-size: 17px;
+}
+
+.student-app-module-card p {
+  margin: 0;
+  color: #6a7c95;
+  line-height: 1.45;
+}
+
+.student-app-settings-form {
+  display: grid;
+  gap: 18px;
+}
+
+.student-app-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.student-app-toggle-grid label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2eafa;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+
+.student-app-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.student-app-modal-grid label,
+.student-app-secret-box {
+  display: grid;
+  gap: 7px;
+}
+
+.student-app-modal-grid label span {
+  color: #344054;
+  font-weight: 600;
+}
+
+.student-app-modal-grid textarea,
+.student-app-secret-box textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.student-app-modal-check {
+  display: flex !important;
+  align-items: center;
+  grid-column: span 2;
+}
+
+.student-app-secret-box {
+  padding: 18px;
+  border: 1px solid #dbe7ff;
+  border-radius: 18px;
+  background: #f7fbff;
+}
+
+.student-app-secret-box strong {
+  width: max-content;
+  padding: 12px 18px;
+  color: #0f46c9;
+  font-size: 32px;
+  letter-spacing: 6px;
+  border-radius: 16px;
+  background: #e9f1ff;
+}
+
+@media (max-width: 1100px) {
+  .student-app-kpi-grid,
+  .student-app-admin-grid,
+  .student-app-module-grid,
+  .student-app-toggle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .student-app-admin-head,
+  .student-app-kpi-grid,
+  .student-app-admin-grid,
+  .student-app-module-grid,
+  .student-app-toggle-grid,
+  .student-app-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-app-admin-head {
+    align-items: stretch;
+  }
+}
