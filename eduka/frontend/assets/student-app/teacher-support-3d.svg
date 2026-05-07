@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" role="img" aria-label="Teacher support">
+  <defs>
+    <linearGradient id="bubble" x1="46" y1="48" x2="211" y2="197" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAF7FF"/>
+      <stop offset=".5" stop-color="#87C8FF"/>
+      <stop offset="1" stop-color="#5867E8"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="85" y1="52" x2="160" y2="141" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE8CB"/>
+      <stop offset="1" stop-color="#D98750"/>
+    </linearGradient>
+    <filter id="ts" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="20" stdDeviation="14" flood-color="#243B7A" flood-opacity=".19"/>
+    </filter>
+  </defs>
+  <ellipse cx="130" cy="204" rx="80" ry="17" fill="#243B7A" opacity=".11"/>
+  <g filter="url(#ts)">
+    <path d="M48 64c0-17 14-31 31-31h101c17 0 31 14 31 31v68c0 17-14 31-31 31h-47l-42 36 9-36H79c-17 0-31-14-31-31V64Z" fill="url(#bubble)"/>
+    <circle cx="130" cy="82" r="34" fill="url(#skin)"/>
+    <path d="M96 79c8-31 49-38 69-11-17 0-31 6-44 18-8-7-16-9-25-7Z" fill="#243142"/>
+    <path d="M83 145c8-34 26-51 47-51s39 17 47 51v16H83v-16Z" fill="#FFFFFF" opacity=".36"/>
+    <path d="M89 115c-11-3-18-13-18-25 0-9 4-18 11-23" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <path d="M171 115c11-3 18-13 18-25 0-9-4-18-11-23" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <path d="M148 109c12 2 21 9 25 20" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity=".72"/>
+    <circle cx="177" cy="132" r="9" fill="#22C55E"/>
+  </g>
+</svg>

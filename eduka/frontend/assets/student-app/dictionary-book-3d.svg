@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" role="img" aria-label="Dictionary book">
+  <defs>
+    <linearGradient id="book" x1="71" y1="38" x2="181" y2="204" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8ECBFF"/>
+      <stop offset=".48" stop-color="#336FDB"/>
+      <stop offset="1" stop-color="#173E96"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="72" y1="67" x2="198" y2="198" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#CFE1F8"/>
+    </linearGradient>
+    <filter id="d" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="20" stdDeviation="15" flood-color="#172B65" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <ellipse cx="132" cy="204" rx="80" ry="18" fill="#172B65" opacity=".12"/>
+  <g filter="url(#d)">
+    <path d="M78 42h83c19 0 35 16 35 35v106c0 10-8 18-18 18H78c-14 0-25-11-25-25V67c0-14 11-25 25-25Z" fill="url(#edge)"/>
+    <path d="M69 42h82c19 0 35 16 35 35v103c0 10-8 18-18 18H69c-14 0-25-11-25-25V67c0-14 11-25 25-25Z" fill="url(#book)"/>
+    <path d="M172 55c8 7 13 16 13 28v97c0 10-8 18-18 18h-14V72c0-10 8-17 19-17Z" fill="#0F3482" opacity=".45"/>
+    <path d="M73 67h78M73 176h83" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity=".22"/>
+    <text x="76" y="130" font-family="Inter, Arial, sans-serif" font-size="55" font-weight="800" fill="#FFFFFF">Aa</text>
+    <rect x="185" y="78" width="19" height="34" rx="5" fill="#FF9F1A"/>
+    <rect x="185" y="118" width="19" height="34" rx="5" fill="#22C55E"/>
+    <rect x="185" y="158" width="19" height="34" rx="5" fill="#C86CFF"/>
+    <path d="M50 153c-13-28-6-49 18-66" stroke="#58B35F" stroke-width="7" stroke-linecap="round"/>
+    <path d="M38 120c17-7 32-3 42 12-18 7-32 3-42-12Z" fill="#65D47E"/>
+    <path d="M38 160h43v43H38z" rx="9" fill="#D7A673"/>
+  </g>
+</svg>

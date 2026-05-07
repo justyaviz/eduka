@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="3D microphone">
+  <defs>
+    <linearGradient id="body" x1="62" y1="42" x2="170" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAF4FF"/>
+      <stop offset=".5" stop-color="#4E85DA"/>
+      <stop offset="1" stop-color="#254093"/>
+    </linearGradient>
+    <linearGradient id="mesh" x1="86" y1="34" x2="156" y2="113" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".55" stop-color="#B9C7DF"/>
+      <stop offset="1" stop-color="#536A98"/>
+    </linearGradient>
+    <filter id="mshadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="18" stdDeviation="12" flood-color="#142454" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <ellipse cx="122" cy="202" rx="62" ry="14" fill="#15224E" opacity=".14"/>
+  <g filter="url(#mshadow)" transform="rotate(-18 120 120)">
+    <rect x="94" y="87" width="54" height="96" rx="25" fill="url(#body)"/>
+    <ellipse cx="121" cy="88" rx="34" ry="42" fill="url(#mesh)"/>
+    <path d="M91 84h61M89 99h65M93 113h57M106 50v74M121 45v80M136 50v74" stroke="#384B78" stroke-width="3" opacity=".36"/>
+    <rect x="112" y="174" width="18" height="36" rx="9" fill="#283F92"/>
+    <path d="M78 208h86" stroke="#6176B9" stroke-width="14" stroke-linecap="round"/>
+    <path d="M105 112c12 8 25 8 38 0" fill="none" stroke="#FFFFFF" stroke-width="4" opacity=".55"/>
+    <circle cx="105" cy="136" r="5" fill="#89C9FF"/>
+  </g>
+</svg>
