@@ -74,7 +74,14 @@ Safe debug endpointlar token qiymatini qaytarmaydi:
 GET /api/telegram/status
 GET /api/telegram/student-bot-info
 GET /api/telegram/landing-bot-info
+GET /api/telegram/webhook-info
+POST /api/telegram/test-landing-message
+GET /api/telegram/test-student-message?chat_id=<telegram_chat_id>
 ```
+
+Landing test endpointi `LANDING_BOT_TOKEN` bilan `LANDING_CHAT_ID` ga test xabar
+yuboradi. Student test endpoint production'da `TELEGRAM_WEBHOOK_SECRET` ni
+`x-telegram-webhook-secret` headerida yoki `secret` query parametrida talab qiladi.
 
 ## PostgreSQL login
 

@@ -4,7 +4,12 @@
   "private": true,
   "description": "Eduka landing page for eduka.uz",
   "scripts": {
-    "start": "node server.js"
+    "start": "node eduka/backend/server.js",
+    "build": "node --check eduka/backend/server.js && node --check eduka/backend/telegram-bot.js && node --check eduka/backend/set-telegram-webhook.js && node --check eduka/backend/seed.js && node --check eduka/frontend/crm-mock.js && node --check eduka/frontend/crm-services.js && node --check eduka/frontend/app.js && node --check eduka/frontend/student-app.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.13.1"
   },
   "engines": {
     "node": ">=18"

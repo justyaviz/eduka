@@ -404,12 +404,13 @@ function logTelegramConfigSummary() {
   const landing = getLandingTelegramConfig({ allowMissing: true });
   const student = getStudentTelegramConfig({ allowMissing: true });
   console.log("Telegram config:");
-  console.log(`Database URL: ${telegramConfiguredLabel(Boolean(String(process.env.DATABASE_URL || "").trim()))}`);
-  console.log(`Landing bot: ${telegramConfiguredLabel(landing.tokenPresent)}`);
-  console.log(`Landing chat: ${telegramConfiguredLabel(landing.chatIdCount > 0)}`);
-  console.log(`Student bot: ${telegramConfiguredLabel(student.tokenPresent)}`);
-  console.log(`Student WebApp URL: ${telegramConfiguredLabel(Boolean(getStudentWebAppUrlBase()))}`);
-  console.log(`Webhook secret: ${telegramConfiguredLabel(Boolean(String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim()))}`);
+  console.log(`DATABASE_URL configured: ${Boolean(String(process.env.DATABASE_URL || "").trim())}`);
+  console.log(`BASE_DOMAIN: ${String(process.env.BASE_DOMAIN || "eduka.uz").trim()}`);
+  console.log(`LANDING_BOT_TOKEN configured: ${landing.tokenPresent}`);
+  console.log(`LANDING_CHAT_ID configured: ${landing.chatIdCount > 0}`);
+  console.log(`STUDENT_BOT_TOKEN configured: ${student.tokenPresent}`);
+  console.log(`STUDENT_WEBAPP_URL configured: ${Boolean(getStudentWebAppUrlBase())}`);
+  console.log(`TELEGRAM_WEBHOOK_SECRET configured: ${Boolean(String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim())}`);
 }
 
 function safeTelegramErrorMessage(error) {
@@ -468,7 +469,10 @@ function postTelegramMessage(token, chatId, text) {
             parsedBody = {};
           }
 
-          const error = new Error(`Telegram returned ${telegramResponse.statusCode}: ${responseBody}`);
+          const description = parsedBody.description || responseBody || `Telegram returned ${telegramResponse.statusCode}`;
+          const error = new Error(description);
+          error.telegramDescription = description;
+          error.statusCode = telegramResponse.statusCode;
           const migrateToChatId = parsedBody.parameters?.migrate_to_chat_id;
 
           if (migrateToChatId) {
@@ -525,7 +529,11 @@ function telegramApiRequest(token, methodName, payload = {}) {
             return;
           }
 
-          reject(new Error(parsedBody.description || `Telegram returned ${telegramResponse.statusCode}`));
+          const description = parsedBody.description || `Telegram returned ${telegramResponse.statusCode}`;
+          const error = new Error(description);
+          error.telegramDescription = description;
+          error.statusCode = telegramResponse.statusCode;
+          reject(error);
         });
       }
     );
@@ -540,9 +548,28 @@ function telegramApiRequest(token, methodName, payload = {}) {
   });
 }
 
-async function sendLandingTelegramMessage(text) {
+function landingMessageFromPayload(payload = {}) {
+  const name = String(payload.name || payload.full_name || payload.fullName || "Kiritilmagan").trim();
+  const phone = String(payload.phone || payload.tel || "Kiritilmagan").trim();
+  const center = String(payload.center || payload.course || payload.service || payload.subject || "Kiritilmagan").trim();
+  const note = String(payload.note || payload.comment || payload.message || payload.students || "").trim();
+
+  return [
+    "📩 <b>Yangi demo/ariza</b>",
+    "",
+    `👤 <b>Ism:</b> ${escapeHtml(name)}`,
+    `📞 <b>Telefon:</b> ${escapeHtml(phone)}`,
+    `🏫 <b>Markaz/Kurs:</b> ${escapeHtml(center)}`,
+    `💬 <b>Izoh:</b> ${escapeHtml(note || "-")}`,
+    "🌐 <b>Manba:</b> Eduka landing",
+    `🕒 <b>Sana:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
+  ].join("\n");
+}
+
+async function sendLandingTelegramMessage(payload) {
   const { token, chatIds, tokenEnvName, chatEnvName } = getLandingTelegramConfig();
   let lastError;
+  const text = typeof payload === "string" ? payload : landingMessageFromPayload(payload);
 
   console.log(`Landing Telegram config: token=${tokenEnvName || "missing"}, chat=${chatEnvName || "missing"}, candidates=${chatIds.length}`);
 
@@ -2439,10 +2466,6 @@ async function handleDemoRequest(request, response) {
     const body = await readJsonBody(request);
     const name = String(body.name || "").trim();
     const phone = String(body.phone || "").trim();
-    const center = String(body.center || "Kiritilmagan").trim();
-    const students = String(body.students || "Kiritilmagan").trim();
-    const course = String(body.course || body.service || body.subject || "Kiritilmagan").trim();
-    const note = String(body.note || body.comment || body.message || "").trim();
     const lang = String(body.lang || "uz").trim().toUpperCase();
 
     if (!name || !phone) {
@@ -2457,28 +2480,16 @@ async function handleDemoRequest(request, response) {
       );
     }
 
-    const message = [
-      "<b>Eduka demo so'rovi</b>",
-      "",
-      `<b>Ism:</b> ${escapeHtml(name)}`,
-      `<b>Telefon:</b> ${escapeHtml(phone)}`,
-      `<b>Markaz:</b> ${escapeHtml(center)}`,
-      `<b>Kurs/xizmat:</b> ${escapeHtml(course)}`,
-      `<b>O'quvchi soni:</b> ${escapeHtml(students)}`,
-      `<b>Izoh:</b> ${escapeHtml(note || "-")}`,
-      `<b>Til:</b> ${escapeHtml(lang)}`,
-      `<b>Manba:</b> eduka.uz landing`,
-      `<b>Vaqt:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
-    ].join("\n");
-
-    await sendLandingTelegramMessage(message);
+    await sendLandingTelegramMessage({ ...body, name, phone, note: body.note || body.comment || body.message || `Til: ${lang}` });
     sendJson(response, 200, { ok: true });
   } catch (error) {
     console.error(`Demo request failed: ${safeTelegramErrorMessage(error)}`);
     const isConfigError = error.message === "Landing Telegram bot token is not configured" || error.message === "Landing Telegram chat id is not configured";
     sendJson(response, isConfigError ? 503 : 500, {
       ok: false,
-      message: isConfigError ? error.message : "Demo request failed"
+      message: isConfigError ? error.message : "Demo request failed",
+      error: isConfigError ? error.message : "Demo request failed",
+      telegramDescription: error.telegramDescription ? safeTelegramErrorMessage(error) : undefined
     });
   }
 }
@@ -3349,16 +3360,21 @@ async function handleTelegramWebhook(request, response) {
   if (expectedSecret) {
     const actualSecret = String(request.headers["x-telegram-bot-api-secret-token"] || "").trim();
     if (actualSecret !== expectedSecret) {
-      console.error("invalid webhook secret: check Telegram setWebhook secret_token and TELEGRAM_WEBHOOK_SECRET");
+      console.error("Invalid Telegram webhook secret");
       if (actualSecret) {
         sendJson(response, 200, { ok: false, message: "Invalid webhook secret" });
         return;
       }
-      console.error("invalid webhook secret: missing Telegram secret header; accepting update with ordinary webhook fallback");
+      console.error("Invalid Telegram webhook secret: missing secret header; accepting update with ordinary webhook fallback");
     }
   }
   try {
     const update = await readJsonBody(request);
+    const message = update.message || update.edited_message || update.callback_query?.message || null;
+    const text = String(update.message?.text || update.edited_message?.text || update.callback_query?.data || "").trim();
+    console.log(
+      `Telegram webhook update received: message=${Boolean(message)} text=${text ? text.slice(0, 40) : "-"} from=${Boolean(update.message?.from?.id || update.callback_query?.from?.id)} chat=${Boolean(message?.chat?.id)}`
+    );
     await studentTelegramBot.handleUpdate(update, {
       getDbPool,
       ensureSchema,
@@ -3406,6 +3422,9 @@ function telegramStatusPayload() {
   const student = getStudentTelegramConfig({ allowMissing: true });
   const studentWebAppUrl = getStudentWebAppUrlBase();
   return {
+    ok: true,
+    databaseUrlConfigured: Boolean(String(process.env.DATABASE_URL || "").trim()),
+    baseDomain: String(process.env.BASE_DOMAIN || "eduka.uz").trim(),
     landingBotConfigured: landing.tokenPresent,
     landingChatConfigured: landing.chatIdCount > 0,
     studentBotConfigured: student.tokenPresent,
@@ -3422,7 +3441,7 @@ async function handleTelegramStatus(response) {
 async function handleStudentBotInfo(response) {
   const config = getStudentTelegramConfig({ allowMissing: true });
   if (!config.tokenPresent) {
-    sendJson(response, 503, { ok: false, message: "STUDENT_BOT_TOKEN sozlanmagan" });
+    sendJson(response, 503, { ok: false, error: "STUDENT_BOT_TOKEN sozlanmagan" });
     return;
   }
 
@@ -3436,14 +3455,14 @@ async function handleStudentBotInfo(response) {
     });
   } catch (error) {
     console.error(`Student bot getMe failed: ${safeTelegramErrorMessage(error)}`);
-    sendJson(response, 502, { ok: false, message: safeTelegramErrorMessage(error) });
+    sendJson(response, 502, { ok: false, error: safeTelegramErrorMessage(error) });
   }
 }
 
 async function handleLandingBotInfo(response) {
   const config = getLandingTelegramConfig({ allowMissing: true });
   if (!config.tokenPresent) {
-    sendJson(response, 503, { ok: false, message: "LANDING_BOT_TOKEN sozlanmagan" });
+    sendJson(response, 503, { ok: false, error: "LANDING_BOT_TOKEN sozlanmagan" });
     return;
   }
 
@@ -3457,7 +3476,84 @@ async function handleLandingBotInfo(response) {
     });
   } catch (error) {
     console.error(`Landing bot getMe failed: ${safeTelegramErrorMessage(error)}`);
-    sendJson(response, 502, { ok: false, message: safeTelegramErrorMessage(error) });
+    sendJson(response, 502, { ok: false, error: safeTelegramErrorMessage(error) });
+  }
+}
+
+async function handleWebhookInfo(response) {
+  const config = getStudentTelegramConfig({ allowMissing: true });
+  if (!config.tokenPresent) {
+    sendJson(response, 503, { ok: false, error: "STUDENT_BOT_TOKEN sozlanmagan" });
+    return;
+  }
+
+  try {
+    const webhookInfo = await telegramApiRequest(config.token, "getWebhookInfo");
+    const result = webhookInfo.result || {};
+    sendJson(response, 200, {
+      ok: true,
+      url: result.url || "",
+      has_custom_certificate: Boolean(result.has_custom_certificate),
+      pending_update_count: Number(result.pending_update_count || 0),
+      last_error_date: result.last_error_date || null,
+      last_error_message: result.last_error_message || null,
+      max_connections: result.max_connections || null
+    });
+  } catch (error) {
+    console.error(`Student webhook info failed: ${safeTelegramErrorMessage(error)}`);
+    sendJson(response, 502, { ok: false, error: safeTelegramErrorMessage(error) });
+  }
+}
+
+async function handleTestLandingMessage(request, response) {
+  try {
+    const body = request.method === "POST" ? await readJsonBody(request) : {};
+    await sendLandingTelegramMessage({
+      name: body.name || "Test User",
+      phone: body.phone || "+998901234567",
+      center: body.center || body.course || "Railway test",
+      note: body.note || "Telegram landing test"
+    });
+    sendJson(response, 200, { ok: true, sent: true });
+  } catch (error) {
+    console.error(`Telegram landing test failed: ${safeTelegramErrorMessage(error)}`);
+    sendJson(response, 500, {
+      ok: false,
+      error: safeTelegramErrorMessage(error),
+      telegramDescription: error.telegramDescription ? safeTelegramErrorMessage(error) : undefined
+    });
+  }
+}
+
+async function handleTestStudentMessage(request, response, query) {
+  const expectedSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
+  if (expectedSecret && String(request.headers["x-telegram-webhook-secret"] || query.get("secret") || "").trim() !== expectedSecret) {
+    sendJson(response, 403, { ok: false, error: "Forbidden" });
+    return;
+  }
+
+  const chatId = String(query.get("chat_id") || "").trim();
+  if (!chatId) {
+    sendJson(response, 400, { ok: false, error: "chat_id required" });
+    return;
+  }
+
+  const config = getStudentTelegramConfig({ allowMissing: true });
+  if (!config.tokenPresent) {
+    sendJson(response, 503, { ok: false, error: "STUDENT_BOT_TOKEN sozlanmagan" });
+    return;
+  }
+
+  try {
+    await postTelegramMessage(config.token, chatId, "Eduka Student bot test xabari.");
+    sendJson(response, 200, { ok: true, sent: true });
+  } catch (error) {
+    console.error(`Student bot test message failed: ${safeTelegramErrorMessage(error)}`);
+    sendJson(response, 500, {
+      ok: false,
+      error: safeTelegramErrorMessage(error),
+      telegramDescription: error.telegramDescription ? safeTelegramErrorMessage(error) : undefined
+    });
   }
 }
 
@@ -3466,7 +3562,7 @@ const server = http.createServer((request, response) => {
   const urlPath = decodeURIComponent(rawUrlPath);
   const query = new URLSearchParams(rawQuery);
 
-  if (request.method === "POST" && ["/api/demo", "/api/demo-request", "/api/contact", "/api/lead"].includes(urlPath)) {
+  if (request.method === "POST" && ["/api/demo", "/api/demo-request", "/api/contact", "/api/lead", "/api/register-demo"].includes(urlPath)) {
     handleDemoRequest(request, response);
     return;
   }
@@ -3734,6 +3830,21 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/api/telegram/landing-bot-info") {
     handleLandingBotInfo(response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/telegram/webhook-info") {
+    handleWebhookInfo(response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/telegram/test-landing-message") {
+    handleTestLandingMessage(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/telegram/test-student-message") {
+    handleTestStudentMessage(request, response, query);
     return;
   }
 

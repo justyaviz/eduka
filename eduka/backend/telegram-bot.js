@@ -52,6 +52,9 @@ function sendMessage(token, chatId, text, replyMarkup) {
     parse_mode: "HTML",
     disable_web_page_preview: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  }).catch((error) => {
+    console.error(`Student bot sendMessage failed: ${error.message}`);
+    throw error;
   });
 }
 
@@ -83,7 +86,7 @@ async function askForContact(token, chatId) {
   await sendMessage(
     token,
     chatId,
-    "Assalomu alaykum! Eduka Student App'ga xush kelibsiz.\n\nKabinetga kirish uchun telefon raqamingizni yuboring.",
+    "Assalomu alaykum! 👋\nEduka Student App'ga xush kelibsiz.\n\nKabinetga kirish uchun telefon raqamingizni yuboring.",
     contactKeyboard()
   );
 }
@@ -181,7 +184,8 @@ async function handleCallback(update, deps) {
 async function handleCommand(token, message, deps) {
   const chatId = message.chat.id;
   const rawText = String(message.text || "").trim();
-  const command = rawText.split(/\s+/)[0].split("@")[0].toLowerCase();
+  const commandWord = rawText.split(/\s+/)[0].split("@")[0].toLowerCase();
+  const command = commandWord.startsWith("/") ? commandWord : `/${commandWord}`;
   if (command === "/start") return askForContact(token, chatId);
   if (command === "/help") {
     await sendMessage(token, chatId, "Yordam kerak bo'lsa o'quv markazingiz administratoriga murojaat qiling yoki Student App ichidagi 'Mas'ullarga yozish' bo'limidan foydalaning.");
