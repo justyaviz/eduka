@@ -24,16 +24,50 @@ Railway GitHub repository ulanganidan keyin root directory `eduka` bo'lib qoladi
 Custom domain uchun Railway service ichida `Settings -> Public Networking -> Custom Domain`
 qismidan `eduka.uz` domeni qo'shiladi va Railway bergan DNS yozuvlari domen provayderida sozlanadi.
 
-## Telegram demo form
+## Telegram botlar
 
 Railway service variables qismiga quyidagilar qo'shiladi:
 
 ```txt
-TELEGRAM_BOT_TOKEN=bot token
-TELEGRAM_CHAT_ID=guruh yoki kanal id
+DATABASE_URL=postgres connection string
+BASE_DOMAIN=eduka.uz
+
+LANDING_BOT_TOKEN=landing ariza bot tokeni
+LANDING_CHAT_ID=guruh yoki kanal id
+
+STUDENT_BOT_TOKEN=@edukauz_bot tokeni
+STUDENT_WEBAPP_URL=https://eduka.uz/student-app
+STUDENT_APP_SESSION_SECRET=uzun random secret
+TELEGRAM_WEBHOOK_SECRET=uzun random secret
 ```
 
-Demo formasi `/api/demo` endpoint orqali Telegram guruhga yuboriladi.
+Landing demo formasi `/api/demo` endpoint orqali faqat `LANDING_BOT_TOKEN` va
+`LANDING_CHAT_ID` bilan Telegram guruhga yuboriladi. Bu bot `/start` yoki Student
+App login oqimida ishlatilmaydi.
+
+Student App bot faqat `STUDENT_BOT_TOKEN` bilan ishlaydi. Eski deploymentlar uchun
+fallback mavjud: `STUDENT_BOT_TOKEN || BOT_TOKEN`, `STUDENT_WEBAPP_URL || WEBAPP_URL`,
+`LANDING_BOT_TOKEN || TELEGRAM_BOT_TOKEN`, `LANDING_CHAT_ID || TELEGRAM_CHAT_ID`.
+Yangi production sozlamalarda yuqoridagi yangi nomlardan foydalaning.
+
+Student bot webhook:
+
+```txt
+https://api.telegram.org/bot<STUDENT_BOT_TOKEN>/setWebhook?url=https://eduka.uz/api/telegram/webhook
+```
+
+Webhook secret ishlatilsa:
+
+```txt
+https://api.telegram.org/bot<STUDENT_BOT_TOKEN>/setWebhook?url=https://eduka.uz/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>
+```
+
+Safe debug endpointlar token qiymatini qaytarmaydi:
+
+```txt
+GET /api/telegram/status
+GET /api/telegram/student-bot-info
+```
 
 ## PostgreSQL login
 

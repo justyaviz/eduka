@@ -325,19 +325,18 @@ function firstEnvValue(names) {
   return { name: "", value: "" };
 }
 
-function getTelegramConfig(options = {}) {
-  const tokenEnv = firstEnvValue(["TELEGRAM_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN"]);
-  const chatEnv = firstEnvValue([
-    "TELEGRAM_CHAT_ID",
-    "TELEGRAM_GROUP_ID",
-    "TELEGRAM_ADMIN_CHAT_ID",
-    "CHAT_ID"
-  ]);
-  const token = tokenEnv.value;
-  const rawChatIds = chatEnv.value
+function splitChatIds(value) {
+  return String(value || "")
     .split(",")
     .map((chatId) => chatId.trim())
     .filter(Boolean);
+}
+
+function getLandingTelegramConfig(options = {}) {
+  const tokenEnv = firstEnvValue(["LANDING_BOT_TOKEN", "TELEGRAM_BOT_TOKEN"]);
+  const chatEnv = firstEnvValue(["LANDING_CHAT_ID", "TELEGRAM_CHAT_ID"]);
+  const token = tokenEnv.value;
+  const rawChatIds = splitChatIds(chatEnv.value);
 
   if (!token || rawChatIds.length === 0) {
     if (options.allowMissing) {
@@ -350,7 +349,8 @@ function getTelegramConfig(options = {}) {
       };
     }
 
-    throw new Error("Telegram is not configured");
+    if (!token) throw new Error("Landing Telegram bot token is not configured");
+    throw new Error("Landing Telegram chat id is not configured");
   }
 
   const chatIds = [];
@@ -367,6 +367,65 @@ function getTelegramConfig(options = {}) {
     tokenEnvName: tokenEnv.name,
     chatEnvName: chatEnv.name
   };
+}
+
+function getStudentTelegramConfig(options = {}) {
+  const tokenEnv = firstEnvValue(["STUDENT_BOT_TOKEN", "BOT_TOKEN"]);
+  const token = tokenEnv.value;
+
+  if (!token) {
+    if (options.allowMissing) {
+      return {
+        tokenPresent: false,
+        tokenEnvName: tokenEnv.name,
+        token: ""
+      };
+    }
+
+    throw new Error("Student Telegram bot is not configured");
+  }
+
+  return {
+    token,
+    tokenPresent: true,
+    tokenEnvName: tokenEnv.name
+  };
+}
+
+function getStudentWebAppUrlBase() {
+  return String(process.env.STUDENT_WEBAPP_URL || process.env.WEBAPP_URL || "https://eduka.uz/student-app").trim();
+}
+
+function telegramConfiguredLabel(isConfigured) {
+  return isConfigured ? "configured" : "missing";
+}
+
+function logTelegramConfigSummary() {
+  const landing = getLandingTelegramConfig({ allowMissing: true });
+  const student = getStudentTelegramConfig({ allowMissing: true });
+  console.log("Telegram config:");
+  console.log(`Database URL: ${telegramConfiguredLabel(Boolean(String(process.env.DATABASE_URL || "").trim()))}`);
+  console.log(`Landing bot: ${telegramConfiguredLabel(landing.tokenPresent)}`);
+  console.log(`Landing chat: ${telegramConfiguredLabel(landing.chatIdCount > 0)}`);
+  console.log(`Student bot: ${telegramConfiguredLabel(student.tokenPresent)}`);
+  console.log(`Student WebApp URL: ${telegramConfiguredLabel(Boolean(getStudentWebAppUrlBase()))}`);
+  console.log(`Webhook secret: ${telegramConfiguredLabel(Boolean(String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim()))}`);
+}
+
+function safeTelegramErrorMessage(error) {
+  const tokens = [
+    process.env.LANDING_BOT_TOKEN,
+    process.env.STUDENT_BOT_TOKEN,
+    process.env.TELEGRAM_BOT_TOKEN,
+    process.env.BOT_TOKEN
+  ]
+    .map((token) => String(token || "").trim())
+    .filter(Boolean);
+  let message = String(error?.message || error || "Unknown Telegram error");
+  for (const token of tokens) {
+    message = message.split(token).join("[redacted-token]");
+  }
+  return message;
 }
 
 function postTelegramMessage(token, chatId, text) {
@@ -481,18 +540,18 @@ function telegramApiRequest(token, methodName, payload = {}) {
   });
 }
 
-async function sendTelegramMessage(text) {
-  const { token, chatIds, tokenEnvName, chatEnvName } = getTelegramConfig();
+async function sendLandingTelegramMessage(text) {
+  const { token, chatIds, tokenEnvName, chatEnvName } = getLandingTelegramConfig();
   let lastError;
 
-  console.log(`Telegram config: token=${tokenEnvName || "missing"}, chat=${chatEnvName || "missing"}, candidates=${chatIds.length}`);
+  console.log(`Landing Telegram config: token=${tokenEnvName || "missing"}, chat=${chatEnvName || "missing"}, candidates=${chatIds.length}`);
 
   for (const chatId of chatIds) {
     try {
       return await postTelegramMessage(token, chatId, text);
     } catch (error) {
       lastError = error;
-      console.error(`Telegram send failed for chat ${chatId}: ${error.message}`);
+      console.error(`Telegram landing message failed for chat ${chatId}: ${safeTelegramErrorMessage(error)}`);
 
       if (error.migrateToChatId && !chatIds.includes(error.migrateToChatId)) {
         console.log(`Telegram chat migrated. Retrying with ${error.migrateToChatId}`);
@@ -501,13 +560,13 @@ async function sendTelegramMessage(text) {
           return await postTelegramMessage(token, error.migrateToChatId, text);
         } catch (retryError) {
           lastError = retryError;
-          console.error(`Telegram migrated chat retry failed for ${error.migrateToChatId}: ${retryError.message}`);
+          console.error(`Telegram landing migrated chat retry failed for ${error.migrateToChatId}: ${safeTelegramErrorMessage(retryError)}`);
         }
       }
     }
   }
 
-  throw lastError || new Error(`Telegram send failed. Tried chats: ${chatIds.join(", ")}`);
+  throw lastError || new Error("Telegram landing message failed");
 }
 
 function sendFile(response, filePath) {
@@ -2408,14 +2467,14 @@ async function handleDemoRequest(request, response) {
       `<b>Vaqt:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
     ].join("\n");
 
-    await sendTelegramMessage(message);
+    await sendLandingTelegramMessage(message);
     sendJson(response, 200, { ok: true });
   } catch (error) {
-    console.error(`Demo request failed: ${error.message}`);
-    const isConfigError = error.message === "Telegram is not configured";
+    console.error(`Demo request failed: ${safeTelegramErrorMessage(error)}`);
+    const isConfigError = error.message === "Landing Telegram bot token is not configured" || error.message === "Landing Telegram chat id is not configured";
     sendJson(response, isConfigError ? 503 : 500, {
       ok: false,
-      message: isConfigError ? "Telegram is not configured" : error.message
+      message: isConfigError ? error.message : "Demo request failed"
     });
   }
 }
@@ -2429,16 +2488,16 @@ async function handleTelegramTest(response) {
       `<b>Vaqt:</b> ${new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}`
     ].join("\n");
 
-    await sendTelegramMessage(message);
+    await sendLandingTelegramMessage(message);
     sendJson(response, 200, { ok: true, message: "Telegram test message sent" });
   } catch (error) {
-    console.error(`Telegram test failed: ${error.message}`);
-    sendJson(response, 500, { ok: false, message: error.message });
+    console.error(`Telegram test failed: ${safeTelegramErrorMessage(error)}`);
+    sendJson(response, 500, { ok: false, message: safeTelegramErrorMessage(error) });
   }
 }
 
 async function handleTelegramHealth(response, shouldCheckTelegram) {
-  const config = getTelegramConfig({ allowMissing: true });
+  const config = getLandingTelegramConfig({ allowMissing: true });
   const payload = {
     ok: true,
     configured: config.tokenPresent && config.chatIdCount > 0,
@@ -2446,8 +2505,8 @@ async function handleTelegramHealth(response, shouldCheckTelegram) {
     chatIdCount: config.chatIdCount,
     tokenEnvName: config.tokenEnvName || null,
     chatEnvName: config.chatEnvName || null,
-    supportedTokenEnv: ["TELEGRAM_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN"],
-    supportedChatEnv: ["TELEGRAM_CHAT_ID", "TELEGRAM_GROUP_ID", "TELEGRAM_ADMIN_CHAT_ID", "CHAT_ID"]
+    supportedTokenEnv: ["LANDING_BOT_TOKEN", "TELEGRAM_BOT_TOKEN"],
+    supportedChatEnv: ["LANDING_CHAT_ID", "TELEGRAM_CHAT_ID"]
   };
 
   if (!shouldCheckTelegram || !config.tokenPresent) {
@@ -2547,10 +2606,7 @@ function studentPublic(row) {
 }
 
 function studentAppWebUrl(organization, token = "") {
-  const configured = String(process.env.WEBAPP_URL || "").trim();
-  const baseDomain = String(process.env.BASE_DOMAIN || "eduka.uz").trim();
-  const subdomain = String(organization?.subdomain || organization?.slug || "").trim();
-  const base = configured || (subdomain ? `https://${subdomain}.${baseDomain}/student-app` : `https://${baseDomain}/student-app`);
+  const base = getStudentWebAppUrlBase();
   const url = new URL(base);
   if (token) url.searchParams.set("token", token);
   return url.toString();
@@ -3278,8 +3334,8 @@ async function handleAdminStudentAppTable(request, response, key, id = null) {
 
 async function sendStudentTelegramMessage(pool, student, message) {
   if (!student?.telegram_chat_id) return { ok: false, message: "Student Telegram botga ulanmagan" };
-  const config = getTelegramConfig({ allowMissing: true });
-  if (!config.tokenPresent) return { ok: false, message: "BOT_TOKEN sozlanmagan" };
+  const config = getStudentTelegramConfig({ allowMissing: true });
+  if (!config.tokenPresent) return { ok: false, message: "STUDENT_BOT_TOKEN sozlanmagan" };
   await postTelegramMessage(config.token, student.telegram_chat_id, message);
   return { ok: true, message: "Xabar yuborildi" };
 }
@@ -3289,7 +3345,8 @@ async function handleTelegramWebhook(request, response) {
   if (expectedSecret) {
     const actualSecret = String(request.headers["x-telegram-bot-api-secret-token"] || "").trim();
     if (actualSecret !== expectedSecret) {
-      sendJson(response, 403, { ok: false, message: "Forbidden" });
+      console.error("Telegram webhook secret mismatch: update rejected. Check setWebhook secret_token and TELEGRAM_WEBHOOK_SECRET.");
+      sendJson(response, 200, { ok: false, message: "Forbidden" });
       return;
     }
   }
@@ -3303,7 +3360,7 @@ async function handleTelegramWebhook(request, response) {
       createLinkedStudentAppSession,
       findStudentsByPhone,
       postTelegramMessage,
-      getTelegramConfig,
+      getStudentTelegramConfig,
       studentAppWebUrl,
       hashPassword
     });
@@ -3321,9 +3378,9 @@ async function handleTelegramSetWebhook(request, response) {
       sendJson(response, 403, { ok: false, message: "Forbidden" });
       return;
     }
-    const config = getTelegramConfig({ allowMissing: true });
+    const config = getStudentTelegramConfig({ allowMissing: true });
     if (!config.tokenPresent) {
-      sendJson(response, 503, { ok: false, message: "BOT_TOKEN sozlanmagan" });
+      sendJson(response, 503, { ok: false, message: "STUDENT_BOT_TOKEN sozlanmagan" });
       return;
     }
     const baseDomain = String(process.env.BASE_DOMAIN || "eduka.uz").replace(/^https?:\/\//, "");
@@ -3334,6 +3391,45 @@ async function handleTelegramSetWebhook(request, response) {
     sendJson(response, 200, { ok: true, webhookUrl });
   } catch (error) {
     sendJson(response, 500, { ok: false, message: error.message });
+  }
+}
+
+function telegramStatusPayload() {
+  const landing = getLandingTelegramConfig({ allowMissing: true });
+  const student = getStudentTelegramConfig({ allowMissing: true });
+  const studentWebAppUrl = getStudentWebAppUrlBase();
+  return {
+    landingBotConfigured: landing.tokenPresent,
+    landingChatConfigured: landing.chatIdCount > 0,
+    studentBotConfigured: student.tokenPresent,
+    studentWebAppUrlConfigured: Boolean(studentWebAppUrl),
+    webhookSecretConfigured: Boolean(String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim()),
+    studentWebAppUrl
+  };
+}
+
+async function handleTelegramStatus(response) {
+  sendJson(response, 200, telegramStatusPayload());
+}
+
+async function handleStudentBotInfo(response) {
+  const config = getStudentTelegramConfig({ allowMissing: true });
+  if (!config.tokenPresent) {
+    sendJson(response, 503, { ok: false, message: "STUDENT_BOT_TOKEN sozlanmagan" });
+    return;
+  }
+
+  try {
+    const botInfo = await telegramApiRequest(config.token, "getMe");
+    sendJson(response, 200, {
+      ok: true,
+      id: botInfo.result?.id || null,
+      username: botInfo.result?.username || null,
+      first_name: botInfo.result?.first_name || null
+    });
+  } catch (error) {
+    console.error(`Student bot getMe failed: ${safeTelegramErrorMessage(error)}`);
+    sendJson(response, 502, { ok: false, message: safeTelegramErrorMessage(error) });
   }
 }
 
@@ -3598,6 +3694,16 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (request.method === "GET" && urlPath === "/api/telegram/status") {
+    handleTelegramStatus(response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/telegram/student-bot-info") {
+    handleStudentBotInfo(response);
+    return;
+  }
+
   if (request.method === "POST" && urlPath === "/api/student-app/auth/phone") {
     handleStudentAppAuthPhone(request, response);
     return;
@@ -3744,6 +3850,7 @@ const server = http.createServer((request, response) => {
 
 server.listen(port, () => {
   console.log(`Eduka landing is running on port ${port}`);
+  logTelegramConfigSummary();
   studentTelegramBot.startPollingIfEnabled({
     getDbPool,
     ensureSchema,
@@ -3752,7 +3859,7 @@ server.listen(port, () => {
     createLinkedStudentAppSession,
     findStudentsByPhone,
     postTelegramMessage,
-    getTelegramConfig,
+    getStudentTelegramConfig,
     studentAppWebUrl,
     hashPassword
   });

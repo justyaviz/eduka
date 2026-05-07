@@ -37,16 +37,19 @@ function request(token, payload) {
 }
 
 async function main() {
-  const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  const token = process.env.STUDENT_BOT_TOKEN || process.env.BOT_TOKEN;
   const baseDomain = String(process.env.BASE_DOMAIN || "eduka.uz").replace(/^https?:\/\//, "");
   const secret = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
 
-  if (!token) throw new Error("BOT_TOKEN is required");
+  if (!token) throw new Error("STUDENT_BOT_TOKEN is required");
 
   const payload = { url: `https://${baseDomain}/api/telegram/webhook` };
   if (secret) payload.secret_token = secret;
   await request(token, payload);
   console.log(`Telegram webhook configured for https://${baseDomain}/api/telegram/webhook`);
+  if (secret) {
+    console.log("Webhook secret_token was configured from TELEGRAM_WEBHOOK_SECRET");
+  }
 }
 
 main().catch((error) => {

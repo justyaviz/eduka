@@ -5,7 +5,7 @@ let pollingStarted = false;
 let pollingOffset = 0;
 
 function safeToken() {
-  return String(process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_TOKEN || "").trim();
+  return String(process.env.STUDENT_BOT_TOKEN || process.env.BOT_TOKEN || "").trim();
 }
 
 function apiRequest(token, methodName, payload = {}) {
@@ -178,17 +178,18 @@ async function handleCallback(update, deps) {
 
 async function handleCommand(token, message, deps) {
   const chatId = message.chat.id;
-  const text = String(message.text || "").trim();
-  if (text === "/start") return askForContact(token, chatId);
-  if (text === "/help") {
+  const rawText = String(message.text || "").trim();
+  const command = rawText.split(/\s+/)[0].split("@")[0].toLowerCase();
+  if (command === "/start") return askForContact(token, chatId);
+  if (command === "/help") {
     await sendMessage(token, chatId, "Yordam kerak bo'lsa o'quv markazingiz administratoriga murojaat qiling yoki Student App ichidagi 'Mas'ullarga yozish' bo'limidan foydalaning.");
     return;
   }
-  if (text === "/app") {
+  if (command === "/app") {
     await openAppForLinkedStudent(token, chatId, message.from?.id, deps);
     return;
   }
-  if (text === "/logout") {
+  if (command === "/logout") {
     if (process.env.DATABASE_URL) {
       const pool = deps.getDbPool();
       await deps.ensureSchema(pool);
@@ -198,7 +199,7 @@ async function handleCommand(token, message, deps) {
     await sendMessage(token, chatId, "Siz Student App'dan chiqdingiz.");
     return;
   }
-  if (text === "/profile") {
+  if (command === "/profile") {
     const student = await findStudentByTelegram(deps, message.from?.id);
     if (!student) {
       await askForContact(token, chatId);
@@ -209,7 +210,9 @@ async function handleCommand(token, message, deps) {
       chatId,
       `<b>${student.full_name}</b>\nGuruh: ${student.group_name || student.course_name || "-"}\nBalans: ${student.balance || 0} so'm\nKristallar: ${student.crystals || 0}\nTangalar: ${student.coins || 0}\nOxirgi login: ${student.last_student_app_login || "-"}`
     );
+    return;
   }
+  await sendMessage(token, chatId, "Noma'lum komanda. /start, /app, /help yoki /logout komandalaridan foydalaning.");
 }
 
 async function handleUpdate(update, deps) {
@@ -230,6 +233,7 @@ async function handleUpdate(update, deps) {
   const flow = loginFlows.get(String(chatId));
   if (!flow || flow.step === "phone") {
     if (message.contact || text) await handlePhone(token, chatId, message, deps);
+    else await askForContact(token, chatId);
     return;
   }
   if (flow.step === "password") {
@@ -244,7 +248,7 @@ async function handleUpdate(update, deps) {
 function startPollingIfEnabled(deps) {
   const token = safeToken();
   if (!token) {
-    console.log("BOT_TOKEN not configured, skipping Telegram bot startup");
+    console.log("STUDENT_BOT_TOKEN not configured, skipping Student Telegram bot startup");
     return;
   }
   if (String(process.env.ENABLE_BOT_POLLING || "").toLowerCase() !== "true") {
