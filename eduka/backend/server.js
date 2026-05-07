@@ -510,12 +510,23 @@ function isPanelHost(request) {
   return ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix));
 }
 
+const reservedSubdomains = new Set(["www", "app", "api", "admin", "super", "mail", "support", "help", "dashboard", "control", "billing"]);
+
+function tenantSubdomainFromRequest(request, query = new URLSearchParams()) {
+  const queryTenant = query.get("tenant");
+  if (queryTenant) return String(queryTenant).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const host = String(request.headers.host || "").split(":")[0].toLowerCase();
+  if (!host.endsWith(".eduka.uz")) return "";
+  const subdomain = host.split(".")[0];
+  return reservedSubdomains.has(subdomain) ? "" : subdomain;
+}
+
 function hostKind(request) {
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
   if (!host || host === "localhost" || host === "127.0.0.1" || host === "eduka.uz" || host === "www.eduka.uz") return "landing";
   if (host === "admin.eduka.uz" || host.startsWith("admin.")) return "admin";
   if (host === "app.eduka.uz" || ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix))) return "app";
-  if (host.endsWith(".eduka.uz")) return "tenant";
+  if (tenantSubdomainFromRequest(request)) return "tenant";
   return "landing";
 }
 
@@ -683,6 +694,33 @@ async function handleMeRequest(request, response) {
     sendJson(response, 200, { ok: true, user: publicUser(user) });
   } catch (error) {
     console.error(`Session check failed: ${error.message}`);
+    const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
+    sendJson(response, statusCode, { ok: false, message: error.message });
+  }
+}
+
+async function handleTenantResolveRequest(request, response, subdomain) {
+  try {
+    const tenantSubdomain = String(subdomain || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+    if (!tenantSubdomain || reservedSubdomains.has(tenantSubdomain)) {
+      sendJson(response, 404, { ok: false, message: "Tenant topilmadi" });
+      return;
+    }
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const result = await pool.query(
+      `SELECT id, name, subdomain, owner_name AS owner, phone, email, status
+       FROM organizations
+       WHERE lower(subdomain)=lower($1)
+       LIMIT 1`,
+      [tenantSubdomain]
+    );
+    if (!result.rows.length) {
+      sendJson(response, 404, { ok: false, message: "Tenant topilmadi" });
+      return;
+    }
+    sendJson(response, 200, { ok: true, center: result.rows[0] });
+  } catch (error) {
     const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
     sendJson(response, statusCode, { ok: false, message: error.message });
   }
@@ -2248,6 +2286,12 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && ["/api/auth/me", "/api/me"].includes(urlPath)) {
     handleMeRequest(request, response);
+    return;
+  }
+
+  const tenantResolveMatch = urlPath.match(/^\/api\/tenant\/resolve(?:\/([a-z0-9-]+))?$/);
+  if (request.method === "GET" && tenantResolveMatch) {
+    handleTenantResolveRequest(request, response, tenantResolveMatch[1] || query.get("subdomain") || tenantSubdomainFromRequest(request, query));
     return;
   }
 

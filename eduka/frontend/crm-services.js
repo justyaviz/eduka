@@ -29,9 +29,11 @@
   }
 
   async function request(path, options = {}) {
+    const tenant = window.currentTenant || {};
+    const tenantHeaders = tenant.subdomain ? { "X-Tenant-Subdomain": tenant.subdomain, "X-Center-Id": String(tenant.centerId || "") } : {};
     const response = await fetch(path, {
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      headers: { "Content-Type": "application/json", ...tenantHeaders, ...(options.headers || {}) },
       ...options
     });
     const payload = await readJson(response);

@@ -19,6 +19,7 @@ let toastTimer;
 let activeModal = null;
 let editingId = null;
 let currentUser = null;
+let currentTenant = null;
 const state = {
   students: [],
   leads: [],
@@ -557,7 +558,7 @@ async function readJson(response) {
 async function api(path, options = {}) {
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: { "Content-Type": "application/json", ...tenantApiHeaders(), ...(options.headers || {}) },
     ...options
   });
   const payload = await readJson(response);
@@ -714,7 +715,7 @@ function showApp(user) {
   hideAdminLogin();
   authScreen.hidden = true;
   appShell.hidden = false;
-  centerName.textContent = user?.organization?.name || "ilm academy uz";
+  centerName.textContent = currentTenant?.centerName || user?.organization?.name || "Eduka CRM";
   applyRoleUi(user?.role);
   const role = String(user?.role || "").toLowerCase();
   if (user?.organization?.needsOnboarding && !["super_admin", "owner"].includes(role)) {
@@ -832,7 +833,8 @@ function setView(viewName, options = {}) {
 }
 
 async function checkSession() {
-  applyTenantContext();
+  loadSharedTenantRegistry();
+  if (await applyTenantContext()) return;
   if (document.querySelector(".tenant-not-found")) return;
   if (window.location.pathname.startsWith("/admin")) {
     const user = adminUserFromSession();
@@ -1794,6 +1796,34 @@ function loadAdminState() {
 function saveAdminState() {
   adminState._version = 2;
   localStorage.setItem(adminStorageKey, JSON.stringify(adminState));
+  saveSharedTenantRegistry();
+}
+
+function saveSharedTenantRegistry() {
+  const registry = {
+    centers: adminState.centers,
+    adminUsers: adminState.adminUsers.filter((user) => user.centerId || user.centerSubdomain),
+    savedAt: new Date().toISOString()
+  };
+  try {
+    const value = encodeURIComponent(JSON.stringify(registry));
+    const domain = window.location.hostname.endsWith(".eduka.uz") || window.location.hostname === "eduka.uz" ? "; domain=.eduka.uz" : "";
+    document.cookie = `eduka_tenant_registry=${value}; path=/; max-age=31536000; SameSite=Lax${domain}`;
+  } catch {}
+}
+
+function loadSharedTenantRegistry() {
+  const cookie = String(document.cookie || "").split(";").map((part) => part.trim()).find((part) => part.startsWith("eduka_tenant_registry="));
+  if (!cookie) return;
+  try {
+    const registry = JSON.parse(decodeURIComponent(cookie.split("=").slice(1).join("=")));
+    if (Array.isArray(registry.centers) && registry.centers.length && !adminState.centers.length) adminState.centers = registry.centers;
+    if (Array.isArray(registry.adminUsers)) {
+      registry.adminUsers.forEach((user) => {
+        if (!adminState.adminUsers.some((item) => item.email === user.email && item.centerId === user.centerId)) adminState.adminUsers.push(user);
+      });
+    }
+  } catch {}
 }
 
 function normalizeAdminState(saved) {
@@ -1864,24 +1894,200 @@ function tenantFromLocation() {
   const host = window.location.hostname.toLowerCase();
   const parts = host.split(".");
   if (host === "eduka.uz" || host === "www.eduka.uz" || host === "localhost" || host === "127.0.0.1") return "";
-  if (parts.length >= 3 && parts.slice(-2).join(".") === "eduka.uz") return parts[0];
+  if (parts.length >= 3 && parts.slice(-2).join(".") === "eduka.uz") {
+    const subdomain = parts[0];
+    return reservedSubdomains.includes(subdomain) ? "" : subdomain;
+  }
   return "";
 }
 
-function applyTenantContext() {
-  if (window.location.pathname.startsWith("/admin")) return;
+function domainMode() {
+  const host = window.location.hostname.toLowerCase();
+  if (host === "admin.eduka.uz") return "admin";
+  if (host === "app.eduka.uz") return "app";
+  if (host === "eduka.uz" || host === "www.eduka.uz" || host === "localhost" || host === "127.0.0.1") return "root";
+  const subdomain = host.endsWith(".eduka.uz") ? host.split(".")[0] : "";
+  if (reservedSubdomains.includes(subdomain)) return subdomain;
+  return subdomain ? "tenant" : "root";
+}
+
+function tenantSessionKey(subdomain = tenantFromLocation()) {
+  return `eduka_tenant_session_${slugify(subdomain)}`;
+}
+
+function tenantDataStorageKey(subdomain = currentTenant?.subdomain || tenantFromLocation() || "default") {
+  return `eduka_center_${slugify(subdomain)}_crm_v1`;
+}
+
+function tenantApiHeaders() {
+  const tenant = currentTenant;
+  window.currentTenant = tenant || null;
+  return tenant?.subdomain ? { "X-Tenant-Subdomain": tenant.subdomain, "X-Center-Id": String(tenant.centerId || "") } : {};
+}
+
+function resolveTenantCenter(subdomain = tenantFromLocation()) {
+  if (!subdomain || reservedSubdomains.includes(subdomain)) return null;
+  return adminState.centers.find((item) => String(item.subdomain || "").toLowerCase() === subdomain);
+}
+
+function tenantUsersFor(center) {
+  if (!center) return [];
+  return adminState.adminUsers.filter((user) => String(user.centerId || "") === String(center.id) || user.centerSubdomain === center.subdomain);
+}
+
+function tenantSession(subdomain = tenantFromLocation()) {
+  try {
+    const session = JSON.parse(localStorage.getItem(tenantSessionKey(subdomain)) || "null");
+    if (session?.centerSubdomain === subdomain) return session;
+  } catch {
+    localStorage.removeItem(tenantSessionKey(subdomain));
+  }
+  return null;
+}
+
+function setTenantSession(center, user) {
+  const session = {
+    centerId: center.id,
+    centerName: center.name,
+    centerSubdomain: center.subdomain,
+    userRole: user.role,
+    userEmail: user.email,
+    userName: user.name || user.fullName || center.owner,
+    loggedInAt: new Date().toISOString()
+  };
+  localStorage.setItem(tenantSessionKey(center.subdomain), JSON.stringify(session));
+  currentTenant = { subdomain: center.subdomain, centerId: center.id, centerName: center.name, session };
+  window.currentTenant = currentTenant;
+  return session;
+}
+
+function tenantUserFromSession(center, session) {
+  return {
+    id: session.userEmail,
+    fullName: session.userName,
+    email: session.userEmail,
+    role: "center_admin",
+    organization: { id: center.id, name: center.name, subdomain: center.subdomain }
+  };
+}
+
+function renderTenantNotFound(subdomain) {
+  authScreen.hidden = false;
+  appShell.hidden = true;
+  authScreen.innerHTML = `<section class="login-panel tenant-not-found"><a class="brand" href="https://eduka.uz"><span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a><h1>Bu o'quv markaz topilmadi</h1><p class="login-copy">Siz kiritgan subdomain Eduka platformasida ro'yxatdan o'tmagan.</p><div class="tenant-chip">${escapeHtml(subdomain)}</div><div class="modal-actions"><a class="demo-login" href="https://eduka.uz">Eduka bosh sahifasiga qaytish</a><a class="forgot-link" href="mailto:support@eduka.uz">Support bilan bog'lanish</a><button type="button" onclick="window.location.reload()">Qayta urinish</button></div></section>`;
+}
+
+function renderTenantLogin(center, error = "") {
+  currentTenant = { subdomain: center.subdomain, centerId: center.id, centerName: center.name };
+  window.currentTenant = currentTenant;
+  authScreen.hidden = false;
+  appShell.hidden = true;
+  authScreen.innerHTML = `<section class="login-panel tenant-login-panel"><a class="brand" href="https://eduka.uz"><span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a><div><span class="admin-login-eyebrow">${escapeHtml(center.name)}</span><h1>${escapeHtml(center.name)} kabinetiga kirish</h1><p class="login-copy">Kabinetga kirish uchun login ma'lumotlaringizni kiriting.</p></div><form data-tenant-login-form><label>Email<input name="email" type="email" autocomplete="username" required /></label><label>Parol<input name="password" type="password" autocomplete="current-password" required /></label><div class="form-error" data-tenant-login-error>${escapeHtml(error)}</div><button type="submit">Kirish</button></form><button class="forgot-link" type="button" data-tenant-forgot>Parol esdan chiqdimi?</button></section>`;
+}
+
+async function resolveTenantCenterFromApi(subdomain) {
+  try {
+    const payload = await api(`/api/tenant/resolve/${encodeURIComponent(subdomain)}`);
+    if (!payload.center) return null;
+    const center = {
+      id: payload.center.id,
+      name: payload.center.name,
+      subdomain: payload.center.subdomain,
+      owner: payload.center.owner,
+      phone: payload.center.phone,
+      email: payload.center.email,
+      status: payload.center.status || "active",
+      plan: "Pro",
+      subscriptionStatus: "active",
+      studentsCount: 0,
+      teachersCount: 0,
+      groupsCount: 0,
+      branchesCount: 1,
+      monthlyPayment: 0,
+      registeredAt: new Date().toISOString().slice(0, 10),
+      subscriptionEndsAt: "",
+      lastActivityAt: new Date().toISOString().slice(0, 10),
+      supportNotes: []
+    };
+    if (!adminState.centers.some((item) => String(item.id) === String(center.id) || item.subdomain === center.subdomain)) {
+      adminState.centers.push(center);
+      saveAdminState();
+    }
+    return center;
+  } catch {
+    return null;
+  }
+}
+
+async function applyTenantContext() {
+  const mode = domainMode();
+  if (mode === "admin" && !window.location.pathname.startsWith("/admin")) {
+    window.history.replaceState({ viewName: "admin-login" }, "", "/admin/login");
+  }
+  if (mode === "admin" || window.location.pathname.startsWith("/admin")) return false;
   const tenant = tenantFromLocation();
-  if (!tenant) return;
-  const center = adminState.centers.find((item) => item.subdomain === tenant);
+  if (!tenant) {
+    currentTenant = null;
+    window.currentTenant = null;
+    return false;
+  }
+  const center = resolveTenantCenter(tenant) || await resolveTenantCenterFromApi(tenant);
   if (!center) {
-    authScreen.hidden = false;
-    appShell.hidden = true;
-    authScreen.innerHTML = `<section class="login-panel tenant-not-found"><a class="brand" href="/"><span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a><h1>Bu o'quv markaz topilmadi</h1><p class="login-copy">Subdomainni tekshiring yoki Eduka support bilan bog'laning.</p><a class="demo-login" href="/">Bosh sahifaga qaytish</a></section>`;
+    renderTenantNotFound(tenant);
+    return true;
+  }
+  const session = tenantSession(tenant);
+  currentTenant = { subdomain: center.subdomain, centerId: center.id, centerName: center.name, session };
+  window.currentTenant = currentTenant;
+  if (!session) {
+    renderTenantLogin(center);
+    return true;
+  }
+  centerName.textContent = center.name;
+  showApp(tenantUserFromSession(center, session));
+  if (!window.location.pathname.startsWith("/app")) setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
+  return true;
+}
+
+function handleTenantLogin(form) {
+  const tenant = tenantFromLocation();
+  const center = resolveTenantCenter(tenant);
+  const errorNode = form.querySelector("[data-tenant-login-error]");
+  if (!center) {
+    renderTenantNotFound(tenant);
     return;
   }
-  const note = document.querySelector("[data-login-note]");
-  if (note) note.textContent = `${center.name} kabinetiga kirish`;
-  centerName.textContent = center.name;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const user = tenantUsersFor(center).find((item) => item.email.toLowerCase() === String(data.email || "").toLowerCase().trim() && String(item.password || "") === String(data.password || ""));
+  if (!user) {
+    const anyEmail = adminState.adminUsers.find((item) => item.email.toLowerCase() === String(data.email || "").toLowerCase().trim());
+    const message = anyEmail ? "Bu login ushbu markazga tegishli emas" : "Email yoki parol noto'g'ri";
+    if (errorNode) errorNode.textContent = message;
+    addAuditLog("tenant login failed", "center", center.name, data.email || "-", message);
+    showToast(message);
+    return;
+  }
+  const session = setTenantSession(center, user);
+  addAuditLog("tenant login success", "center", center.name, "-", user.email);
+  saveAdminState();
+  showApp(tenantUserFromSession(center, session));
+  setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
+  showToast("Kabinet ochildi.");
+}
+
+function tenantLogout() {
+  if (currentTenant?.subdomain) {
+    localStorage.removeItem(tenantSessionKey(currentTenant.subdomain));
+    addAuditLog("tenant logout", "center", currentTenant.centerName, "active", "ended");
+    saveAdminState();
+    const center = resolveTenantCenter(currentTenant.subdomain);
+    currentUser = null;
+    if (center) renderTenantLogin(center);
+    else showAuth();
+    showToast("Tizimdan chiqildi.");
+    return true;
+  }
+  return false;
 }
 
 function renderBadge(value) {
@@ -1919,12 +2125,12 @@ function validateEmail(value) {
 }
 
 function validateSubdomain(value, currentCenterId = null) {
-  const subdomain = String(value || "").trim();
+  const subdomain = String(value || "").trim().toLowerCase();
   if (!subdomain) return "Subdomain required.";
   if (/\s/.test(subdomain)) return "Subdomain ichida bo'sh joy bo'lmasin.";
   if (!/^[a-z0-9-]+$/.test(subdomain)) return "Faqat lowercase latin harflar, raqamlar va hyphen ishlating.";
   if (subdomain.length < 3 || subdomain.length > 30) return "Subdomain 3-30 belgi bo'lishi kerak.";
-  if (reservedSubdomains.includes(subdomain)) return "Bu subdomain reserved.";
+  if (reservedSubdomains.includes(subdomain)) return "Bu subdomain tizim uchun band qilingan";
   if (adminState.centers.some((center) => center.subdomain === subdomain && center.id !== currentCenterId)) return "Bu subdomain band.";
   return "";
 }
@@ -2104,6 +2310,7 @@ function centerFormFields(center = {}) {
     <label>Status<select name="status"><option value="active" ${center.status === "active" ? "selected" : ""}>active</option><option value="blocked" ${center.status === "blocked" ? "selected" : ""}>blocked</option></select></label>
     <label class="check-field"><input name="createAdmin" type="checkbox" checked /><span>Admin login yaratish</span></label>
     <label class="check-field"><input name="autoPassword" type="checkbox" checked /><span>Parolni auto-generate qilish</span></label>
+    <label>Admin parol<input name="adminPassword" value="${center.adminPassword || "12345678"}" /></label>
     <label class="check-field"><input name="starterData" type="checkbox" /><span>Boshlang'ich ma'lumot bilan yaratish</span></label><div class="form-error" data-admin-form-error></div>`;
 }
 
@@ -2124,7 +2331,7 @@ function renderCenterTab(center) {
   if (activeAdminTab === "payments") return renderAdminPayments(center.id);
   if (activeAdminTab === "support notes") return (center.supportNotes || []).map((note) => `<div class="admin-list-row"><span>${note.text}</span><small>${formatDate(note.date)}</small></div>`).join("") || `<div class="empty-state">Support note yo'q</div>`;
   if (activeAdminTab === "technical") return `<div class="profile-grid"><article><span>URL</span><strong>https://${center.subdomain}.eduka.uz</strong></article><article><span>SSL</span><strong>Faol</strong></article><article><span>Tenant status</span><strong>${renderBadge(center.status)}</strong></article></div>`;
-  return `<div class="profile-grid">${Object.entries({ Nomi: center.name, Subdomain: center.subdomain, Link: `https://${center.subdomain}.eduka.uz`, Egasi: center.owner, Telefon: center.phone, Email: center.email, Manzil: center.address, Tarif: center.plan, "Ro'yxatdan o'tgan": center.registeredAt, "Oxirgi aktivlik": center.lastActivityAt }).map(([key, value]) => `<article><span>${key}</span><strong>${value || "-"}</strong></article>`).join("")}<article><span>Status</span><strong>${renderBadge(center.status)}</strong></article></div>`;
+  return `<div class="profile-grid">${Object.entries({ Nomi: center.name, Subdomain: center.subdomain, Link: `<a href="https://${center.subdomain}.eduka.uz" target="_blank" rel="noreferrer">https://${center.subdomain}.eduka.uz</a>`, Egasi: center.owner, Telefon: center.phone, Email: center.email, Manzil: center.address, Tarif: center.plan, "Ro'yxatdan o'tgan": center.registeredAt, "Oxirgi aktivlik": center.lastActivityAt }).map(([key, value]) => `<article><span>${key}</span><strong>${value || "-"}</strong></article>`).join("")}<article><span>Status</span><strong>${renderBadge(center.status)}</strong></article></div>`;
 }
 
 function renderAdminSubdomains() {
@@ -2236,7 +2443,7 @@ function adminOpenModal(type, id = null) {
   else if (type === "extend-trial" || type === "extend-subscription") modalForm.innerHTML = `<label>Kunlar<input name="days" type="number" value="7" /></label>${adminModalActions()}`;
   else if (type === "edit-subdomain") modalForm.innerHTML = `<label>Subdomain<input name="subdomain" value="${center?.subdomain || ""}" /></label><div class="form-error" data-admin-form-error></div>${adminModalActions("Tekshirish va saqlash")}`;
   else if (type === "support-note" || type === "demo-note" || type === "send-message") modalForm.innerHTML = `<label>Izoh<textarea name="note" required></textarea></label>${adminModalActions()}`;
-  else if (type === "login-as-center") modalForm.innerHTML = `<div class="success-box"><h3>${center?.name || "Markaz"}</h3><p>Xavfsiz kirish havolasi tayyorlandi. Amal audit logga yoziladi.</p><p>https://${center?.subdomain || "center"}.eduka.uz</p></div>${adminModalActions("Kirishni tasdiqlash")}`;
+  else if (type === "login-as-center") modalForm.innerHTML = `<div class="success-box"><h3>${center?.name || "Markaz"}</h3><p>Xavfsiz kirish havolasi tayyorlandi. Amal audit logga yoziladi.</p><p><a href="https://${center?.subdomain || "center"}.eduka.uz" target="_blank" rel="noreferrer">https://${center?.subdomain || "center"}.eduka.uz</a></p></div><div class="modal-actions"><button type="button" data-close-modal>Bekor qilish</button><button type="button" data-admin-action="open-tenant" data-id="${center?.id || ""}">Markazga kirish</button></div>`;
   else if (type === "payment") modalForm.innerHTML = `<label>Center<select name="centerId">${adminState.centers.map((item) => `<option value="${item.id}" ${item.id === payment.centerId ? "selected" : ""}>${item.name}</option>`).join("")}</select></label><label>Amount<input name="amount" type="number" value="${payment.amount || ""}" required /></label><label>Date<input name="paymentDate" type="date" value="${payment.paymentDate || "2026-05-06"}" /></label><label>Method<select name="method"><option>bank</option><option>click</option><option>payme</option><option>card</option></select></label><label>Status<select name="status"><option>paid</option><option>pending</option><option>overdue</option></select></label><label>Note<input name="note" value="${payment.note || ""}" /></label>${adminModalActions()}`;
   else if (type === "plan") modalForm.innerHTML = `<label>Name<input name="name" value="${plan.name || ""}" required /></label><label>Price<input name="price" type="number" value="${plan.price || 0}" /></label><label>Student limit<input name="studentLimit" type="number" value="${plan.studentLimit || 0}" /></label><label>Teacher limit<input name="teacherLimit" type="number" value="${plan.teacherLimit || 0}" /></label><label>Branch limit<input name="branchLimit" type="number" value="${plan.branchLimit || 0}" /></label><label>Group limit<input name="groupLimit" type="number" value="${plan.groupLimit || 0}" /></label><label>Support<input name="supportLevel" value="${plan.supportLevel || "Basic"}" /></label><label>Status<select name="status"><option>active</option><option>inactive</option></select></label>${adminModalActions()}`;
   else if (type === "admin-user") modalForm.innerHTML = `<label>Name<input name="name" value="${adminUser.name || ""}" required /></label><label>Email<input name="email" value="${adminUser.email || ""}" required /></label><label>Role<select name="role">${["OWNER", "SUPER_ADMIN", "SALES_MANAGER", "SUPPORT_MANAGER", "FINANCE_MANAGER", "TECH_ADMIN"].map((role) => `<option ${role === adminUser.role ? "selected" : ""}>${role}</option>`).join("")}</select></label><label>Status<select name="status"><option>active</option><option>blocked</option></select></label>${adminModalActions()}`;
@@ -2354,6 +2561,7 @@ function saveTicket(data) {
 
 function handleCreateCenter(form) {
   const data = Object.fromEntries(new FormData(form).entries());
+  data.subdomain = slugify(data.subdomain);
   const error = !data.name ? "Markaz nomi required." : validateSubdomain(data.subdomain) || (!data.owner ? "Owner required." : "") || (!data.phone ? "Phone required." : "") || (!validateEmail(data.email) ? "Email format noto'g'ri." : "") || (!data.plan ? "Plan required." : "");
   form.querySelector("[data-admin-form-error]").textContent = error;
   if (error) return;
@@ -2364,11 +2572,12 @@ function handleCreateCenter(form) {
   const center = { id, name: data.name, subdomain: data.subdomain, owner: data.owner, phone: data.phone, email: data.email, address: data.address, plan: data.plan, status: data.status, subscriptionStatus: "trial", studentsCount: data.starterData ? 12 : 0, teachersCount: 0, groupsCount: 0, branchesCount: Number(data.branchLimit || 1), monthlyPayment: plan?.price || 0, registeredAt: new Date().toISOString().slice(0, 10), subscriptionEndsAt: endDate.toISOString().slice(0, 10), lastActivityAt: new Date().toISOString().slice(0, 10), supportNotes: [] };
   adminState.centers.unshift(center);
   adminState.subscriptions.unshift({ id: nextAdminId(adminState.subscriptions), centerId: id, centerName: center.name, plan: center.plan, price: center.monthlyPayment, startDate: center.registeredAt, endDate: center.subscriptionEndsAt, status: "trial", autoRenew: true, paymentStatus: "trial" });
-  if (data.createAdmin) adminState.adminUsers.unshift({ id: nextAdminId(adminState.adminUsers), name: data.owner, email: data.email, role: "SUPER_ADMIN", status: "active", lastLogin: "-", createdAt: center.registeredAt, twoFa: false });
+  const centerPassword = data.autoPassword ? (data.adminPassword || "12345678") : (data.adminPassword || "12345678");
+  if (data.createAdmin) adminState.adminUsers.unshift({ id: nextAdminId(adminState.adminUsers), name: data.owner, email: data.email, password: centerPassword, role: "CENTER_ADMIN", status: "active", lastLogin: "-", createdAt: center.registeredAt, twoFa: false, centerId: id, centerSubdomain: center.subdomain });
   addAuditLog("center created", "center", center.name, "-", center.status);
   saveAdminState();
   modalTitle.textContent = "Markaz yaratildi";
-  modalForm.innerHTML = `<div class="success-box"><h3>${center.name}</h3><p>Login link: https://${center.subdomain}.eduka.uz</p></div><div class="modal-actions"><button type="button" data-admin-action="profile" data-id="${center.id}">Markaz profilini ochish</button><button type="button" data-admin-action="new-center-reset">Yangi markaz yaratish</button></div>`;
+  modalForm.innerHTML = `<div class="success-box"><h3>${center.name}</h3><p>Login link: https://${center.subdomain}.eduka.uz</p>${data.createAdmin ? `<p>Admin login: ${data.email}</p><p>Parol: ${centerPassword}</p>` : ""}</div><div class="modal-actions"><button type="button" data-admin-action="open-tenant" data-id="${center.id}">Markazga kirish</button><button type="button" data-admin-action="profile" data-id="${center.id}">Markaz profilini ochish</button><button type="button" data-admin-action="new-center-reset">Yangi markaz yaratish</button></div>`;
   modal.hidden = false;
 }
 
@@ -2461,8 +2670,7 @@ function updateAdminState(action, id, value = null) {
   renderAdminView(viewFromPath());
 }
 
-const crmStorageKey = "eduka_crm_workspace_v1";
-const crmCollections = ["students", "groups", "teachers"];
+const crmCollections = ["students", "groups", "teachers", "courses", "payments", "attendance", "debts", "schedule", "leads"];
 const crmListState = { students: {}, groups: {}, teachers: {} };
 const crmDrawerState = { open: false, type: "", itemId: null, dirty: false };
 
@@ -2477,10 +2685,10 @@ function escapeHtml(value) {
 
 function loadCrmLocalState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(crmStorageKey) || "{}");
+    const saved = JSON.parse(localStorage.getItem(tenantDataStorageKey()) || "{}");
     return saved && typeof saved === "object" ? saved : {};
   } catch {
-    localStorage.removeItem(crmStorageKey);
+    localStorage.removeItem(tenantDataStorageKey());
     return {};
   }
 }
@@ -2488,7 +2696,8 @@ function loadCrmLocalState() {
 function syncCrmLocalState() {
   const saved = loadCrmLocalState();
   crmCollections.forEach((key) => {
-    if (Array.isArray(saved[key]) && saved[key].length) state[key] = saved[key];
+    if (currentTenant?.subdomain) state[key] = Array.isArray(saved[key]) ? saved[key] : [];
+    else if (Array.isArray(saved[key]) && saved[key].length) state[key] = saved[key];
   });
 }
 
@@ -2497,7 +2706,7 @@ function persistCrmCollections() {
   crmCollections.forEach((key) => {
     payload[key] = state[key] || [];
   });
-  localStorage.setItem(crmStorageKey, JSON.stringify(payload));
+  localStorage.setItem(tenantDataStorageKey(), JSON.stringify(payload));
 }
 
 function nextCrmId(resource) {
@@ -2552,6 +2761,8 @@ function renderCrmTopbar(viewName = viewFromPath()) {
   if (search && inApp) search.placeholder = "Qidirish";
   const title = document.querySelector(".crm-center-button");
   if (title) title.textContent = crmCenterTitle().toUpperCase();
+  const avatar = document.querySelector(".crm-avatar-button");
+  if (avatar) avatar.textContent = (currentUser?.fullName || currentTenant?.centerName || "EA").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
 function crmGroupName(groupId, fallback = "") {
@@ -2692,7 +2903,7 @@ function renderCrmStudents() {
         const name = student.fullName || student.full_name || "-";
         const balance = Number(student.balance || 0);
         return `<tr data-crm-row="students" data-id="${student.id}"><td>${index + 1}</td><td><input type="checkbox" aria-label="${escapeHtml(name)}" /></td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="students" data-id="${student.id}">${escapeHtml(name)}</button></td><td>${escapeHtml(student.phone || "-")}</td><td>${crmPill(crmStudentGroups(student))}</td><td><strong class="${balance > 0 ? "crm-money debt" : "crm-money"}">${formatMoney(balance)}</strong></td><td>${escapeHtml(student.teacher || student.teacher_full_name || "-")}</td><td><button class="crm-row-icon" type="button" data-crm-action="flag" data-resource="students" data-id="${student.id}" aria-label="Belgilash"><i data-lucide="flag"></i></button>${crmActionMenu("students", student.id)}</td></tr>`;
-      }).join("") : `<tr><td colspan="8"><div class="empty-state">Talabalar topilmadi.</div></td></tr>`}</tbody></table></div>
+      }).join("") : `<tr><td colspan="8"><div class="empty-state">Hali talaba qo'shilmagan. Yangi talaba qo'shish tugmasidan boshlang.</div></td></tr>`}</tbody></table></div>
       <div class="crm-export-actions"><button type="button" data-crm-action="import-excel" data-resource="students">Exceldan import qilish</button><button type="button" data-crm-action="export-excel" data-resource="students">Excelga eksport qilish</button></div>
     </div>`;
 }
@@ -2722,7 +2933,7 @@ function renderCrmGroups() {
         const days = Array.isArray(group.lessonDays) ? group.lessonDays.join(", ") : group.days || "-";
         const price = group.price || group.monthly_price || 0;
         return `<tr data-crm-row="groups" data-id="${group.id}"><td>${index + 1}</td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="groups" data-id="${group.id}">${escapeHtml(group.name || "-")}</button><div class="crm-count-pills"><span>${group.studentCount || group.student_count || 0}</span><span>${crmGroupTeachers(group).length || 1}</span></div></td><td>${formatMoney(price)}</td><td>${escapeHtml(group.startTime || group.start_time || "08:30")} - ${escapeHtml(group.endTime || group.end_time || "10:00")}</td><td>${escapeHtml(group.course || group.course_name || "KURS")} <span class="crm-tag">AAA</span></td><td>${crmPill(crmGroupTeachers(group), "O'qituvchi tanlanmagan")}</td><td>${crmPill(days.split(",").map((day) => day.trim()))}</td><td>${crmActionMenu("groups", group.id)}</td></tr>`;
-      }).join("") : `<tr><td colspan="8"><div class="empty-state">Guruhlar topilmadi.</div></td></tr>`}</tbody></table></div>
+      }).join("") : `<tr><td colspan="8"><div class="empty-state">Hali guruh qo'shilmagan.</div></td></tr>`}</tbody></table></div>
       <div class="crm-export-actions"><button type="button" data-crm-action="export-excel" data-resource="groups">Excelga eksport qilish</button></div>
     </div>`;
 }
@@ -2748,7 +2959,7 @@ function renderCrmTeachers() {
         const salaryType = teacher.salaryType || teacher.salary_type || "percentage";
         const salaryValue = teacher.salaryValue || teacher.salary_rate || 50;
         return `<tr data-crm-row="teachers" data-id="${teacher.id}"><td>${index + 1}</td><td><input type="checkbox" aria-label="${escapeHtml(name)}" /></td><td><button class="crm-link" type="button" data-crm-action="view" data-resource="teachers" data-id="${teacher.id}">${escapeHtml(name)}</button><span class="crm-muted">(${groups.length || Number(teacher.group_count || 1)} ta guruh)</span></td><td>${escapeHtml(teacher.phone || "-")}</td><td>${escapeHtml(salaryValue)} [${statusLabels[salaryType] || salaryType}]</td><td>${formatDate(teacher.birthDate || teacher.birth_date) || "-"}</td><td>${crmActionMenu("teachers", teacher.id)}</td></tr>`;
-      }).join("") : `<tr><td colspan="7"><div class="empty-state">O'qituvchilar topilmadi.</div></td></tr>`}</tbody></table></div>
+      }).join("") : `<tr><td colspan="7"><div class="empty-state">Hali o'qituvchi qo'shilmagan.</div></td></tr>`}</tbody></table></div>
       <div class="crm-export-actions"><button type="button" data-crm-action="export-excel" data-resource="teachers">Excelga eksport qilish</button></div>
     </div>`;
 }
@@ -3065,6 +3276,11 @@ function normalizeDigits(value) {
 }
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-tenant-forgot]")) {
+    showToast("Parolni tiklash so'rovi qabul qilindi.");
+    return;
+  }
+
   if (event.target.closest("[data-admin-logout]")) {
     adminLogout();
     showToast("Tizimdan chiqildi.");
@@ -3104,6 +3320,14 @@ document.addEventListener("click", async (event) => {
     } else if (action === "new-center-reset") {
       closeModal();
       setView("admin-centers-new", { replace: true });
+    } else if (action === "open-tenant") {
+      const center = adminState.centers.find((item) => item.id === Number(adminAction.dataset.id));
+      if (center) {
+        addAuditLog("subdomain opened", "center", center.name, "-", center.subdomain);
+        saveAdminState();
+        window.open(`https://${center.subdomain}.eduka.uz`, "_blank", "noopener,noreferrer");
+        showToast("Markaz kabineti yangi oynada ochildi.");
+      }
     } else if (action === "reset-data") {
       if (window.confirm("Boshlang'ich holatga qaytarishni tasdiqlaysizmi? Markazlar, obunalar, to'lovlar, so'rovlar, support va audit yozuvlari tozalanadi.")) {
         resetAdminOperationalData();
@@ -3224,6 +3448,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (event.target.closest("[data-logout]")) {
+    if (tenantLogout()) return;
     if (window.location.pathname.startsWith("/admin")) {
       adminLogout();
       showToast("Tizimdan chiqildi.");
@@ -3282,6 +3507,13 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("submit", (event) => {
+  const tenantLoginForm = event.target.closest("[data-tenant-login-form]");
+  if (tenantLoginForm) {
+    event.preventDefault();
+    handleTenantLogin(tenantLoginForm);
+    return;
+  }
+
   const crmDrawerForm = event.target.closest("[data-crm-drawer-form]");
   if (crmDrawerForm) {
     event.preventDefault();
