@@ -3,6 +3,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const studentTelegramBot = require("./telegram-bot");
 let bcrypt = null;
 
 try {
@@ -537,6 +538,10 @@ function sendRedirect(response, location) {
 
 function sendAppShell(response) {
   sendFile(response, path.join(root, "app.html"));
+}
+
+function sendStudentAppShell(response) {
+  sendFile(response, path.join(root, "student-app.html"));
 }
 
 function isPanelHost(request) {
@@ -2480,6 +2485,858 @@ async function handleTelegramHealth(response, shouldCheckTelegram) {
   sendJson(response, 200, payload);
 }
 
+const studentAppDefaultModules = [
+  ["group", "Mening guruhim", "Guruh, o'qituvchi, jadval va davomat", "users-round", 10],
+  ["exams", "Imtihonlarim", "Natijalar va sinov imtihonlari", "file-check-2", 20],
+  ["library", "Kutubxona", "Kitob, audio, video va resurslar", "book-open", 30],
+  ["dictionary", "Lug'atlar", "So'zlar, izohlar va misollar", "languages", 40],
+  ["extra_lesson", "Qo'shimcha dars", "Qo'shimcha darsga yozilish", "calendar-plus", 50],
+  ["rating", "Reyting", "Ball, kristal va yutuqlar", "trophy", 60],
+  ["referral", "Referral tizimi", "Do'st taklif qilish va bonuslar", "gift", 70],
+  ["news", "Yangiliklar", "Markaz yangiliklari va tadbirlar", "megaphone", 80],
+  ["payments", "Balans va to'lov", "Balans, qarzdorlik va to'lov tarixi", "wallet", 90],
+  ["feedback", "Shikoyat va taklif", "Mas'ullarga murojaat yuborish", "message-square", 100]
+];
+
+function studentAppSecret() {
+  const secret = String(process.env.STUDENT_APP_SESSION_SECRET || "").trim();
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    console.warn("STUDENT_APP_SESSION_SECRET is not configured");
+  }
+  return "local-student-app-session-secret";
+}
+
+function hashStudentAppToken(token) {
+  return crypto.createHmac("sha256", studentAppSecret()).update(String(token || "")).digest("hex");
+}
+
+function rawStudentAppToken() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function maskedName(fullName) {
+  const text = asText(fullName, "O'quvchi");
+  const parts = text.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return `${parts[0]?.slice(0, 1) || "O"}***`;
+  return `${parts[0]} ${parts[1].slice(0, 1)}.`;
+}
+
+function studentPublic(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    fullName: row.full_name,
+    phone: row.phone,
+    parentPhone: row.parent_phone,
+    birthDate: row.birth_date,
+    address: row.address,
+    courseName: row.course_name,
+    groupId: row.group_id,
+    groupName: row.group_name,
+    status: row.status,
+    balance: Number(row.balance || 0),
+    crystals: Number(row.crystals || 0),
+    coins: Number(row.coins || 0),
+    referralCode: row.referral_code,
+    avatarUrl: row.avatar_url,
+    lastStudentAppLogin: row.last_student_app_login,
+    appPasswordResetRequired: Boolean(row.app_password_reset_required)
+  };
+}
+
+function studentAppWebUrl(organization, token = "") {
+  const configured = String(process.env.WEBAPP_URL || "").trim();
+  const baseDomain = String(process.env.BASE_DOMAIN || "eduka.uz").trim();
+  const subdomain = String(organization?.subdomain || organization?.slug || "").trim();
+  const base = configured || (subdomain ? `https://${subdomain}.${baseDomain}/student-app` : `https://${baseDomain}/student-app`);
+  const url = new URL(base);
+  if (token) url.searchParams.set("token", token);
+  return url.toString();
+}
+
+async function ensureStudentAppDefaults(pool, organizationId) {
+  if (!organizationId) return;
+  await pool.query(
+    `INSERT INTO student_app_settings (organization_id)
+     VALUES ($1)
+     ON CONFLICT (organization_id) DO NOTHING`,
+    [organizationId]
+  );
+
+  for (const [key, title, description, icon, sortOrder] of studentAppDefaultModules) {
+    await pool.query(
+      `INSERT INTO student_app_modules (organization_id, key, title, description, icon, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (organization_id, key) DO NOTHING`,
+      [organizationId, key, title, description, icon, sortOrder]
+    );
+  }
+}
+
+async function organizationBySubdomain(pool, subdomain) {
+  const clean = String(subdomain || "").trim().toLowerCase();
+  if (!clean) return null;
+  const result = await pool.query(
+    "SELECT * FROM organizations WHERE LOWER(COALESCE(subdomain, slug))=$1 OR LOWER(slug)=$1 LIMIT 1",
+    [clean]
+  );
+  return result.rows[0] || null;
+}
+
+async function findStudentsByPhone(pool, phone, options = {}) {
+  const normalized = normalizePhone(phone);
+  const params = [`%${normalized.slice(-9)}%`];
+  let where = "WHERE regexp_replace(COALESCE(s.phone,''), '\\D', '', 'g') LIKE $1 AND s.student_app_enabled=TRUE AND s.student_app_blocked=FALSE";
+
+  if (options.organizationId) {
+    params.push(options.organizationId);
+    where += ` AND s.organization_id=$${params.length}`;
+  }
+
+  if (options.subdomain) {
+    const org = await organizationBySubdomain(pool, options.subdomain);
+    if (org?.id) {
+      params.push(org.id);
+      where += ` AND s.organization_id=$${params.length}`;
+    }
+  }
+
+  const result = await pool.query(
+    `SELECT s.*, o.name AS organization_name, o.slug AS organization_slug, COALESCE(o.subdomain, o.slug) AS organization_subdomain
+     FROM students s
+     JOIN organizations o ON o.id=s.organization_id
+     ${where}
+     ORDER BY s.id DESC
+     LIMIT 10`,
+    params
+  );
+  return result.rows;
+}
+
+async function createStudentAppSession(pool, student, meta = {}) {
+  const token = rawStudentAppToken();
+  const days = Math.max(1, Number(meta.sessionDays || 30));
+  await pool.query(
+    `INSERT INTO student_app_sessions (student_id, organization_id, telegram_user_id, token_hash, expires_at, user_agent, ip_address)
+     VALUES ($1,$2,$3,$4,NOW() + ($5::text || ' days')::interval,$6,$7)`,
+    [
+      student.id,
+      student.organization_id,
+      meta.telegramUserId || student.telegram_user_id || null,
+      hashStudentAppToken(token),
+      String(days),
+      meta.userAgent || "",
+      meta.ipAddress || ""
+    ]
+  );
+  return token;
+}
+
+async function createLinkedStudentAppSession(student, telegramUserId, telegramChatId) {
+  const pool = getDbPool();
+  await ensureSchema(pool);
+  await ensureStudentAppDefaults(pool, student.organization_id);
+  await pool.query(
+    "UPDATE students SET telegram_user_id=$2, telegram_chat_id=$3, last_student_app_login=NOW() WHERE id=$1",
+    [student.id, telegramUserId || null, telegramChatId || null]
+  );
+  const token = await createStudentAppSession(pool, student, {
+    telegramUserId,
+    userAgent: "telegram-bot",
+    ipAddress: "telegram"
+  });
+  return {
+    token,
+    webAppUrl: studentAppWebUrl({ subdomain: student.organization_subdomain, slug: student.organization_slug }, token)
+  };
+}
+
+async function requireStudentAppSession(request, response) {
+  try {
+    const authorization = String(request.headers.authorization || "");
+    const headerToken = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
+    const queryToken = requestQuery(request).get("token");
+    const token = headerToken || queryToken;
+
+    if (!token) {
+      sendJson(response, 401, { ok: false, message: "Sessiya topilmadi" });
+      return null;
+    }
+
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const result = await pool.query(
+      `SELECT s.*, sess.id AS session_id, sess.expires_at, o.name AS organization_name, o.slug AS organization_slug,
+              COALESCE(o.subdomain, o.slug) AS organization_subdomain, o.phone AS organization_phone
+       FROM student_app_sessions sess
+       JOIN students s ON s.id=sess.student_id AND s.organization_id=sess.organization_id
+       JOIN organizations o ON o.id=s.organization_id
+       WHERE sess.token_hash=$1
+         AND sess.revoked_at IS NULL
+         AND sess.expires_at > NOW()
+         AND s.student_app_enabled=TRUE
+         AND s.student_app_blocked=FALSE
+       LIMIT 1`,
+      [hashStudentAppToken(token)]
+    );
+
+    if (!result.rows[0]) {
+      sendJson(response, 401, { ok: false, message: "Sessiya muddati tugagan" });
+      return null;
+    }
+
+    await pool.query("UPDATE student_app_sessions SET last_used_at=NOW() WHERE id=$1", [result.rows[0].session_id]);
+    return { pool, row: result.rows[0], token };
+  } catch (error) {
+    withError(response, "Student app session", error);
+    return null;
+  }
+}
+
+function fallbackStudentAppPayload() {
+  const student = {
+    id: 1,
+    fullName: "Ali Abdullayev",
+    phone: "+998 90 123 45 67",
+    groupName: "KURS - A1",
+    courseName: "IELTS Foundation",
+    balance: -192308,
+    crystals: 120,
+    coins: 2450,
+    referralCode: "ALI120"
+  };
+  return {
+    student,
+    organization: { id: 1, name: "Eduka", subdomain: "app" },
+    settings: {
+      enabled: true,
+      app_name: "Eduka Student App",
+      theme_primary: "#0A84FF",
+      crystals_enabled: true,
+      coins_enabled: true,
+      rating_enabled: true,
+      referral_enabled: true,
+      library_enabled: true,
+      dictionary_enabled: true,
+      extra_lessons_enabled: true,
+      exams_enabled: true,
+      news_enabled: true,
+      payments_enabled: true,
+      complaints_enabled: true
+    },
+    modules: studentAppDefaultModules.map(([key, title, description, icon, sort_order]) => ({ key, title, description, icon, enabled: true, sort_order })),
+    events: [{ id: 1, title: "Speaking Club", description: "Suhbat mashqi", event_date: "2026-05-24", event_time: "15:00", status: "active" }],
+    news: [{ id: 1, title: "Speaking Club ochildi", description: "Har shanba suhbat mashqlari", publish_date: "2026-05-20", status: "published" }],
+    lessons: [
+      { id: 1, title: "Grammar: Present Simple", time: "10:00 - 10:45", status: "completed" },
+      { id: 2, title: "Listening Practice", time: "11:00 - 11:45", status: "in_progress" }
+    ],
+    library: [
+      { id: 1, title: "English Grammar in Use", type: "book", level: "A2-B1", status: "published" },
+      { id: 2, title: "IELTS Listening Recent Tests", type: "audio", level: "B2", status: "published" }
+    ],
+    dictionary: [
+      { id: 1, word: "Achieve", pronunciation: "/əˈtʃiːv/", translation: "erishmoq", example: "I want to achieve my goals.", level: "A2" },
+      { id: 2, word: "Benefit", pronunciation: "/ˈbenɪfɪt/", translation: "foyda", example: "Regular practice has many benefits.", level: "B1" }
+    ],
+    exams: [{ id: 1, title: "Grammar Quiz", score: 92, max_score: 100, grade: "A+", exam_date: "2026-05-15" }],
+    mockExams: [{ id: 1, title: "IELTS Mock", description: "Listening, Reading, Writing, Speaking", exam_date: "2026-05-25", price: 100000, status: "active" }],
+    referrals: [],
+    extraLessons: [],
+    feedback: [],
+    payments: [{ id: 1, payment_month: "2026-05", due_amount: 700000, amount: 507692, status: "partial", paid_at: "2026-05-05", payment_type: "click" }],
+    ranking: [
+      { student_id: 2, full_name: "Akbar", score: 320 },
+      { student_id: 1, full_name: "Ali", score: 280 },
+      { student_id: 3, full_name: "Yahyobek", score: 210 }
+    ]
+  };
+}
+
+async function studentAppBasePayload(pool, row) {
+  await ensureStudentAppDefaults(pool, row.organization_id);
+  const [settings, modules, events, news, library, dictionary, exams, mockExams, referrals, extraLessons, feedback, payments, groups, attendance] = await Promise.all([
+    pool.query("SELECT * FROM student_app_settings WHERE organization_id=$1 LIMIT 1", [row.organization_id]),
+    pool.query("SELECT * FROM student_app_modules WHERE organization_id=$1 ORDER BY sort_order ASC, id ASC", [row.organization_id]),
+    pool.query("SELECT * FROM student_events WHERE organization_id=$1 AND status='active' ORDER BY event_date ASC NULLS LAST, id DESC LIMIT 20", [row.organization_id]),
+    pool.query("SELECT * FROM student_news WHERE organization_id=$1 AND status='published' ORDER BY publish_date DESC NULLS LAST, id DESC LIMIT 20", [row.organization_id]),
+    pool.query("SELECT * FROM student_library_items WHERE organization_id=$1 AND status='published' ORDER BY id DESC LIMIT 100", [row.organization_id]),
+    pool.query("SELECT * FROM student_dictionary_words WHERE organization_id=$1 AND status='published' ORDER BY word ASC LIMIT 200", [row.organization_id]),
+    pool.query("SELECT * FROM student_exam_results WHERE organization_id=$1 AND student_id=$2 ORDER BY exam_date DESC NULLS LAST, id DESC", [row.organization_id, row.id]),
+    pool.query("SELECT * FROM student_mock_exams WHERE organization_id=$1 AND status='active' ORDER BY exam_date ASC NULLS LAST, id DESC", [row.organization_id]),
+    pool.query("SELECT * FROM student_referrals WHERE organization_id=$1 AND referrer_student_id=$2 ORDER BY id DESC", [row.organization_id, row.id]),
+    pool.query("SELECT r.*, t.full_name AS teacher_name FROM student_extra_lesson_requests r LEFT JOIN teachers t ON t.id=r.teacher_id WHERE r.organization_id=$1 AND r.student_id=$2 ORDER BY r.id DESC", [row.organization_id, row.id]),
+    pool.query("SELECT * FROM student_feedback WHERE organization_id=$1 AND student_id=$2 ORDER BY id DESC", [row.organization_id, row.id]),
+    pool.query("SELECT p.*, g.name AS group_name FROM payments p LEFT JOIN groups g ON g.id=p.group_id WHERE p.organization_id=$1 AND p.student_id=$2 ORDER BY p.paid_at DESC", [row.organization_id, row.id]),
+    pool.query("SELECT g.*, t.full_name AS teacher_name FROM groups g LEFT JOIN teachers t ON t.id=g.teacher_id WHERE g.organization_id=$1 AND (g.id=$2 OR g.id IN (SELECT group_id FROM group_students WHERE organization_id=$1 AND student_id=$3)) ORDER BY g.id DESC", [row.organization_id, row.group_id, row.id]),
+    pool.query("SELECT * FROM attendance_records WHERE organization_id=$1 AND student_id=$2 ORDER BY lesson_date DESC LIMIT 60", [row.organization_id, row.id])
+  ]);
+
+  const paid = payments.rows.reduce((sum, item) => sum + Number(item.amount || 0) + Number(item.discount || 0), 0);
+  const due = payments.rows.reduce((sum, item) => sum + Number(item.due_amount || 0), 0);
+  const balance = Number(row.balance || Math.max(due - paid, 0));
+  const present = attendance.rows.filter((item) => ["present", "online"].includes(item.status)).length;
+  const attendancePercent = attendance.rows.length ? Math.round((present / attendance.rows.length) * 100) : 0;
+  const student = studentPublic({ ...row, balance, group_name: groups.rows[0]?.name || row.group_name });
+
+  return {
+    student,
+    organization: {
+      id: row.organization_id,
+      name: row.organization_name,
+      subdomain: row.organization_subdomain,
+      phone: row.organization_phone
+    },
+    settings: settings.rows[0] || {},
+    modules: modules.rows,
+    events: events.rows,
+    news: news.rows,
+    library: library.rows,
+    dictionary: dictionary.rows,
+    exams: exams.rows,
+    mockExams: mockExams.rows,
+    referrals: referrals.rows,
+    extraLessons: extraLessons.rows,
+    feedback: feedback.rows,
+    payments: payments.rows,
+    groups: groups.rows.map((group) => ({ ...group, attendance_percent: attendancePercent })),
+    attendance: attendance.rows,
+    lessons: groups.rows.map((group) => ({
+      id: group.id,
+      title: group.course_name || group.name,
+      group_name: group.name,
+      teacher_name: group.teacher_name || group.teacher_full_name,
+      room: group.room,
+      time: `${String(group.start_time || "09:00").slice(0, 5)} - ${String(group.end_time || "10:30").slice(0, 5)}`,
+      status: "in_progress"
+    })),
+    ranking: [
+      { student_id: row.id, full_name: row.full_name, score: Number(row.crystals || 0) + 160 },
+      { student_id: 0, full_name: "Akbar", score: 320 },
+      { student_id: -1, full_name: "Yahyobek", score: 210 }
+    ].sort((a, b) => b.score - a.score),
+    paymentSummary: { due, paid, balance }
+  };
+}
+
+async function handleStudentAppAuthPhone(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    if (!process.env.DATABASE_URL) {
+      sendJson(response, 503, { ok: false, found: false, message: "DATABASE_URL sozlanmagan" });
+      return;
+    }
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const rows = await findStudentsByPhone(pool, body.phone, { organizationId: body.organization_id, subdomain: body.subdomain || tenantSubdomainFromRequest(request) });
+    if (!rows.length) {
+      sendJson(response, 200, { ok: true, found: false, message: "Bu telefon raqam bo'yicha o'quvchi topilmadi" });
+      return;
+    }
+    sendJson(response, 200, {
+      ok: true,
+      found: true,
+      requiresPassword: true,
+      multipleOrganizations: rows.length > 1,
+      maskedStudentName: maskedName(rows[0].full_name),
+      organizationName: rows[0].organization_name,
+      organizations: rows.map((row) => ({ id: row.organization_id, name: row.organization_name, subdomain: row.organization_subdomain }))
+    });
+  } catch (error) {
+    withError(response, "Student app phone auth", error);
+  }
+}
+
+async function studentAppPasswordLogin(payload, meta = {}) {
+  const pool = getDbPool();
+  await ensureSchema(pool);
+  const rows = await findStudentsByPhone(pool, payload.phone, { organizationId: payload.organization_id, subdomain: payload.subdomain });
+  const student = rows[0];
+  if (!student) {
+    const error = new Error("Bu telefon raqam bo'yicha o'quvchi topilmadi");
+    error.statusCode = 404;
+    throw error;
+  }
+  const password = String(payload.password || "");
+  const temporaryPassword = normalizePhone(student.phone).slice(-4);
+  const valid = student.app_password_hash ? verifyPassword(password, student.app_password_hash) : (password && password === temporaryPassword);
+  if (!valid) {
+    const error = new Error("Telefon raqam yoki parol noto'g'ri");
+    error.statusCode = 401;
+    throw error;
+  }
+  await ensureStudentAppDefaults(pool, student.organization_id);
+  await pool.query(
+    `UPDATE students
+     SET telegram_user_id=COALESCE($2, telegram_user_id),
+         telegram_chat_id=COALESCE($3, telegram_chat_id),
+         last_student_app_login=NOW(),
+         referral_code=COALESCE(referral_code, $4)
+     WHERE id=$1`,
+    [student.id, payload.telegram_user_id || null, payload.telegram_chat_id || null, `EDU${student.id}`]
+  );
+  const refreshed = { ...student, telegram_user_id: payload.telegram_user_id || student.telegram_user_id, telegram_chat_id: payload.telegram_chat_id || student.telegram_chat_id };
+  const settings = await pool.query("SELECT session_days FROM student_app_settings WHERE organization_id=$1 LIMIT 1", [student.organization_id]);
+  const token = await createStudentAppSession(pool, refreshed, {
+    telegramUserId: payload.telegram_user_id,
+    userAgent: meta.userAgent,
+    ipAddress: meta.ipAddress,
+    sessionDays: settings.rows[0]?.session_days || 30
+  });
+  return {
+    token,
+    student: studentPublic(refreshed),
+    organization: {
+      id: student.organization_id,
+      name: student.organization_name,
+      subdomain: student.organization_subdomain
+    },
+    webAppUrl: studentAppWebUrl({ subdomain: student.organization_subdomain, slug: student.organization_slug }, token)
+  };
+}
+
+async function handleStudentAppAuthPassword(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    const payload = await studentAppPasswordLogin(body, { userAgent: request.headers["user-agent"], ipAddress: clientIp(request) });
+    sendJson(response, 200, { ok: true, ...payload });
+  } catch (error) {
+    sendJson(response, error.statusCode || 500, { ok: false, message: error.message });
+  }
+}
+
+async function handleStudentAppLogout(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  await session.pool.query("UPDATE student_app_sessions SET revoked_at=NOW() WHERE token_hash=$1", [hashStudentAppToken(session.token)]);
+  sendJson(response, 200, { ok: true, message: "Siz Student App'dan chiqdingiz" });
+}
+
+async function handleStudentAppMe(request, response) {
+  if (!process.env.DATABASE_URL) {
+    sendJson(response, 200, { ok: true, ...fallbackStudentAppPayload() });
+    return;
+  }
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const payload = await studentAppBasePayload(session.pool, session.row);
+  sendJson(response, 200, { ok: true, ...payload });
+}
+
+async function handleStudentAppData(request, response, resource) {
+  if (!process.env.DATABASE_URL) {
+    const fallback = fallbackStudentAppPayload();
+    const map = {
+      home: fallback,
+      profile: fallback,
+      group: { groups: fallback.groups || [{ id: 1, name: "KURS - A1", teacher_name: "Mr. John", attendance_percent: 92 }], student: fallback.student },
+      study: { lessons: fallback.lessons, groups: fallback.groups || [] },
+      rating: { ranking: fallback.ranking, student: fallback.student },
+      library: { items: fallback.library },
+      dictionary: { items: fallback.dictionary },
+      exams: { exams: fallback.exams, mockExams: fallback.mockExams },
+      referrals: { referrals: fallback.referrals, referralCode: fallback.student.referralCode },
+      news: { news: fallback.news, events: fallback.events },
+      payments: { payments: fallback.payments, student: fallback.student },
+      settings: { settings: fallback.settings }
+    };
+    sendJson(response, 200, { ok: true, ...(map[resource] || fallback) });
+    return;
+  }
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const payload = await studentAppBasePayload(session.pool, session.row);
+  const responses = {
+    home: payload,
+    profile: payload,
+    group: { student: payload.student, groups: payload.groups, attendance: payload.attendance },
+    study: { lessons: payload.lessons, groups: payload.groups },
+    rating: { ranking: payload.ranking, student: payload.student },
+    library: { items: payload.library },
+    dictionary: { items: payload.dictionary },
+    exams: { exams: payload.exams, mockExams: payload.mockExams },
+    referrals: { referrals: payload.referrals, referralCode: payload.student.referralCode },
+    news: { news: payload.news, events: payload.events },
+    payments: { payments: payload.payments, student: payload.student, paymentSummary: payload.paymentSummary },
+    settings: { settings: payload.settings }
+  };
+  sendJson(response, 200, { ok: true, ...(responses[resource] || payload) });
+}
+
+async function handleStudentAppExtraLessonRegister(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const body = await readJsonBody(request);
+  const result = await session.pool.query(
+    `INSERT INTO student_extra_lesson_requests (organization_id, student_id, teacher_id, requested_date, requested_time, purpose, price)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [session.row.organization_id, session.row.id, body.teacher_id || null, asDate(body.date), asText(body.time), asText(body.purpose), asNumber(body.price)]
+  );
+  sendJson(response, 201, { ok: true, item: result.rows[0], message: "Qo'shimcha dars so'rovi yuborildi" });
+}
+
+async function handleStudentAppFeedback(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const body = await readJsonBody(request);
+  if (!asText(body.message)) {
+    sendJson(response, 400, { ok: false, message: "Xabar matni majburiy" });
+    return;
+  }
+  const result = await session.pool.query(
+    `INSERT INTO student_feedback (organization_id, student_id, type, subject, message)
+     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [session.row.organization_id, session.row.id, asText(body.type, "Savol"), asText(body.subject), asText(body.message)]
+  );
+  sendJson(response, 201, { ok: true, item: result.rows[0], message: "Murojaatingiz yuborildi" });
+}
+
+async function handleStudentAppSettingsUpdate(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const body = await readJsonBody(request);
+  sendJson(response, 200, { ok: true, settings: body, message: "Sozlamalar saqlandi" });
+}
+
+async function handleStudentAppReferralShare(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const code = session.row.referral_code || `EDU${session.row.id}`;
+  const link = `https://${process.env.BASE_DOMAIN || "eduka.uz"}/?ref=${encodeURIComponent(code)}`;
+  sendJson(response, 200, { ok: true, referralLink: link });
+}
+
+const studentAppAdminTables = {
+  dictionary: {
+    table: "student_dictionary_words",
+    fields: ["word", "translation", "pronunciation", "example", "level", "category", "status"],
+    defaults: { status: "published" },
+    search: ["word", "translation", "category"]
+  },
+  library: {
+    table: "student_library_items",
+    fields: ["title", "type", "description", "cover_url", "file_url", "external_url", "course_id", "level", "status"],
+    defaults: { type: "book", status: "published" },
+    search: ["title", "type", "description"]
+  },
+  news: {
+    table: "student_news",
+    fields: ["title", "description", "image_url", "publish_date", "target_type", "target_group_id", "status"],
+    defaults: { target_type: "all", status: "published" },
+    search: ["title", "description"]
+  },
+  events: {
+    table: "student_events",
+    fields: ["title", "description", "image_url", "event_date", "event_time", "registration_enabled", "status"],
+    defaults: { registration_enabled: false, status: "active" },
+    search: ["title", "description"]
+  },
+  "mock-exams": {
+    table: "student_mock_exams",
+    fields: ["title", "description", "exam_date", "price", "registration_enabled", "status"],
+    defaults: { registration_enabled: true, status: "active" },
+    search: ["title", "description"]
+  },
+  "extra-lessons": {
+    table: "student_extra_lesson_requests",
+    fields: ["student_id", "teacher_id", "requested_date", "requested_time", "purpose", "price", "status", "admin_note"],
+    defaults: { status: "pending" },
+    search: ["purpose", "status", "admin_note"]
+  },
+  referrals: {
+    table: "student_referrals",
+    fields: ["referrer_student_id", "referred_name", "referred_phone", "referred_student_id", "status", "reward_type", "reward_amount"],
+    defaults: { status: "new", reward_type: "crystal", reward_amount: 0 },
+    search: ["referred_name", "referred_phone", "status"]
+  },
+  feedback: {
+    table: "student_feedback",
+    fields: ["student_id", "type", "subject", "message", "status", "admin_reply"],
+    defaults: { status: "new" },
+    search: ["type", "subject", "message", "status"]
+  }
+};
+
+async function handleAdminStudentAppDashboard(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStudentAppDefaults(pool, user.organization_id);
+    const result = await pool.query(
+      `SELECT
+        (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND student_app_enabled=TRUE) AS enabled_students,
+        (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND telegram_chat_id IS NOT NULL) AS telegram_linked,
+        (SELECT COUNT(*)::int FROM student_app_sessions WHERE organization_id=$1 AND revoked_at IS NULL AND expires_at > NOW()) AS active_sessions,
+        (SELECT COUNT(*)::int FROM student_referrals WHERE organization_id=$1) AS referrals,
+        (SELECT COUNT(*)::int FROM student_library_items WHERE organization_id=$1) AS library_items,
+        (SELECT COUNT(*)::int FROM student_dictionary_words WHERE organization_id=$1) AS dictionary_words,
+        (SELECT COUNT(*)::int FROM student_extra_lesson_requests WHERE organization_id=$1 AND status='pending') AS extra_lesson_requests,
+        (SELECT COUNT(*)::int FROM student_feedback WHERE organization_id=$1 AND status='new') AS latest_feedback`,
+      [user.organization_id]
+    );
+    sendJson(response, 200, { ok: true, summary: result.rows[0] });
+  } catch (error) {
+    withError(response, "Student app dashboard", error);
+  }
+}
+
+async function handleAdminStudentAppSettings(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "GET" ? "read" : "settings:write");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStudentAppDefaults(pool, user.organization_id);
+    if (request.method === "GET") {
+      const result = await pool.query("SELECT * FROM student_app_settings WHERE organization_id=$1 LIMIT 1", [user.organization_id]);
+      sendJson(response, 200, { ok: true, settings: result.rows[0] });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const result = await pool.query(
+      `UPDATE student_app_settings SET
+        enabled=$2, crystals_enabled=$3, coins_enabled=$4, rating_enabled=$5, referral_enabled=$6,
+        library_enabled=$7, dictionary_enabled=$8, extra_lessons_enabled=$9, exams_enabled=$10,
+        news_enabled=$11, payments_enabled=$12, complaints_enabled=$13, theme_primary=$14,
+        app_name=$15, support_text=$16, session_days=$17, updated_at=NOW()
+       WHERE organization_id=$1 RETURNING *`,
+      [
+        user.organization_id,
+        body.enabled !== false,
+        body.crystals_enabled !== false,
+        body.coins_enabled !== false,
+        body.rating_enabled !== false,
+        body.referral_enabled !== false,
+        body.library_enabled !== false,
+        body.dictionary_enabled !== false,
+        body.extra_lessons_enabled !== false,
+        body.exams_enabled !== false,
+        body.news_enabled !== false,
+        body.payments_enabled !== false,
+        body.complaints_enabled !== false,
+        asText(body.theme_primary, "#0A84FF"),
+        asText(body.app_name, "Eduka Student App"),
+        asText(body.support_text),
+        Math.max(1, Number(body.session_days || 30))
+      ]
+    );
+    sendJson(response, 200, { ok: true, settings: result.rows[0] });
+  } catch (error) {
+    withError(response, "Student app settings", error);
+  }
+}
+
+async function handleAdminStudentAppModules(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "GET" ? "read" : "settings:write");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStudentAppDefaults(pool, user.organization_id);
+    if (request.method === "GET") {
+      const result = await pool.query("SELECT * FROM student_app_modules WHERE organization_id=$1 ORDER BY sort_order, id", [user.organization_id]);
+      sendJson(response, 200, { ok: true, items: result.rows });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const modules = Array.isArray(body.modules) ? body.modules : [];
+    const saved = [];
+    for (const item of modules) {
+      const result = await pool.query(
+        `UPDATE student_app_modules SET title=$3, description=$4, icon=$5, enabled=$6, sort_order=$7
+         WHERE id=$1 AND organization_id=$2 RETURNING *`,
+        [item.id, user.organization_id, asText(item.title), asText(item.description), asText(item.icon), item.enabled !== false, asNumber(item.sort_order)]
+      );
+      if (result.rows[0]) saved.push(result.rows[0]);
+    }
+    sendJson(response, 200, { ok: true, items: saved });
+  } catch (error) {
+    withError(response, "Student app modules", error);
+  }
+}
+
+async function handleAdminStudentAppAccess(request, response, action = "", studentId = null) {
+  try {
+    const user = await requireUser(request, response, action ? "students:write" : "students:read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    if (!action) {
+      const result = await pool.query(
+        `SELECT id, full_name, phone, telegram_user_id, telegram_chat_id, student_app_enabled, student_app_blocked,
+                app_password_set_at, app_password_reset_required, last_student_app_login
+         FROM students
+         WHERE organization_id=$1
+         ORDER BY id DESC`,
+        [user.organization_id]
+      );
+      sendJson(response, 200, { ok: true, items: result.rows });
+      return;
+    }
+    const student = await pool.query("SELECT * FROM students WHERE id=$1 AND organization_id=$2", [studentId, user.organization_id]);
+    if (!student.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "O'quvchi topilmadi" });
+      return;
+    }
+    if (action === "enable" || action === "disable") {
+      const enabled = action === "enable";
+      await pool.query("UPDATE students SET student_app_enabled=$3, student_app_blocked=$4 WHERE id=$1 AND organization_id=$2", [studentId, user.organization_id, enabled, !enabled]);
+      sendJson(response, 200, { ok: true, message: enabled ? "Student App faollashtirildi" : "Student App o'chirildi" });
+      return;
+    }
+    if (action === "unlink-telegram") {
+      await pool.query("UPDATE students SET telegram_user_id=NULL, telegram_chat_id=NULL WHERE id=$1 AND organization_id=$2", [studentId, user.organization_id]);
+      sendJson(response, 200, { ok: true, message: "Telegram bog'lanishi uzildi" });
+      return;
+    }
+    if (action === "generate-password" || action === "reset-password") {
+      const password = String(crypto.randomInt(100000, 999999));
+      await pool.query(
+        `UPDATE students
+         SET app_password_hash=$3, app_password_set_at=NOW(), app_password_reset_required=$4
+         WHERE id=$1 AND organization_id=$2`,
+        [studentId, user.organization_id, hashPassword(password), action === "reset-password"]
+      );
+      sendJson(response, 200, {
+        ok: true,
+        password,
+        instruction: "Telegram botga kiring, telefon raqamingizni yuboring va parolingizni kiriting."
+      });
+      return;
+    }
+    if (action === "send-instruction") {
+      const sent = await sendStudentTelegramMessage(pool, student.rows[0], "Telegram botga kiring, telefon raqamingizni yuboring va parolingizni kiriting.");
+      sendJson(response, sent.ok ? 200 : 409, sent);
+      return;
+    }
+    sendJson(response, 404, { ok: false, message: "Amal topilmadi" });
+  } catch (error) {
+    withError(response, "Student app access", error);
+  }
+}
+
+async function handleAdminStudentAppTable(request, response, key, id = null) {
+  const config = studentAppAdminTables[key];
+  if (!config) {
+    sendJson(response, 404, { ok: false, message: "Bo'lim topilmadi" });
+    return;
+  }
+  try {
+    const permission = request.method === "GET" ? "read" : "settings:write";
+    const user = await requireUser(request, response, permission);
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    if (request.method === "GET") {
+      const query = requestQuery(request);
+      const search = asText(query.get("search"));
+      const params = [user.organization_id];
+      let where = "WHERE organization_id=$1";
+      if (search && config.search?.length) {
+        params.push(`%${search}%`);
+        where += ` AND (${config.search.map((field) => `${field} ILIKE $${params.length}`).join(" OR ")})`;
+      }
+      const result = await pool.query(`SELECT * FROM ${config.table} ${where} ORDER BY id DESC LIMIT 300`, params);
+      sendJson(response, 200, { ok: true, items: result.rows });
+      return;
+    }
+    if (request.method === "DELETE" && id) {
+      await pool.query(`DELETE FROM ${config.table} WHERE id=$1 AND organization_id=$2`, [id, user.organization_id]);
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const values = config.fields.map((field) => hasOwn(body, field) ? body[field] : config.defaults[field] ?? null);
+    if (request.method === "POST") {
+      const columns = ["organization_id", ...config.fields];
+      const placeholders = columns.map((_, index) => `$${index + 1}`).join(",");
+      const result = await pool.query(
+        `INSERT INTO ${config.table} (${columns.join(",")}) VALUES (${placeholders}) RETURNING *`,
+        [user.organization_id, ...values]
+      );
+      sendJson(response, 201, { ok: true, item: result.rows[0] });
+      return;
+    }
+    if (request.method === "PUT" && id) {
+      const setSql = config.fields.map((field, index) => `${field}=$${index + 3}`).join(",");
+      const result = await pool.query(
+        `UPDATE ${config.table} SET ${setSql} WHERE id=$1 AND organization_id=$2 RETURNING *`,
+        [id, user.organization_id, ...values]
+      );
+      sendJson(response, result.rows[0] ? 200 : 404, result.rows[0] ? { ok: true, item: result.rows[0] } : { ok: false, message: "Ma'lumot topilmadi" });
+      return;
+    }
+    sendJson(response, 405, { ok: false, message: "Method not allowed" });
+  } catch (error) {
+    withError(response, `Student app ${key}`, error);
+  }
+}
+
+async function sendStudentTelegramMessage(pool, student, message) {
+  if (!student?.telegram_chat_id) return { ok: false, message: "Student Telegram botga ulanmagan" };
+  const config = getTelegramConfig({ allowMissing: true });
+  if (!config.tokenPresent) return { ok: false, message: "BOT_TOKEN sozlanmagan" };
+  await postTelegramMessage(config.token, student.telegram_chat_id, message);
+  return { ok: true, message: "Xabar yuborildi" };
+}
+
+async function handleTelegramWebhook(request, response) {
+  const expectedSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
+  if (expectedSecret) {
+    const actualSecret = String(request.headers["x-telegram-bot-api-secret-token"] || "").trim();
+    if (actualSecret !== expectedSecret) {
+      sendJson(response, 403, { ok: false, message: "Forbidden" });
+      return;
+    }
+  }
+  try {
+    const update = await readJsonBody(request);
+    await studentTelegramBot.handleUpdate(update, {
+      getDbPool,
+      ensureSchema,
+      normalizePhone,
+      studentAppPasswordLogin,
+      createLinkedStudentAppSession,
+      findStudentsByPhone,
+      postTelegramMessage,
+      getTelegramConfig,
+      studentAppWebUrl,
+      hashPassword
+    });
+    sendJson(response, 200, { ok: true });
+  } catch (error) {
+    console.error(`Telegram webhook failed: ${error.message}`);
+    sendJson(response, 200, { ok: false });
+  }
+}
+
+async function handleTelegramSetWebhook(request, response) {
+  try {
+    const adminSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
+    if (adminSecret && String(request.headers["x-telegram-webhook-secret"] || "").trim() !== adminSecret) {
+      sendJson(response, 403, { ok: false, message: "Forbidden" });
+      return;
+    }
+    const config = getTelegramConfig({ allowMissing: true });
+    if (!config.tokenPresent) {
+      sendJson(response, 503, { ok: false, message: "BOT_TOKEN sozlanmagan" });
+      return;
+    }
+    const baseDomain = String(process.env.BASE_DOMAIN || "eduka.uz").replace(/^https?:\/\//, "");
+    const webhookUrl = `https://${baseDomain}/api/telegram/webhook`;
+    const payload = { url: webhookUrl };
+    if (adminSecret) payload.secret_token = adminSecret;
+    await telegramApiRequest(config.token, "setWebhook", payload);
+    sendJson(response, 200, { ok: true, webhookUrl });
+  } catch (error) {
+    sendJson(response, 500, { ok: false, message: error.message });
+  }
+}
+
 const server = http.createServer((request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -2731,6 +3588,94 @@ const server = http.createServer((request, response) => {
     }
   }
 
+  if (request.method === "POST" && urlPath === "/api/telegram/webhook") {
+    handleTelegramWebhook(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/telegram/set-webhook") {
+    handleTelegramSetWebhook(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/auth/phone") {
+    handleStudentAppAuthPhone(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/auth/password") {
+    handleStudentAppAuthPassword(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/auth/logout") {
+    handleStudentAppLogout(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/student-app/me") {
+    handleStudentAppMe(request, response);
+    return;
+  }
+
+  const studentDataMatch = urlPath.match(/^\/api\/student-app\/(home|profile|group|study|rating|library|dictionary|exams|referrals|news|payments|settings)$/);
+  if (studentDataMatch && request.method === "GET") {
+    handleStudentAppData(request, response, studentDataMatch[1]);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/extra-lesson/register") {
+    handleStudentAppExtraLessonRegister(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/feedback") {
+    handleStudentAppFeedback(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/referrals/share") {
+    handleStudentAppReferralShare(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/settings") {
+    handleStudentAppSettingsUpdate(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/student-app/dashboard") {
+    handleAdminStudentAppDashboard(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/app/student-app/settings" && ["GET", "PUT"].includes(request.method)) {
+    handleAdminStudentAppSettings(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/app/student-app/modules" && ["GET", "PUT"].includes(request.method)) {
+    handleAdminStudentAppModules(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/student-app/access/students") {
+    handleAdminStudentAppAccess(request, response);
+    return;
+  }
+
+  const studentAccessMatch = urlPath.match(/^\/api\/app\/student-app\/access\/(\d+)\/(generate-password|reset-password|enable|disable|unlink-telegram|send-instruction)$/);
+  if (studentAccessMatch && request.method === "POST") {
+    handleAdminStudentAppAccess(request, response, studentAccessMatch[2], Number(studentAccessMatch[1]));
+    return;
+  }
+
+  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|news|events|referrals|extra-lessons|mock-exams|feedback)(?:\/(\d+))?$/);
+  if (studentAdminTableMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
+    handleAdminStudentAppTable(request, response, studentAdminTableMatch[1], studentAdminTableMatch[2] ? Number(studentAdminTableMatch[2]) : null);
+    return;
+  }
+
   if (request.method === "GET" && ["/api/telegram-health", "/api/telegram-health/"].includes(urlPath)) {
     handleTelegramHealth(response, query.get("check") === "1");
     return;
@@ -2764,6 +3709,11 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (request.method === "GET" && (urlPath === "/student-app" || urlPath.startsWith("/student-app/"))) {
+    sendStudentAppShell(response);
+    return;
+  }
+
   const appRoutes = new Set(["/app", "/dashboard", "/login", "/crm", "/panel", "/auth/login", "/auth/register", "/auth/forgot-password"]);
 
   if (
@@ -2794,4 +3744,16 @@ const server = http.createServer((request, response) => {
 
 server.listen(port, () => {
   console.log(`Eduka landing is running on port ${port}`);
+  studentTelegramBot.startPollingIfEnabled({
+    getDbPool,
+    ensureSchema,
+    normalizePhone,
+    studentAppPasswordLogin,
+    createLinkedStudentAppSession,
+    findStudentsByPhone,
+    postTelegramMessage,
+    getTelegramConfig,
+    studentAppWebUrl,
+    hashPassword
+  });
 });
