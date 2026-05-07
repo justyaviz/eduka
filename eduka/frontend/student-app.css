@@ -989,6 +989,17 @@ a {
   box-shadow: none;
 }
 
+.rating-podium-art {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 8px;
+  width: 178px;
+  transform: translateX(-50%);
+  opacity: 0.2;
+  filter: blur(0.2px) saturate(1.15);
+}
+
 .sa-confetti {
   position: absolute;
   inset: 54px 28px auto;
@@ -1866,10 +1877,24 @@ a {
   margin-bottom: 14px;
 }
 
-.schedule-month > strong {
+.schedule-month-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schedule-month-title strong {
   color: #182230;
   font-size: 16px;
   font-weight: 950;
+}
+
+.schedule-calendar-art {
+  width: 48px;
+  height: 44px;
+  margin: -10px 4px -6px 0;
+  filter: drop-shadow(0 9px 12px rgba(22, 140, 255, 0.16));
 }
 
 .schedule-dates {
@@ -1977,6 +2002,13 @@ a {
   color: #ffffff;
   background: linear-gradient(135deg, var(--sa-primary), var(--sa-primary-2));
   box-shadow: 0 18px 30px rgba(22, 140, 255, 0.3);
+}
+
+.sa-fab .sa-asset {
+  width: 64px;
+  height: 64px;
+  max-width: none;
+  filter: drop-shadow(0 14px 20px rgba(22, 140, 255, 0.26));
 }
 
 .notification-tabs {

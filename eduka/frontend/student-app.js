@@ -512,7 +512,7 @@ function renderHome(data) {
 
       <section class="sa-stats-grid">
         ${statCard({ label: "Kristallar", value: number(student.crystals || 0), assetName: "crystal-3d", tone: "blue" })}
-        ${statCard({ label: "Tangalaring", value: number(student.coins || 0), assetName: "coins-3d", tone: "gold" })}
+        ${statCard({ label: "Tangalaring", value: number(student.coins || 0), assetName: "coin-3d", tone: "gold" })}
       </section>
 
       ${eventCard(data.events?.[0])}
@@ -555,7 +555,7 @@ function renderProfileSettings(data) {
           <p>245 000 / 300 000 XP</p>
           <div class="sa-progress"><i style="width: 82%"></i></div>
         </div>
-        ${asset("crystal-3d", "level-crystal", "Kristall")}
+        ${asset("profile-crystal-3d", "level-crystal", "Kristall")}
       </article>
 
       <section class="sa-list-card settings">
@@ -602,9 +602,10 @@ function renderRating(data) {
           ${iconButton("info", "Reyting haqida", 'data-action="soft-toast" data-message="Reyting kristallar asosida hisoblanadi"')}
         </div>
         <div class="sa-confetti"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        ${asset("podium-3d", "rating-podium-art", "Podium")}
         <div class="podium">
           ${podiumItem(second, 2, "silver", "trophy-silver-3d")}
-          ${podiumItem(first, 1, "gold", "trophy-gold-3d")}
+          ${podiumItem(first, 1, "gold", "trophy-3d")}
           ${podiumItem(third, 3, "bronze", "trophy-bronze-3d")}
         </div>
       </section>
@@ -710,7 +711,7 @@ function renderReferral(data) {
         visible.length
           ? `<section class="sa-card-list">${visible.map(referralCard).join("")}</section>`
           : premiumEmpty({
-              assetName: "group-plus-3d",
+              assetName: "group-3d",
               title: "Hozircha takliflar yo'q",
               subtitle: "Do'stlaringizni taklif qiling va birga o'qib, sovg'alarga ega bo'ling.",
               compact: true
@@ -972,7 +973,7 @@ function renderMyGroup(data) {
       ${sectionHead("Mening balansim")}
       <section class="sa-balance-grid">
         ${statCard({ label: "Kristallar", value: number(student.crystals || 0), assetName: "crystal-3d", tone: "blue" })}
-        ${statCard({ label: "Tangalaring", value: number(student.coins || 0), assetName: "coins-3d", tone: "gold" })}
+        ${statCard({ label: "Tangalaring", value: number(student.coins || 0), assetName: "coin-3d", tone: "gold" })}
       </section>
 
       <section class="sa-list-card group-info">
@@ -1019,7 +1020,7 @@ function renderSchedule(data) {
     `
       ${simpleHeader("Dars jadvali", iconButton("sliders", "Filtr", 'data-action="soft-toast" data-message="Jadval filtrlari ochildi"'), "my-group")}
       <section class="schedule-month">
-        <strong>May 2024</strong>
+        <div class="schedule-month-title"><strong>May 2024</strong>${asset("calendar-3d", "schedule-calendar-art", "Kalendar")}</div>
         <div class="schedule-dates">
           ${dates.map(([day, label], index) => `<button class="${index === 4 ? "active" : ""}" type="button" data-action="soft-toast" data-message="${day} ${label} tanlandi"><b>${day}</b><span>${label}</span></button>`).join("")}
         </div>
@@ -1027,7 +1028,7 @@ function renderSchedule(data) {
       <section class="schedule-list">
         ${lessons.map(scheduleLessonCard).join("")}
       </section>
-      <button class="sa-fab" type="button" data-action="schedule-request" aria-label="Qo'shimcha dars so'rash">${icon("plus")}</button>
+      <button class="sa-fab" type="button" data-action="schedule-request" aria-label="Qo'shimcha dars so'rash">${asset("plus-circle-3d", "", "Qo'shish")}</button>
     `,
     { active: "my-group" }
   );
