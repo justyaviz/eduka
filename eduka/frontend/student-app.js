@@ -1253,7 +1253,7 @@ async function shareReferral() {
   } else if (window.Telegram?.WebApp?.openTelegramLink) {
     window.Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`);
   } else {
-    window.location.href = `tg://msg_url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`;
+    await navigator.clipboard?.writeText(shareUrl).catch(() => {});
   }
   toast("Taklif havolasi tayyor", "success");
 }
@@ -1282,7 +1282,7 @@ async function registerExtraLesson() {
   }
 }
 
-screen.addEventListener("click", (event) => {
+phone.addEventListener("click", (event) => {
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     event.preventDefault();
