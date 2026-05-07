@@ -555,10 +555,15 @@ async function readJson(response) {
   return response.json().catch(() => ({}));
 }
 
+function adminApiHeaders() {
+  const session = typeof adminSession === "function" ? adminSession() : null;
+  return session?.email ? { "X-Platform-Admin-Email": session.email } : {};
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...tenantApiHeaders(), ...(options.headers || {}) },
+    headers: { "Content-Type": "application/json", ...tenantApiHeaders(), ...adminApiHeaders(), ...(options.headers || {}) },
     ...options
   });
   const payload = await readJson(response);
@@ -1997,13 +2002,13 @@ async function resolveTenantCenterFromApi(subdomain) {
       phone: payload.center.phone,
       email: payload.center.email,
       status: payload.center.status || "active",
-      plan: "Pro",
+      plan: payload.center.plan || "Start",
       subscriptionStatus: "active",
       studentsCount: 0,
       teachersCount: 0,
       groupsCount: 0,
       branchesCount: 1,
-      monthlyPayment: 0,
+      monthlyPayment: Number(payload.center.monthly_payment || 0),
       registeredAt: new Date().toISOString().slice(0, 10),
       subscriptionEndsAt: "",
       lastActivityAt: new Date().toISOString().slice(0, 10),
@@ -2049,15 +2054,52 @@ async function applyTenantContext() {
   return true;
 }
 
-function handleTenantLogin(form) {
+async function handleTenantLogin(form) {
   const tenant = tenantFromLocation();
-  const center = resolveTenantCenter(tenant);
+  const center = resolveTenantCenter(tenant) || await resolveTenantCenterFromApi(tenant);
   const errorNode = form.querySelector("[data-tenant-login-error]");
   if (!center) {
     renderTenantNotFound(tenant);
     return;
   }
   const data = Object.fromEntries(new FormData(form).entries());
+  const submitButton = form.querySelector("button[type='submit']");
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "Tekshirilmoqda...";
+  }
+  try {
+    const payload = await api("/api/auth/tenant-login", {
+      method: "POST",
+      body: JSON.stringify({ email: data.email, password: data.password, subdomain: center.subdomain })
+    });
+    const session = setTenantSession(center, {
+      email: payload.user?.email || data.email,
+      name: payload.user?.fullName || center.owner || center.name,
+      role: payload.user?.role || "center_admin"
+    });
+    addAuditLog("tenant login success", "center", center.name, "-", session.userEmail);
+    saveAdminState();
+    showApp(payload.user || tenantUserFromSession(center, session));
+    setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
+    showToast("Kabinet ochildi.");
+    return;
+  } catch (error) {
+    const hasLocalFallback = tenantUsersFor(center).length > 0;
+    if (!hasLocalFallback && errorNode) errorNode.textContent = error.message || "Email yoki parol noto'g'ri";
+    if (!hasLocalFallback) {
+      addAuditLog("tenant login failed", "center", center.name, data.email || "-", error.message || "failed");
+      saveAdminState();
+      showToast(error.message || "Email yoki parol noto'g'ri");
+      return;
+    }
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "Kirish";
+    }
+  }
+
   const user = tenantUsersFor(center).find((item) => item.email.toLowerCase() === String(data.email || "").toLowerCase().trim() && String(item.password || "") === String(data.password || ""));
   if (!user) {
     const anyEmail = adminState.adminUsers.find((item) => item.email.toLowerCase() === String(data.email || "").toLowerCase().trim());
@@ -2559,12 +2601,13 @@ function saveTicket(data) {
   if (!editingId) adminState.supportTickets.unshift(item);
 }
 
-function handleCreateCenter(form) {
-  const data = Object.fromEntries(new FormData(form).entries());
-  data.subdomain = slugify(data.subdomain);
-  const error = !data.name ? "Markaz nomi required." : validateSubdomain(data.subdomain) || (!data.owner ? "Owner required." : "") || (!data.phone ? "Phone required." : "") || (!validateEmail(data.email) ? "Email format noto'g'ri." : "") || (!data.plan ? "Plan required." : "");
-  form.querySelector("[data-admin-form-error]").textContent = error;
-  if (error) return;
+function showCenterCreatedModal(center, data, centerPassword) {
+  modalTitle.textContent = "Markaz yaratildi";
+  modalForm.innerHTML = `<div class="success-box"><h3>${escapeHtml(center.name)}</h3><p>Login link: https://${escapeHtml(center.subdomain)}.eduka.uz</p>${data.createAdmin ? `<p>Admin login: ${escapeHtml(data.email)}</p><p>Parol: ${escapeHtml(centerPassword)}</p>` : ""}</div><div class="modal-actions"><button type="button" data-admin-action="open-tenant" data-id="${center.id}">Markazga kirish</button><button type="button" data-admin-action="profile" data-id="${center.id}">Markaz profilini ochish</button><button type="button" data-admin-action="new-center-reset">Yangi markaz yaratish</button></div>`;
+  modal.hidden = false;
+}
+
+function createCenterLocally(data) {
   const plan = adminState.plans.find((item) => item.name === data.plan);
   const id = nextAdminId(adminState.centers);
   const endDate = new Date();
@@ -2576,9 +2619,67 @@ function handleCreateCenter(form) {
   if (data.createAdmin) adminState.adminUsers.unshift({ id: nextAdminId(adminState.adminUsers), name: data.owner, email: data.email, password: centerPassword, role: "CENTER_ADMIN", status: "active", lastLogin: "-", createdAt: center.registeredAt, twoFa: false, centerId: id, centerSubdomain: center.subdomain });
   addAuditLog("center created", "center", center.name, "-", center.status);
   saveAdminState();
-  modalTitle.textContent = "Markaz yaratildi";
-  modalForm.innerHTML = `<div class="success-box"><h3>${center.name}</h3><p>Login link: https://${center.subdomain}.eduka.uz</p>${data.createAdmin ? `<p>Admin login: ${data.email}</p><p>Parol: ${centerPassword}</p>` : ""}</div><div class="modal-actions"><button type="button" data-admin-action="open-tenant" data-id="${center.id}">Markazga kirish</button><button type="button" data-admin-action="profile" data-id="${center.id}">Markaz profilini ochish</button><button type="button" data-admin-action="new-center-reset">Yangi markaz yaratish</button></div>`;
-  modal.hidden = false;
+  showCenterCreatedModal(center, data, centerPassword);
+  return center;
+}
+
+async function handleCreateCenter(form) {
+  const data = Object.fromEntries(new FormData(form).entries());
+  data.subdomain = slugify(data.subdomain);
+  data.createAdmin = Boolean(data.createAdmin);
+  data.autoPassword = Boolean(data.autoPassword);
+  const error = !data.name ? "Markaz nomi required." : validateSubdomain(data.subdomain) || (!data.owner ? "Owner required." : "") || (!data.phone ? "Phone required." : "") || (!validateEmail(data.email) ? "Email format noto'g'ri." : "") || (!data.plan ? "Plan required." : "");
+  form.querySelector("[data-admin-form-error]").textContent = error;
+  if (error) return;
+  try {
+    const payload = await api("/api/admin/centers", {
+      method: "POST",
+      body: JSON.stringify({
+        ...data,
+        monthlyPayment: adminState.plans.find((item) => item.name === data.plan)?.price || 0
+      })
+    });
+    const dbCenter = payload.center || {};
+    const center = {
+      id: Number(dbCenter.id),
+      name: dbCenter.name || data.name,
+      subdomain: dbCenter.subdomain || data.subdomain,
+      owner: dbCenter.owner || data.owner,
+      phone: dbCenter.phone || data.phone,
+      email: dbCenter.email || data.email,
+      address: dbCenter.address || data.address,
+      plan: dbCenter.plan || data.plan,
+      status: dbCenter.status || data.status,
+      subscriptionStatus: dbCenter.subscription_status || "trial",
+      studentsCount: 0,
+      teachersCount: 0,
+      groupsCount: 0,
+      branchesCount: Number(data.branchLimit || 1),
+      monthlyPayment: Number(dbCenter.monthly_payment || adminState.plans.find((item) => item.name === data.plan)?.price || 0),
+      registeredAt: String(dbCenter.created_at || new Date().toISOString()).slice(0, 10),
+      subscriptionEndsAt: String(dbCenter.license_expires_at || dbCenter.trial_ends_at || "").slice(0, 10),
+      lastActivityAt: new Date().toISOString().slice(0, 10),
+      supportNotes: []
+    };
+    adminState.centers = adminState.centers.filter((item) => String(item.id) !== String(center.id) && item.subdomain !== center.subdomain);
+    adminState.centers.unshift(center);
+    adminState.subscriptions = adminState.subscriptions.filter((item) => String(item.centerId) !== String(center.id));
+    adminState.subscriptions.unshift({ id: nextAdminId(adminState.subscriptions), centerId: center.id, centerName: center.name, plan: center.plan, price: center.monthlyPayment, startDate: center.registeredAt, endDate: center.subscriptionEndsAt, status: "trial", autoRenew: true, paymentStatus: "trial" });
+    const centerPassword = payload.password || data.adminPassword || "12345678";
+    if (data.createAdmin && !adminState.adminUsers.some((user) => user.email.toLowerCase() === data.email.toLowerCase())) {
+      adminState.adminUsers.unshift({ id: nextAdminId(adminState.adminUsers), name: data.owner, email: data.email, password: centerPassword, role: "CENTER_ADMIN", status: "active", lastLogin: "-", createdAt: center.registeredAt, twoFa: false, centerId: center.id, centerSubdomain: center.subdomain });
+    }
+    addAuditLog("center created", "center", center.name, "-", center.status);
+    saveAdminState();
+    showCenterCreatedModal(center, data, centerPassword);
+  } catch (error) {
+    if (/DATABASE_URL|pg dependency/i.test(error.message || "")) {
+      createCenterLocally(data);
+      return;
+    }
+    form.querySelector("[data-admin-form-error]").textContent = error.message || "Markaz yaratib bo'lmadi.";
+    showToast(error.message || "Markaz yaratib bo'lmadi.");
+  }
 }
 
 function updateAdminState(action, id, value = null) {
@@ -3339,7 +3440,7 @@ document.addEventListener("click", async (event) => {
       if (req) {
         const form = document.createElement("form");
         form.innerHTML = `<input name="name" value="${req.centerName}"><input name="subdomain" value="${slugify(req.centerName).slice(0, 20)}"><input name="owner" value="${req.contactPerson}"><input name="phone" value="${req.phone}"><input name="email" value="${req.email}"><input name="address" value=""><input name="plan" value="${req.interestedPlan}"><input name="trialDays" value="7"><input name="branchLimit" value="1"><input name="status" value="active"><input name="createAdmin" value="on"><div data-admin-form-error></div>`;
-        handleCreateCenter(form);
+        await handleCreateCenter(form);
         req.status = "TRIAL_CREATED";
         saveAdminState();
         closeModal();
@@ -3506,11 +3607,11 @@ document.addEventListener("change", (event) => {
   if (event.target.closest(".admin-filters")) renderAdminView(viewFromPath());
 });
 
-document.addEventListener("submit", (event) => {
+document.addEventListener("submit", async (event) => {
   const tenantLoginForm = event.target.closest("[data-tenant-login-form]");
   if (tenantLoginForm) {
     event.preventDefault();
-    handleTenantLogin(tenantLoginForm);
+    await handleTenantLogin(tenantLoginForm);
     return;
   }
 
@@ -3548,7 +3649,7 @@ document.addEventListener("submit", (event) => {
   const centerForm = event.target.closest("[data-admin-create-center]");
   if (centerForm) {
     event.preventDefault();
-    handleCreateCenter(centerForm);
+    await handleCreateCenter(centerForm);
     return;
   }
   const settingsForm = event.target.closest("[data-admin-settings-form]");

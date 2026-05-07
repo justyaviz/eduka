@@ -2,8 +2,13 @@ CREATE TABLE IF NOT EXISTS organizations (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   slug TEXT UNIQUE,
+  subdomain TEXT,
+  owner_name TEXT,
+  email TEXT,
   phone TEXT,
   address TEXT,
+  plan TEXT NOT NULL DEFAULT 'Start',
+  monthly_payment NUMERIC(14, 2) NOT NULL DEFAULT 0,
   logo_url TEXT,
   has_branches BOOLEAN NOT NULL DEFAULT FALSE,
   status TEXT NOT NULL DEFAULT 'active',
@@ -15,6 +20,14 @@ CREATE TABLE IF NOT EXISTS organizations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subdomain TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS owner_name TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'Start';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS monthly_payment NUMERIC(14, 2) NOT NULL DEFAULT 0;
+UPDATE organizations SET subdomain = slug WHERE subdomain IS NULL AND slug IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS organizations_subdomain_unique_idx ON organizations (LOWER(subdomain)) WHERE subdomain IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,

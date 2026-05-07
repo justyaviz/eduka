@@ -10,6 +10,7 @@
     "build": "node --check backend/server.js && node --check frontend/crm-mock.js && node --check frontend/crm-services.js && node --check frontend/app.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "pg": "^8.13.1"
   },
   "engines": {

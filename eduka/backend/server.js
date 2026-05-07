@@ -3,6 +3,13 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+let bcrypt = null;
+
+try {
+  bcrypt = require("bcryptjs");
+} catch {
+  bcrypt = null;
+}
 
 const root = path.join(__dirname, "..", "frontend");
 const port = Number(process.env.PORT) || 3000;
@@ -88,7 +95,13 @@ function hashToken(value) {
 }
 
 function verifyPassword(password, storedHash) {
-  const parts = String(storedHash || "").split("$");
+  const rawHash = String(storedHash || "");
+
+  if (rawHash.startsWith("$2")) {
+    return bcrypt ? bcrypt.compareSync(String(password), rawHash) : false;
+  }
+
+  const parts = rawHash.split("$");
   if (parts.length !== 3 || parts[0] !== "scrypt") return false;
 
   const [, salt, expectedHash] = parts;
@@ -100,6 +113,10 @@ function verifyPassword(password, storedHash) {
 }
 
 function hashPassword(password) {
+  if (bcrypt) {
+    return bcrypt.hashSync(String(password), 10);
+  }
+
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
   return `scrypt$${salt}$${hash}`;
@@ -181,6 +198,7 @@ function publicUser(row) {
       ? {
           id: row.organization_id,
           name: row.organization_name,
+          subdomain: row.organization_subdomain || row.organization_slug,
           phone: row.organization_phone,
           address: row.organization_address,
           status: row.organization_status,
@@ -234,6 +252,22 @@ async function requireUser(request, response, permission = "read") {
 function asText(value, fallback = "") {
   const text = String(value ?? "").trim();
   return text || fallback;
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function validateTenantSubdomain(value) {
+  const subdomain = String(value || "").trim().toLowerCase();
+  if (!/^[a-z0-9-]{3,30}$/.test(subdomain)) return "Subdomain faqat lowercase harf, raqam va hyphen bo'lishi kerak";
+  if (reservedSubdomains.has(subdomain)) return "Bu subdomain tizim uchun band qilingan";
+  return "";
+}
+
+function platformAdminAuthorized(request) {
+  const email = String(request.headers["x-platform-admin-email"] || "").toLowerCase().trim();
+  return ["admin@eduka.uz", "manager@eduka.uz"].includes(email);
 }
 
 function asNumber(value, fallback = 0) {
@@ -545,6 +579,8 @@ async function findSessionUser(request) {
        u.role,
        u.organization_id,
        o.name AS organization_name,
+       o.slug AS organization_slug,
+       COALESCE(o.subdomain, o.slug) AS organization_subdomain,
        o.phone AS organization_phone,
        o.address AS organization_address,
        o.status AS organization_status,
@@ -575,6 +611,8 @@ async function loadUserById(pool, userId) {
        u.role,
        u.organization_id,
        o.name AS organization_name,
+       o.slug AS organization_slug,
+       COALESCE(o.subdomain, o.slug) AS organization_subdomain,
        o.phone AS organization_phone,
        o.address AS organization_address,
        o.status AS organization_status,
@@ -639,6 +677,8 @@ async function handleLoginRequest(request, response) {
          u.password_hash,
          u.organization_id,
          o.name AS organization_name,
+         o.slug AS organization_slug,
+         COALESCE(o.subdomain, o.slug) AS organization_subdomain,
          o.phone AS organization_phone,
          o.address AS organization_address,
          o.status AS organization_status,
@@ -709,9 +749,17 @@ async function handleTenantResolveRequest(request, response, subdomain) {
     const pool = getDbPool();
     await ensureSchema(pool);
     const result = await pool.query(
-      `SELECT id, name, subdomain, owner_name AS owner, phone, email, status
+      `SELECT id,
+              name,
+              COALESCE(subdomain, slug) AS subdomain,
+              owner_name AS owner,
+              phone,
+              email,
+              status,
+              plan,
+              monthly_payment
        FROM organizations
-       WHERE lower(subdomain)=lower($1)
+       WHERE lower(COALESCE(subdomain, slug))=lower($1)
        LIMIT 1`,
       [tenantSubdomain]
     );
@@ -723,6 +771,179 @@ async function handleTenantResolveRequest(request, response, subdomain) {
   } catch (error) {
     const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
     sendJson(response, statusCode, { ok: false, message: error.message });
+  }
+}
+
+async function handleAdminCenterCreateRequest(request, response) {
+  let client;
+  try {
+    if (!platformAdminAuthorized(request)) {
+      sendJson(response, 401, { ok: false, message: "Admin sessiya topilmadi" });
+      return;
+    }
+
+    const body = await readJsonBody(request);
+    const name = asText(body.name);
+    const subdomain = asText(body.subdomain).toLowerCase();
+    const owner = asText(body.owner || body.ownerName);
+    const phone = asText(body.phone);
+    const email = asText(body.email).toLowerCase();
+    const plan = asText(body.plan, "Start");
+    const status = asText(body.status, "active");
+    const trialDays = Math.max(0, Number(body.trialDays || body.trial_days || 7));
+    const password = String(body.adminPassword || body.password || "12345678");
+    const createAdmin = body.createAdmin !== false && body.createAdmin !== "false";
+    const subdomainError = validateTenantSubdomain(subdomain);
+
+    if (!name || !owner || !phone || !email || !plan) {
+      sendJson(response, 400, { ok: false, message: "Markaz nomi, egasi, telefon, email va tarif kerak" });
+      return;
+    }
+    if (!isValidEmail(email)) {
+      sendJson(response, 400, { ok: false, message: "Email format noto'g'ri" });
+      return;
+    }
+    if (subdomainError) {
+      sendJson(response, 400, { ok: false, message: subdomainError });
+      return;
+    }
+
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const duplicate = await client.query("SELECT id FROM organizations WHERE lower(COALESCE(subdomain, slug))=lower($1) LIMIT 1", [subdomain]);
+    if (duplicate.rows.length) {
+      await client.query("ROLLBACK");
+      sendJson(response, 409, { ok: false, message: "Bu subdomain band" });
+      return;
+    }
+
+    const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
+    const centerResult = await client.query(
+      `INSERT INTO organizations
+        (name, slug, subdomain, owner_name, email, phone, address, plan, monthly_payment, status, subscription_status, trial_ends_at, license_expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'trial',$11,$11)
+       RETURNING id, name, COALESCE(subdomain, slug) AS subdomain, owner_name AS owner, email, phone, address, plan, monthly_payment, status, subscription_status, trial_ends_at, license_expires_at, created_at`,
+      [name, subdomain, subdomain, owner, email, phone, asText(body.address), plan, asNumber(body.monthlyPayment || body.monthly_payment), status, trialEndsAt]
+    );
+    const center = centerResult.rows[0];
+    let adminUser = null;
+
+    if (createAdmin) {
+      const userResult = await client.query(
+        `INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active)
+         VALUES ($1,$2,$3,$4,$5,'center_admin',$6,TRUE)
+         ON CONFLICT (email) DO UPDATE
+           SET organization_id=EXCLUDED.organization_id,
+               full_name=EXCLUDED.full_name,
+               phone=EXCLUDED.phone,
+               normalized_phone=EXCLUDED.normalized_phone,
+               role='center_admin',
+               password_hash=EXCLUDED.password_hash,
+               is_active=TRUE,
+               updated_at=NOW()
+         RETURNING id, full_name, email, phone, role, organization_id`,
+        [center.id, owner, email, phone, `tenant-${subdomain}`, hashPassword(password)]
+      );
+      adminUser = userResult.rows[0];
+    }
+
+    await client.query(
+      "INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1, NULL, $2, $3, $4, $5)",
+      [center.id, "center created", "center", center.id, JSON.stringify({ subdomain, adminEmail: createAdmin ? email : null })]
+    );
+
+    await client.query("COMMIT");
+    sendJson(response, 201, { ok: true, center, adminUser, password: createAdmin ? password : null, loginLink: `https://${subdomain}.eduka.uz` });
+  } catch (error) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+    }
+    withError(response, "Admin center create", error);
+  } finally {
+    if (client) client.release();
+  }
+}
+
+async function handleTenantLoginRequest(request, response) {
+  try {
+    if (!checkLoginRateLimit(request)) {
+      sendJson(response, 429, { ok: false, message: "Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring" });
+      return;
+    }
+
+    const body = await readJsonBody(request);
+    const email = asText(body.email).toLowerCase();
+    const password = String(body.password || "");
+    const subdomain = asText(body.subdomain || tenantSubdomainFromRequest(request)).toLowerCase();
+    const subdomainError = validateTenantSubdomain(subdomain);
+
+    if (!email || !password || subdomainError) {
+      sendJson(response, 400, { ok: false, message: "Email, parol va markaz subdomaini kerak" });
+      return;
+    }
+
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const centerResult = await pool.query(
+      "SELECT id, name, COALESCE(subdomain, slug) AS subdomain, status FROM organizations WHERE lower(COALESCE(subdomain, slug))=lower($1) LIMIT 1",
+      [subdomain]
+    );
+    const center = centerResult.rows[0];
+    if (!center) {
+      sendJson(response, 404, { ok: false, message: "Bu o'quv markaz topilmadi" });
+      return;
+    }
+
+    const userResult = await pool.query(
+      `SELECT id, full_name, email, phone, role, password_hash, organization_id, is_active
+       FROM users
+       WHERE LOWER(COALESCE(email, ''))=$1
+       LIMIT 1`,
+      [email]
+    );
+    const user = userResult.rows[0];
+
+    if (user && String(user.organization_id) !== String(center.id)) {
+      await pool.query(
+        "INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1, NULL, $2, $3, $4, $5)",
+        [center.id, "tenant login failed", "center", center.id, JSON.stringify({ email, reason: "wrong_center" })]
+      );
+      sendJson(response, 403, { ok: false, message: "Bu login ushbu markazga tegishli emas" });
+      return;
+    }
+
+    if (!user || !user.is_active || !verifyPassword(password, user.password_hash)) {
+      await pool.query(
+        "INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1, NULL, $2, $3, $4, $5)",
+        [center.id, "tenant login failed", "center", center.id, JSON.stringify({ email, reason: "invalid_credentials" })]
+      );
+      sendJson(response, 401, { ok: false, message: "Email yoki parol noto'g'ri" });
+      return;
+    }
+
+    if (center.status === "blocked") {
+      sendJson(response, 403, { ok: false, message: "Markaz bloklangan. Support bilan bog'laning." });
+      return;
+    }
+
+    await pool.query(
+      "INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1, $2, $3, $4, $5, $6)",
+      [center.id, user.id, "tenant login success", "center", center.id, JSON.stringify({ email })]
+    );
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + sessionMaxAgeSeconds * 1000);
+    await pool.query("INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)", [user.id, hashToken(token), expiresAt]);
+
+    const sessionUser = await loadUserById(pool, user.id);
+    sendJsonWithHeaders(response, 200, { ok: true, user: publicUser(sessionUser), center }, { "Set-Cookie": buildSessionCookie(token) });
+  } catch (error) {
+    withError(response, "Tenant login", error);
   }
 }
 
@@ -2274,6 +2495,11 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (request.method === "POST" && urlPath === "/api/auth/tenant-login") {
+    handleTenantLoginRequest(request, response);
+    return;
+  }
+
   if (request.method === "POST" && urlPath === "/api/auth/register") {
     handleRegisterRequest(request, response);
     return;
@@ -2292,6 +2518,11 @@ const server = http.createServer((request, response) => {
   const tenantResolveMatch = urlPath.match(/^\/api\/tenant\/resolve(?:\/([a-z0-9-]+))?$/);
   if (request.method === "GET" && tenantResolveMatch) {
     handleTenantResolveRequest(request, response, tenantResolveMatch[1] || query.get("subdomain") || tenantSubdomainFromRequest(request, query));
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/admin/centers") {
+    handleAdminCenterCreateRequest(request, response);
     return;
   }
 
