@@ -309,16 +309,24 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS course_name TEXT;
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS support_note TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_contact_at TIMESTAMPTZ;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_phone TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS course_id BIGINT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS course_name TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS group_id BIGINT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_type TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS discount NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 ALTER TABLE students ADD COLUMN IF NOT EXISTS balance NUMERIC(14, 2) NOT NULL DEFAULT 0;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS lessons_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS color TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS price NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS duration TEXT;
@@ -332,36 +340,128 @@ ALTER TABLE teachers ADD COLUMN IF NOT EXISTS login_enabled BOOLEAN NOT NULL DEF
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS salary_type TEXT NOT NULL DEFAULT 'fixed';
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS salary_rate NUMERIC(14, 2) NOT NULL DEFAULT 0;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS salary_value NUMERIC(14, 2) NOT NULL DEFAULT 0;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS course_id BIGINT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS course_name TEXT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_id BIGINT;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS room_id BIGINT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_name TEXT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS days TEXT;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS lesson_days TEXT;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS start_time TIME;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS end_time TIME;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS price NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS monthly_price NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS starts_at DATE;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS start_date DATE;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS ends_at DATE;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS room TEXT;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'offline';
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_salary_type TEXT;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_salary_value NUMERIC(14, 2) NOT NULL DEFAULT 0;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS group_id BIGINT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_month TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS month TEXT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS due_amount NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount NUMERIC(14, 2) NOT NULL DEFAULT 0;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS discount NUMERIC(14, 2) NOT NULL DEFAULT 0;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'paid';
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type_id BIGINT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_date DATE;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by BIGINT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS note TEXT;
 ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS marked_by BIGINT;
 ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS score NUMERIC(8, 2);
+ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS homework TEXT;
+
+CREATE TABLE IF NOT EXISTS payment_types (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Markaz',
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  archived_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS finance_transactions (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  category TEXT,
+  amount NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  payment_type_id BIGINT REFERENCES payment_types(id) ON DELETE SET NULL,
+  employee_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  reason TEXT,
+  note TEXT,
+  transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  archived_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS staff_attendance (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  employee_id BIGINT,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  check_in TIME,
+  check_out TIME,
+  status TEXT NOT NULL DEFAULT 'absent',
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS schedule_lessons (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  group_id BIGINT REFERENCES groups(id) ON DELETE SET NULL,
+  teacher_id BIGINT REFERENCES teachers(id) ON DELETE SET NULL,
+  room_id BIGINT REFERENCES rooms(id) ON DELETE SET NULL,
+  lesson_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  start_time TIME,
+  end_time TIME,
+  status TEXT NOT NULL DEFAULT 'planned',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT,
+  type TEXT NOT NULL DEFAULT 'student',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (organization_id, key)
+);
 
 CREATE UNIQUE INDEX IF NOT EXISTS organizations_slug_unique_idx ON organizations(slug) WHERE slug IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users(LOWER(email)) WHERE email IS NOT NULL;
 CREATE INDEX IF NOT EXISTS courses_org_status_idx ON courses(organization_id, status);
 CREATE INDEX IF NOT EXISTS branches_org_status_idx ON branches(organization_id, status);
 CREATE INDEX IF NOT EXISTS rooms_org_status_idx ON rooms(organization_id, status);
+CREATE INDEX IF NOT EXISTS payment_types_org_active_idx ON payment_types(organization_id, active);
+CREATE INDEX IF NOT EXISTS finance_transactions_org_date_idx ON finance_transactions(organization_id, transaction_date);
+CREATE INDEX IF NOT EXISTS staff_attendance_org_date_idx ON staff_attendance(organization_id, date);
+CREATE UNIQUE INDEX IF NOT EXISTS staff_attendance_org_employee_date_unique_idx ON staff_attendance(organization_id, employee_id, date);
+CREATE INDEX IF NOT EXISTS schedule_lessons_org_date_idx ON schedule_lessons(organization_id, lesson_date);
+CREATE INDEX IF NOT EXISTS tags_org_type_idx ON tags(organization_id, type);
 CREATE INDEX IF NOT EXISTS leads_org_status_idx ON leads(organization_id, status);
 CREATE INDEX IF NOT EXISTS students_org_status_idx ON students(organization_id, status);
 CREATE INDEX IF NOT EXISTS students_org_balance_idx ON students(organization_id, balance);

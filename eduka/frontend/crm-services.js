@@ -9,7 +9,12 @@
     debts: "/api/debts",
     attendance: "/api/attendance",
     schedule: "/api/schedule",
-    leads: "/api/leads"
+    leads: "/api/leads",
+    rooms: "/api/rooms",
+    paymentTypes: "/api/payment-types",
+    financeTransactions: "/api/app/finance/transactions",
+    staffAttendance: "/api/app/staff-attendance",
+    tags: "/api/tags"
   };
 
   function clone(value) {
@@ -179,6 +184,15 @@
     },
     attendanceService: service("attendance"),
     scheduleService: service("schedule"),
+    roomService: service("rooms"),
+    paymentTypeService: service("paymentTypes"),
+    financeTransactionService: service("financeTransactions"),
+    tagService: service("tags"),
+    staffAttendanceService: {
+      ...service("staffAttendance"),
+      checkIn: async (employeeId) => request("/api/app/staff-attendance/check-in", { method: "POST", body: JSON.stringify({ employee_id: employeeId }) }),
+      checkOut: async (employeeId) => request("/api/app/staff-attendance/check-out", { method: "POST", body: JSON.stringify({ employee_id: employeeId }) })
+    },
     leadService: {
       ...service("leads"),
       convertToStudent: async (id) => {

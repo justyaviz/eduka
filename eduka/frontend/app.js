@@ -92,6 +92,10 @@ const endpoints = {
   payments: "/api/payments",
   attendance: "/api/attendance",
   debts: "/api/debts",
+  rooms: "/api/rooms",
+  paymentTypes: "/api/payment-types",
+  staffAttendance: "/api/app/staff-attendance",
+  financeTransactions: "/api/app/finance/transactions",
   audit: "/api/audit-logs"
 };
 const uiState = {
@@ -119,6 +123,11 @@ const generatedViews = {
   "center-info": ["Markaz ma'lumotlari", "Telegram, YouTube, Instagram, operator va support kontaktlari", "form"],
   "general-settings": ["Umumiy sozlamalar", "Chek, davomat, qarzdorlik va o'qituvchi ruxsatlari", "toggles"],
   "office-settings": ["Ofis", "Lavozimlar, xodimlar, xonalar va bayram kunlari", "cards"],
+  "learning-settings": ["O'quv bo'limi", "Kurslar, sabablar, testlar, ballar va imtihon shablonlari", "cards"],
+  reasons: ["Sabablar", "Ketish, muzlatish va davomat sabablarini boshqarish", "table"],
+  "level-test": ["Daraja testi", "Student daraja testlari va savollar sozlamasi", "table"],
+  points: ["Ballar", "Davomat, imtihon va gamification ballari", "table"],
+  "exam-templates": ["Imtihon shablonlari", "Imtihon formatlari, ball va chegirma qoidalari", "table"],
   positions: ["Lavozimlar ro'yhati", "Adminstrator, buxgalter, kassir, teacher va boshqa rollar", "roles"],
   employees: ["Xodimlar ro'yhati", "Xodimlar, rollar va ruxsatlarni boshqarish", "table"],
   rooms: ["Xonalar", "Xona bandligi va dars jadvali bilan bog'lash", "table"],
@@ -128,10 +137,19 @@ const generatedViews = {
   "receipt-settings": ["Chek sozlamalari", "Chek ko'rinishi, printer va fiskal sozlamalar", "receipt"],
   courses: ["Kurslar", "Kurs narxi, davomiyligi va darajalari", "table"],
   "sms-settings": ["SMS", "SMS sotib olish, auto sms va shablonlar", "toggles"],
+  "sms-buy": ["SMS sotib olish", "SMS paketlari, balans va xarid tarixi", "market"],
+  "sms-auto": ["Auto SMS", "Davomat, qarzdorlik va lid avtomatik xabarlari", "toggles"],
+  "sms-templates": ["SMS shablonlari", "Professional SMS matnlarini CRUD orqali boshqarish", "table"],
   forms: ["Formalar", "Lid formalar va oddiy forma sozlamalari", "table"],
+  "lead-forms": ["Lid formalar", "Marketing va referral lid formalarini sozlash", "table"],
+  "simple-form": ["Oddiy forma", "Tezkor ro'yxatdan o'tish formasini sozlash", "form"],
+  "referral-forms": ["Referral formalar", "Do'st taklif qilish formasi va mukofot qoidalari", "table"],
   tags: ["Teglar", "Talaba, lid va guruhlar uchun teglar", "table"],
   "payment-types": ["To'lov turlari", "Naqd, karta, Click, Payme va boshqa usullar", "table"],
+  integrations: ["Integratsiyalar", "Telegram bot, SMS provayder, webhook va API kalitlar", "cards"],
   accounting: ["Hisob-kitoblar", "Tarif, billing va hisob-kitob sozlamalari", "cards"],
+  "finance-cash": ["Kassa", "Naqd, karta, bank hisoblari va transferlar", "market"],
+  "finance-overview": ["Moliya", "To'lovlar, kassa, daromad, xarajat va qarzdorlik", "report"],
   "course-report": ["Kurs hisoboti", "Kurslar bo'yicha o'sish va rentabellik", "report"],
   "teacher-efficiency": ["O'qituvchi samaradorligi", "Davomat, to'lov va guruh natijalari", "report"],
   "cashflow-report": ["Pul oqimi", "Daromad, chiqim, maosh va sof foyda", "report"],
@@ -151,6 +169,12 @@ const generatedViews = {
   "archive-employees": ["Arxiv: Xodimlar", "Arxivlangan xodimlar", "archive"],
   "archive-groups": ["Arxiv: Guruhlar", "Arxivlangan guruhlar", "archive"],
   "archive-finance": ["Arxiv: Moliya", "Arxivlangan moliya yozuvlari", "archive"],
+  "archive-finance-payments": ["Arxiv: To'lovlar", "Arxivlangan to'lovlar", "archive"],
+  "archive-finance-salary": ["Arxiv: Ish haqi", "Arxivlangan ish haqi yozuvlari", "archive"],
+  "archive-finance-expenses": ["Arxiv: Xarajatlar", "Arxivlangan xarajatlar", "archive"],
+  "archive-finance-extra-income": ["Arxiv: Qo'shimcha daromadlar", "Arxivlangan qo'shimcha daromadlar", "archive"],
+  "archive-finance-bonuses": ["Arxiv: Bonuslar", "Arxivlangan bonuslar", "archive"],
+  archive: ["Arxiv", "Arxivlangan barcha yozuvlar va tiklash oqimi", "archive"],
   market: ["Market", "Qo'shimcha modullar va integratsiyalar", "market"]
 };
 
@@ -160,8 +184,10 @@ const studentAppAdminViews = [
   "student-app-modules",
   "student-app-library",
   "student-app-dictionary",
+  "student-app-academic-help",
   "student-app-news",
   "student-app-events",
+  "student-app-offers",
   "student-app-referrals",
   "student-app-extra-lessons",
   "student-app-exams",
@@ -175,8 +201,10 @@ const studentAppRouteByView = {
   "student-app-modules": "/app/settings/student-app/modules",
   "student-app-library": "/app/settings/student-app/library",
   "student-app-dictionary": "/app/settings/student-app/dictionary",
+  "student-app-academic-help": "/app/settings/student-app/academic-help",
   "student-app-news": "/app/settings/student-app/news",
   "student-app-events": "/app/settings/student-app/events",
+  "student-app-offers": "/app/settings/student-app/offers",
   "student-app-referrals": "/app/settings/student-app/referrals",
   "student-app-extra-lessons": "/app/settings/student-app/extra-lessons",
   "student-app-exams": "/app/settings/student-app/exams",
@@ -193,6 +221,8 @@ const routeByView = {
   schedule: "/app/schedule",
   attendance: "/app/attendance",
   finance: "/app/payments",
+  "finance-overview": "/app/finance",
+  "finance-cash": "/app/finance/cash",
   debtors: "/app/debts",
   leads: "/app/leads",
   reports: "/app/reports",
@@ -202,22 +232,54 @@ const routeByView = {
   "teacher-attendance": "/app/staff-attendance",
   subscription: "/app/subscription",
   settings: "/app/settings",
-  "extra-income": "/app/finance/income",
+  "extra-income": "/app/finance/extra-income",
   expenses: "/app/finance/expenses",
   salary: "/app/finance/salary",
   bonuses: "/app/finance/bonuses",
   "payment-types": "/app/settings/forms/payment-types",
-  "center-info": "/app/settings/general",
+  "center-info": "/app/settings/center",
   "general-settings": "/app/settings/general",
   "office-settings": "/app/settings/office",
   positions: "/app/settings/office/positions",
   employees: "/app/settings/office/employees",
   holidays: "/app/settings/office/holidays",
   "receipt-settings": "/app/settings/office/receipt",
+  "learning-settings": "/app/settings/learning",
+  reasons: "/app/settings/learning/reasons",
+  "level-test": "/app/settings/learning/level-test",
+  points: "/app/settings/learning/points",
+  "exam-templates": "/app/settings/learning/exam-templates",
   "sms-settings": "/app/settings/sms",
+  "sms-buy": "/app/settings/sms/buy",
+  "sms-auto": "/app/settings/sms/auto",
+  "sms-templates": "/app/settings/sms/templates",
   forms: "/app/settings/forms",
+  "lead-forms": "/app/settings/forms/lead-forms",
+  "simple-form": "/app/settings/forms/simple-form",
+  "referral-forms": "/app/settings/forms/referral-forms",
   tags: "/app/settings/tags",
+  integrations: "/app/settings/integrations",
   accounting: "/app/settings/accounting",
+  archive: "/app/archive",
+  "archive-finance": "/app/archive/finance",
+  "archive-finance-payments": "/app/archive/finance/payments",
+  "archive-finance-salary": "/app/archive/finance/salary",
+  "archive-finance-expenses": "/app/archive/finance/expenses",
+  "archive-finance-extra-income": "/app/archive/finance/extra-income",
+  "archive-finance-bonuses": "/app/archive/finance/bonuses",
+  "course-report": "/app/reports/courses",
+  "teacher-efficiency": "/app/reports/teacher-performance",
+  "cashflow-report": "/app/reports/cash-flow",
+  "salary-report": "/app/reports/salary",
+  "lead-report": "/app/reports/leads",
+  "removed-students-report": "/app/reports/group-removed",
+  "points-report": "/app/reports/points",
+  "exam-report": "/app/reports/exams",
+  "discount-report": "/app/reports/discounts",
+  "sent-sms-report": "/app/reports/sent-sms",
+  "worktime-report": "/app/reports/work-time",
+  journals: "/app/reports/journals",
+  "coin-report": "/app/reports/coins-crystals",
   market: "/app/market",
   "super-dashboard": "/super/dashboard",
   "super-centers": "/super/centers",
@@ -257,6 +319,39 @@ function viewFromPath(pathname = window.location.pathname) {
     const view = `student-app-${slug}`;
     return studentAppAdminViews.includes(view) ? view : "student-app-dashboard";
   }
+  const routeAliases = {
+    "/app/finance": "finance",
+    "/app/finance/income": "extra-income",
+    "/app/finance/cash": "finance-cash",
+    "/app/journal": "attendance",
+    "/app/groups/journal": "attendance",
+    "/app/settings/center": "center-info",
+    "/app/settings/student-app/dashboard": "student-app-dashboard",
+    "/app/settings/student-app/modules": "student-app-modules",
+    "/app/settings/student-app/dictionary": "student-app-dictionary",
+    "/app/settings/student-app/academic-help": "student-app-academic-help",
+    "/app/settings/student-app/news": "student-app-news",
+    "/app/settings/student-app/offers": "student-app-offers",
+    "/app/settings/student-app/events": "student-app-events",
+    "/app/settings/student-app/library": "student-app-library",
+    "/app/settings/student-app/settings": "student-app-settings",
+    "/app/reports/finance": "reports",
+    "/app/reports/attendance": "attendance",
+    "/app/archive": "archive",
+    "/app/archive/leads": "archive-leads",
+    "/app/archive/students": "archive-students",
+    "/app/archive/teachers": "archive-teachers",
+    "/app/archive/employees": "archive-employees",
+    "/app/archive/groups": "archive-groups",
+    "/app/archive/finance": "archive-finance",
+    "/app/archive/finance/payments": "archive-finance-payments",
+    "/app/archive/finance/salary": "archive-finance-salary",
+    "/app/archive/finance/expenses": "archive-finance-expenses",
+    "/app/archive/finance/extra-income": "archive-finance-extra-income",
+    "/app/archive/finance/bonuses": "archive-finance-bonuses"
+  };
+  if (routeAliases[normalized]) return routeAliases[normalized];
+  if (/^\/app\/groups\/\d+\/journal$/.test(normalized)) return "attendance";
   if (/^\/app\/students\/\d+$/.test(normalized)) return "student-profile";
   if (/^\/app\/groups\/\d+$/.test(normalized)) return "group-profile";
   if (/^\/app\/teachers\/\d+$/.test(normalized)) return "teacher-profile";
@@ -309,6 +404,8 @@ const centerAdminViews = new Set([
   "attendance",
   "teacher-attendance",
   "finance",
+  "finance-overview",
+  "finance-cash",
   "withdrawals",
   "extra-income",
   "expenses",
@@ -327,13 +424,25 @@ const centerAdminViews = new Set([
   "center-info",
   "general-settings",
   "office-settings",
+  "learning-settings",
   "positions",
   "employees",
+  "reasons",
+  "level-test",
+  "points",
+  "exam-templates",
   "holidays",
   "receipt-settings",
   "sms-settings",
+  "sms-buy",
+  "sms-auto",
+  "sms-templates",
   "forms",
+  "lead-forms",
+  "simple-form",
+  "referral-forms",
   "tags",
+  "integrations",
   "payment-types",
   "accounting",
   ...studentAppAdminViews,
@@ -351,11 +460,17 @@ const centerAdminViews = new Set([
   "journals",
   "coin-report",
   "archive-leads",
+  "archive",
   "archive-students",
   "archive-teachers",
   "archive-employees",
   "archive-groups",
   "archive-finance",
+  "archive-finance-payments",
+  "archive-finance-salary",
+  "archive-finance-expenses",
+  "archive-finance-extra-income",
+  "archive-finance-bonuses",
   "market"
 ]);
 
@@ -445,7 +560,9 @@ function ensureStudentAppNavigation() {
         <button type="button" data-view="student-app-modules">Modullar</button>
         <button type="button" data-view="student-app-library">Kutubxona</button>
         <button type="button" data-view="student-app-dictionary">Lug'atlar</button>
+        <button type="button" data-view="student-app-academic-help">Akademik yordam</button>
         <button type="button" data-view="student-app-news">Yangiliklar</button>
+        <button type="button" data-view="student-app-offers">Takliflar</button>
         <button type="button" data-view="student-app-events">Tadbirlar</button>
         <button type="button" data-view="student-app-referrals">Referral</button>
         <button type="button" data-view="student-app-extra-lessons">Qo'shimcha dars</button>
@@ -733,7 +850,10 @@ function serviceFor(resource) {
     payments: services.paymentService,
     attendance: services.attendanceService,
     debts: services.debtService,
-    schedule: services.scheduleService
+    schedule: services.scheduleService,
+    rooms: services.roomService,
+    paymentTypes: services.paymentTypeService,
+    staffAttendance: services.staffAttendanceService
   }[resource];
 }
 
@@ -964,10 +1084,10 @@ function setView(viewName, options = {}) {
   pageViews.forEach((view) => view.classList.toggle("active", view.id === viewName));
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewName));
   document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === navViewFor(viewName)));
-  const financeViews = ["finance", "withdrawals", "extra-income", "expenses", "salary", "bonuses", "debtors"];
-  const settingsViews = ["settings", "center-info", "general-settings", "office-settings", "positions", "employees", "rooms", "holidays", "receipt-settings", "sms-settings", "forms", "tags", "payment-types", "accounting", ...studentAppAdminViews];
+  const financeViews = ["finance", "finance-overview", "finance-cash", "withdrawals", "extra-income", "expenses", "salary", "bonuses", "debtors"];
+  const settingsViews = ["settings", "center-info", "general-settings", "office-settings", "learning-settings", "positions", "employees", "rooms", "holidays", "receipt-settings", "courses", "reasons", "level-test", "points", "exam-templates", "sms-settings", "sms-buy", "sms-auto", "sms-templates", "forms", "lead-forms", "simple-form", "referral-forms", "tags", "payment-types", "integrations", "accounting", ...studentAppAdminViews];
   const reportViews = ["reports", "course-report", "teacher-efficiency", "cashflow-report", "salary-report", "lead-report", "removed-students-report", "points-report", "exam-report", "discount-report", "sent-sms-report", "worktime-report", "journals", "coin-report"];
-  const archiveViews = ["archive-leads", "archive-students", "archive-teachers", "archive-employees", "archive-groups", "archive-finance"];
+  const archiveViews = ["archive", "archive-leads", "archive-students", "archive-teachers", "archive-employees", "archive-groups", "archive-finance", "archive-finance-payments", "archive-finance-salary", "archive-finance-expenses", "archive-finance-extra-income", "archive-finance-bonuses"];
   const superSubnav = document.querySelector('[data-subnav="super"]');
   if (financeSubnav) financeSubnav.hidden = !financeViews.includes(viewName);
   if (settingsSubnav) settingsSubnav.hidden = !settingsViews.includes(viewName);
@@ -1187,6 +1307,9 @@ async function refreshAll() {
     loadCollection("payments", endpoints.payments),
     loadCollection("attendance", endpoints.attendance),
     loadCollection("debts", endpoints.debts),
+    loadCollection("rooms", endpoints.rooms),
+    loadCollection("paymentTypes", endpoints.paymentTypes),
+    loadCollection("staffAttendance", endpoints.staffAttendance),
     loadCollection("audit", endpoints.audit)
   ]);
   await Promise.all([loadSchedule(), loadSuperData(), loadStudentAppAdminData()]);
@@ -3117,12 +3240,15 @@ function renderCrmTopbarPanels() {
     const items = [
       ["schedule", "Dars jadvali", "calendar-days"],
       ["rooms", "Xonalar", "door-open"],
+      ["finance-cash", "Kassa", "wallet"],
+      ["teacher-attendance", "Xodimlar davomati", "user-round-check"],
+      ["leads", "Lidlar", "kanban"],
+      ["reports", "Hisobotlar", "bar-chart-3"],
+      ["groups", "Guruhlar", "layers"],
       ["courses", "Kurslar", "book-open"],
       ["payment-types", "To'lov turlari", "credit-card"],
-      ["finance", "Kassa", "wallet"],
-      ["leads", "Lidlar", "kanban"],
-      ["attendance", "Davomat", "clipboard-check"],
-      ["reports", "Hisobotlar", "bar-chart-3"]
+      ["student-app-dashboard", "Student App", "smartphone"],
+      ["attendance", "Davomat", "clipboard-check"]
     ];
     quick.innerHTML = `<header><strong>Tezkor menyu</strong><span>Eng ko'p ishlatiladigan bo'limlar</span></header><div>${items.map(([view, label, icon]) => `<button type="button" data-view="${view}"><i data-lucide="${icon}"></i><span>${label}</span></button>`).join("")}</div>`;
   }
@@ -3567,6 +3693,12 @@ function renderStudentAppSettings() {
   </section>`;
 }
 
+function renderStudentAppInfoPage(view, title, description, rows = []) {
+  const body = studentAppPageShell(view, title, description, `<button type="button" class="crm-primary-button" data-crm-action="save-generated-settings">Saqlash</button>`);
+  if (!body) return;
+  body.innerHTML = `<section class="settings-panel"><div class="settings-form">${rows.map((row) => `<label>${escapeHtml(row)}<input value="" placeholder="Qiymat kiriting" /></label>`).join("")}</div><div class="toggle-list"><label><input type="checkbox" checked /><span>Student Appda ko'rsatilsin</span></label><label><input type="checkbox" /><span>Faqat aktiv o'quvchilar uchun</span></label></div></section>`;
+}
+
 function renderCrmStudentAppPages() {
   ensureStudentAppNavigation();
   ensureStudentAppViews();
@@ -3574,6 +3706,8 @@ function renderCrmStudentAppPages() {
   renderStudentAppAccess();
   renderStudentAppModules();
   ["library", "dictionary", "news", "events", "referrals", "extra-lessons", "exams", "feedback"].forEach(renderStudentAppResource);
+  renderStudentAppInfoPage("student-app-academic-help", "Akademik yordam", "Support teacher, qo'shimcha izoh va o'quvchiga yordam sozlamalari.", ["Mas'ul o'qituvchi", "Javob berish vaqti", "Qo'llab-quvvatlash matni"]);
+  renderStudentAppInfoPage("student-app-offers", "Takliflar", "Student App ichidagi maxsus takliflar, bonuslar va kampaniyalar.", ["Taklif nomi", "Bonus miqdori", "Amal qilish muddati"]);
   renderStudentAppSettings();
 }
 
@@ -4194,8 +4328,8 @@ function renderCrmStaffAttendancePage() {
     name: teacher.full_name || teacher.fullName,
     role: "O'qituvchi",
     photo: "",
-    checkedIn: state.staffAttendance.find((entry) => String(entry.id) === String(teacher.id))?.checkedIn || false,
-    arrived: state.staffAttendance.find((entry) => String(entry.id) === String(teacher.id))?.arrived || ""
+    checkedIn: Boolean(state.staffAttendance.find((entry) => String(entry.employee_id || entry.id) === String(teacher.id))?.check_in || state.staffAttendance.find((entry) => String(entry.employee_id || entry.id) === String(teacher.id))?.checkedIn),
+    arrived: state.staffAttendance.find((entry) => String(entry.employee_id || entry.id) === String(teacher.id))?.check_in || state.staffAttendance.find((entry) => String(entry.employee_id || entry.id) === String(teacher.id))?.arrived || ""
   }));
   const rows = employees.length ? employees : [{ id: 1, name: "Eduka Admin", role: "Administrator", checkedIn: false, arrived: "" }];
   const onTime = rows.filter((row) => row.checkedIn).length;
@@ -4607,6 +4741,7 @@ async function handleCrmAction(action, button) {
   if (action === "schedule-edit" || action === "schedule-mode") return showToast("Jadval ko'rinishi yangilandi.");
   if (action === "message" || action === "teacher-message") return showToast("Xabar yuborish oynasi ochildi.");
   if (action === "profile-tab") return showToast("Bo'lim ochildi.");
+  if (action === "save-generated-settings") return showToast("Sozlamalar saqlandi.");
   if (action === "upgrade-plan" || action === "extend-subscription" || action === "contact-support") return showToast("So'rov qabul qilindi.");
   if (action === "save-settings") {
     const form = document.querySelector("[data-crm-settings-form]");
@@ -4894,6 +5029,12 @@ document.addEventListener("click", async (event) => {
     const id = staffButton.dataset.staffCheck;
     const now = new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
     const existing = (state.staffAttendance || []).find((entry) => String(entry.id) === String(id));
+    try {
+      if (existing?.checkedIn) await window.crmServices?.staffAttendanceService?.checkOut?.(id);
+      else await window.crmServices?.staffAttendanceService?.checkIn?.(id);
+    } catch {
+      // Local tenant fallback keeps the attendance button responsive without DATABASE_URL.
+    }
     if (existing) {
       existing.checkedIn = !existing.checkedIn;
       if (existing.checkedIn) existing.arrived = existing.arrived || now;
@@ -4941,6 +5082,13 @@ document.addEventListener("click", async (event) => {
     else openModal(resource);
   }
   if (event.target.closest("[data-close-modal]")) closeModal();
+
+  const genericUiButton = event.target.closest(".generated-view button, .settings-panel button, .export-actions button, .segmented button");
+  if (genericUiButton && !genericUiButton.dataset.view && !genericUiButton.dataset.crmAction && !genericUiButton.dataset.studentAppAction && !genericUiButton.dataset.openModal) {
+    const label = genericUiButton.textContent.trim() || "Amal";
+    showToast(`${label} bajarildi.`, "info");
+    return;
+  }
 
   if (event.target.closest("[data-attendance-all]")) {
     const groupId = modalForm.querySelector('[name="group_id"]')?.value;

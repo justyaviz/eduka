@@ -21,6 +21,8 @@ const routeAliases = {
   "mock-exams": "exam-results",
   "my-group": "my-group",
   group: "my-group",
+  schedule: "schedule",
+  notifications: "notifications",
   payments: "payments",
   settings: "profile-settings"
 };
@@ -36,6 +38,8 @@ const resourceByRoute = {
   library: "library",
   "exam-results": "exams",
   "my-group": "group",
+  schedule: "group",
+  notifications: "news",
   payments: "payments"
 };
 
@@ -74,8 +78,19 @@ const referenceData = {
     }
   ],
   news: [],
+  notifications: [
+    { id: 1, type: "lesson", title: "Guruh darsi eslatmasi", description: "Bugun 19:00 da KURS - A1 darsi bor.", time: "08:30", unread: true, important: true },
+    { id: 2, type: "payment", title: "To'lov qabul qilindi", description: "May oyi uchun to'lovingiz tasdiqlandi.", time: "Kecha", unread: false, important: false },
+    { id: 3, type: "news", title: "Yangi yangilik", description: "Speaking Club uchun ro'yxatdan o'tish ochildi.", time: "2 kun oldin", unread: true, important: false },
+    { id: 4, type: "extra", title: "Qo'shimcha dars tasdiqlandi", description: "Support teacher so'rovingizni qabul qildi.", time: "3 kun oldin", unread: false, important: true },
+    { id: 5, type: "referral", title: "Referral bonus", description: "Taklifingiz uchun kristallar qo'shildi.", time: "5 kun oldin", unread: false, important: false }
+  ],
   modules: [],
-  lessons: [],
+  lessons: [
+    { id: 1, group_name: "KURS - A1", teacher_name: "Gulnora Saidova", room: "Xona 1", start_time: "09:00", end_time: "10:30", students_count: 12 },
+    { id: 2, group_name: "KURS - B1", teacher_name: "Sardor Karimov", room: "Xona 2", start_time: "11:00", end_time: "12:30", students_count: 10 },
+    { id: 3, group_name: "KURS - A2", teacher_name: "Madina Akramova", room: "Xona 3", start_time: "15:00", end_time: "16:30", students_count: 14 }
+  ],
   groups: [
     {
       id: 1,
@@ -91,14 +106,14 @@ const referenceData = {
     }
   ],
   ranking: [
-    { student_id: 2, full_name: "Akbar", score: 320 },
-    { student_id: 1, full_name: "Ali", score: 280 },
-    { student_id: 3, full_name: "Yahyobek", score: 210 },
-    { student_id: 4, full_name: "Sarvinoz", score: 180 },
-    { student_id: 5, full_name: "Diyor", score: 150 },
-    { student_id: 6, full_name: "Kamron", score: 120 },
-    { student_id: 7, full_name: "Madina", score: 110 },
-    { student_id: 8, full_name: "Shahzod", score: 90 }
+    { student_id: 1, full_name: "Ali", score: 12500 },
+    { student_id: 2, full_name: "Akbar", score: 11200 },
+    { student_id: 3, full_name: "Yahyobek", score: 10300 },
+    { student_id: 4, full_name: "Sarvinoz", score: 9800 },
+    { student_id: 5, full_name: "Diyor", score: 9300 },
+    { student_id: 6, full_name: "Kamron", score: 8700 },
+    { student_id: 7, full_name: "Madina", score: 8200 },
+    { student_id: 8, full_name: "Shahzod", score: 7900 }
   ],
   library: [
     { id: 1, title: "Atomic Habits", author: "James Clear", type: "book", rating: 4.8, level: "A2-B1" },
@@ -117,6 +132,7 @@ const appState = {
   studyCourse: "",
   referralTab: "Hammasi",
   libraryTab: "Kitoblar",
+  notificationTab: "Barchasi",
   extraTeacher: "",
   lessonType: "Individual",
   extraNote: "",
@@ -225,6 +241,7 @@ function normalizePayload(payload = {}, options = {}) {
     events: list(payload.events).length ? list(payload.events) : demo ? referenceData.events : [],
     news: list(payload.news),
     lessons: list(payload.lessons),
+    notifications: list(payload.notifications).length ? list(payload.notifications) : demo ? referenceData.notifications : [],
     groups: list(payload.groups).length ? list(payload.groups) : demo ? referenceData.groups : [],
     ranking: list(payload.ranking).length ? list(payload.ranking) : demo ? referenceData.ranking : [],
     library,
@@ -313,6 +330,8 @@ function icon(name, extraClass = "") {
     check: '<path d="m5 12 4 4 10-10"/>',
     refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v6h-6"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.9 19.1 1.4-1.4"/><path d="m17.7 6.3 1.4-1.4"/>'
+    ,
+    gift: '<path d="M20 12v8H4v-8"/><path d="M2 7h20v5H2z"/><path d="M12 7v13"/><path d="M12 7H8.5A2.5 2.5 0 1 1 11 4.5C11 6 12 7 12 7Z"/><path d="M12 7h3.5A2.5 2.5 0 1 0 13 4.5C13 6 12 7 12 7Z"/>'
   };
   return `<svg class="sa-svg ${extraClass}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[name] || icons.info}</svg>`;
 }
@@ -483,7 +502,7 @@ function renderHome(data) {
             <span>Student App</span>
           </div>
         </div>
-        ${iconButton("bell", "Bildirishnomalar", 'data-action="soft-toast" data-message="Bildirishnomalar hozircha yo\'q"')}
+        ${iconButton("bell", "Bildirishnomalar", 'data-route="notifications"')}
       </header>
 
       <section class="sa-greeting">
@@ -746,7 +765,7 @@ function renderExtraLesson(data) {
           <textarea class="sa-textarea" data-control="extra-note" placeholder="Ehtiyojingizni qisqacha yozing...">${escapeHtml(appState.extraNote)}</textarea>
         </label>
 
-        <button class="${appState.extraTeacher ? "sa-primary-button" : "sa-disabled-button"}" type="button" data-action="register-extra" ${appState.extraTeacher ? "" : "disabled"}>Ro'yxatdan o'tish</button>
+        <button class="${appState.extraTeacher ? "sa-primary-button" : "sa-disabled-button"}" type="button" data-action="register-extra">Ro'yxatdan o'tish</button>
         <p class="sa-form-note">Tez orada ustoz siz bilan bog'lanadi.</p>
       </section>
     `,
@@ -776,7 +795,7 @@ function renderDictionary(data) {
               assetName: "dictionary-book-3d",
               title: "Lug'at bo'sh",
               subtitle: "Yangi so'zlarni o'rganing va ularni lug'atga qo'shing.",
-              button: `<button class="sa-primary-button" type="button" data-action="soft-toast" data-message="Yangi so'z qo'shish oynasi tayyor">${icon("plus")}Yangi so'z qo'shish</button>`
+              button: `<button class="sa-primary-button" type="button" data-action="dictionary-add-word">${icon("plus")}Yangi so'z qo'shish</button>`
             })
       }
     `,
@@ -848,7 +867,7 @@ function libraryCard(item) {
         <span>${escapeHtml(author)}</span>
         <small>${icon("star")} ${escapeHtml(rating)}</small>
       </div>
-      <button class="sa-mini-cta" type="button" data-action="soft-toast" data-message="${escapeHtml(title)} ochildi">O'qish</button>
+      <button class="sa-mini-cta" type="button" data-action="library-detail" data-title="${escapeHtml(title)}" data-message="${escapeHtml(author)}">O'qish</button>
     </article>
   `;
 }
@@ -906,7 +925,7 @@ function renderExamResults(data) {
         </div>
         <p>A'lo ish! Davom eting!</p>
       </section>
-      <button class="sa-primary-button" type="button" data-action="soft-toast" data-message="Barcha natijalar ochildi">Barcha natijalarim</button>
+      <button class="sa-primary-button" type="button" data-action="exam-list">Barcha natijalarim</button>
     `,
     { active: "study" }
   );
@@ -975,6 +994,101 @@ function infoRow(iconName, title, value, route = "") {
       <span class="sa-menu-title">${escapeHtml(title)}</span>
       <span class="sa-menu-value">${escapeHtml(value || "")}</span>
       <span class="sa-chevron">${icon("chevron")}</span>
+    </button>
+  `;
+}
+
+function renderSchedule(data) {
+  const lessons = (data.lessons && data.lessons.length ? data.lessons : referenceData.lessons).map((lesson, index) => ({
+    id: lesson.id || index + 1,
+    groupName: field(lesson, ["group_name", "groupName", "name"], ["KURS - A1", "KURS - B1", "KURS - A2"][index] || "KURS"),
+    teacher: field(lesson, ["teacher_name", "teacherName"], "Gulnora Saidova"),
+    room: field(lesson, ["room"], `Xona ${index + 1}`),
+    start: String(field(lesson, ["start_time"], ["09:00", "11:00", "15:00"][index] || "09:00")).slice(0, 5),
+    end: String(field(lesson, ["end_time"], ["10:30", "12:30", "16:30"][index] || "10:30")).slice(0, 5),
+    count: Number(field(lesson, ["students_count", "student_count"], 12 + index))
+  }));
+  const dates = [
+    ["20", "Dush"],
+    ["21", "Sesh"],
+    ["22", "Chorsh"],
+    ["23", "Paysh"],
+    ["24", "Juma"]
+  ];
+  mount(
+    `
+      ${simpleHeader("Dars jadvali", iconButton("sliders", "Filtr", 'data-action="soft-toast" data-message="Jadval filtrlari ochildi"'), "my-group")}
+      <section class="schedule-month">
+        <strong>May 2024</strong>
+        <div class="schedule-dates">
+          ${dates.map(([day, label], index) => `<button class="${index === 4 ? "active" : ""}" type="button" data-action="soft-toast" data-message="${day} ${label} tanlandi"><b>${day}</b><span>${label}</span></button>`).join("")}
+        </div>
+      </section>
+      <section class="schedule-list">
+        ${lessons.map(scheduleLessonCard).join("")}
+      </section>
+      <button class="sa-fab" type="button" data-action="schedule-request" aria-label="Qo'shimcha dars so'rash">${icon("plus")}</button>
+    `,
+    { active: "my-group" }
+  );
+}
+
+function scheduleLessonCard(lesson) {
+  return `
+    <article class="schedule-card">
+      <div class="schedule-time"><strong>${escapeHtml(lesson.start)}</strong><span>${escapeHtml(lesson.end)}</span></div>
+      <div class="schedule-main">
+        <strong>${escapeHtml(lesson.groupName)}</strong>
+        <span>${escapeHtml(lesson.teacher)}</span>
+        <small>${escapeHtml(lesson.room)}</small>
+      </div>
+      <span class="schedule-count">${escapeHtml(lesson.count)} o'quvchi</span>
+    </article>
+  `;
+}
+
+function renderNotifications(data) {
+  const tab = appState.notificationTab;
+  const notifications = data.notifications && data.notifications.length ? data.notifications : referenceData.notifications;
+  const visible = notifications.filter((item) => {
+    if (tab === "O'qilmagan") return item.unread || String(item.status || "").toLowerCase() === "unread";
+    if (tab === "Muhim") return item.important || String(item.priority || "").toLowerCase() === "important";
+    return true;
+  });
+  mount(
+    `
+      ${simpleHeader("Bildirishnomalar", iconButton("sliders", "Sozlamalar", 'data-action="notification-settings"'), "home")}
+      <div class="sa-tabs notification-tabs">
+        ${["Barchasi", "O'qilmagan", "Muhim"].map((item) => `<button class="sa-tab ${item === tab ? "active" : ""}" type="button" data-notification-tab="${item}">${item}</button>`).join("")}
+      </div>
+      <section class="notification-list">
+        ${visible.map(notificationRow).join("") || premiumEmpty({ assetName: "notification-3d", title: "Bildirishnoma yo'q", subtitle: "Bu bo'limda hozircha xabarlar mavjud emas.", compact: true })}
+      </section>
+    `,
+    { active: "home" }
+  );
+}
+
+function notificationRow(item) {
+  const tone = {
+    lesson: "tone-blue",
+    payment: "tone-green",
+    news: "tone-purple",
+    extra: "tone-orange",
+    referral: "tone-violet"
+  }[item.type] || "tone-blue";
+  const iconName = {
+    lesson: "calendar",
+    payment: "wallet",
+    news: "bell",
+    extra: "study",
+    referral: "gift"
+  }[item.type] || "bell";
+  return `
+    <button class="notification-row ${item.unread ? "unread" : ""}" type="button" data-action="notification-detail" data-title="${escapeHtml(item.title)}" data-message="${escapeHtml(item.description)}">
+      <span class="sa-menu-icon ${tone}">${icon(iconName)}</span>
+      <span class="notification-copy"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.description)}</small></span>
+      <time>${escapeHtml(item.time || "")}</time>
     </button>
   `;
 }
@@ -1060,6 +1174,8 @@ async function renderCurrent() {
       library: renderLibrary,
       "exam-results": renderExamResults,
       "my-group": renderMyGroup,
+      schedule: renderSchedule,
+      notifications: renderNotifications,
       payments: renderPayments
     };
     (renderers[route] || renderHome)(data);
@@ -1072,6 +1188,24 @@ function navigate(route) {
   const normalized = routeAliases[route] || route || "home";
   history.pushState({}, "", routeUrl(normalized));
   renderCurrent();
+}
+
+function openStudentModal({ title, body, action = "" }) {
+  const old = phone.querySelector(".sa-modal-backdrop");
+  if (old) old.remove();
+  const node = document.createElement("div");
+  node.className = "sa-modal-backdrop";
+  node.innerHTML = `
+    <section class="sa-modal" role="dialog" aria-modal="true">
+      <header>
+        <h2>${escapeHtml(title)}</h2>
+        <button type="button" data-action="close-modal" aria-label="Yopish">${icon("plus")}</button>
+      </header>
+      <div class="sa-modal-body">${body}</div>
+      ${action}
+    </section>
+  `;
+  phone.appendChild(node);
 }
 
 function toast(message, type = "info") {
@@ -1125,7 +1259,10 @@ async function shareReferral() {
 }
 
 async function registerExtraLesson() {
-  if (!appState.extraTeacher) return;
+  if (!appState.extraTeacher) {
+    toast("Support teacherni tanlang", "error");
+    return;
+  }
   try {
     if (getToken() && !previewMode()) {
       await api("/api/student-app/extra-lesson/register", {
@@ -1167,6 +1304,13 @@ screen.addEventListener("click", (event) => {
     return;
   }
 
+  const notificationTab = event.target.closest("[data-notification-tab]");
+  if (notificationTab) {
+    appState.notificationTab = notificationTab.getAttribute("data-notification-tab");
+    renderCurrent();
+    return;
+  }
+
   const lessonType = event.target.closest("[data-lesson-type]");
   if (lessonType) {
     appState.lessonType = lessonType.getAttribute("data-lesson-type");
@@ -1179,9 +1323,48 @@ screen.addEventListener("click", (event) => {
   const action = actionButton.getAttribute("data-action");
   if (action === "logout") logout();
   if (action === "retry") renderCurrent();
+  if (action === "close-modal") actionButton.closest(".sa-modal-backdrop")?.remove();
   if (action === "soft-toast") toast(actionButton.getAttribute("data-message") || "Amal bajarildi");
   if (action === "share-referral") shareReferral();
   if (action === "register-extra") registerExtraLesson();
+  if (action === "dictionary-add-word") {
+    openStudentModal({
+      title: "Yangi so'z qo'shish",
+      body: `<label class="sa-modal-field">So'z<input class="sa-input" placeholder="Masalan: improve" /></label><label class="sa-modal-field">Tarjima<input class="sa-input" placeholder="Yaxshilamoq" /></label><label class="sa-modal-field">Misol<textarea class="sa-textarea" placeholder="I improve my English every day."></textarea></label>`,
+      action: `<button class="sa-primary-button" type="button" data-action="modal-save">Saqlash</button>`
+    });
+  }
+  if (action === "library-detail") {
+    openStudentModal({
+      title: actionButton.dataset.title || "Kitob",
+      body: `<div class="sa-modal-art">${asset("library-books-3d", "", "Kutubxona")}</div><p>${escapeHtml(actionButton.dataset.message || "Material tafsilotlari")}</p><p>Material preview rejimida ochildi. Real kabinetda fayl yoki havola shu yerda ko'rsatiladi.</p>`,
+      action: `<button class="sa-primary-button" type="button" data-action="modal-save">O'qishni boshlash</button>`
+    });
+  }
+  if (action === "exam-list") {
+    openStudentModal({
+      title: "Barcha natijalarim",
+      body: `<div class="sa-card-list"><article class="sa-small-card"><span class="sa-small-icon">${icon("check")}</span><div class="sa-list-main"><strong>Grammatika imtihoni</strong><span>96% - A+</span></div></article><article class="sa-small-card"><span class="sa-small-icon">${icon("star")}</span><div class="sa-list-main"><strong>Speaking mock</strong><span>88% - B+</span></div></article></div>`
+    });
+  }
+  if (action === "schedule-request") navigate("extra-lesson");
+  if (action === "notification-settings") {
+    openStudentModal({
+      title: "Bildirishnoma sozlamalari",
+      body: `<label class="sa-switch-row"><span>Dars eslatmalari</span><input type="checkbox" checked /></label><label class="sa-switch-row"><span>To'lov xabarlari</span><input type="checkbox" checked /></label><label class="sa-switch-row"><span>Yangiliklar</span><input type="checkbox" checked /></label>`,
+      action: `<button class="sa-primary-button" type="button" data-action="modal-save">Saqlash</button>`
+    });
+  }
+  if (action === "notification-detail") {
+    openStudentModal({
+      title: actionButton.dataset.title || "Bildirishnoma",
+      body: `<div class="sa-modal-art small">${asset("notification-3d", "", "Bildirishnoma")}</div><p>${escapeHtml(actionButton.dataset.message || "Xabar tafsilotlari")}</p>`
+    });
+  }
+  if (action === "modal-save") {
+    actionButton.closest(".sa-modal-backdrop")?.remove();
+    toast("Ma'lumot saqlandi", "success");
+  }
 });
 
 screen.addEventListener("change", (event) => {

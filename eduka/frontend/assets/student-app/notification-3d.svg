@@ -1,0 +1,24 @@
+<svg width="220" height="220" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bellBody" x1="61" y1="44" x2="162" y2="171" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7CC8FF"/>
+      <stop offset="1" stop-color="#006DFF"/>
+    </linearGradient>
+    <linearGradient id="bellGold" x1="95" y1="34" x2="143" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE48A"/>
+      <stop offset="1" stop-color="#FF9F1A"/>
+    </linearGradient>
+    <filter id="shadow" x="28" y="28" width="164" height="174" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#1D4ED8" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <ellipse cx="110" cy="184" rx="58" ry="16" fill="#DCEBFF"/>
+  <g filter="url(#shadow)">
+    <path d="M72 101c0-28 17-51 38-51s38 23 38 51v22c0 12 8 23 17 31H55c9-8 17-19 17-31v-22Z" fill="url(#bellBody)"/>
+    <path d="M91 52c3-13 11-22 19-22s16 9 19 22" stroke="url(#bellGold)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M86 154h48c-2 14-11 24-24 24s-22-10-24-24Z" fill="url(#bellGold)"/>
+    <circle cx="160" cy="61" r="22" fill="#FF6B6B"/>
+    <circle cx="160" cy="61" r="10" fill="white"/>
+    <path d="M84 90c4-15 14-25 28-28" stroke="white" stroke-width="9" stroke-linecap="round" opacity=".65"/>
+  </g>
+</svg>

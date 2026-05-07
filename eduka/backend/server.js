@@ -1761,6 +1761,7 @@ async function listRows(request, response, config) {
     const { page, limit, offset } = pageOptions(query);
     const params = [user.organization_id];
     let where = "WHERE 1=1";
+    const archived = asText(query.get("archive"));
     const search = asText(query.get("search"));
     const status = asText(query.get("status"));
     const dateFrom = asDate(query.get("date_from"));
@@ -1775,6 +1776,12 @@ async function listRows(request, response, config) {
     if (status && config.filterColumns?.status) {
       params.push(status);
       where += ` AND ${config.filterColumns.status} = $${params.length}`;
+    }
+
+    if (archived === "1") {
+      where += " AND (archived_at IS NOT NULL OR status='archived')";
+    } else if (!status) {
+      where += " AND (archived_at IS NULL AND COALESCE(status, '') <> 'archived')";
     }
 
     for (const [paramName, column] of Object.entries(config.filterColumns || {})) {
@@ -1938,7 +1945,7 @@ const crudConfigs = {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     updateSql: `UPDATE courses SET name=$3, description=$4, price=$5, duration=$6, level=$7, lesson_type=$8, status=$9
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
-    deleteSql: "DELETE FROM courses WHERE id=$1 AND organization_id=$2 RETURNING id",
+    deleteSql: "UPDATE courses SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
         ? [id, user.organization_id, asText(body.name), asText(body.description), asNumber(body.price), asText(body.duration), asText(body.level), asText(body.lesson_type, "group"), asText(body.status, "active")]
@@ -1963,7 +1970,7 @@ const crudConfigs = {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     updateSql: `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, birth_date=$6, address=$7, course_name=$8, group_id=$9, payment_type=$10, discount=$11, status=$12, balance=$13, note=$14
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
-    deleteSql: "DELETE FROM students WHERE id=$1 AND organization_id=$2 RETURNING id",
+    deleteSql: "UPDATE students SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
         ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.parent_phone), asDate(body.birth_date), asText(body.address), asText(body.course_name), body.group_id || null, asText(body.payment_type), asNumber(body.discount), asText(body.status, "active"), asNumber(body.balance), asText(body.note)]
@@ -1982,7 +1989,7 @@ const crudConfigs = {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
     updateSql: `UPDATE leads SET full_name=$3, phone=$4, course_name=$5, status=$6, source=$7, manager_name=$8, next_contact_at=$9, note=$10
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
-    deleteSql: "DELETE FROM leads WHERE id=$1 AND organization_id=$2 RETURNING id",
+    deleteSql: "UPDATE leads SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
         ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.course_name), asText(body.status, "new"), asText(body.source), asText(body.manager_name), asDate(body.next_contact_at), asText(body.note)]
@@ -2007,7 +2014,7 @@ const crudConfigs = {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     updateSql: `UPDATE groups SET name=$3, course_name=$4, status=$5, teacher_id=$6, teacher_name=$7, days=$8, start_time=$9, end_time=$10, monthly_price=$11, starts_at=$12, ends_at=$13, room=$14
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
-    deleteSql: "DELETE FROM groups WHERE id=$1 AND organization_id=$2 RETURNING id",
+    deleteSql: "UPDATE groups SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
         ? [id, user.organization_id, asText(body.name), asText(body.course_name), asText(body.status, "active"), body.teacher_id || null, asText(body.teacher_name), asText(body.days), asText(body.start_time), asText(body.end_time), asNumber(body.monthly_price), asDate(body.starts_at), asDate(body.ends_at), asText(body.room)]
@@ -2026,7 +2033,7 @@ const crudConfigs = {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
     updateSql: `UPDATE teachers SET full_name=$3, phone=$4, email=$5, course_name=$6, subjects=$7, groups=$8, login_enabled=$9, status=$10, salary_type=$11, salary_rate=$12
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
-    deleteSql: "DELETE FROM teachers WHERE id=$1 AND organization_id=$2 RETURNING id",
+    deleteSql: "UPDATE teachers SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
         ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate)]
@@ -2176,7 +2183,7 @@ async function handlePaymentDelete(request, response, paymentId) {
       return;
     }
 
-    await pool.query("DELETE FROM payments WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
+    await pool.query("UPDATE payments SET status='cancelled', archived_at=NOW() WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
     await recalculateStudentBalance(pool, user.organization_id, before.student_id);
     await writeAudit(pool, user, "delete", "payments", paymentId, { before });
     sendJson(response, 200, { ok: true });
@@ -2235,10 +2242,16 @@ async function listPayments(request, response) {
     const groupId = asText(query.get("group_id"));
     const groupName = asText(query.get("group_name"));
     const paymentMonth = asText(query.get("payment_month") || query.get("month"));
+    const archived = asText(query.get("archive"));
     const dateFrom = asDate(query.get("date_from"));
     const dateTo = asDate(query.get("date_to"));
     const params = [user.organization_id];
     let where = "WHERE p.organization_id=$1";
+    if (archived === "1") {
+      where += " AND p.archived_at IS NOT NULL";
+    } else {
+      where += " AND p.archived_at IS NULL";
+    }
     if (search) {
       params.push(`%${search}%`);
       where += ` AND (s.full_name ILIKE $${params.length} OR s.phone ILIKE $${params.length})`;
@@ -2491,6 +2504,182 @@ async function handleDemoRequest(request, response) {
       error: isConfigError ? error.message : "Demo request failed",
       telegramDescription: error.telegramDescription ? safeTelegramErrorMessage(error) : undefined
     });
+  }
+}
+
+const simpleCrudConfigs = {
+  rooms: {
+    table: "rooms",
+    permission: "settings",
+    listSql: "SELECT * FROM rooms WHERE organization_id=$1 AND archived_at IS NULL ORDER BY id DESC",
+    insertColumns: ["organization_id", "name", "capacity", "status"],
+    fields: [
+      ["name", asText],
+      ["capacity", asNumber],
+      ["status", (value) => asText(value, "active")]
+    ]
+  },
+  "payment-types": {
+    table: "payment_types",
+    permission: "settings",
+    listSql: "SELECT * FROM payment_types WHERE organization_id=$1 AND archived_at IS NULL ORDER BY active DESC, id DESC",
+    insertColumns: ["organization_id", "name", "type", "active"],
+    fields: [
+      ["name", asText],
+      ["type", (value) => asText(value, "Markaz")],
+      ["active", (value) => value !== false]
+    ]
+  },
+  "finance-transactions": {
+    table: "finance_transactions",
+    permission: "finance",
+    listSql: "SELECT ft.*, pt.name AS payment_type_name FROM finance_transactions ft LEFT JOIN payment_types pt ON pt.id=ft.payment_type_id WHERE ft.organization_id=$1 AND ft.archived_at IS NULL ORDER BY ft.transaction_date DESC, ft.id DESC",
+    insertColumns: ["organization_id", "type", "category", "amount", "payment_type_id", "employee_id", "reason", "note", "transaction_date"],
+    fields: [
+      ["type", (value) => asText(value, "income")],
+      ["category", asText],
+      ["amount", asNumber],
+      ["payment_type_id", (value) => value || null],
+      ["employee_id", (value) => value || null],
+      ["reason", asText],
+      ["note", asText],
+      ["transaction_date", asDate]
+    ]
+  },
+  tags: {
+    table: "tags",
+    permission: "settings",
+    listSql: "SELECT * FROM tags WHERE organization_id=$1 ORDER BY id DESC",
+    insertColumns: ["organization_id", "name", "color", "type"],
+    fields: [
+      ["name", asText],
+      ["color", (value) => asText(value, "#168CFF")],
+      ["type", (value) => asText(value, "student")]
+    ]
+  }
+};
+
+async function handleSimpleCrudRequest(request, response, config, id = null) {
+  try {
+    const user = await requireUser(request, response, request.method === "GET" ? "read" : `${config.permission}:write`);
+    if (!user) return;
+    const pool = getDbPool();
+
+    if (request.method === "GET" && !id) {
+      const result = await pool.query(config.listSql, [user.organization_id]);
+      sendJson(response, 200, { ok: true, items: result.rows });
+      return;
+    }
+
+    if (request.method === "POST" && !id) {
+      const body = await readJsonBody(request);
+      const values = [user.organization_id, ...config.fields.map(([name, mapper]) => mapper(body[name]))];
+      const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
+      const result = await pool.query(
+        `INSERT INTO ${config.table} (${config.insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+      await writeAudit(pool, user, "create", config.table, result.rows[0].id, body);
+      sendJson(response, 201, { ok: true, item: result.rows[0] });
+      return;
+    }
+
+    if (request.method === "PUT" && id) {
+      const body = await readJsonBody(request);
+      const assignments = config.fields.map(([name], index) => `${name}=$${index + 3}`);
+      const values = [id, user.organization_id, ...config.fields.map(([name, mapper]) => mapper(body[name]))];
+      const result = await pool.query(
+        `UPDATE ${config.table} SET ${assignments.join(", ")} WHERE id=$1 AND organization_id=$2 RETURNING *`,
+        values
+      );
+      if (!result.rows[0]) {
+        sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
+        return;
+      }
+      await writeAudit(pool, user, "update", config.table, id, body);
+      sendJson(response, 200, { ok: true, item: result.rows[0] });
+      return;
+    }
+
+    if (request.method === "DELETE" && id) {
+      const hasArchive = ["rooms", "payment_types", "finance_transactions"].includes(config.table);
+      const result = await pool.query(
+        hasArchive
+          ? `UPDATE ${config.table} SET archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id`
+          : `DELETE FROM ${config.table} WHERE id=$1 AND organization_id=$2 RETURNING id`,
+        [id, user.organization_id]
+      );
+      if (!result.rows[0]) {
+        sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
+        return;
+      }
+      await writeAudit(pool, user, "delete", config.table, id);
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    sendJson(response, 405, { ok: false, message: "Method not allowed" });
+  } catch (error) {
+    withError(response, `Simple CRUD ${config.table}`, error);
+  }
+}
+
+async function handleStaffAttendanceRequest(request, response, action = "", id = null) {
+  try {
+    const user = await requireUser(request, response, request.method === "GET" ? "read" : "attendance:write");
+    if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "GET") {
+      const result = await pool.query(
+        `SELECT sa.*, COALESCE(t.full_name, u.full_name, 'Xodim') AS employee_name
+         FROM staff_attendance sa
+         LEFT JOIN teachers t ON t.id=sa.employee_id AND t.organization_id=sa.organization_id
+         LEFT JOIN users u ON u.id=sa.employee_id
+         WHERE sa.organization_id=$1
+         ORDER BY sa.date DESC, sa.id DESC`,
+        [user.organization_id]
+      );
+      sendJson(response, 200, { ok: true, items: result.rows });
+      return;
+    }
+    if (request.method === "POST" && ["check-in", "check-out"].includes(action)) {
+      const body = await readJsonBody(request);
+      const employeeId = body.employee_id || user.id;
+      const date = asDate(body.date) || new Date().toISOString().slice(0, 10);
+      const column = action === "check-in" ? "check_in" : "check_out";
+      const status = action === "check-in" ? "present" : "completed";
+      const result = await pool.query(
+        `INSERT INTO staff_attendance (organization_id, employee_id, date, ${column}, status, note)
+         VALUES ($1,$2,$3,CURRENT_TIME,$4,$5)
+         ON CONFLICT DO NOTHING
+         RETURNING *`,
+        [user.organization_id, employeeId, date, status, asText(body.note)]
+      );
+      if (!result.rows[0]) {
+        const updated = await pool.query(
+          `UPDATE staff_attendance SET ${column}=CURRENT_TIME, status=$4, note=COALESCE(NULLIF($5,''), note)
+           WHERE organization_id=$1 AND employee_id=$2 AND date=$3::date RETURNING *`,
+          [user.organization_id, employeeId, date, status, asText(body.note)]
+        );
+        sendJson(response, 200, { ok: true, item: updated.rows[0] });
+        return;
+      }
+      sendJson(response, 201, { ok: true, item: result.rows[0] });
+      return;
+    }
+    if (request.method === "PUT" && id) {
+      const body = await readJsonBody(request);
+      const result = await pool.query(
+        `UPDATE staff_attendance SET status=$3, note=$4, check_in=COALESCE($5::time, check_in), check_out=COALESCE($6::time, check_out)
+         WHERE id=$1 AND organization_id=$2 RETURNING *`,
+        [id, user.organization_id, asText(body.status, "present"), asText(body.note), body.check_in || null, body.check_out || null]
+      );
+      sendJson(response, 200, { ok: true, item: result.rows[0] });
+      return;
+    }
+    sendJson(response, 405, { ok: false, message: "Method not allowed" });
+  } catch (error) {
+    withError(response, "Staff attendance", error);
   }
 }
 
@@ -3691,12 +3880,27 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (request.method === "GET" && urlPath === "/api/app/debts") {
+    handleDebtsRequest(request, response);
+    return;
+  }
+
   if (urlPath === "/api/schedule" && ["GET", "POST"].includes(request.method)) {
     handleScheduleRequest(request, response);
     return;
   }
 
+  if (["/api/app/schedule", "/api/app/journal"].includes(urlPath) && ["GET", "POST"].includes(request.method)) {
+    handleScheduleRequest(request, response);
+    return;
+  }
+
   if (urlPath === "/api/settings" && ["GET", "PUT"].includes(request.method)) {
+    handleSettingsRequest(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/app/settings" && ["GET", "PUT"].includes(request.method)) {
     handleSettingsRequest(request, response);
     return;
   }
@@ -3755,7 +3959,13 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const crudMatch = urlPath.match(/^\/api\/(students|leads|groups|teachers|courses)(?:\/(\d+))?$/);
+  const appConvertLeadMatch = urlPath.match(/^\/api\/app\/leads\/(\d+)\/convert-to-student$/);
+  if (appConvertLeadMatch && request.method === "POST") {
+    handleLeadConvertRequest(request, response, Number(appConvertLeadMatch[1]));
+    return;
+  }
+
+  const crudMatch = urlPath.match(/^\/api(?:\/app)?\/(students|leads|groups|teachers|courses)(?:\/(\d+))?$/);
   if (crudMatch) {
     const [, resource, id] = crudMatch;
     const config = crudConfigs[resource];
@@ -3792,7 +4002,31 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const paymentMatch = urlPath.match(/^\/api\/payments(?:\/(\d+))?$/);
+  const simpleCrudMatch = urlPath.match(/^\/api(?:\/app)?\/(rooms|payment-types|tags)(?:\/(\d+))?$/);
+  if (simpleCrudMatch) {
+    const [, resource, id] = simpleCrudMatch;
+    handleSimpleCrudRequest(request, response, simpleCrudConfigs[resource], id ? Number(id) : null);
+    return;
+  }
+
+  const financeTransactionsMatch = urlPath.match(/^\/api\/app\/finance\/transactions(?:\/(\d+))?$/);
+  if (financeTransactionsMatch) {
+    handleSimpleCrudRequest(request, response, simpleCrudConfigs["finance-transactions"], financeTransactionsMatch[1] ? Number(financeTransactionsMatch[1]) : null);
+    return;
+  }
+
+  if (request.method === "GET" && /^\/api\/app\/reports\/[^/]+$/.test(urlPath)) {
+    handleAnalyticsRequest(request, response);
+    return;
+  }
+
+  const staffAttendanceActionMatch = urlPath.match(/^\/api\/app\/staff-attendance(?:\/(check-in|check-out|(\d+)))?$/);
+  if (staffAttendanceActionMatch) {
+    handleStaffAttendanceRequest(request, response, staffAttendanceActionMatch[1] || "", staffAttendanceActionMatch[2] ? Number(staffAttendanceActionMatch[2]) : null);
+    return;
+  }
+
+  const paymentMatch = urlPath.match(/^\/api(?:\/app)?\/payments(?:\/(\d+))?$/);
   if (paymentMatch) {
     const paymentId = paymentMatch[1] ? Number(paymentMatch[1]) : null;
 
@@ -3817,7 +4051,7 @@ const server = http.createServer((request, response) => {
     }
   }
 
-  const attendanceMatch = urlPath.match(/^\/api\/attendance(?:\/(\d+))?$/);
+  const attendanceMatch = urlPath.match(/^\/api(?:\/app)?\/attendance(?:\/(\d+))?$/);
   if (attendanceMatch) {
     const attendanceId = attendanceMatch[1] ? Number(attendanceMatch[1]) : null;
 

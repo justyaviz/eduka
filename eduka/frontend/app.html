@@ -43,7 +43,7 @@
         <button class="create-student" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
           <button class="active" type="button" data-view="dashboard" data-route="/app/dashboard" data-lucide-icon="layout-dashboard">Dashboard</button>
-          <button type="button" data-view="students" data-route="/app/students" data-lucide-icon="graduation-cap">O'quvchilar</button>
+          <button type="button" data-view="students" data-route="/app/students" data-lucide-icon="graduation-cap">Talabalar</button>
           <button type="button" data-view="groups" data-route="/app/groups" data-lucide-icon="layers">Guruhlar</button>
           <button type="button" data-view="courses" data-route="/app/courses" data-lucide-icon="book-open">Kurslar</button>
           <button type="button" data-view="teachers" data-route="/app/teachers" data-lucide-icon="user-check">O'qituvchilar</button>
@@ -53,6 +53,9 @@
           <button type="button" data-view="debtors" data-route="/app/debts" data-lucide-icon="badge-alert">Qarzdorlik</button>
           <button type="button" data-view="leads" data-route="/app/leads" data-lucide-icon="kanban">Leadlar</button>
           <button type="button" data-view="reports" data-route="/app/reports" data-lucide-icon="bar-chart-3">Hisobotlar</button>
+          <button type="button" data-view="teacher-attendance" data-route="/app/staff-attendance" data-lucide-icon="user-round-check">Xodimlar davomati</button>
+          <button type="button" data-view="archive" data-route="/app/archive" data-lucide-icon="archive">Arxiv</button>
+          <button type="button" data-view="market" data-route="/app/market" data-lucide-icon="shopping-bag">Market</button>
           <button type="button" data-view="branches" data-route="/app/branches" data-lucide-icon="building-2">Filiallar</button>
           <button type="button" data-view="rooms" data-route="/app/rooms" data-lucide-icon="door-open">Xonalar</button>
           <button type="button" data-view="telegram" data-route="/app/telegram" data-lucide-icon="send">Telegram xabarlar</button>
@@ -67,6 +70,7 @@
           <button type="button" data-view="bonuses">Bonuslar</button>
           <button type="button" data-view="expenses">Xarajatlar</button>
           <button type="button" data-view="debtors">Qarzdorlar</button>
+          <button type="button" data-view="finance-cash">Kassa</button>
         </div>
         <div class="side-subnav" data-subnav="settings" hidden>
           <button type="button" data-view="center-info">Markaz ma'lumotlari</button>
@@ -77,11 +81,23 @@
           <button type="button" data-view="rooms">Xonalar</button>
           <button type="button" data-view="holidays">Bayram kunlari</button>
           <button type="button" data-view="receipt-settings">Chek sozlama</button>
+          <button type="button" data-view="learning-settings">O'quv bo'limi</button>
           <button type="button" data-view="courses">Kurslar</button>
+          <button type="button" data-view="reasons">Sabablar</button>
+          <button type="button" data-view="level-test">Daraja testi</button>
+          <button type="button" data-view="points">Ballar</button>
+          <button type="button" data-view="exam-templates">Imtihon shablonlari</button>
           <button type="button" data-view="sms-settings">SMS</button>
+          <button type="button" data-view="sms-buy">SMS sotib olish</button>
+          <button type="button" data-view="sms-auto">Auto SMS</button>
+          <button type="button" data-view="sms-templates">Shablonlar</button>
           <button type="button" data-view="forms">Formalar</button>
+          <button type="button" data-view="lead-forms">Lid formalar</button>
+          <button type="button" data-view="simple-form">Oddiy forma</button>
+          <button type="button" data-view="referral-forms">Referral formalar</button>
           <button type="button" data-view="tags">Teglar</button>
           <button type="button" data-view="payment-types">To'lov turlari</button>
+          <button type="button" data-view="integrations">Integratsiyalar</button>
           <button type="button" data-view="accounting">Hisob-kitoblar</button>
         </div>
         <div class="side-subnav" data-subnav="reports" hidden>
@@ -108,6 +124,11 @@
           <button type="button" data-view="archive-employees">Xodimlar</button>
           <button type="button" data-view="archive-groups">Guruhlar</button>
           <button type="button" data-view="archive-finance">Moliya</button>
+          <button type="button" data-view="archive-finance-payments">To'lovlar</button>
+          <button type="button" data-view="archive-finance-salary">Ish haqi</button>
+          <button type="button" data-view="archive-finance-expenses">Xarajatlar</button>
+          <button type="button" data-view="archive-finance-extra-income">Qo'shimcha daromadlar</button>
+          <button type="button" data-view="archive-finance-bonuses">Bonuslar</button>
         </div>
         <div class="side-subnav" data-subnav="super" hidden>
           <button type="button" data-view="super-dashboard" data-super-only>Dashboard</button>
