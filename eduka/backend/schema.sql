@@ -687,3 +687,144 @@ CREATE INDEX IF NOT EXISTS student_extra_lessons_org_status_idx ON student_extra
 CREATE INDEX IF NOT EXISTS student_feedback_org_status_idx ON student_feedback(organization_id, status);
 CREATE INDEX IF NOT EXISTS student_exam_results_org_student_idx ON student_exam_results(organization_id, student_id);
 CREATE INDEX IF NOT EXISTS student_mock_exams_org_status_idx ON student_mock_exams(organization_id, status);
+
+
+-- Eduka professional CRM extension tables (real CRUD; no demo/local-only logic)
+CREATE TABLE IF NOT EXISTS student_notes (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT 'Eslatma',
+  note TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'normal',
+  remind_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS student_discounts (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  group_id BIGINT REFERENCES groups(id) ON DELETE SET NULL,
+  discount_type TEXT NOT NULL DEFAULT 'amount',
+  amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+  reason TEXT,
+  starts_at DATE,
+  ends_at DATE,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS crm_messages (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id BIGINT REFERENCES students(id) ON DELETE SET NULL,
+  lead_id BIGINT REFERENCES leads(id) ON DELETE SET NULL,
+  teacher_id BIGINT REFERENCES teachers(id) ON DELETE SET NULL,
+  channel TEXT NOT NULL DEFAULT 'manual',
+  recipient TEXT,
+  subject TEXT,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',
+  provider_response JSONB NOT NULL DEFAULT '{}'::jsonb,
+  sent_at TIMESTAMPTZ,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS student_tasks (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id BIGINT REFERENCES students(id) ON DELETE CASCADE,
+  group_id BIGINT REFERENCES groups(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  due_date DATE,
+  max_score NUMERIC(8,2) NOT NULL DEFAULT 100,
+  score NUMERIC(8,2),
+  status TEXT NOT NULL DEFAULT 'assigned',
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS gamification_transactions (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('coin','crystal')),
+  amount INTEGER NOT NULL DEFAULT 0,
+  reason TEXT,
+  source TEXT NOT NULL DEFAULT 'manual',
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS crm_history (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id BIGINT REFERENCES students(id) ON DELETE CASCADE,
+  group_id BIGINT REFERENCES groups(id) ON DELETE CASCADE,
+  entity TEXT NOT NULL,
+  entity_id BIGINT,
+  action TEXT NOT NULL,
+  title TEXT,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS group_exams (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  group_id BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  exam_date DATE,
+  pass_score NUMERIC(8,2) NOT NULL DEFAULT 60,
+  max_score NUMERIC(8,2) NOT NULL DEFAULT 100,
+  status TEXT NOT NULL DEFAULT 'planned',
+  note TEXT,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS group_homeworks (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  group_id BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  due_date DATE,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS group_notes (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  group_id BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS student_notes_org_student_idx ON student_notes(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS student_discounts_org_student_idx ON student_discounts(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS crm_messages_org_student_idx ON crm_messages(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS student_tasks_org_student_idx ON student_tasks(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS gamification_org_student_idx ON gamification_transactions(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS crm_history_org_student_idx ON crm_history(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS group_exams_org_group_idx ON group_exams(organization_id, group_id);
+CREATE INDEX IF NOT EXISTS group_homeworks_org_group_idx ON group_homeworks(organization_id, group_id);
+CREATE INDEX IF NOT EXISTS group_notes_org_group_idx ON group_notes(organization_id, group_id);

@@ -215,7 +215,8 @@ function initials(name) {
 }
 
 function normalizePayload(payload = {}, options = {}) {
-  const demo = Boolean(options.demo);
+  const allowDemoFallback = new URLSearchParams(window.location.search).get("demo") === "1" || localStorage.getItem("eduka_allow_demo") === "1";
+  const demo = Boolean(options.demo && allowDemoFallback);
   const sourceStudent = payload.student || {};
   const student = {
     ...(demo ? referenceData.student : {}),
@@ -277,7 +278,9 @@ async function api(path, options = {}) {
 async function loadData(route) {
   if (previewMode()) {
     appState.base = referenceData;
-    return normalizePayload(referenceData, { demo: true });
+    const allowDemoFallback = new URLSearchParams(window.location.search).get("demo") === "1" || localStorage.getItem("eduka_allow_demo") === "1";
+    if (allowDemoFallback) return normalizePayload(referenceData, { demo: true });
+    return normalizePayload({ student: {}, organization: {}, settings: {}, modules: [], events: [], news: [], lessons: [], library: [], dictionary: [], exams: [], mockExams: [], referrals: [], payments: [], ranking: [] });
   }
 
   const token = getToken();

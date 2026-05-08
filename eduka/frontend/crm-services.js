@@ -1,5 +1,11 @@
 (function () {
   const mock = window.crmMock || {};
+  const allowDemoFallback = new URLSearchParams(window.location.search).get("demo") === "1" || localStorage.getItem("eduka_allow_demo") === "1";
+
+  function requireApi(error) {
+    if (allowDemoFallback) return null;
+    throw error;
+  }
   const endpointByName = {
     students: "/api/students",
     courses: "/api/courses",
@@ -87,7 +93,8 @@
         try {
           const payload = await request(withQuery(endpoint, query));
           return payload.items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return listMock(name);
         }
       },
@@ -95,7 +102,8 @@
         try {
           const payload = await request(`${endpoint}/${id}`);
           return payload.item || payload.profile || null;
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return getMock(name, id);
         }
       },
@@ -103,7 +111,8 @@
         try {
           const result = await request(endpoint, { method: "POST", body: JSON.stringify(payload) });
           return result.item || result.items?.[0] || null;
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return createMock(name, payload);
         }
       },
@@ -111,14 +120,16 @@
         try {
           const result = await request(`${endpoint}/${id}`, { method: "PUT", body: JSON.stringify(payload) });
           return result.item || null;
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return updateMock(name, id, payload);
         }
       },
       remove: async (id) => {
         try {
           return await request(`${endpoint}/${id}`, { method: "DELETE" });
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return removeMock(name, id);
         }
       }
@@ -161,7 +172,8 @@
         try {
           const payload = await request("/api/auth/demo", { method: "POST", body: JSON.stringify({}) });
           return payload.user;
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay(mock.users?.centerAdmin);
         }
       },
@@ -177,7 +189,8 @@
         try {
           const payload = await request(withQuery(endpointByName.debts, query));
           return payload.items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return mockDebts();
         }
       }
@@ -199,7 +212,8 @@
         try {
           const payload = await request(`/api/leads/${id}/convert-to-student`, { method: "POST", body: JSON.stringify({}) });
           return payload.item || null;
-        } catch {
+        } catch (error) {
+          requireApi(error);
           const lead = (mock.leads || []).find((item) => String(item.id) === String(id));
           if (!lead) return null;
           const student = await createMock("students", {
@@ -219,7 +233,8 @@
         try {
           const payload = await request("/api/reports");
           return payload.analytics || payload.summary || {};
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay({
             daily_revenue: 2700000,
             weekly_revenue: 18400000,
@@ -239,7 +254,8 @@
       get: async () => {
         try {
           return await request("/api/settings");
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay({
             center: mock.users?.centerAdmin?.organization,
             paymentDay: 5,
@@ -268,42 +284,48 @@
       centers: async () => {
         try {
           return (await request("/api/super/centers")).items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay(mock.centers || []);
         }
       },
       plans: async () => {
         try {
           return (await request("/api/super/tariffs")).items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay(mock.plans || []);
         }
       },
       subscriptions: async () => {
         try {
           return (await request("/api/super/subscriptions")).items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay(mock.subscriptions || []);
         }
       },
       payments: async () => {
         try {
           return (await request("/api/super/payments")).items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay(mock.platformPayments || []);
         }
       },
       support: async () => {
         try {
           return (await request("/api/super/support")).items || [];
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay(mock.supportTickets || []);
         }
       },
       summary: async () => {
         try {
           return (await request("/api/super/summary")).summary || {};
-        } catch {
+        } catch (error) {
+          requireApi(error);
           return delay({
             centers: (mock.centers || []).length,
             active_centers: (mock.centers || []).filter((center) => center.status === "active").length,

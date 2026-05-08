@@ -2198,7 +2198,7 @@ async function handleStudentProfileRequest(request, response, studentId) {
     if (!user) return;
 
     const pool = getDbPool();
-    const [student, payments, attendance] = await Promise.all([
+    const [student, payments, attendance, notes, discounts, exams, messages, tasks, gamification, history, groups] = await Promise.all([
       pool.query(
         `SELECT s.*, g.name AS group_name, g.course_name AS group_course, t.full_name AS teacher_name
          FROM students s
@@ -2207,7 +2207,7 @@ async function handleStudentProfileRequest(request, response, studentId) {
          WHERE s.id=$1 AND s.organization_id=$2`,
         [studentId, user.organization_id]
       ),
-      pool.query("SELECT * FROM payments WHERE student_id=$1 AND organization_id=$2 ORDER BY paid_at DESC", [studentId, user.organization_id]),
+      pool.query("SELECT p.*, g.name AS group_name FROM payments p LEFT JOIN groups g ON g.id=p.group_id WHERE p.student_id=$1 AND p.organization_id=$2 ORDER BY p.paid_at DESC", [studentId, user.organization_id]),
       pool.query(
         `SELECT a.*, g.name AS group_name
          FROM attendance_records a
@@ -2215,7 +2215,15 @@ async function handleStudentProfileRequest(request, response, studentId) {
          WHERE a.student_id=$1 AND a.organization_id=$2
          ORDER BY a.lesson_date DESC`,
         [studentId, user.organization_id]
-      )
+      ),
+      pool.query("SELECT * FROM student_notes WHERE student_id=$1 AND organization_id=$2 ORDER BY created_at DESC", [studentId, user.organization_id]),
+      pool.query("SELECT d.*, g.name AS group_name FROM student_discounts d LEFT JOIN groups g ON g.id=d.group_id WHERE d.student_id=$1 AND d.organization_id=$2 ORDER BY created_at DESC", [studentId, user.organization_id]),
+      pool.query("SELECT * FROM student_exam_results WHERE student_id=$1 AND organization_id=$2 ORDER BY exam_date DESC NULLS LAST, id DESC", [studentId, user.organization_id]),
+      pool.query("SELECT * FROM crm_messages WHERE student_id=$1 AND organization_id=$2 ORDER BY created_at DESC", [studentId, user.organization_id]),
+      pool.query("SELECT t.*, g.name AS group_name FROM student_tasks t LEFT JOIN groups g ON g.id=t.group_id WHERE t.student_id=$1 AND t.organization_id=$2 ORDER BY created_at DESC", [studentId, user.organization_id]),
+      pool.query("SELECT * FROM gamification_transactions WHERE student_id=$1 AND organization_id=$2 ORDER BY created_at DESC", [studentId, user.organization_id]),
+      pool.query("SELECT * FROM crm_history WHERE student_id=$1 AND organization_id=$2 ORDER BY created_at DESC LIMIT 200", [studentId, user.organization_id]),
+      pool.query("SELECT g.* FROM groups g WHERE g.organization_id=$2 AND (g.id=(SELECT group_id FROM students WHERE id=$1 AND organization_id=$2) OR g.id IN (SELECT group_id FROM group_students WHERE organization_id=$2 AND student_id=$1)) ORDER BY g.id DESC", [studentId, user.organization_id])
     ]);
 
     if (!student.rows[0]) {
@@ -2223,9 +2231,236 @@ async function handleStudentProfileRequest(request, response, studentId) {
       return;
     }
 
-    sendJson(response, 200, { ok: true, profile: { student: student.rows[0], payments: payments.rows, attendance: attendance.rows } });
+    const due = payments.rows.reduce((sum, item) => sum + Number(item.due_amount || 0), 0);
+    const paid = payments.rows.reduce((sum, item) => sum + Number(item.amount || 0) + Number(item.discount || 0), 0);
+    const present = attendance.rows.filter((item) => ["present", "online"].includes(item.status)).length;
+    const attendance_percent = attendance.rows.length ? Math.round((present / attendance.rows.length) * 100) : 0;
+    sendJson(response, 200, {
+      ok: true,
+      profile: {
+        student: student.rows[0],
+        groups: groups.rows,
+        payments: payments.rows,
+        attendance: attendance.rows,
+        notes: notes.rows,
+        discounts: discounts.rows,
+        exams: exams.rows,
+        messages: messages.rows,
+        tasks: tasks.rows,
+        gamification: gamification.rows,
+        history: history.rows,
+        summary: { due, paid, balance: Math.max(due - paid, 0), attendance_percent }
+      }
+    });
   } catch (error) {
     withError(response, "Student profile", error);
+  }
+}
+
+
+
+const crmExtensionConfigs = {
+  notes: {
+    table: "student_notes",
+    scope: "student",
+    fields: ["student_id", "title", "note", "priority", "remind_at", "status"],
+    defaults: { title: "Eslatma", priority: "normal", status: "open" },
+    order: "created_at DESC, id DESC"
+  },
+  discounts: {
+    table: "student_discounts",
+    scope: "student",
+    fields: ["student_id", "group_id", "discount_type", "amount", "percent", "reason", "starts_at", "ends_at", "status"],
+    defaults: { discount_type: "amount", amount: 0, percent: 0, status: "active" },
+    order: "created_at DESC, id DESC"
+  },
+  messages: {
+    table: "crm_messages",
+    scope: "student",
+    fields: ["student_id", "lead_id", "teacher_id", "channel", "recipient", "subject", "message", "status", "sent_at"],
+    defaults: { channel: "manual", status: "queued" },
+    order: "created_at DESC, id DESC"
+  },
+  tasks: {
+    table: "student_tasks",
+    scope: "studentOrGroup",
+    fields: ["student_id", "group_id", "title", "description", "due_date", "max_score", "score", "status"],
+    defaults: { max_score: 100, status: "assigned" },
+    order: "created_at DESC, id DESC"
+  },
+  gamification: {
+    table: "gamification_transactions",
+    scope: "student",
+    fields: ["student_id", "type", "amount", "reason", "source"],
+    defaults: { type: "coin", amount: 0, source: "manual" },
+    order: "created_at DESC, id DESC"
+  },
+  history: {
+    table: "crm_history",
+    scope: "studentOrGroup",
+    fields: ["student_id", "group_id", "entity", "entity_id", "action", "title", "details"],
+    defaults: { entity: "manual", action: "note", details: {} },
+    order: "created_at DESC, id DESC"
+  },
+  exams: {
+    table: "student_exam_results",
+    scope: "student",
+    fields: ["student_id", "title", "score", "max_score", "grade", "exam_date", "status"],
+    defaults: { max_score: 100, status: "published" },
+    order: "exam_date DESC NULLS LAST, id DESC"
+  },
+  "group-exams": {
+    table: "group_exams",
+    scope: "group",
+    fields: ["group_id", "title", "exam_date", "pass_score", "max_score", "status", "note"],
+    defaults: { pass_score: 60, max_score: 100, status: "planned" },
+    order: "exam_date DESC NULLS LAST, id DESC"
+  },
+  "group-homeworks": {
+    table: "group_homeworks",
+    scope: "group",
+    fields: ["group_id", "title", "description", "due_date", "status"],
+    defaults: { status: "active" },
+    order: "due_date DESC NULLS LAST, id DESC"
+  },
+  "group-notes": {
+    table: "group_notes",
+    scope: "group",
+    fields: ["group_id", "note", "status"],
+    defaults: { status: "active" },
+    order: "created_at DESC, id DESC"
+  }
+};
+
+function crmExtensionValue(field, body, defaults = {}) {
+  if (Object.prototype.hasOwnProperty.call(body || {}, field)) return body[field];
+  return defaults[field];
+}
+
+function crmExtensionNormalize(field, value) {
+  if (["amount", "percent", "max_score", "score", "pass_score"].includes(field)) return asNumber(value);
+  if (["student_id", "group_id", "lead_id", "teacher_id", "entity_id"].includes(field)) return value ? Number(value) : null;
+  if (["remind_at", "sent_at"].includes(field)) return value ? new Date(value).toISOString() : null;
+  if (["starts_at", "ends_at", "due_date", "exam_date"].includes(field)) return asDate(value);
+  if (field === "details") return value && typeof value === "object" ? value : {};
+  return asText(value);
+}
+
+async function insertCrmHistory(pool, user, payload) {
+  await pool.query(
+    `INSERT INTO crm_history (organization_id, student_id, group_id, entity, entity_id, action, title, details, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [user.organization_id, payload.student_id || null, payload.group_id || null, payload.entity || "system", payload.entity_id || null, payload.action || "change", payload.title || null, payload.details || {}, user.id]
+  ).catch(() => {});
+}
+
+async function updateGamificationBalance(pool, organizationId, studentId) {
+  if (!studentId) return;
+  const result = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type='coin' THEN amount ELSE 0 END),0)::int AS coins,
+       COALESCE(SUM(CASE WHEN type='crystal' THEN amount ELSE 0 END),0)::int AS crystals
+     FROM gamification_transactions
+     WHERE organization_id=$1 AND student_id=$2`,
+    [organizationId, studentId]
+  );
+  await pool.query("UPDATE students SET coins=$3, crystals=$4 WHERE organization_id=$1 AND id=$2", [organizationId, studentId, result.rows[0].coins || 0, result.rows[0].crystals || 0]);
+}
+
+async function handleCrmExtensionRequest(request, response, config, parentId = null, rowId = null) {
+  try {
+    const user = await requireUser(request, response, request.method === "GET" ? "read" : "students:write");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+
+    const parentColumn = config.scope === "group" ? "group_id" : "student_id";
+    if (request.method === "GET" && !rowId) {
+      const params = [user.organization_id];
+      let where = "organization_id=$1";
+      if (parentId) {
+        params.push(parentId);
+        where += ` AND ${parentColumn}=$${params.length}`;
+      }
+      const result = await pool.query(`SELECT * FROM ${config.table} WHERE ${where} ORDER BY ${config.order || "id DESC"}`, params);
+      sendJson(response, 200, { ok: true, items: result.rows });
+      return;
+    }
+
+    if (request.method === "POST" && !rowId) {
+      const body = await readJsonBody(request);
+      if (parentId && config.fields.includes(parentColumn)) body[parentColumn] = parentId;
+      const fields = config.fields;
+      const columns = ["organization_id", ...fields, "created_by"];
+      const values = [user.organization_id, ...fields.map((field) => crmExtensionNormalize(field, crmExtensionValue(field, body, config.defaults || {}))), user.id];
+      const placeholders = values.map((_, index) => `$${index + 1}`).join(",");
+      const result = await pool.query(`INSERT INTO ${config.table} (${columns.join(",")}) VALUES (${placeholders}) RETURNING *`, values);
+      const item = result.rows[0];
+      if (config.table === "gamification_transactions") await updateGamificationBalance(pool, user.organization_id, item.student_id);
+      await insertCrmHistory(pool, user, { student_id: item.student_id, group_id: item.group_id, entity: config.table, entity_id: item.id, action: "create", title: item.title || item.note || item.reason, details: item });
+      await writeAudit(pool, user, "create", config.table, item.id, item);
+      sendJson(response, 201, { ok: true, item });
+      return;
+    }
+
+    if (request.method === "PUT" && rowId) {
+      const body = await readJsonBody(request);
+      const before = await pool.query(`SELECT * FROM ${config.table} WHERE id=$1 AND organization_id=$2`, [rowId, user.organization_id]);
+      if (!before.rows[0]) return sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
+      const fields = config.fields.filter((field) => Object.prototype.hasOwnProperty.call(body, field));
+      if (!fields.length) return sendJson(response, 200, { ok: true, item: before.rows[0] });
+      const values = [rowId, user.organization_id, ...fields.map((field) => crmExtensionNormalize(field, body[field]))];
+      const setSql = fields.map((field, index) => `${field}=$${index + 3}`).join(", ") + ", updated_at=NOW()";
+      const result = await pool.query(`UPDATE ${config.table} SET ${setSql} WHERE id=$1 AND organization_id=$2 RETURNING *`, values);
+      const item = result.rows[0];
+      if (config.table === "gamification_transactions") await updateGamificationBalance(pool, user.organization_id, item.student_id);
+      await insertCrmHistory(pool, user, { student_id: item.student_id, group_id: item.group_id, entity: config.table, entity_id: item.id, action: "update", title: item.title || item.note || item.reason, details: { before: before.rows[0], after: item } });
+      await writeAudit(pool, user, "update", config.table, rowId, { before: before.rows[0], after: item });
+      sendJson(response, 200, { ok: true, item });
+      return;
+    }
+
+    if (request.method === "DELETE" && rowId) {
+      const before = await pool.query(`SELECT * FROM ${config.table} WHERE id=$1 AND organization_id=$2`, [rowId, user.organization_id]);
+      if (!before.rows[0]) return sendJson(response, 404, { ok: false, message: "Ma'lumot topilmadi" });
+      await pool.query(`DELETE FROM ${config.table} WHERE id=$1 AND organization_id=$2`, [rowId, user.organization_id]);
+      if (config.table === "gamification_transactions") await updateGamificationBalance(pool, user.organization_id, before.rows[0].student_id);
+      await insertCrmHistory(pool, user, { student_id: before.rows[0].student_id, group_id: before.rows[0].group_id, entity: config.table, entity_id: rowId, action: "delete", title: before.rows[0].title || before.rows[0].note || before.rows[0].reason, details: before.rows[0] });
+      await writeAudit(pool, user, "delete", config.table, rowId, { before: before.rows[0] });
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    sendJson(response, 405, { ok: false, message: "Bu amal qo'llab-quvvatlanmaydi" });
+  } catch (error) {
+    withError(response, `CRM extension ${config?.table || "unknown"}`, error);
+  }
+}
+
+async function handleGroupProfileRequest(request, response, groupId) {
+  try {
+    const user = await requireUser(request, response, "groups:read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const [group, students, attendance, grades, homeworks, exams, discounts, notes, history, payments] = await Promise.all([
+      pool.query(`SELECT g.*, t.full_name AS teacher_full_name FROM groups g LEFT JOIN teachers t ON t.id=g.teacher_id WHERE g.id=$1 AND g.organization_id=$2`, [groupId, user.organization_id]),
+      pool.query(`SELECT s.* FROM students s WHERE s.organization_id=$2 AND (s.group_id=$1 OR s.id IN (SELECT student_id FROM group_students WHERE organization_id=$2 AND group_id=$1)) ORDER BY s.full_name`, [groupId, user.organization_id]),
+      pool.query(`SELECT a.*, s.full_name AS student_name FROM attendance_records a LEFT JOIN students s ON s.id=a.student_id WHERE a.group_id=$1 AND a.organization_id=$2 ORDER BY a.lesson_date DESC, a.id DESC`, [groupId, user.organization_id]),
+      pool.query(`SELECT t.*, s.full_name AS student_name FROM student_tasks t LEFT JOIN students s ON s.id=t.student_id WHERE t.group_id=$1 AND t.organization_id=$2 ORDER BY t.created_at DESC`, [groupId, user.organization_id]),
+      pool.query(`SELECT * FROM group_homeworks WHERE group_id=$1 AND organization_id=$2 ORDER BY due_date DESC NULLS LAST, id DESC`, [groupId, user.organization_id]),
+      pool.query(`SELECT * FROM group_exams WHERE group_id=$1 AND organization_id=$2 ORDER BY exam_date DESC NULLS LAST, id DESC`, [groupId, user.organization_id]),
+      pool.query(`SELECT d.*, s.full_name AS student_name FROM student_discounts d LEFT JOIN students s ON s.id=d.student_id WHERE d.group_id=$1 AND d.organization_id=$2 ORDER BY d.created_at DESC`, [groupId, user.organization_id]),
+      pool.query(`SELECT * FROM group_notes WHERE group_id=$1 AND organization_id=$2 ORDER BY created_at DESC`, [groupId, user.organization_id]),
+      pool.query(`SELECT * FROM crm_history WHERE group_id=$1 AND organization_id=$2 ORDER BY created_at DESC LIMIT 200`, [groupId, user.organization_id]),
+      pool.query(`SELECT p.*, s.full_name AS student_name FROM payments p LEFT JOIN students s ON s.id=p.student_id WHERE p.group_id=$1 AND p.organization_id=$2 ORDER BY p.paid_at DESC`, [groupId, user.organization_id])
+    ]);
+    if (!group.rows[0]) return sendJson(response, 404, { ok: false, message: "Guruh topilmadi" });
+    const present = attendance.rows.filter((item) => ["present", "online"].includes(item.status)).length;
+    const attendance_percent = attendance.rows.length ? Math.round((present / attendance.rows.length) * 100) : 0;
+    sendJson(response, 200, { ok: true, profile: { group: group.rows[0], students: students.rows, attendance: attendance.rows, grades: grades.rows, homeworks: homeworks.rows, exams: exams.rows, discounts: discounts.rows, notes: notes.rows, history: history.rows, payments: payments.rows, summary: { student_count: students.rows.length, attendance_percent, payments_total: payments.rows.reduce((sum, p) => sum + Number(p.amount || 0), 0) } } });
+  } catch (error) {
+    withError(response, "Group profile", error);
   }
 }
 
@@ -3180,7 +3415,7 @@ async function handleStudentAppLogout(request, response) {
 
 async function handleStudentAppMe(request, response) {
   if (!process.env.DATABASE_URL) {
-    sendJson(response, 200, { ok: true, ...fallbackStudentAppPayload() });
+    sendJson(response, 503, { ok: false, message: "Student App real rejimda ishlashi uchun DATABASE_URL sozlanishi shart" });
     return;
   }
   const session = await requireStudentAppSession(request, response);
@@ -3191,22 +3426,7 @@ async function handleStudentAppMe(request, response) {
 
 async function handleStudentAppData(request, response, resource) {
   if (!process.env.DATABASE_URL) {
-    const fallback = fallbackStudentAppPayload();
-    const map = {
-      home: fallback,
-      profile: fallback,
-      group: { groups: fallback.groups || [{ id: 1, name: "KURS - A1", teacher_name: "Mr. John", attendance_percent: 92 }], student: fallback.student },
-      study: { lessons: fallback.lessons, groups: fallback.groups || [] },
-      rating: { ranking: fallback.ranking, student: fallback.student },
-      library: { items: fallback.library },
-      dictionary: { items: fallback.dictionary },
-      exams: { exams: fallback.exams, mockExams: fallback.mockExams },
-      referrals: { referrals: fallback.referrals, referralCode: fallback.student.referralCode },
-      news: { news: fallback.news, events: fallback.events },
-      payments: { payments: fallback.payments, student: fallback.student },
-      settings: { settings: fallback.settings }
-    };
-    sendJson(response, 200, { ok: true, ...(map[resource] || fallback) });
+    sendJson(response, 503, { ok: false, message: "Student App real rejimda ishlashi uchun DATABASE_URL sozlanishi shart" });
     return;
   }
   const session = await requireStudentAppSession(request, response);
@@ -3825,7 +4045,7 @@ const server = http.createServer((request, response) => {
   }
 
   if (request.method === "POST" && urlPath === "/api/auth/demo") {
-    handleDemoLoginRequest(request, response);
+    sendJson(response, 410, { ok: false, message: "Demo login o'chirilgan. Real markaz loginidan foydalaning." });
     return;
   }
 
@@ -3999,6 +4219,35 @@ const server = http.createServer((request, response) => {
   const studentProfileMatch = urlPath.match(/^\/api\/students\/(\d+)\/profile$/);
   if (studentProfileMatch && request.method === "GET") {
     handleStudentProfileRequest(request, response, Number(studentProfileMatch[1]));
+    return;
+  }
+
+
+
+  const groupProfileMatch = urlPath.match(/^\/api\/groups\/(\d+)\/profile$/);
+  if (groupProfileMatch && request.method === "GET") {
+    handleGroupProfileRequest(request, response, Number(groupProfileMatch[1]));
+    return;
+  }
+
+  const studentExtensionMatch = urlPath.match(/^\/api(?:\/app)?\/students\/(\d+)\/(notes|discounts|messages|tasks|gamification|history|exams)(?:\/(\d+))?$/);
+  if (studentExtensionMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
+    const [, parentId, resource, rowId] = studentExtensionMatch;
+    handleCrmExtensionRequest(request, response, crmExtensionConfigs[resource], Number(parentId), rowId ? Number(rowId) : null);
+    return;
+  }
+
+  const groupExtensionMatch = urlPath.match(/^\/api(?:\/app)?\/groups\/(\d+)\/(tasks|history|group-exams|group-homeworks|group-notes)(?:\/(\d+))?$/);
+  if (groupExtensionMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
+    const [, parentId, resource, rowId] = groupExtensionMatch;
+    handleCrmExtensionRequest(request, response, crmExtensionConfigs[resource], Number(parentId), rowId ? Number(rowId) : null);
+    return;
+  }
+
+  const extensionDirectMatch = urlPath.match(/^\/api\/app\/(notes|discounts|messages|tasks|gamification|history|exams|group-exams|group-homeworks|group-notes)(?:\/(\d+))?$/);
+  if (extensionDirectMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
+    const [, resource, rowId] = extensionDirectMatch;
+    handleCrmExtensionRequest(request, response, crmExtensionConfigs[resource], null, rowId ? Number(rowId) : null);
     return;
   }
 
