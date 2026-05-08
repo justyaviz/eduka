@@ -53,10 +53,10 @@ const navItems = [
 
 const referenceData = {
   student: {
-    id: 1,
-    fullName: "Ali Abduvaliyev",
+    id: 999,
+    fullName: "Ali Valijonov",
     phone: "+998 90 123 45 67",
-    email: "ali.abduvaliyev@gmail.com",
+    email: "ali.valijonov@gmail.com",
     username: "@ali_edu",
     groupName: "KURS - A1",
     courseName: "IELTS Foundation",
@@ -79,11 +79,11 @@ const referenceData = {
   ],
   news: [],
   notifications: [
-    { id: 1, type: "lesson", title: "Guruh darsi eslatmasi", description: "Bugun 19:00 da KURS - A1 darsi bor.", time: "08:30", unread: true, important: true },
-    { id: 2, type: "payment", title: "To'lov qabul qilindi", description: "May oyi uchun to'lovingiz tasdiqlandi.", time: "Kecha", unread: false, important: false },
-    { id: 3, type: "news", title: "Yangi yangilik", description: "Speaking Club uchun ro'yxatdan o'tish ochildi.", time: "2 kun oldin", unread: true, important: false },
-    { id: 4, type: "extra", title: "Qo'shimcha dars tasdiqlandi", description: "Support teacher so'rovingizni qabul qildi.", time: "3 kun oldin", unread: false, important: true },
-    { id: 5, type: "referral", title: "Referral bonus", description: "Taklifingiz uchun kristallar qo'shildi.", time: "5 kun oldin", unread: false, important: false }
+    { id: 1, type: "lesson", title: "Guruh darsi eslatmasi", description: "KURS - A1 darsi 1 soatdan keyin boshlanadi.", time: "2 daqiqa oldin", unread: true, important: true },
+    { id: 2, type: "payment", title: "To'lov qabul qilindi", description: "120 000 so'm to'lov qabul qilindi.", time: "15 daqiqa oldin", unread: false, important: false },
+    { id: 3, type: "news", title: "Yangi yangilik", description: "Imtihon jadvali e'lon qilindi.", time: "1 soat oldin", unread: true, important: false },
+    { id: 4, type: "extra", title: "Qo'shimcha dars tasdiqlandi", description: "Sizning so'rovingiz qabul qilindi.", time: "3 soat oldin", unread: false, important: true },
+    { id: 5, type: "referral", title: "Referral bonus", description: "Do'stingiz ro'yxatdan o'tdi. 50 kristal berildi.", time: "5 soat oldin", unread: false, important: false }
   ],
   modules: [],
   lessons: [
@@ -109,11 +109,11 @@ const referenceData = {
     { student_id: 1, full_name: "Ali", score: 12500 },
     { student_id: 2, full_name: "Akbar", score: 11200 },
     { student_id: 3, full_name: "Yahyobek", score: 10300 },
-    { student_id: 4, full_name: "Sarvinoz", score: 9800 },
-    { student_id: 5, full_name: "Diyor", score: 9300 },
-    { student_id: 6, full_name: "Kamron", score: 8700 },
-    { student_id: 7, full_name: "Madina", score: 8200 },
-    { student_id: 8, full_name: "Shahzod", score: 7900 }
+    { student_id: 4, full_name: "Jasurbek", score: 9250 },
+    { student_id: 5, full_name: "Sardor", score: 8700 },
+    { student_id: 999, full_name: "Siz", score: 7540 },
+    { student_id: 7, full_name: "Shahzod", score: 6800 },
+    { student_id: 8, full_name: "Behruz", score: 6120 }
   ],
   library: [
     { id: 1, title: "Atomic Habits", author: "James Clear", type: "book", rating: 4.8, level: "A2-B1" },
@@ -620,6 +620,7 @@ function renderRating(data) {
 function podiumItem(item, rank, tone, assetName) {
   return `
     <article class="podium-item ${escapeHtml(tone)}">
+      <div class="podium-face">${escapeHtml(initials(item.name))}</div>
       ${asset(assetName, "podium-trophy", `Trophy ${rank}`)}
       <div class="podium-block">
         <div class="podium-rank">${rank}</div>
@@ -762,11 +763,12 @@ function renderExtraLesson(data) {
         </div>
 
         <label>
-          <span>Izoh</span>
-          <textarea class="sa-textarea" data-control="extra-note" placeholder="Ehtiyojingizni qisqacha yozing...">${escapeHtml(appState.extraNote)}</textarea>
+          <span>Izoh (ixtiyoriy)</span>
+          <textarea class="sa-textarea" data-control="extra-note" maxlength="250" placeholder="Ehtiyojingizni qisqacha yozing...">${escapeHtml(appState.extraNote)}</textarea>
+          <small class="sa-counter">${Math.min(String(appState.extraNote || "").length, 250)}/250</small>
         </label>
 
-        <button class="${appState.extraTeacher ? "sa-primary-button" : "sa-disabled-button"}" type="button" data-action="register-extra">Ro'yxatdan o'tish</button>
+        <button class="sa-primary-button" type="button" data-action="register-extra">Ro'yxatdan o'tish</button>
         <p class="sa-form-note">Tez orada ustoz siz bilan bog'lanadi.</p>
       </section>
     `,
@@ -1022,7 +1024,7 @@ function renderSchedule(data) {
       <section class="schedule-month">
         <div class="schedule-month-title"><strong>May 2024</strong>${asset("calendar-3d", "schedule-calendar-art", "Kalendar")}</div>
         <div class="schedule-dates">
-          ${dates.map(([day, label], index) => `<button class="${index === 4 ? "active" : ""}" type="button" data-action="soft-toast" data-message="${day} ${label} tanlandi"><b>${day}</b><span>${label}</span></button>`).join("")}
+          ${dates.map(([day, label], index) => `<button class="${index === 0 ? "active" : ""}" type="button" data-action="soft-toast" data-message="${day} ${label} tanlandi"><b>${day}</b><span>${label}</span></button>`).join("")}
         </div>
       </section>
       <section class="schedule-list">
@@ -1322,7 +1324,14 @@ phone.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");
   if (!actionButton) return;
   const action = actionButton.getAttribute("data-action");
-  if (action === "logout") logout();
+  if (action === "logout") {
+    openStudentModal({
+      title: "Dasturdan chiqish",
+      body: `<p>Student App sessiyasidan chiqishni tasdiqlaysizmi?</p>`,
+      action: `<div class="sa-modal-actions"><button class="sa-secondary-button" type="button" data-action="close-modal">Bekor qilish</button><button class="sa-danger-button" type="button" data-action="confirm-logout">Chiqish</button></div>`
+    });
+  }
+  if (action === "confirm-logout") logout();
   if (action === "retry") renderCurrent();
   if (action === "close-modal") actionButton.closest(".sa-modal-backdrop")?.remove();
   if (action === "soft-toast") toast(actionButton.getAttribute("data-message") || "Amal bajarildi");
@@ -1383,7 +1392,9 @@ screen.addEventListener("change", (event) => {
 screen.addEventListener("input", (event) => {
   const control = event.target.getAttribute("data-control");
   if (control === "extra-note") {
-    appState.extraNote = event.target.value;
+    appState.extraNote = event.target.value.slice(0, 250);
+    const counter = event.target.closest("label")?.querySelector(".sa-counter");
+    if (counter) counter.textContent = `${appState.extraNote.length}/250`;
   }
 });
 
