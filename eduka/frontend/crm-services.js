@@ -169,13 +169,7 @@
   window.crmServices = {
     authService: {
       demoLogin: async () => {
-        try {
-          const payload = await request("/api/auth/demo", { method: "POST", body: JSON.stringify({}) });
-          return payload.user;
-        } catch (error) {
-          requireApi(error);
-          return delay(mock.users?.centerAdmin);
-        }
+        throw new Error("Demo login Eduka 19.7 da o'chirilgan. Haqiqiy admin login/paroldan foydalaning.");
       },
       superLogin: () => delay(mock.users?.superAdmin)
     },

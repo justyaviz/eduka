@@ -1148,27 +1148,7 @@ async function seedDemoData(pool, organizationId, userId) {
 }
 
 async function handleDemoLoginRequest(request, response) {
-  try {
-    const pool = getDbPool();
-    await ensureSchema(pool);
-    const org = await pool.query(
-      `INSERT INTO organizations (name, slug, phone, address, status, subscription_status, trial_ends_at, license_expires_at, setup_completed_at)
-       VALUES ('Eduka Demo Center','eduka-demo','+998 99 893 90 00','Toshkent','active','trial',NOW() + interval '7 days',NOW() + interval '7 days',NOW())
-       ON CONFLICT (slug) DO UPDATE SET updated_at=NOW()
-       RETURNING id`,
-    );
-    const user = await pool.query(
-      `INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash)
-       VALUES ($1,'Demo Admin','demo@eduka.uz','+998 90 123 45 67','998901234567','center_admin',$2)
-       ON CONFLICT (normalized_phone) DO UPDATE SET organization_id=$1, email='demo@eduka.uz', role='center_admin', is_active=TRUE
-       RETURNING id`,
-      [org.rows[0].id, hashPassword("demo12345")]
-    );
-    await seedDemoData(pool, org.rows[0].id, user.rows[0].id);
-    await sendSession(response, pool, user.rows[0].id);
-  } catch (error) {
-    withError(response, "Demo login", error);
-  }
+  sendJson(response, 410, { ok: false, message: "Demo login Eduka 19.7 da butunlay o'chirilgan. Super Admin orqali haqiqiy markaz va admin yarating." });
 }
 
 async function handleOnboardingRequest(request, response) {
@@ -1693,7 +1673,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '19.6', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '19.7', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
@@ -3691,63 +3671,7 @@ async function requireStudentAppSession(request, response) {
 }
 
 function fallbackStudentAppPayload() {
-  const student = {
-    id: 1,
-    fullName: "Ali Abdullayev",
-    phone: "+998 90 123 45 67",
-    groupName: "KURS - A1",
-    courseName: "IELTS Foundation",
-    balance: -192308,
-    crystals: 120,
-    coins: 2450,
-    referralCode: "ALI120"
-  };
-  return {
-    student,
-    organization: { id: 1, name: "Eduka", subdomain: "app" },
-    settings: {
-      enabled: true,
-      app_name: "Eduka Student App",
-      theme_primary: "#0A84FF",
-      crystals_enabled: true,
-      coins_enabled: true,
-      rating_enabled: true,
-      referral_enabled: true,
-      library_enabled: true,
-      dictionary_enabled: true,
-      extra_lessons_enabled: true,
-      exams_enabled: true,
-      news_enabled: true,
-      payments_enabled: true,
-      complaints_enabled: true
-    },
-    modules: studentAppDefaultModules.map(([key, title, description, icon, sort_order]) => ({ key, title, description, icon, enabled: true, sort_order })),
-    events: [{ id: 1, title: "Speaking Club", description: "Suhbat mashqi", event_date: "2026-05-24", event_time: "15:00", status: "active" }],
-    news: [{ id: 1, title: "Speaking Club ochildi", description: "Har shanba suhbat mashqlari", publish_date: "2026-05-20", status: "published" }],
-    lessons: [
-      { id: 1, title: "Grammar: Present Simple", time: "10:00 - 10:45", status: "completed" },
-      { id: 2, title: "Listening Practice", time: "11:00 - 11:45", status: "in_progress" }
-    ],
-    library: [
-      { id: 1, title: "English Grammar in Use", type: "book", level: "A2-B1", status: "published" },
-      { id: 2, title: "IELTS Listening Recent Tests", type: "audio", level: "B2", status: "published" }
-    ],
-    dictionary: [
-      { id: 1, word: "Achieve", pronunciation: "/əˈtʃiːv/", translation: "erishmoq", example: "I want to achieve my goals.", level: "A2" },
-      { id: 2, word: "Benefit", pronunciation: "/ˈbenɪfɪt/", translation: "foyda", example: "Regular practice has many benefits.", level: "B1" }
-    ],
-    exams: [{ id: 1, title: "Grammar Quiz", score: 92, max_score: 100, grade: "A+", exam_date: "2026-05-15" }],
-    mockExams: [{ id: 1, title: "IELTS Mock", description: "Listening, Reading, Writing, Speaking", exam_date: "2026-05-25", price: 100000, status: "active" }],
-    referrals: [],
-    extraLessons: [],
-    feedback: [],
-    payments: [{ id: 1, payment_month: "2026-05", due_amount: 700000, amount: 507692, status: "partial", paid_at: "2026-05-05", payment_type: "click" }],
-    ranking: [
-      { student_id: 2, full_name: "Akbar", score: 320 },
-      { student_id: 1, full_name: "Ali", score: 280 },
-      { student_id: 3, full_name: "Yahyobek", score: 210 }
-    ]
-  };
+  throw new Error("Student App demo payload Eduka 19.7 da o'chirilgan. Real student session talab qilinadi.");
 }
 
 async function studentAppBasePayload(pool, row) {

@@ -1145,11 +1145,18 @@ async function loadSummary() {
     document.querySelectorAll("[data-summary]").forEach((node) => {
       node.textContent = Number(summary[node.dataset.summary] || 0).toLocaleString("uz-UZ");
     });
-  } catch {
-    const summary = mockSummary();
+  } catch (error) {
+    if (allowDevelopmentFallback()) {
+      const summary = mockSummary();
+      document.querySelectorAll("[data-summary]").forEach((node) => {
+        node.textContent = Number(summary[node.dataset.summary] || 0).toLocaleString("uz-UZ");
+      });
+      return;
+    }
     document.querySelectorAll("[data-summary]").forEach((node) => {
-      node.textContent = Number(summary[node.dataset.summary] || 0).toLocaleString("uz-UZ");
+      node.textContent = "0";
     });
+    showToast(error.message || "Dashboard statistikasi yuklanmadi");
   }
 }
 
@@ -1157,8 +1164,9 @@ async function loadAnalytics() {
   try {
     const payload = await api("/api/app/analytics");
     state.analytics = payload.analytics || {};
-  } catch {
-    state.analytics = mockAnalytics();
+  } catch (error) {
+    state.analytics = allowDevelopmentFallback() ? mockAnalytics() : { monthly_payments: [], lead_funnel: [], attendance_trend: [], debt_trend: [], activity: [], top_groups: [] };
+    if (!allowDevelopmentFallback()) showToast(error.message || "Analytics ma'lumotlari yuklanmadi");
   }
 }
 
@@ -1168,18 +1176,22 @@ async function loadCollection(name, endpoint) {
     state[name] = payload.items || [];
     stateMeta[name] = { total: payload.total ?? state[name].length, page: payload.page || uiState.page[name] || 1, limit: payload.limit || uiState.perPage[name] || 10 };
   } catch (error) {
-    if (currentTenant?.subdomain) {
+    if (allowDevelopmentFallback() && currentTenant?.subdomain) {
       const saved = loadCrmLocalState();
       state[name] = Array.isArray(saved[name]) ? saved[name] : [];
       delete stateMeta[name];
       return;
     }
-    const service = serviceFor(name);
-    if (service?.list) {
-      state[name] = await service.list();
-      delete stateMeta[name];
-      return;
+    if (allowDevelopmentFallback()) {
+      const service = serviceFor(name);
+      if (service?.list) {
+        state[name] = await service.list();
+        delete stateMeta[name];
+        return;
+      }
     }
+    state[name] = [];
+    delete stateMeta[name];
     if (!/ruxsat|Unauthorized/i.test(error.message)) showToast(error.message);
   }
 }
@@ -3190,6 +3202,7 @@ function escapeHtml(value) {
 }
 
 function loadCrmLocalState() {
+  if (!allowDevelopmentFallback()) return {};
   try {
     const saved = JSON.parse(localStorage.getItem(tenantDataStorageKey()) || "{}");
     return saved && typeof saved === "object" ? saved : {};
@@ -3208,6 +3221,7 @@ function syncCrmLocalState() {
 }
 
 function persistCrmCollections() {
+  if (!allowDevelopmentFallback()) return;
   const payload = {};
   crmCollections.forEach((key) => {
     payload[key] = state[key] || [];
@@ -4794,7 +4808,7 @@ function crmOpenMessagePreview(target, purpose = "general") {
   const saved = loadCrmLocalState();
   saved.messages = Array.isArray(saved.messages) ? saved.messages : [];
   saved.messages.unshift({ id: Date.now(), to: phone, text: note, createdAt: new Date().toISOString(), status: "preview" });
-  localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+  if (allowDevelopmentFallback()) localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
   showToast("Xabar preview sifatida saqlandi.");
 }
 
@@ -4974,7 +4988,7 @@ async function handleCrmAction(action, button) {
     const saved = loadCrmLocalState();
     saved.calls = Array.isArray(saved.calls) ? saved.calls : [];
     saved.calls.unshift({ id: Date.now(), student_id: id, createdAt: new Date().toISOString(), status: "called" });
-    localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+    if (allowDevelopmentFallback()) localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
     showToast("Qo'ng'iroq holati belgilandi.");
     return;
   }
@@ -5019,7 +5033,7 @@ async function handleCrmAction(action, button) {
     const fields = Object.fromEntries([...document.querySelectorAll(".settings-panel input, .settings-panel select, .settings-panel textarea")].map((field) => [field.previousElementSibling?.textContent || field.name || field.placeholder || "field", field.type === "checkbox" ? field.checked : field.value]));
     const saved = loadCrmLocalState();
     saved.generatedSettings = { ...(saved.generatedSettings || {}), [viewFromPath()]: fields };
-    localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+    if (allowDevelopmentFallback()) localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
     showToast("Sozlamalar saqlandi.");
     return;
   }
@@ -5040,7 +5054,7 @@ async function handleCrmAction(action, button) {
     saved.settings = Object.fromEntries(new FormData(form).entries());
     saved.settings.telegramEnabled = Boolean(form?.querySelector('[name="telegramEnabled"]')?.checked);
     saved.settings.require2fa = Boolean(form?.querySelector('[name="require2fa"]')?.checked);
-    localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+    if (allowDevelopmentFallback()) localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
     if (saved.settings.centerName) {
       centerName.textContent = saved.settings.centerName;
       if (currentUser?.organization) currentUser.organization.name = saved.settings.centerName;
@@ -5114,27 +5128,8 @@ loginForm?.addEventListener("submit", async (event) => {
   }
 });
 
-document.querySelector("[data-demo-login]")?.addEventListener("click", async (event) => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  button.textContent = "Kabinet ochilmoqda...";
-  try {
-    const payload = await api("/api/auth/demo", { method: "POST", body: JSON.stringify({}) });
-    showApp(payload.user);
-    showToast("Kabinet ma'lumotlari yuklandi.");
-  } catch (error) {
-    const user = await window.crmServices?.authService?.demoLogin?.();
-    if (user) {
-      showApp(user);
-      showToast("Kabinet ma'lumotlari tayyorlandi.");
-    } else {
-      showToast(error.message);
-    }
-  } finally {
-    button.disabled = false;
-    button.textContent = "Tezkor kirish";
-  }
-});
+// Demo login was removed in Eduka 19.7 production hardening.
+
 
 modalForm?.addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -149,7 +149,9 @@ function telegramReady() {
 }
 
 function previewMode() {
-  return new URLSearchParams(window.location.search).get("preview") === "1";
+  const params = new URLSearchParams(window.location.search);
+  const localDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  return localDev && localStorage.getItem("eduka_allow_demo") === "1" && params.get("preview") === "1";
 }
 
 function getToken() {
@@ -880,7 +882,7 @@ function libraryCard(item) {
 }
 
 function renderExamResults(data) {
-  const exams = data.exams.length ? data.exams : previewMode() ? referenceData.exams : [];
+  const exams = data.exams.length ? data.exams : [];
   if (!exams.length) {
     mount(
       `
