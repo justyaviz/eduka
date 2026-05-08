@@ -19,8 +19,16 @@ async function applyProductionHardening(pool) {
     DELETE FROM users a USING users b
     WHERE a.id < b.id AND a.email IS NOT NULL AND b.email IS NOT NULL AND a.email = b.email;
 
-    DELETE FROM users a USING users b
-    WHERE a.id < b.id AND a.normalized_phone IS NOT NULL AND b.normalized_phone IS NOT NULL AND a.normalized_phone = b.normalized_phone;
+    -- Keep all user records, but make duplicate normalized_phone values unique before indexes/upserts.
+    WITH ranked AS (
+      SELECT id, normalized_phone, ROW_NUMBER() OVER (PARTITION BY normalized_phone ORDER BY id DESC) AS rn
+      FROM users
+      WHERE normalized_phone IS NOT NULL AND normalized_phone <> ''
+    )
+    UPDATE users u
+    SET normalized_phone = CONCAT('legacy-', u.id, '-', regexp_replace(COALESCE(u.normalized_phone, ''), '[^0-9a-zA-Z]+', '', 'g'))
+    FROM ranked r
+    WHERE u.id = r.id AND r.rn > 1;
 
     DELETE FROM organization_settings a USING organization_settings b
     WHERE a.ctid < b.ctid AND a.organization_id = b.organization_id;
@@ -45,7 +53,8 @@ async function applyProductionHardening(pool) {
 
     -- Exact indexes required by ON CONFLICT(column) and ON CONFLICT(col1,col2).
     CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_exact_2001 ON users (email);
-    CREATE UNIQUE INDEX IF NOT EXISTS users_normalized_phone_unique_exact_2001 ON users (normalized_phone);
+    -- schema.sql already defines users.normalized_phone as UNIQUE. This partial index helps older DBs but avoids blank values.
+    CREATE UNIQUE INDEX IF NOT EXISTS users_normalized_phone_unique_exact_2001 ON users (normalized_phone) WHERE normalized_phone IS NOT NULL AND normalized_phone <> '';
     CREATE UNIQUE INDEX IF NOT EXISTS organization_settings_org_unique_exact_2001 ON organization_settings (organization_id);
     CREATE UNIQUE INDEX IF NOT EXISTS organization_branding_org_unique_exact_2001 ON organization_branding (organization_id);
     CREATE UNIQUE INDEX IF NOT EXISTS organization_feature_flags_org_key_unique_exact_2001 ON organization_feature_flags (organization_id, feature_key);
@@ -79,6 +88,15 @@ async function run() {
 
     await applyProductionHardening(pool);
 
+    // Make sure the platform owner phone does not conflict with an existing non-owner account.
+    // Email is the authoritative login for the platform owner; phone can be reassigned safely.
+    await pool.query(
+      `UPDATE users
+       SET normalized_phone = CONCAT('legacy-', id, '-', regexp_replace(COALESCE(normalized_phone, ''), '[^0-9a-zA-Z]+', '', 'g'))
+       WHERE normalized_phone = $1 AND LOWER(COALESCE(email, '')) <> $2`,
+      [normalizedPhone, superEmail]
+    );
+
     console.log("Seeding platform owner...");
     await pool.query(
       `INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active, temporary_password, permissions, metadata)
@@ -96,7 +114,7 @@ async function run() {
       [superEmail, superPhone, normalizedPhone, hashPassword(superPassword)]
     );
 
-    console.log("Eduka 20.0.1 migration completed.");
+    console.log("Eduka 20.0.2 migration completed.");
     console.log(`Super Admin: ${superEmail}`);
     console.log(`Temporary password: ${superPassword}`);
   } finally {
