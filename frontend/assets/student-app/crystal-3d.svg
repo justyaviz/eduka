@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-label="3D crystal">
+  <defs>
+    <linearGradient id="c1" x1="42" y1="26" x2="176" y2="196" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#DDF5FF"/>
+      <stop offset=".45" stop-color="#1FB5FF"/>
+      <stop offset="1" stop-color="#1164EF"/>
+    </linearGradient>
+    <linearGradient id="c2" x1="62" y1="42" x2="120" y2="176" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".92"/>
+      <stop offset="1" stop-color="#8EE6FF" stop-opacity=".1"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="18" stdDeviation="12" flood-color="#0F4ACB" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <ellipse cx="111" cy="184" rx="58" ry="15" fill="#0E3E9A" opacity=".12"/>
+  <g filter="url(#shadow)">
+    <path d="M57 83 91 30h44l34 53-58 100L57 83Z" fill="url(#c1)"/>
+    <path d="M57 83h112l-58 100L57 83Z" fill="#0B83F6" opacity=".78"/>
+    <path d="M91 30 77 83h34L91 30Z" fill="url(#c2)"/>
+    <path d="M135 30 111 83h58L135 30Z" fill="#61D6FF" opacity=".64"/>
+    <path d="M77 83h34v100L77 83Z" fill="#28C4FF" opacity=".72"/>
+    <path d="M111 83h58l-58 100V83Z" fill="#145CE4" opacity=".82"/>
+    <path d="M57 83 91 30l20 53H57Z" fill="#B6F0FF" opacity=".72"/>
+    <path d="M91 30h44l-24 53-20-53Z" fill="#FFFFFF" opacity=".42"/>
+    <path d="M80 72 96 42M121 42l28 35M89 101l18 48M135 101l-17 54" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".4"/>
+  </g>
+</svg>

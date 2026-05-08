@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-label="Silver trophy">
+  <defs>
+    <linearGradient id="cup" x1="54" y1="24" x2="166" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".48" stop-color="#B8C5D8"/>
+      <stop offset="1" stop-color="#6E7E98"/>
+    </linearGradient>
+    <linearGradient id="base" x1="76" y1="83" x2="147" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B9C8DF"/>
+      <stop offset="1" stop-color="#65758F"/>
+    </linearGradient>
+    <filter id="s" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="16" stdDeviation="10" flood-color="#344054" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <ellipse cx="111" cy="190" rx="58" ry="13" fill="#344054" opacity=".12"/>
+  <g filter="url(#s)">
+    <path d="M64 55h-22c0 38 22 58 50 60V94c-18-2-29-16-28-39Z" fill="#B6C3D8"/>
+    <path d="M156 55h22c0 38-22 58-50 60V94c18-2 29-16 28-39Z" fill="#8292AA"/>
+    <path d="M65 36h90v45c0 31-20 55-45 55S65 112 65 81V36Z" fill="url(#cup)"/>
+    <path d="M84 48h52v30c0 20-12 36-26 36S84 98 84 78V48Z" fill="#FFFFFF" opacity=".34"/>
+    <rect x="98" y="130" width="25" height="34" rx="9" fill="url(#base)"/>
+    <path d="M78 164h65l10 25H68l10-25Z" fill="url(#base)"/>
+    <rect x="61" y="185" width="100" height="14" rx="7" fill="#627189"/>
+  </g>
+</svg>

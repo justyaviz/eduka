@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 180" role="img" aria-label="Calendar 3D">
+  <defs>
+    <linearGradient id="calBody" x1="44" x2="146" y1="44" y2="150" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAF3FF"/>
+    </linearGradient>
+    <linearGradient id="calTop" x1="44" x2="146" y1="35" y2="78" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#168CFF"/>
+      <stop offset="1" stop-color="#006DFF"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="96" cy="151" rx="58" ry="13" fill="#DCE7F8"/>
+  <rect x="42" y="40" width="106" height="104" rx="20" fill="url(#calBody)"/>
+  <path d="M42 61c0-12 10-21 22-21h62c12 0 22 9 22 21v22H42V61Z" fill="url(#calTop)"/>
+  <path d="M68 31v22M122 31v22" stroke="#101828" stroke-linecap="round" stroke-width="9"/>
+  <text x="95" y="120" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="44" font-weight="950" fill="#168CFF">24</text>
+  <path d="M64 95h14M112 95h14" stroke="#A9B8D0" stroke-linecap="round" stroke-width="7"/>
+</svg>
