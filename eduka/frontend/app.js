@@ -2776,22 +2776,38 @@ function renderAdminCenterForm() {
 }
 
 function centerFormFields(center = {}) {
-  return `<label>Markaz nomi<input name="name" value="${center.name || ""}" required /></label>
-    <label>Subdomain<input name="subdomain" value="${center.subdomain || ""}" required /></label>
-    <label>Egasi ism familiyasi<input name="owner" value="${center.owner || ""}" required /></label>
-    <label>Telefon<input name="phone" value="${center.phone || ""}" required /></label>
-    <label>Email<input name="email" value="${center.email || ""}" required /></label>
-    <label>Manzil<input name="address" value="${center.address || ""}" /></label>
-    <label>Tarif<select name="plan" required>${adminState.plans.map((plan) => `<option ${plan.name === center.plan ? "selected" : ""}>${plan.name}</option>`).join("")}</select></label>
-    <label>Trial muddati<input name="trialDays" type="number" value="${center.trialDays ?? 7}" /></label>
-    <label>O'quvchi limiti<input name="studentLimit" type="number" value="${center.studentLimit ?? center.studentsCount ?? 0}" /></label>
-    <label>O'qituvchi limiti<input name="teacherLimit" type="number" value="${center.teacherLimit ?? center.teachersCount ?? 0}" /></label>
-    <label>Filial limiti<input name="branchLimit" type="number" value="${center.branchLimit ?? center.branchesCount ?? 1}" /></label>
-    <label>Status<select name="status"><option value="active" ${center.status === "active" ? "selected" : ""}>active</option><option value="blocked" ${center.status === "blocked" ? "selected" : ""}>blocked</option></select></label>
-    <label class="check-field"><input name="createAdmin" type="checkbox" checked /><span>Admin login yaratish</span></label>
-    <label class="check-field"><input name="autoPassword" type="checkbox" checked /><span>Parolni auto-generate qilish</span></label>
-    <label>Admin parol<input name="adminPassword" value="${center.adminPassword || "12345678"}" /></label>
-    <label class="check-field"><input name="starterData" type="checkbox" /><span>Boshlang'ich ma'lumot bilan yaratish</span></label><div class="form-error" data-admin-form-error></div>`;
+  return `<div class="center-wizard-progress" aria-label="Yangi markaz yaratish bosqichlari">
+      <span class="active">1. Markaz</span><span>2. Domen</span><span>3. Admin</span><span>4. Tarif</span>
+    </div>
+    <section class="admin-form-section"><h3>Markaz ma'lumotlari</h3><p>O'quv markaz nomi va aloqa ma'lumotlarini kiriting.</p>
+      <div class="admin-form-grid">
+        <label>Markaz nomi<input name="name" value="${center.name || ""}" placeholder="Masalan: ALOO ACADEMY" required /></label>
+        <label>Subdomain<input name="subdomain" value="${center.subdomain || ""}" placeholder="aloo-academy" required /><small>Natija: subdomain.eduka.uz</small></label>
+        <label>Egasi ism familiyasi<input name="owner" value="${center.owner || ""}" placeholder="Masalan: Yahyobek" required /></label>
+        <label>Telefon<input name="phone" value="${center.phone || ""}" placeholder="+998901234567" required /></label>
+        <label>Email<input name="email" value="${center.email || ""}" placeholder="admin@center.uz" required /></label>
+        <label>Manzil<input name="address" value="${center.address || ""}" placeholder="Viloyat, shahar, ko'cha" /></label>
+      </div>
+    </section>
+    <section class="admin-form-section"><h3>Tarif va limitlar</h3><p>Markaz qaysi imkoniyatlardan foydalanishini belgilang.</p>
+      <div class="admin-form-grid compact">
+        <label>Tarif<select name="plan" required>${adminState.plans.map((plan) => `<option ${plan.name === center.plan ? "selected" : ""}>${plan.name}</option>`).join("")}</select></label>
+        <label>Trial muddati<input name="trialDays" type="number" value="${center.trialDays ?? 7}" min="0" /></label>
+        <label>O'quvchi limiti<input name="studentLimit" type="number" value="${center.studentLimit ?? center.studentsCount ?? 0}" min="0" /></label>
+        <label>O'qituvchi limiti<input name="teacherLimit" type="number" value="${center.teacherLimit ?? center.teachersCount ?? 0}" min="0" /></label>
+        <label>Filial limiti<input name="branchLimit" type="number" value="${center.branchLimit ?? center.branchesCount ?? 1}" min="1" /></label>
+        <label>Status<select name="status"><option value="active" ${center.status === "active" ? "selected" : ""}>active</option><option value="blocked" ${center.status === "blocked" ? "selected" : ""}>blocked</option></select></label>
+      </div>
+    </section>
+    <section class="admin-form-section"><h3>Admin kirishi</h3><p>Markaz egasi uchun alohida login/parol yaratiladi.</p>
+      <div class="admin-option-list">
+        <label class="check-field"><input name="createAdmin" type="checkbox" checked /><span><b>Admin login yaratish</b><small>Markaz egasi tizimga alohida kiradi.</small></span></label>
+        <label class="check-field"><input name="autoPassword" type="checkbox" checked /><span><b>Parolni auto-generate qilish</b><small>Xavfsiz vaqtinchalik parol avtomatik yaratiladi.</small></span></label>
+        <label class="admin-password-field">Admin parol<input name="adminPassword" value="${center.adminPassword || "12345678"}" /><small>Auto-generate o'chirilsa, shu parol ishlatiladi.</small></label>
+        <label class="check-field muted"><input name="starterData" type="checkbox" /><span><b>Boshlang'ich ma'lumot bilan yaratish</b><small>Faqat test/demo ko'rsatish uchun: namunaviy kurs, guruh va talaba qo'shadi. Real markazda belgilanmasin.</small></span></label>
+      </div>
+    </section>
+    <div class="form-error" data-admin-form-error></div>`;
 }
 
 function renderAdminCenterProfile() {

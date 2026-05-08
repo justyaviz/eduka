@@ -5351,3 +5351,236 @@ input:focus, select:focus, textarea:focus {
   .crm-stat-grid, .metric-grid, .admin-kpis { grid-template-columns: 1fr !important; }
   .crm-chart-line { grid-template-columns: 1fr; gap:6px; }
 }
+
+/* Eduka 20.1 — visual polish + form UX hardening */
+:root {
+  --eduka-bg: #f5f7fb;
+  --eduka-card: rgba(255,255,255,.92);
+  --eduka-border: rgba(15,23,42,.08);
+  --eduka-shadow: 0 20px 55px rgba(15,23,42,.09);
+  --eduka-shadow-soft: 0 10px 30px rgba(15,23,42,.065);
+  --eduka-blue: #2454ff;
+  --eduka-blue-2: #0ea5e9;
+  --eduka-ink: #0f172a;
+  --eduka-muted: #64748b;
+  --eduka-radius: 22px;
+}
+html { scroll-behavior: smooth; }
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(36,84,255,.12), transparent 28%),
+    radial-gradient(circle at 90% 8%, rgba(14,165,233,.10), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, var(--eduka-bg) 48%, #eef3f9 100%) !important;
+  color: var(--eduka-ink);
+}
+.eduka-boot-loader {
+  background:
+    radial-gradient(circle at 35% 20%, rgba(99,102,241,.34), transparent 26%),
+    radial-gradient(circle at 75% 75%, rgba(14,165,233,.24), transparent 30%),
+    linear-gradient(135deg, #07111f 0%, #111827 48%, #172554 100%) !important;
+}
+.eduka-boot-loader::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: radial-gradient(circle at center, #000, transparent 78%);
+}
+.eduka-boot-card, .student-boot-card {
+  position: relative;
+  border-radius: 32px !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  box-shadow: 0 36px 90px rgba(0,0,0,.36) !important;
+  backdrop-filter: blur(22px);
+}
+.sidebar, .crm-app-mode .sidebar {
+  background: linear-gradient(180deg, #0f172a 0%, #172554 58%, #1e3a8a 100%) !important;
+  border-right: 1px solid rgba(255,255,255,.08) !important;
+  box-shadow: 16px 0 46px rgba(15,23,42,.12) !important;
+}
+.sidebar button, .admin-side-nav button {
+  border-radius: 16px !important;
+  min-height: 44px;
+}
+.sidebar button.active, .admin-side-nav button.active, .sidebar .active {
+  background: rgba(255,255,255,.16) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 12px 24px rgba(0,0,0,.12) !important;
+}
+.app-header, .admin-topbar, .crm-topbar {
+  background: rgba(255,255,255,.82) !important;
+  border-bottom: 1px solid var(--eduka-border) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 12px 36px rgba(15,23,42,.055) !important;
+}
+.admin-page-head, .page-head, .crm-page-head {
+  padding: 18px 2px 14px;
+}
+.admin-page-head h1, .page-head h1, .crm-page-head h1 {
+  letter-spacing: -.04em;
+  font-size: clamp(24px, 3vw, 38px) !important;
+}
+.admin-kpis article, .crm-stat-grid article, .metric-grid article, .finance-summary article, .admin-panel, .plan-card, .crm-card, .dashboard-card, .student-card {
+  border: 1px solid var(--eduka-border) !important;
+  border-radius: var(--eduka-radius) !important;
+  background: var(--eduka-card) !important;
+  box-shadow: var(--eduka-shadow-soft) !important;
+}
+.admin-kpis article, .crm-stat-grid article, .metric-grid article {
+  position: relative;
+  overflow: hidden;
+}
+.admin-kpis article::before, .crm-stat-grid article::before, .metric-grid article::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--eduka-blue), var(--eduka-blue-2));
+}
+.admin-kpis strong, .crm-stat-grid strong, .metric-grid strong {
+  font-size: clamp(24px, 3vw, 34px) !important;
+  letter-spacing: -.045em;
+}
+.admin-filters, .filter-bar, .dashboard-toolbar, .dashboard-filter-row {
+  border-radius: 22px !important;
+  background: rgba(255,255,255,.78) !important;
+  border: 1px solid var(--eduka-border) !important;
+  box-shadow: 0 10px 30px rgba(15,23,42,.05) !important;
+  backdrop-filter: blur(16px);
+}
+.admin-filters input, .admin-filters select, .admin-form input, .admin-form select, .admin-form textarea, .modal-form textarea, .filter-bar input, .filter-bar select {
+  min-height: 48px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(148,163,184,.35) !important;
+  background: #fff !important;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.admin-filters input:focus, .admin-filters select:focus, .admin-form input:focus, .admin-form select:focus, .admin-form textarea:focus, .modal-form textarea:focus {
+  border-color: rgba(36,84,255,.65) !important;
+  box-shadow: 0 0 0 5px rgba(36,84,255,.11) !important;
+}
+.admin-actions button, .admin-profile-actions button, .admin-row-actions button, .admin-filters button, .link-button, .admin-table button, .admin-panel button, .modal-actions button, .dashboard-toolbar button {
+  min-height: 42px !important;
+  border-radius: 14px !important;
+  padding: 0 16px !important;
+  font-weight: 800 !important;
+}
+.admin-actions button, .admin-form button[type="submit"], .modal-actions button[type="submit"], button[data-admin-action="go"], button[type="submit"] {
+  background: linear-gradient(135deg, var(--eduka-blue), #1d4ed8) !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow: 0 14px 28px rgba(36,84,255,.22) !important;
+}
+.admin-table-wrap {
+  border-radius: 24px !important;
+  border: 1px solid var(--eduka-border) !important;
+  box-shadow: var(--eduka-shadow-soft) !important;
+}
+.admin-table th {
+  background: #f8fbff !important;
+  color: #334155 !important;
+  letter-spacing: .02em;
+}
+.admin-table td, .admin-table th { padding: 15px 14px !important; }
+.admin-table tr:hover td { background: rgba(36,84,255,.035); }
+.status-badge {
+  border-radius: 999px !important;
+  min-height: 28px !important;
+  padding: 0 11px !important;
+  border: 1px solid rgba(15,23,42,.06);
+}
+.admin-form {
+  display: block !important;
+  padding: 18px !important;
+  border-radius: 28px !important;
+  background: rgba(255,255,255,.88) !important;
+  border: 1px solid var(--eduka-border) !important;
+  box-shadow: var(--eduka-shadow) !important;
+}
+.center-wizard-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.center-wizard-progress span {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #475569;
+  font-weight: 900;
+  font-size: 13px;
+  border: 1px solid rgba(99,102,241,.14);
+}
+.center-wizard-progress span.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--eduka-blue), var(--eduka-blue-2));
+  box-shadow: 0 14px 28px rgba(36,84,255,.22);
+}
+.admin-form-section {
+  padding: 18px;
+  margin-bottom: 14px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(15,23,42,.075);
+}
+.admin-form-section h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  letter-spacing: -.025em;
+}
+.admin-form-section p {
+  margin: 6px 0 14px;
+  color: #64748b;
+  font-weight: 600;
+}
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 14px;
+}
+.admin-form-grid.compact { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.admin-form label { color: #1e293b; font-weight: 850 !important; }
+.admin-form small { color: #64748b; font-weight: 650; }
+.admin-option-list { display: grid; gap: 12px; }
+.admin-form .check-field {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 14px !important;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid rgba(15,23,42,.07);
+}
+.admin-form .check-field input {
+  min-height: auto !important;
+  width: 22px;
+  height: 22px;
+  accent-color: var(--eduka-blue);
+  margin-top: 2px;
+}
+.admin-form .check-field span { display: grid; gap: 4px; }
+.admin-form .check-field.muted { background: #fff7ed; border-color: rgba(251,146,60,.22); }
+.admin-password-field { display: grid; gap: 7px; }
+.modal-actions {
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid rgba(15,23,42,.08);
+}
+.form-error:not(:empty) {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff1f2;
+  border: 1px solid rgba(244,63,94,.18);
+}
+@media (max-width: 900px) {
+  .admin-form-grid, .admin-form-grid.compact, .center-wizard-progress { grid-template-columns: 1fr; }
+  .admin-form { padding: 12px !important; border-radius: 22px !important; }
+  .admin-form-section { padding: 14px; border-radius: 20px; }
+  .admin-table { min-width: 760px; }
+}

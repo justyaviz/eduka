@@ -2617,3 +2617,42 @@ body:not(.is-booting) .eduka-boot-loader { opacity:0; visibility:hidden; }
 .sa-card, .sa-panel { border:1px solid rgba(148,163,184,.2) !important; background:rgba(255,255,255,.88) !important; backdrop-filter:blur(18px); }
 .sa-hero, .sa-balance-card { background:linear-gradient(135deg,var(--sa-primary),var(--sa-cyan)) !important; }
 button, .sa-button { border-radius:16px !important; }
+
+/* Eduka 20.1 — student app visual polish */
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(22,140,255,.14), transparent 28%),
+    radial-gradient(circle at 90% 16%, rgba(123,97,255,.11), transparent 32%),
+    linear-gradient(180deg, #ffffff 0%, #f3f7fc 52%, #eef4fb 100%) !important;
+}
+.student-shell, .student-layout, .sa-shell {
+  background: transparent !important;
+}
+.student-card, .sa-card, .student-panel, .student-section {
+  border-radius: 26px !important;
+  border: 1px solid rgba(16,24,40,.075) !important;
+  background: rgba(255,255,255,.9) !important;
+  box-shadow: 0 18px 46px rgba(16,24,40,.09) !important;
+  backdrop-filter: blur(14px);
+}
+.student-card h2, .sa-card h2, .student-section h2 { letter-spacing: -.035em; }
+.student-nav button, .sa-nav button, .student-tabs button {
+  border-radius: 16px !important;
+  min-height: 44px !important;
+  font-weight: 850 !important;
+}
+.student-nav button.active, .sa-nav button.active, .student-tabs button.active {
+  background: linear-gradient(135deg, #168cff, #2454ff) !important;
+  color: #fff !important;
+  box-shadow: 0 14px 28px rgba(22,140,255,.22) !important;
+}
+input, select, textarea {
+  border-radius: 16px !important;
+  min-height: 48px !important;
+  border: 1px solid rgba(148,163,184,.34) !important;
+}
+button[type="submit"], .primary-btn, .student-primary {
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, #168cff, #2454ff) !important;
+  box-shadow: 0 14px 28px rgba(22,140,255,.22) !important;
+}
