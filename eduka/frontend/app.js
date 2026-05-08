@@ -287,6 +287,8 @@ const routeByView = {
   "super-subscriptions": "/super/subscriptions",
   "super-payments": "/super/payments",
   "super-support": "/super/support",
+  "super-domains": "/super/domains",
+  "super-invoices": "/super/invoices",
   "super-settings": "/super/settings"
 };
 Object.assign(routeByView, studentAppRouteByView);
@@ -364,6 +366,8 @@ function viewFromPath(pathname = window.location.pathname) {
   if (normalized === "/super/subscriptions") return "super-subscriptions";
   if (normalized === "/super/payments") return "super-payments";
   if (normalized === "/super/support") return "super-support";
+  if (normalized === "/super/domains") return "super-domains";
+  if (normalized === "/super/invoices") return "super-invoices";
   if (normalized === "/super/settings") return "super-settings";
   if (normalized === "/super/dashboard" || normalized === "/super") return "super-dashboard";
   const match = Object.entries(routeByView).find(([, path]) => path === normalized);
@@ -388,6 +392,8 @@ const superViews = new Set([
   "super-subscriptions",
   "super-payments",
   "super-support",
+  "super-domains",
+  "super-invoices",
   "super-settings"
 ]);
 
@@ -1192,28 +1198,37 @@ async function loadSuperData() {
   const role = String(currentUser?.role || "").toLowerCase();
   if (!["super_admin", "owner"].includes(role)) return;
   try {
-    const [summary, centers, tariffs, subscriptions, payments, support] = await Promise.all([
-      api("/api/super/summary"),
+    const [dashboard, centers, tariffs, subscriptions, invoices, payments, domains, support, audit] = await Promise.allSettled([
+      api("/api/super/dashboard"),
       api("/api/super/centers"),
-      api("/api/super/tariffs"),
+      api("/api/super/plans"),
       api("/api/super/subscriptions"),
+      api("/api/super/invoices"),
       api("/api/super/payments"),
-      api("/api/super/support")
+      api("/api/super/domains"),
+      api("/api/super/support-tickets"),
+      api("/api/super/audit")
     ]);
-    state.superSummary = summary.summary || {};
-    state.superCenters = centers.items || [];
-    state.superTariffs = tariffs.items || [];
-    state.superSubscriptions = subscriptions.items || [];
-    state.superPayments = payments.items || [];
-    state.superSupport = support.items || [];
+    const value = (result, fallback = {}) => result.status === "fulfilled" ? result.value : fallback;
+    const dashboardPayload = value(dashboard, {});
+    state.superDashboard = dashboardPayload;
+    state.superSummary = dashboardPayload.summary || {};
+    state.superCenters = value(centers, { items: [] }).items || [];
+    state.superTariffs = value(tariffs, { items: [] }).items || [];
+    state.superSubscriptions = value(subscriptions, { items: [] }).items || [];
+    state.superInvoices = value(invoices, { items: [] }).items || [];
+    state.superPayments = value(payments, { items: [] }).items || [];
+    state.superDomains = value(domains, { items: [] }).items || [];
+    state.superSupport = value(support, { items: [] }).items || [];
+    state.superAudit = value(audit, { items: [] }).items || [];
   } catch (error) {
-    const service = window.crmServices?.superAdminService;
-    state.superSummary = await (service?.summary?.() || Promise.resolve({}));
-    state.superCenters = await (service?.centers?.() || Promise.resolve(window.crmMock?.centers || []));
-    state.superTariffs = await (service?.plans?.() || Promise.resolve(window.crmMock?.plans || []));
-    state.superSubscriptions = await (service?.subscriptions?.() || Promise.resolve(window.crmMock?.subscriptions || []));
-    state.superPayments = await (service?.payments?.() || Promise.resolve(window.crmMock?.platformPayments || []));
-    state.superSupport = await (service?.support?.() || Promise.resolve(window.crmMock?.supportTickets || []));
+    console.error("Super admin API failed", error);
+    state.superSummary = {};
+    state.superCenters = [];
+    state.superTariffs = [];
+    state.superSubscriptions = [];
+    state.superPayments = [];
+    state.superSupport = [];
   }
 }
 
@@ -1587,9 +1602,24 @@ function renderSuper() {
     const plans = state.superTariffs?.length ? state.superTariffs : (window.crmMock?.plans || []);
     tariffNode.innerHTML = plans.map((plan) => `<article class="plan-card"><span>${plan.name}</span><h2>${formatMoney(plan.monthly_price || plan.price)}</h2><p>${plan.student_limit} o'quvchi · ${plan.teacher_limit} o'qituvchi · ${plan.branch_limit} filial</p><button type="button">Tahrirlash</button></article>`).join("");
   }
+  const renderBars = (selector, items, valueKey, labelKey = "month") => {
+    const node = document.querySelector(selector);
+    if (!node) return;
+    const max = Math.max(1, ...items.map((item) => Number(item[valueKey] || 0)));
+    node.innerHTML = items.map((item) => `<span style="height:${Math.max(6, Math.round(Number(item[valueKey] || 0) / max * 100))}%" title="${item[labelKey]}: ${item[valueKey] || 0}"><small>${String(item[labelKey] || '').slice(5) || '-'}</small></span>`).join("") || `<div class="empty-state">Grafik uchun ma'lumot yo'q.</div>`;
+  };
+  renderBars('[data-super-chart="revenue"]', state.superDashboard?.charts || [], 'revenue');
+  renderBars('[data-super-chart="centers"]', state.superDashboard?.charts || [], 'new_centers');
+  const apiStatus = document.querySelector('[data-super-api-status]');
+  if (apiStatus) {
+    const api = state.superDashboard?.api || { status: 'unknown', version: '19.5' };
+    apiStatus.innerHTML = `<span>API</span>${badge(api.status || 'unknown')}<span>Versiya</span><strong>${api.version || '19.5'}</strong><span>Demo</span>${badge(api.demoMode ? 'on' : 'off')}`;
+  }
+  renderSuperTable("superDomains", state.superDomains, (item) => [item.center_name || '-', item.domain, item.type, badge(item.verification_status), badge(item.ssl_status), item.dns_target || 'cname.eduka.uz']);
+  renderSuperTable("superInvoices", state.superInvoices, (item) => [item.center_name || '-', item.invoice_number, money(item.amount), badge(item.status), formatDate(item.due_date), formatDate(item.paid_at)]);
   const support = document.querySelector("[data-super-support]");
   if (support) {
-    support.innerHTML = (state.superSupport || []).map((ticket) => `<article><strong>${ticket.center_name}</strong><span>${ticket.subject}</span><p>${ticket.message}</p><small>${formatDate(ticket.created_at)}</small></article>`).join("") || `<div class="empty-state">Support so'rovlari yo'q.</div>`;
+    support.innerHTML = (state.superSupport || []).map((ticket) => `<article><strong>${ticket.center_name || 'Platforma'}</strong><span>${ticket.subject}</span><p>${ticket.latest_message || ticket.message || ''}</p><small>${formatDate(ticket.created_at)}</small></article>`).join("") || `<div class="empty-state">Support so'rovlari yo'q.</div>`;
   }
 }
 

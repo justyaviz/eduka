@@ -828,3 +828,228 @@ CREATE INDEX IF NOT EXISTS crm_history_org_student_idx ON crm_history(organizati
 CREATE INDEX IF NOT EXISTS group_exams_org_group_idx ON group_exams(organization_id, group_id);
 CREATE INDEX IF NOT EXISTS group_homeworks_org_group_idx ON group_homeworks(organization_id, group_id);
 CREATE INDEX IF NOT EXISTS group_notes_org_group_idx ON group_notes(organization_id, group_id);
+
+-- Eduka 19.5 SaaS platform upgrade
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS custom_domain TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT '#0A84FF';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS read_only_until TIMESTAMPTZ;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS billing_email TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS storage_limit_mb INTEGER NOT NULL DEFAULT 1024;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sms_limit INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS student_limit INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS teacher_limit INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS branch_limit INTEGER NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS organization_domains (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'subdomain',
+  verification_token TEXT NOT NULL DEFAULT md5(random()::text || clock_timestamp()::text),
+  verification_status TEXT NOT NULL DEFAULT 'pending_dns',
+  ssl_status TEXT NOT NULL DEFAULT 'pending',
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  dns_target TEXT NOT NULL DEFAULT 'cname.eduka.uz',
+  last_checked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(domain)
+);
+
+CREATE TABLE IF NOT EXISTS organization_branding (
+  organization_id BIGINT PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+  logo_url TEXT,
+  favicon_url TEXT,
+  primary_color TEXT NOT NULL DEFAULT '#0A84FF',
+  secondary_color TEXT NOT NULL DEFAULT '#111827',
+  accent_color TEXT NOT NULL DEFAULT '#22C55E',
+  student_app_name TEXT NOT NULL DEFAULT 'Eduka Student App',
+  white_label_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  sms_sender_name TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS organization_feature_flags (
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  feature_key TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  limit_value INTEGER,
+  source TEXT NOT NULL DEFAULT 'plan',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (organization_id, feature_key)
+);
+
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS billing_period TEXT NOT NULL DEFAULT 'monthly';
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS group_limit INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS sms_limit INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS storage_limit_mb INTEGER NOT NULL DEFAULT 1024;
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS support_level TEXT NOT NULL DEFAULT 'standard';
+ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS plan_features (
+  id BIGSERIAL PRIMARY KEY,
+  tariff_id BIGINT NOT NULL REFERENCES tariffs(id) ON DELETE CASCADE,
+  feature_key TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  limit_value INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (tariff_id, feature_key)
+);
+
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMPTZ;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS monthly_price NUMERIC(14,2) NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS next_payment_date TIMESTAMPTZ;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+UPDATE subscriptions SET current_period_start = COALESCE(current_period_start, starts_at), current_period_end = COALESCE(current_period_end, ends_at), next_payment_date = COALESCE(next_payment_date, ends_at) WHERE current_period_start IS NULL OR current_period_end IS NULL OR next_payment_date IS NULL;
+
+CREATE TABLE IF NOT EXISTS subscription_invoices (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  subscription_id BIGINT REFERENCES subscriptions(id) ON DELETE SET NULL,
+  invoice_number TEXT NOT NULL UNIQUE,
+  amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  due_date DATE,
+  paid_at TIMESTAMPTZ,
+  payment_method TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS subscription_payments (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  subscription_id BIGINT REFERENCES subscriptions(id) ON DELETE SET NULL,
+  invoice_id BIGINT REFERENCES subscription_invoices(id) ON DELETE SET NULL,
+  amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  method TEXT NOT NULL DEFAULT 'bank',
+  status TEXT NOT NULL DEFAULT 'paid',
+  paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_permissions (
+  id BIGSERIAL PRIMARY KEY,
+  role_id BIGINT REFERENCES admin_roles(id) ON DELETE CASCADE,
+  permission_key TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE(role_id, permission_key)
+);
+
+CREATE TABLE IF NOT EXISTS organization_roles (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  is_system BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(organization_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS organization_permissions (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  role_id BIGINT REFERENCES organization_roles(id) ON DELETE CASCADE,
+  permission_key TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE(role_id, permission_key)
+);
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL,
+  subject TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'general',
+  priority TEXT NOT NULL DEFAULT 'normal',
+  status TEXT NOT NULL DEFAULT 'open',
+  assigned_to BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS support_messages (
+  id BIGSERIAL PRIMARY KEY,
+  ticket_id BIGINT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+  sender_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  sender_type TEXT NOT NULL DEFAULT 'admin',
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS domain_verifications (
+  id BIGSERIAL PRIMARY KEY,
+  organization_domain_id BIGINT NOT NULL REFERENCES organization_domains(id) ON DELETE CASCADE,
+  check_type TEXT NOT NULL DEFAULT 'dns',
+  status TEXT NOT NULL DEFAULT 'pending',
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  key_hash TEXT NOT NULL UNIQUE,
+  scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notification_rules (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  rule_key TEXT NOT NULL,
+  title TEXT NOT NULL,
+  channel TEXT NOT NULL DEFAULT 'telegram',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(organization_id, rule_key)
+);
+
+CREATE TABLE IF NOT EXISTS notification_logs (
+  id BIGSERIAL PRIMARY KEY,
+  organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE,
+  rule_id BIGINT REFERENCES notification_rules(id) ON DELETE SET NULL,
+  recipient TEXT,
+  channel TEXT NOT NULL DEFAULT 'system',
+  title TEXT,
+  body TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  provider_response JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS organization_domains_org_idx ON organization_domains(organization_id);
+CREATE INDEX IF NOT EXISTS subscription_invoices_org_idx ON subscription_invoices(organization_id);
+CREATE INDEX IF NOT EXISTS subscription_payments_org_idx ON subscription_payments(organization_id);
+CREATE INDEX IF NOT EXISTS support_tickets_org_idx ON support_tickets(organization_id);
+CREATE INDEX IF NOT EXISTS notification_logs_org_idx ON notification_logs(organization_id);
+
+INSERT INTO tariffs (name, monthly_price, student_limit, teacher_limit, branch_limit, group_limit, sms_limit, feature_flags, support_level)
+SELECT * FROM (VALUES
+  ('Start', 99000::numeric, 100, 5, 1, 10, 0, '{"students":true,"groups":true,"teachers":true,"finance":true,"attendance":true,"student_app":false,"custom_domain":false,"advanced_reports":false}'::jsonb, 'standard'),
+  ('Growth', 249000::numeric, 500, 20, 3, 50, 1000, '{"students":true,"groups":true,"teachers":true,"finance":true,"attendance":true,"leads":true,"student_app":true,"telegram":true,"import_export":true,"custom_domain":false,"advanced_reports":true}'::jsonb, 'priority'),
+  ('Pro', 499000::numeric, 2000, 100, 10, 200, 5000, '{"students":true,"groups":true,"teachers":true,"finance":true,"attendance":true,"leads":true,"student_app":true,"parent_app":true,"telegram":true,"sms":true,"import_export":true,"custom_domain":true,"advanced_reports":true,"api_access":true,"role_permission":true}'::jsonb, 'premium'),
+  ('Enterprise', 0::numeric, 100000, 5000, 1000, 10000, 100000, '{"students":true,"groups":true,"teachers":true,"finance":true,"attendance":true,"leads":true,"student_app":true,"parent_app":true,"telegram":true,"sms":true,"import_export":true,"custom_domain":true,"advanced_reports":true,"api_access":true,"role_permission":true,"white_label":true}'::jsonb, 'dedicated')
+) AS seed(name, monthly_price, student_limit, teacher_limit, branch_limit, group_limit, sms_limit, feature_flags, support_level)
+WHERE NOT EXISTS (SELECT 1 FROM tariffs t WHERE LOWER(t.name)=LOWER(seed.name));

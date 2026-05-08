@@ -136,6 +136,8 @@
           <button type="button" data-view="super-tariffs" data-super-only>Tariflar</button>
           <button type="button" data-view="super-subscriptions" data-super-only>Obunalar</button>
           <button type="button" data-view="super-payments" data-super-only>To'lovlar</button>
+          <button type="button" data-view="super-invoices" data-super-only>Invoice</button>
+          <button type="button" data-view="super-domains" data-super-only>Domenlar</button>
           <button type="button" data-view="super-support" data-super-only>Support</button>
           <button type="button" data-view="super-settings" data-super-only>Sozlamalar</button>
         </div>
@@ -272,10 +274,10 @@
               <article><span>Aktiv markazlar</span><strong data-super-summary="active_centers">0</strong></article>
               <article><span>Trial markazlar</span><strong data-super-summary="trial_centers">0</strong></article>
               <article><span>Bloklangan</span><strong data-super-summary="blocked_centers">0</strong></article>
-              <article><span>Oylik hajm</span><strong data-super-summary="monthly_volume">0</strong></article>
+              <article><span>MRR</span><strong data-super-summary="mrr">0</strong></article><article><span>Oylik tushum</span><strong data-super-summary="monthly_revenue">0</strong></article><article><span>Kutilayotgan</span><strong data-super-summary="expected_revenue">0</strong></article>
               <article><span>Bugun yangi</span><strong data-super-summary="new_today">0</strong></article>
             </div>
-            <div class="table" data-table="superCenters"><div><b>Markaz</b><b>Telefon</b><b>Status</b><b>Obuna</b><b>Talabalar</b><b>Guruhlar</b><b>Oxirgi aktivlik</b><b>Amallar</b></div></div>
+            <section class="dashboard-grid super-dashboard-widgets"><article class="chart-card"><div class="page-head"><h2>Oylik daromad</h2></div><div class="bar-chart" data-super-chart="revenue"></div></article><article class="chart-card"><div class="page-head"><h2>Yangi markazlar</h2></div><div class="bar-chart" data-super-chart="centers"></div></article><article class="chart-card"><div class="page-head"><h2>Server/API</h2></div><div class="admin-status" data-super-api-status></div></article></section><div class="table" data-table="superCenters"><div><b>Markaz</b><b>Telefon</b><b>Status</b><b>Obuna</b><b>Talabalar</b><b>Guruhlar</b><b>Oxirgi aktivlik</b><b>Amallar</b></div></div>
           </section>
           <section class="view" id="group-profile"><div class="profile-page" data-group-profile></div></section>
           <section class="view" id="subscription"><div class="page-head"><h1>Tarif / Obuna</h1><span>7 kun trial va billing</span></div><div class="subscription-grid" data-subscription></div></section>
@@ -286,7 +288,7 @@
           <section class="view" id="super-tariffs"><div class="page-head"><h1>Tariflar</h1><button class="section-action" type="button">Tarif qo'shish</button></div><div class="plans-grid" data-super-tariffs></div></section>
           <section class="view" id="super-subscriptions"><div class="page-head"><h1>Obunalar</h1></div><div class="table" data-table="superSubscriptions"><div><b>Markaz</b><b>Tarif</b><b>Status</b><b>Boshlanish</b><b>Tugash</b><b>To'lov</b></div></div></section>
           <section class="view" id="super-payments"><div class="page-head"><h1>Platforma to'lovlari</h1></div><div class="table" data-table="superPayments"><div><b>Markaz</b><b>Sana</b><b>Summa</b><b>Usul</b><b>Status</b></div></div></section>
-          <section class="view" id="super-support"><div class="page-head"><h1>Support</h1></div><div class="support-list" data-super-support></div></section>
+          <section class="view" id="super-support"><div class="page-head"><h1>Support</h1></div><div class="support-list" data-super-support></div></section><section class="view" id="super-domains"><div class="page-head"><h1>Domenlar</h1></div><div class="table" data-table="superDomains"><div><b>Markaz</b><b>Domen</b><b>Tur</b><b>DNS</b><b>SSL</b><b>Target</b></div></div></section><section class="view" id="super-invoices"><div class="page-head"><h1>Invoice</h1></div><div class="table" data-table="superInvoices"><div><b>Markaz</b><b>Invoice</b><b>Summa</b><b>Status</b><b>Muddat</b><b>To‘langan</b></div></div></section>
           <section class="view" id="super-settings"><div class="page-head"><h1>Super Admin sozlamalari</h1></div><div class="settings-grid"><article><h2>Platforma</h2><label>Support telegram<input value="@eduka_admin" /></label><label>Trial muddati<input type="number" value="7" /></label></article><article><h2>Billing</h2><p>To'lov qilinmasa markazni cheklash, invoice va plan sozlamalari.</p></article></div></section>
         </main>
       </div>

@@ -1548,6 +1548,322 @@ async function handleSuperSettingsRequest(request, response) {
   }
 }
 
+
+
+async function saasDefaultFeatureFlags(planName = "Start") {
+  const defaults = {
+    Start: { students: true, groups: true, teachers: true, finance: true, attendance: true, leads: false, student_app: false, parent_app: false, sms: false, telegram: false, custom_domain: false, advanced_reports: false, multi_branch: false, teacher_salary: false, import_export: false, api_access: false, white_label: false, role_permission: false },
+    Growth: { students: true, groups: true, teachers: true, finance: true, attendance: true, leads: true, student_app: true, parent_app: false, sms: false, telegram: true, custom_domain: false, advanced_reports: true, multi_branch: true, teacher_salary: true, import_export: true, api_access: false, white_label: false, role_permission: false },
+    Pro: { students: true, groups: true, teachers: true, finance: true, attendance: true, leads: true, student_app: true, parent_app: true, sms: true, telegram: true, custom_domain: true, advanced_reports: true, multi_branch: true, teacher_salary: true, import_export: true, api_access: true, white_label: false, role_permission: true },
+    Enterprise: { students: true, groups: true, teachers: true, finance: true, attendance: true, leads: true, student_app: true, parent_app: true, sms: true, telegram: true, custom_domain: true, advanced_reports: true, multi_branch: true, teacher_salary: true, import_export: true, api_access: true, white_label: true, role_permission: true }
+  };
+  return defaults[planName] || defaults.Start;
+}
+
+async function applyPlanFeatures(client, organizationId, tariffRow) {
+  const planName = tariffRow?.name || "Start";
+  const flags = tariffRow?.feature_flags || await saasDefaultFeatureFlags(planName);
+  const featureEntries = Object.entries(flags || {});
+  for (const [featureKey, enabled] of featureEntries) {
+    await client.query(
+      `INSERT INTO organization_feature_flags (organization_id, feature_key, enabled, source, updated_at)
+       VALUES ($1,$2,$3,'plan',NOW())
+       ON CONFLICT (organization_id, feature_key) DO UPDATE SET enabled=EXCLUDED.enabled, source='plan', updated_at=NOW()`,
+      [organizationId, featureKey, Boolean(enabled)]
+    );
+  }
+  await client.query(
+    `UPDATE organizations SET plan=$2, monthly_payment=$3, student_limit=$4, teacher_limit=$5, branch_limit=$6, sms_limit=$7, storage_limit_mb=$8, updated_at=NOW()
+     WHERE id=$1`,
+    [organizationId, planName, asNumber(tariffRow?.monthly_price), asNumber(tariffRow?.student_limit, 100), asNumber(tariffRow?.teacher_limit, 5), asNumber(tariffRow?.branch_limit, 1), asNumber(tariffRow?.sms_limit), asNumber(tariffRow?.storage_limit_mb, 1024)]
+  );
+}
+
+async function handleSuperDashboardRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    const pool = getDbPool();
+    const summary = await pool.query(`SELECT
+      (SELECT COUNT(*)::int FROM organizations WHERE archived_at IS NULL) AS centers,
+      (SELECT COUNT(*)::int FROM organizations WHERE status='active' AND archived_at IS NULL) AS active_centers,
+      (SELECT COUNT(*)::int FROM organizations WHERE subscription_status='trial' AND archived_at IS NULL) AS trial_centers,
+      (SELECT COUNT(*)::int FROM organizations WHERE subscription_status IN ('overdue','expired') AND archived_at IS NULL) AS overdue_centers,
+      (SELECT COUNT(*)::int FROM organizations WHERE status='blocked' AND archived_at IS NULL) AS blocked_centers,
+      (SELECT COUNT(*)::int FROM organizations WHERE created_at::date=CURRENT_DATE) AS new_today,
+      COALESCE((SELECT SUM(monthly_payment) FROM organizations WHERE status='active' AND archived_at IS NULL),0)::numeric AS mrr,
+      COALESCE((SELECT SUM(amount) FROM subscription_payments WHERE paid_at >= date_trunc('month', NOW()) AND status='paid'),0)::numeric AS monthly_revenue,
+      COALESCE((SELECT SUM(amount) FROM subscription_invoices WHERE status IN ('unpaid','overdue')),0)::numeric AS expected_revenue,
+      (SELECT COUNT(*)::int FROM support_tickets WHERE status IN ('open','in_progress')) AS open_support_tickets`);
+    const charts = await pool.query(`WITH months AS (
+        SELECT generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') AS month
+      )
+      SELECT to_char(m.month, 'YYYY-MM') AS month,
+        COALESCE((SELECT SUM(amount) FROM subscription_payments p WHERE date_trunc('month', p.paid_at)=m.month),0)::numeric AS revenue,
+        (SELECT COUNT(*)::int FROM organizations o WHERE date_trunc('month', o.created_at)=m.month) AS new_centers
+      FROM months m ORDER BY m.month`);
+    const active = await pool.query(`SELECT o.id, o.name, COALESCE(o.subdomain,o.slug) AS subdomain, o.plan, o.status, o.subscription_status,
+      (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
+      (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
+      FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '19.5', demoMode: false } });
+  } catch (error) { withError(response, "Super dashboard", error); }
+}
+
+async function handleSuperPlansRequest(request, response, planId = null) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const pool = getDbPool();
+    if (["POST","PUT"].includes(request.method)) {
+      const body = await readJsonBody(request);
+      const flags = body.feature_flags || body.features || await saasDefaultFeatureFlags(asText(body.name, "Start"));
+      if (request.method === "POST") {
+        const result = await pool.query(`INSERT INTO tariffs (name, monthly_price, billing_period, student_limit, teacher_limit, branch_limit, group_limit, sms_limit, storage_limit_mb, feature_flags, support_level, is_active)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) RETURNING *`,
+          [asText(body.name), asNumber(body.monthly_price || body.price), asText(body.billing_period, "monthly"), asNumber(body.student_limit, 100), asNumber(body.teacher_limit, 5), asNumber(body.branch_limit, 1), asNumber(body.group_limit, 10), asNumber(body.sms_limit), asNumber(body.storage_limit_mb, 1024), JSON.stringify(flags), asText(body.support_level, "standard"), body.is_active !== false]);
+        await writeAudit(pool, user, "create", "tariff", result.rows[0].id, body);
+        sendJson(response, 201, { ok: true, item: result.rows[0] }); return;
+      }
+      const result = await pool.query(`UPDATE tariffs SET name=COALESCE(NULLIF($2,''), name), monthly_price=$3, billing_period=$4, student_limit=$5, teacher_limit=$6, branch_limit=$7, group_limit=$8, sms_limit=$9, storage_limit_mb=$10, feature_flags=$11::jsonb, support_level=$12, is_active=$13, updated_at=NOW() WHERE id=$1 RETURNING *`,
+        [planId, asText(body.name), asNumber(body.monthly_price || body.price), asText(body.billing_period, "monthly"), asNumber(body.student_limit, 100), asNumber(body.teacher_limit, 5), asNumber(body.branch_limit, 1), asNumber(body.group_limit, 10), asNumber(body.sms_limit), asNumber(body.storage_limit_mb, 1024), JSON.stringify(flags), asText(body.support_level, "standard"), body.is_active !== false]);
+      await writeAudit(pool, user, "update", "tariff", planId, body);
+      sendJson(response, 200, { ok: true, item: result.rows[0] }); return;
+    }
+    const result = await pool.query(`SELECT * FROM tariffs ORDER BY monthly_price ASC, id ASC`);
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) { withError(response, "Super plans", error); }
+}
+
+async function handleSuperCenterWizardRequest(request, response) {
+  let client;
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const body = await readJsonBody(request);
+    const name = asText(body.name || body.center_name);
+    const officialName = asText(body.official_name || body.officialName || name);
+    const subdomain = asText(body.subdomain || body.slug).toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "");
+    const adminName = asText(body.admin_name || body.adminName || body.owner || body.owner_name);
+    const adminEmail = asText(body.admin_email || body.adminEmail || body.email).toLowerCase();
+    const adminPhone = asText(body.admin_phone || body.adminPhone || body.phone);
+    const planName = asText(body.plan || body.tariff || "Start");
+    const trialDays = Math.max(0, asNumber(body.trial_days || body.trialDays, 14));
+    const password = asText(body.password || body.temporary_password, `Eduka-${crypto.randomInt(10000,99999)}`);
+    const err = validateTenantSubdomain(subdomain);
+    if (!name || !adminName || !adminEmail || !adminPhone || err) { sendJson(response, 400, { ok:false, message: err || "Markaz, admin email/telefon va subdomain kerak" }); return; }
+    const pool = getDbPool(); await ensureSchema(pool); client = await pool.connect(); await client.query("BEGIN");
+    const tariff = (await client.query("SELECT * FROM tariffs WHERE LOWER(name)=LOWER($1) LIMIT 1", [planName])).rows[0] || (await client.query("SELECT * FROM tariffs WHERE name='Start' LIMIT 1")).rows[0];
+    const duplicate = await client.query("SELECT id FROM organizations WHERE lower(COALESCE(subdomain, slug))=lower($1) OR lower(COALESCE(custom_domain,''))=lower($2) LIMIT 1", [subdomain, asText(body.custom_domain)]);
+    if (duplicate.rows.length) { await client.query("ROLLBACK"); sendJson(response, 409, { ok:false, message:"Subdomain yoki domain band" }); return; }
+    const trialEnds = new Date(Date.now() + trialDays*86400000);
+    const org = (await client.query(`INSERT INTO organizations (name, slug, subdomain, owner_name, email, phone, address, logo_url, brand_color, custom_domain, billing_email, plan, monthly_payment, status, subscription_status, trial_ends_at, license_expires_at, student_limit, teacher_limit, branch_limit, sms_limit, storage_limit_mb)
+      VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,$9,$4,$10,$11,'active','trial',$12,$12,$13,$14,$15,$16,$17) RETURNING *`,
+      [name, subdomain, adminName, adminEmail, adminPhone, asText(body.address), asText(body.logo_url), asText(body.brand_color, "#0A84FF"), asText(body.custom_domain), tariff?.name || planName, asNumber(tariff?.monthly_price), trialEnds, asNumber(tariff?.student_limit,100), asNumber(tariff?.teacher_limit,5), asNumber(tariff?.branch_limit,1), asNumber(tariff?.sms_limit), asNumber(tariff?.storage_limit_mb,1024)])).rows[0];
+    await client.query(`INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active) VALUES ($1,$2,$3,$4,$5,'center_admin',$6,TRUE) RETURNING id`, [org.id, adminName, adminEmail, adminPhone, `tenant-${subdomain}-${Date.now()}`, hashPassword(password)]);
+    const sub = (await client.query(`INSERT INTO subscriptions (organization_id, tariff_id, status, starts_at, ends_at, current_period_start, current_period_end, monthly_price, auto_renew, payment_status, next_payment_date) VALUES ($1,$2,'trial',NOW(),$3,NOW(),$3,$4,TRUE,'pending',$3) RETURNING *`, [org.id, tariff?.id || null, trialEnds, asNumber(tariff?.monthly_price)])).rows[0];
+    await client.query(`INSERT INTO organization_domains (organization_id, domain, type, verification_status, ssl_status, is_primary) VALUES ($1,$2,'subdomain','verified','active',TRUE)`, [org.id, `${subdomain}.eduka.uz`]);
+    if (asText(body.custom_domain)) await client.query(`INSERT INTO organization_domains (organization_id, domain, type, verification_status, ssl_status, is_primary) VALUES ($1,$2,'custom','pending_dns','pending',FALSE)`, [org.id, asText(body.custom_domain)]);
+    await client.query(`INSERT INTO organization_branding (organization_id, logo_url, primary_color, student_app_name, white_label_enabled) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id) DO UPDATE SET logo_url=EXCLUDED.logo_url, primary_color=EXCLUDED.primary_color, student_app_name=EXCLUDED.student_app_name, white_label_enabled=EXCLUDED.white_label_enabled, updated_at=NOW()`, [org.id, asText(body.logo_url), asText(body.brand_color, "#0A84FF"), `${name} Student App`, Boolean(body.white_label_enabled)]);
+    await applyPlanFeatures(client, org.id, tariff);
+    const roles = ['Owner','Admin','Manager','Operator','Teacher','Accountant','Student','Parent'];
+    for (const role of roles) await client.query(`INSERT INTO organization_roles (organization_id, name, is_system) VALUES ($1,$2,TRUE) ON CONFLICT (organization_id, name) DO NOTHING`, [org.id, role]);
+    await client.query(`INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1,$2,'create_center_wizard','organization',$1,$3)`, [org.id, user.id, JSON.stringify({ plan: tariff?.name || planName, subdomain, custom_domain: body.custom_domain || null })]);
+    await client.query("COMMIT");
+    sendJson(response, 201, { ok: true, center: org, subscription: sub, login: { url: `https://${subdomain}.eduka.uz`, email: adminEmail, password }, dns: { type: 'CNAME', name: subdomain, value: 'cname.eduka.uz' } });
+  } catch (error) { if (client) { try { await client.query("ROLLBACK"); } catch {} } withError(response, "Center wizard", error); } finally { if (client) client.release(); }
+}
+
+async function handleSuperCenterAdminResetRequest(request, response, centerId) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const body = await readJsonBody(request);
+    const password = asText(body.password, `Eduka-${crypto.randomInt(10000,99999)}`);
+    const pool = getDbPool();
+    const adminRow = await pool.query(`SELECT id FROM users WHERE organization_id=$1 AND role IN ('center_admin','admin','owner') ORDER BY CASE WHEN role='center_admin' THEN 0 WHEN role='owner' THEN 1 ELSE 2 END, id LIMIT 1`, [centerId]);
+    const result = adminRow.rows[0]
+      ? await pool.query(`UPDATE users SET password_hash=$2, updated_at=NOW() WHERE id=$1 RETURNING id, full_name, email, phone, role`, [adminRow.rows[0].id, hashPassword(password)])
+      : { rows: [] };
+    await writeAudit(pool, user, "admin_password_reset", "organization", centerId, { user: result.rows[0]?.email });
+    sendJson(response, 200, { ok: true, admin: result.rows[0] || null, temporaryPassword: password });
+  } catch (error) { withError(response, "Admin reset", error); }
+}
+
+async function handleSuperDomainsRequest(request, response, domainId = null) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "POST") {
+      const body = await readJsonBody(request);
+      const domain = asText(body.domain).toLowerCase();
+      const result = await pool.query(`INSERT INTO organization_domains (organization_id, domain, type, verification_status, ssl_status, is_primary, dns_target) VALUES ($1,$2,$3,'pending_dns','pending',$4,$5) RETURNING *`, [body.organization_id, domain, asText(body.type, "custom"), Boolean(body.is_primary), asText(body.dns_target, "cname.eduka.uz")]);
+      await writeAudit(pool, user, "create", "domain", result.rows[0].id, body);
+      sendJson(response, 201, { ok: true, item: result.rows[0], dns: { type: 'CNAME', name: domain.split('.')[0], value: 'cname.eduka.uz' } }); return;
+    }
+    if (request.method === "PUT" && domainId) {
+      const body = await readJsonBody(request);
+      const result = await pool.query(`UPDATE organization_domains SET verification_status=COALESCE(NULLIF($2,''), verification_status), ssl_status=COALESCE(NULLIF($3,''), ssl_status), is_primary=COALESCE($4, is_primary), last_checked_at=NOW(), updated_at=NOW() WHERE id=$1 RETURNING *`, [domainId, asText(body.verification_status), asText(body.ssl_status), typeof body.is_primary === 'boolean' ? body.is_primary : null]);
+      await pool.query(`INSERT INTO domain_verifications (organization_domain_id, check_type, status, details) VALUES ($1,'manual',$2,$3::jsonb)`, [domainId, result.rows[0]?.verification_status || 'pending', JSON.stringify(body)]);
+      sendJson(response, 200, { ok: true, item: result.rows[0] }); return;
+    }
+    const result = await pool.query(`SELECT d.*, o.name AS center_name FROM organization_domains d LEFT JOIN organizations o ON o.id=d.organization_id ORDER BY d.id DESC LIMIT 300`);
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) { withError(response, "Super domains", error); }
+}
+
+async function handleSuperInvoicesRequest(request, response, invoiceId = null) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "POST") {
+      const body = await readJsonBody(request);
+      const invoiceNumber = asText(body.invoice_number, `EDU-${Date.now()}`);
+      const result = await pool.query(`INSERT INTO subscription_invoices (organization_id, subscription_id, invoice_number, amount, status, due_date, note) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [body.organization_id, body.subscription_id || null, invoiceNumber, asNumber(body.amount), asText(body.status, 'unpaid'), asDate(body.due_date), asText(body.note)]);
+      await writeAudit(pool, user, "create", "subscription_invoice", result.rows[0].id, body);
+      sendJson(response, 201, { ok: true, item: result.rows[0] }); return;
+    }
+    if (request.method === "PUT" && invoiceId) {
+      const body = await readJsonBody(request);
+      const result = await pool.query(`UPDATE subscription_invoices SET status=COALESCE(NULLIF($2,''), status), paid_at=COALESCE($3::timestamptz, paid_at), payment_method=COALESCE(NULLIF($4,''), payment_method), note=COALESCE(NULLIF($5,''), note), updated_at=NOW() WHERE id=$1 RETURNING *`, [invoiceId, asText(body.status), asDate(body.paid_at), asText(body.payment_method), asText(body.note)]);
+      sendJson(response, 200, { ok: true, item: result.rows[0] }); return;
+    }
+    const result = await pool.query(`SELECT i.*, o.name AS center_name, t.name AS plan_name FROM subscription_invoices i LEFT JOIN organizations o ON o.id=i.organization_id LEFT JOIN subscriptions s ON s.id=i.subscription_id LEFT JOIN tariffs t ON t.id=s.tariff_id ORDER BY i.id DESC LIMIT 300`);
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) { withError(response, "Super invoices", error); }
+}
+
+async function handleSuperAuditRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const result = await getDbPool().query(`SELECT a.*, u.full_name AS admin_name, o.name AS center_name FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id LEFT JOIN organizations o ON o.id=a.organization_id ORDER BY a.id DESC LIMIT 500`);
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) { withError(response, "Super audit", error); }
+}
+
+async function handleSuperSupportTicketsRequest(request, response, ticketId = null) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "POST") {
+      const body = await readJsonBody(request);
+      const result = await pool.query(`INSERT INTO support_tickets (organization_id, subject, category, priority, status, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [body.organization_id || null, asText(body.subject), asText(body.category, 'general'), asText(body.priority, 'normal'), asText(body.status, 'open'), user.id]);
+      if (asText(body.message)) await pool.query(`INSERT INTO support_messages (ticket_id, sender_user_id, sender_type, message) VALUES ($1,$2,'admin',$3)`, [result.rows[0].id, user.id, asText(body.message)]);
+      sendJson(response, 201, { ok: true, item: result.rows[0] }); return;
+    }
+    if (request.method === "PUT" && ticketId) {
+      const body = await readJsonBody(request);
+      const result = await pool.query(`UPDATE support_tickets SET status=COALESCE(NULLIF($2,''), status), priority=COALESCE(NULLIF($3,''), priority), updated_at=NOW() WHERE id=$1 RETURNING *`, [ticketId, asText(body.status), asText(body.priority)]);
+      if (asText(body.message)) await pool.query(`INSERT INTO support_messages (ticket_id, sender_user_id, sender_type, message) VALUES ($1,$2,'admin',$3)`, [ticketId, user.id, asText(body.message)]);
+      sendJson(response, 200, { ok: true, item: result.rows[0] }); return;
+    }
+    const result = await pool.query(`SELECT t.*, o.name AS center_name, u.full_name AS assigned_name, (SELECT message FROM support_messages WHERE ticket_id=t.id ORDER BY id DESC LIMIT 1) AS latest_message FROM support_tickets t LEFT JOIN organizations o ON o.id=t.organization_id LEFT JOIN users u ON u.id=t.assigned_to ORDER BY t.updated_at DESC, t.id DESC LIMIT 300`);
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) { withError(response, "Super support tickets", error); }
+}
+
+async function handleOrgDashboardRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, "read"); if (!user) return;
+    const pool = getDbPool();
+    const orgId = user.organization_id;
+    const summary = await pool.query(`SELECT
+      (SELECT COUNT(*)::int FROM leads WHERE organization_id=$1 AND created_at::date=CURRENT_DATE) AS new_leads,
+      (SELECT COUNT(*)::int FROM leads WHERE organization_id=$1 AND status IN ('trial','trial_lesson')) AS trial_students,
+      (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND status='active') AS active_students,
+      (SELECT COUNT(*)::int FROM students WHERE organization_id=$1 AND COALESCE(balance,0) < 0) AS debtors,
+      COALESCE((SELECT SUM(amount) FROM payments WHERE organization_id=$1 AND paid_at::date=CURRENT_DATE),0)::numeric AS today_payments,
+      COALESCE((SELECT SUM(amount) FROM payments WHERE organization_id=$1 AND paid_at >= date_trunc('month', NOW())),0)::numeric AS monthly_revenue,
+      (SELECT COUNT(*)::int FROM lessons WHERE organization_id=$1 AND lesson_at::date=CURRENT_DATE) AS today_lessons,
+      COALESCE((SELECT ROUND(100.0 * SUM(CASE WHEN status IN ('present','late') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),1) FROM attendance_records WHERE organization_id=$1 AND created_at >= NOW() - interval '30 days'),0)::numeric AS attendance_percent`, [orgId]);
+    const finance = await pool.query(`WITH days AS (SELECT generate_series(CURRENT_DATE - interval '13 days', CURRENT_DATE, interval '1 day') AS day) SELECT to_char(day,'YYYY-MM-DD') AS date, COALESCE((SELECT SUM(amount) FROM payments p WHERE p.organization_id=$1 AND p.paid_at::date=days.day::date),0)::numeric AS revenue, COALESCE((SELECT SUM(amount) FROM expenses e WHERE e.organization_id=$1 AND e.created_at::date=days.day::date),0)::numeric AS expenses FROM days ORDER BY day`, [orgId]);
+    const activity = await pool.query(`SELECT action, entity, entity_id, created_at FROM audit_logs WHERE organization_id=$1 ORDER BY id DESC LIMIT 20`, [orgId]);
+    const lessons = await pool.query(`SELECT l.*, g.name AS group_name, t.full_name AS teacher_name FROM lessons l LEFT JOIN groups g ON g.id=l.group_id LEFT JOIN teachers t ON t.id=g.teacher_id WHERE l.organization_id=$1 AND l.lesson_at::date=CURRENT_DATE ORDER BY l.lesson_at ASC LIMIT 20`, [orgId]);
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: { finance: finance.rows }, todayLessons: lessons.rows, recentActivity: activity.rows });
+  } catch (error) { withError(response, "Org dashboard", error); }
+}
+
+async function handleOrgBrandingRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "PUT" ? "settings:write" : "read"); if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "PUT") {
+      const body = await readJsonBody(request);
+      const result = await pool.query(`INSERT INTO organization_branding (organization_id, logo_url, favicon_url, primary_color, secondary_color, accent_color, student_app_name, white_label_enabled, sms_sender_name, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) ON CONFLICT (organization_id) DO UPDATE SET logo_url=EXCLUDED.logo_url, favicon_url=EXCLUDED.favicon_url, primary_color=EXCLUDED.primary_color, secondary_color=EXCLUDED.secondary_color, accent_color=EXCLUDED.accent_color, student_app_name=EXCLUDED.student_app_name, white_label_enabled=EXCLUDED.white_label_enabled, sms_sender_name=EXCLUDED.sms_sender_name, updated_at=NOW() RETURNING *`, [user.organization_id, asText(body.logo_url), asText(body.favicon_url), asText(body.primary_color, '#0A84FF'), asText(body.secondary_color, '#111827'), asText(body.accent_color, '#22C55E'), asText(body.student_app_name, 'Eduka Student App'), Boolean(body.white_label_enabled), asText(body.sms_sender_name)]);
+      sendJson(response, 200, { ok:true, item: result.rows[0] }); return;
+    }
+    const result = await pool.query(`SELECT * FROM organization_branding WHERE organization_id=$1`, [user.organization_id]);
+    sendJson(response, 200, { ok:true, item: result.rows[0] || null });
+  } catch (error) { withError(response, "Org branding", error); }
+}
+
+async function handleOrgUsersRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "POST" ? "users:manage" : "read"); if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "POST") {
+      const body = await readJsonBody(request);
+      const password = asText(body.password, `Eduka-${crypto.randomInt(10000,99999)}`);
+      const result = await pool.query(`INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE) RETURNING id, full_name, email, phone, role, is_active`, [user.organization_id, asText(body.full_name || body.name), asText(body.email).toLowerCase(), asText(body.phone), `org-${user.organization_id}-${Date.now()}-${Math.random()}`, asText(body.role, 'manager'), hashPassword(password)]);
+      sendJson(response, 201, { ok:true, item: result.rows[0], temporaryPassword: password }); return;
+    }
+    const result = await pool.query(`SELECT id, full_name, email, phone, role, is_active, created_at, updated_at FROM users WHERE organization_id=$1 ORDER BY id DESC`, [user.organization_id]);
+    sendJson(response, 200, { ok:true, items: result.rows });
+  } catch (error) { withError(response, "Org users", error); }
+}
+
+async function handleOrgRolesRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "POST" ? "settings:write" : "read"); if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "POST") {
+      const body = await readJsonBody(request);
+      const role = await pool.query(`INSERT INTO organization_roles (organization_id, name, description, is_system) VALUES ($1,$2,$3,FALSE) ON CONFLICT (organization_id, name) DO UPDATE SET description=EXCLUDED.description RETURNING *`, [user.organization_id, asText(body.name), asText(body.description)]);
+      for (const perm of body.permissions || []) await pool.query(`INSERT INTO organization_permissions (organization_id, role_id, permission_key, enabled) VALUES ($1,$2,$3,TRUE) ON CONFLICT (role_id, permission_key) DO UPDATE SET enabled=TRUE`, [user.organization_id, role.rows[0].id, asText(perm)]);
+      sendJson(response, 201, { ok:true, item: role.rows[0] }); return;
+    }
+    const roles = await pool.query(`SELECT r.*, COALESCE(json_agg(p.permission_key) FILTER (WHERE p.enabled), '[]') AS permissions FROM organization_roles r LEFT JOIN organization_permissions p ON p.role_id=r.id WHERE r.organization_id=$1 GROUP BY r.id ORDER BY r.id`, [user.organization_id]);
+    sendJson(response, 200, { ok:true, items: roles.rows });
+  } catch (error) { withError(response, "Org roles", error); }
+}
+
+async function handleStudentProfessionalRequest(request, response, resource) {
+  try {
+    const session = await requireStudentAppSession(request, response);
+    if (!session?.row) return;
+    const pool = session.pool;
+    const student = session.row;
+    if (resource === 'dashboard') {
+      const [payments, attendance, exams, homeworks, news, events] = await Promise.all([
+        pool.query(`SELECT * FROM payments WHERE organization_id=$1 AND student_id=$2 ORDER BY paid_at DESC LIMIT 10`, [student.organization_id, student.id]),
+        pool.query(`SELECT status, COUNT(*)::int AS count FROM attendance_records WHERE organization_id=$1 AND student_id=$2 GROUP BY status`, [student.organization_id, student.id]),
+        pool.query(`SELECT * FROM student_exam_results WHERE organization_id=$1 AND student_id=$2 ORDER BY exam_date DESC NULLS LAST, id DESC LIMIT 5`, [student.organization_id, student.id]),
+        pool.query(`SELECT * FROM student_tasks WHERE organization_id=$1 AND student_id=$2 ORDER BY due_date ASC NULLS LAST, id DESC LIMIT 5`, [student.organization_id, student.id]),
+        pool.query(`SELECT * FROM student_news WHERE organization_id=$1 AND status='published' ORDER BY publish_date DESC NULLS LAST, id DESC LIMIT 5`, [student.organization_id]),
+        pool.query(`SELECT * FROM student_events WHERE organization_id=$1 AND status='active' ORDER BY event_date ASC NULLS LAST, id DESC LIMIT 5`, [student.organization_id])
+      ]);
+      sendJson(response, 200, { ok:true, student, summary: { balance: student.balance || 0, coins: student.coins || 0, crystals: student.crystals || 0 }, payments: payments.rows, attendance: attendance.rows, exams: exams.rows, homeworks: homeworks.rows, news: news.rows, events: events.rows }); return;
+    }
+    if (resource === 'feedback' && request.method === 'POST') { const body = await readJsonBody(request); const result = await pool.query(`INSERT INTO student_feedback (organization_id, student_id, type, subject, message) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [student.organization_id, student.id, asText(body.type,'feedback'), asText(body.subject), asText(body.message)]); sendJson(response, 201, { ok:true, item: result.rows[0] }); return; }
+    const resourceQueries = {
+      payments: [`SELECT * FROM payments WHERE organization_id=$1 AND student_id=$2 ORDER BY paid_at DESC, id DESC LIMIT 100`, [student.organization_id, student.id]],
+      attendance: [`SELECT * FROM attendance_records WHERE organization_id=$1 AND student_id=$2 ORDER BY lesson_date DESC, id DESC LIMIT 100`, [student.organization_id, student.id]],
+      homeworks: [`SELECT * FROM student_tasks WHERE organization_id=$1 AND student_id=$2 ORDER BY due_date DESC NULLS LAST, id DESC LIMIT 100`, [student.organization_id, student.id]],
+      exams: [`SELECT * FROM student_exam_results WHERE organization_id=$1 AND student_id=$2 ORDER BY exam_date DESC NULLS LAST, id DESC LIMIT 100`, [student.organization_id, student.id]],
+      feedback: [`SELECT * FROM student_feedback WHERE organization_id=$1 AND student_id=$2 ORDER BY id DESC LIMIT 100`, [student.organization_id, student.id]],
+      library: [`SELECT * FROM student_library_items WHERE organization_id=$1 AND status='published' ORDER BY id DESC LIMIT 100`, [student.organization_id]],
+      dictionary: [`SELECT * FROM student_dictionary_words WHERE organization_id=$1 AND status='published' ORDER BY id DESC LIMIT 100`, [student.organization_id]],
+      news: [`SELECT * FROM student_news WHERE organization_id=$1 AND status='published' ORDER BY publish_date DESC NULLS LAST, id DESC LIMIT 100`, [student.organization_id]],
+      events: [`SELECT * FROM student_events WHERE organization_id=$1 AND status='active' ORDER BY event_date ASC NULLS LAST, id DESC LIMIT 100`, [student.organization_id]],
+      referrals: [`SELECT * FROM student_referrals WHERE organization_id=$1 AND referrer_student_id=$2 ORDER BY id DESC LIMIT 100`, [student.organization_id, student.id]],
+      group: [`SELECT g.* FROM groups g JOIN group_students gs ON gs.group_id=g.id WHERE gs.student_id=$2 AND g.organization_id=$1 ORDER BY g.id DESC LIMIT 20`, [student.organization_id, student.id]],
+      study: [`SELECT * FROM student_tasks WHERE organization_id=$1 AND student_id=$2 ORDER BY due_date DESC NULLS LAST, id DESC LIMIT 100`, [student.organization_id, student.id]],
+      rating: [`SELECT id, full_name, coins, crystals FROM students WHERE organization_id=$1 ORDER BY COALESCE(coins,0) DESC, COALESCE(crystals,0) DESC LIMIT 50`, [student.organization_id]]
+    };
+    const query = resourceQueries[resource];
+    if (!query) { sendJson(response, 404, { ok:false, message:'Resource topilmadi' }); return; }
+    const result = await pool.query(query[0], query[1]);
+    sendJson(response, 200, { ok:true, items: result.rows, [resource]: result.rows });
+  } catch (error) { withError(response, "Student professional", error); }
+}
+
 async function handleLeadConvertRequest(request, response, leadId) {
   try {
     const user = await requireUser(request, response, "leads:write");
@@ -4125,8 +4441,80 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/api/super/summary") {
-    handleSuperSummaryRequest(request, response);
+  if (request.method === "GET" && ["/api/super/summary", "/api/super/dashboard"].includes(urlPath)) {
+    if (urlPath === "/api/super/dashboard") handleSuperDashboardRequest(request, response);
+    else handleSuperSummaryRequest(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/super/centers") {
+    handleSuperCenterWizardRequest(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/super/centers/wizard") {
+    handleSuperCenterWizardRequest(request, response);
+    return;
+  }
+
+  const superCenterAdminResetMatch = urlPath.match(/^\/api\/super\/centers\/(\d+)\/admin-reset$/);
+  if (superCenterAdminResetMatch && request.method === "POST") {
+    handleSuperCenterAdminResetRequest(request, response, Number(superCenterAdminResetMatch[1]));
+    return;
+  }
+
+  const superPlansMatch = urlPath.match(/^\/api\/super\/plans(?:\/(\d+))?$/);
+  if (superPlansMatch && ["GET", "POST", "PUT"].includes(request.method)) {
+    handleSuperPlansRequest(request, response, superPlansMatch[1] ? Number(superPlansMatch[1]) : null);
+    return;
+  }
+
+  const superDomainsMatch = urlPath.match(/^\/api\/super\/domains(?:\/(\d+))?$/);
+  if (superDomainsMatch && ["GET", "POST", "PUT"].includes(request.method)) {
+    handleSuperDomainsRequest(request, response, superDomainsMatch[1] ? Number(superDomainsMatch[1]) : null);
+    return;
+  }
+
+  const superInvoicesMatch = urlPath.match(/^\/api\/super\/invoices(?:\/(\d+))?$/);
+  if (superInvoicesMatch && ["GET", "POST", "PUT"].includes(request.method)) {
+    handleSuperInvoicesRequest(request, response, superInvoicesMatch[1] ? Number(superInvoicesMatch[1]) : null);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/super/audit") {
+    handleSuperAuditRequest(request, response);
+    return;
+  }
+
+  const superSupportTicketsMatch = urlPath.match(/^\/api\/super\/support-tickets(?:\/(\d+))?$/);
+  if (superSupportTicketsMatch && ["GET", "POST", "PUT"].includes(request.method)) {
+    handleSuperSupportTicketsRequest(request, response, superSupportTicketsMatch[1] ? Number(superSupportTicketsMatch[1]) : null);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/org/dashboard") {
+    handleOrgDashboardRequest(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/org/branding" && ["GET", "PUT"].includes(request.method)) {
+    handleOrgBrandingRequest(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/org/users" && ["GET", "POST"].includes(request.method)) {
+    handleOrgUsersRequest(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/org/roles" && ["GET", "POST"].includes(request.method)) {
+    handleOrgRolesRequest(request, response);
+    return;
+  }
+
+  const studentProfessionalMatch = urlPath.match(/^\/api\/student\/(dashboard|payments|attendance|homeworks|exams|feedback|library|dictionary|news|events|referrals|group|study|rating)$/);
+  if (studentProfessionalMatch && ["GET", "POST"].includes(request.method)) {
+    handleStudentProfessionalRequest(request, response, studentProfessionalMatch[1]);
     return;
   }
 

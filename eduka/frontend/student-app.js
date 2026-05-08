@@ -291,10 +291,11 @@ async function loadData(route) {
   }
 
   saveToken(token);
-  const resource = resourceByRoute[route] || "home";
+  const resource = resourceByRoute[route] || "dashboard";
+  const normalizedResource = resource === "home" ? "dashboard" : resource;
   const [basePayload, pagePayload] = await Promise.all([
-    appState.base ? Promise.resolve(appState.base) : api("/api/student-app/me"),
-    api(`/api/student-app/${resource}`)
+    appState.base ? Promise.resolve(appState.base) : api("/api/student/dashboard"),
+    normalizedResource === "dashboard" ? Promise.resolve({}) : api(`/api/student/${normalizedResource}`)
   ]);
   appState.base = basePayload;
   const merged = {
