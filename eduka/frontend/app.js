@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "20.0.0";
+const EDUKA_VERSION = "20.2.0";
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -4520,39 +4520,112 @@ function crmDrawerFields(type, item = {}) {
   const courseValues = [...new Set([...(state.courses || []).map((course) => course.name), ...(state.groups || []).map((group) => group.course || group.course_name), ...(state.students || []).map((student) => student.course || student.course_name)].filter(Boolean))];
   const courseOptions = courseValues.map((name) => `<option value="${escapeHtml(name)}" ${String(item.course || item.course_name || "") === String(name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("");
   if (type === "students") {
+    const notifications = Array.isArray(item.notificationChannels) ? item.notificationChannels : [];
     return `
-      <label><span>FISH *</span><input name="fullName" required value="${escapeHtml(item.fullName || item.full_name)}" /></label>
-      <label><span>Telefon raqam *</span><input name="phone" required placeholder="+(998) __-___-__-__" value="${escapeHtml(item.phone)}" /></label>
-      <label><span>Tug'ilgan sana</span><input name="birthDate" type="date" value="${formatDate(item.birthDate || item.birth_date)}" /></label>
-      <label><span>Jinsi</span><select name="gender"><option value="">Tanlang</option><option value="male" ${item.gender === "male" ? "selected" : ""}>Erkak</option><option value="female" ${item.gender === "female" ? "selected" : ""}>Ayol</option></select></label>
-      <label><span>Manzil</span><input name="address" value="${escapeHtml(item.address)}" /></label>
-      <label><span>Otasi</span><input name="fatherName" value="${escapeHtml(item.fatherName)}" /></label>
-      <label><span>Onasi</span><input name="motherName" value="${escapeHtml(item.motherName)}" /></label>
-      <label><span>Ota-ona telefon raqami</span><input name="parentPhone" value="${escapeHtml(item.parentPhone || item.parent_phone)}" /></label>
-      <label><span>Kurs</span><select name="course"><option value="">Kurs</option>${courseOptions}</select></label>
-      <label><span>Guruh</span><select name="groupId"><option value="">Guruhni tanlang</option>${groupOptions}</select></label>
-      <label><span>O'qituvchi</span><select name="teacherId"><option value="">O'qituvchi bo'yicha</option>${teacherOptions}</select></label>
-      <label><span>Status</span><select name="status"><option value="active" ${item.status === "active" ? "selected" : ""}>Faol</option><option value="frozen" ${item.status === "frozen" ? "selected" : ""}>Muzlatilgan</option><option value="left" ${item.status === "left" ? "selected" : ""}>Ketgan</option><option value="debtor" ${item.status === "debtor" ? "selected" : ""}>Qarzdor</option></select></label>
-      <label><span>Boshlanish sanasi</span><input name="startDate" type="date" value="${formatDate(item.startDate || item.created_at)}" /></label>
-      <label><span>To'lov turi</span><select name="paymentType"><option value="monthly">Oylik</option><option value="lesson">Darsbay</option></select></label>
-      <label><span>Chegirma</span><input name="discount" type="number" min="0" value="${Number(item.discount || 0)}" /></label>
-      <label><span>Teglar</span><input name="tags" value="${escapeHtml(Array.isArray(item.tags) ? item.tags.join(", ") : item.tags)}" /></label>
-      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
+      <div class="crm-form-layout">
+        <section class="crm-form-section-block">
+          <div class="crm-form-section-head"><h3>Asosiy ma'lumotlar</h3><p>Talabaning kontakt va profil ma'lumotlarini kiriting.</p></div>
+          <div class="crm-form-grid-2">
+            <label><span>FISH *</span><input name="fullName" required value="${escapeHtml(item.fullName || item.full_name)}" placeholder="Talabaning FISH" /></label>
+            <label><span>Telefon raqam *</span><input name="phone" required placeholder="+(998) __-___-__-__" value="${escapeHtml(item.phone)}" /></label>
+            <label><span>Tug'ilgan sana</span><input name="birthDate" type="date" value="${formatDate(item.birthDate || item.birth_date)}" /></label>
+            <label><span>Ota-ona telefon raqami</span><input name="parentPhone" value="${escapeHtml(item.parentPhone || item.parent_phone)}" placeholder="+(998) __-___-__-__" /></label>
+            <div class="crm-field wide">
+              <span>Jinsi</span>
+              <div class="crm-radio-row">
+                <label class="crm-radio-pill"><input type="radio" name="gender" value="male" ${item.gender === "male" ? "checked" : ""} /><span>Erkak</span></label>
+                <label class="crm-radio-pill"><input type="radio" name="gender" value="female" ${item.gender === "female" ? "checked" : ""} /><span>Ayol</span></label>
+              </div>
+            </div>
+            <label class="wide"><span>Manzili</span><textarea name="address" placeholder="Yashash manzili">${escapeHtml(item.address)}</textarea></label>
+          </div>
+        </section>
+        <section class="crm-form-section-block">
+          <div class="crm-form-section-head"><h3>Ota-ona va izohlar</h3><p>Talabaga bog'liq qo'shimcha ma'lumotlar.</p></div>
+          <div class="crm-form-grid-2">
+            <label><span>Otasi</span><input name="fatherName" value="${escapeHtml(item.fatherName)}" placeholder="FISH" /></label>
+            <label><span>Onasi</span><input name="motherName" value="${escapeHtml(item.motherName)}" placeholder="FISH" /></label>
+            <label class="wide"><span>Izoh</span><textarea name="note" placeholder="Talaba haqida izoh">${escapeHtml(item.note)}</textarea></label>
+            <div class="crm-field wide">
+              <span>Bildirish kanallari</span>
+              <div class="crm-quick-actions-row">
+                <label class="crm-quick-action"><input type="checkbox" name="channel_telegram" ${notifications.includes("telegram") ? "checked" : ""} /><span>Telegram</span></label>
+                <label class="crm-quick-action"><input type="checkbox" name="channel_call" ${notifications.includes("call") ? "checked" : ""} /><span>Qo'ng'iroq</span></label>
+                <label class="crm-quick-action"><input type="checkbox" name="channel_visit" ${notifications.includes("visit") ? "checked" : ""} /><span>Tashrif</span></label>
+                <label class="crm-quick-action"><input type="checkbox" name="channel_document" ${notifications.includes("document") ? "checked" : ""} /><span>Hujjat</span></label>
+                <label class="crm-quick-action"><input type="checkbox" name="channel_sms" ${notifications.includes("sms") ? "checked" : ""} /><span>SMS</span></label>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="crm-form-section-block">
+          <div class="crm-form-section-head"><h3>Akademik ulanish</h3><p>Talabani guruh va kurs jarayoniga biriktirish.</p></div>
+          <div class="crm-form-grid-2">
+            <label><span>Kurs</span><select name="course"><option value="">Kurs</option>${courseOptions}</select></label>
+            <label><span>Guruhni tanlang</span><select name="groupId"><option value="">Guruhni tanlang</option>${groupOptions}</select></label>
+            <label><span>O'qituvchi</span><select name="teacherId"><option value="">O'qituvchi bo'yicha</option>${teacherOptions}</select></label>
+            <label><span>Status</span><select name="status"><option value="active" ${item.status === "active" ? "selected" : ""}>Faol</option><option value="frozen" ${item.status === "frozen" ? "selected" : ""}>Muzlatilgan</option><option value="left" ${item.status === "left" ? "selected" : ""}>Ketgan</option><option value="debtor" ${item.status === "debtor" ? "selected" : ""}>Qarzdor</option></select></label>
+            <label><span>Boshlanish sanasi</span><input name="startDate" type="date" value="${formatDate(item.startDate || item.created_at)}" /></label>
+            <label><span>To'lov turi</span><select name="paymentType"><option value="monthly" ${(item.paymentType || item.payment_type || "monthly") === "monthly" ? "selected" : ""}>Oylik</option><option value="lesson" ${(item.paymentType || item.payment_type) === "lesson" ? "selected" : ""}>Darsbay</option></select></label>
+            <label><span>Chegirma</span><input name="discount" type="number" min="0" value="${Number(item.discount || 0)}" /></label>
+            <label><span>Teglar</span><input name="tags" value="${escapeHtml(Array.isArray(item.tags) ? item.tags.join(", ") : item.tags)}" placeholder="masalan: VIP, Qarzdor" /></label>
+            <label class="wide"><span>Parol</span><input name="password" type="text" value="${escapeHtml(item.password_preview || item.password || "")}" placeholder="Ixtiyoriy login paroli" /></label>
+          </div>
+        </section>
+      </div>`;
   }
   if (type === "groups") {
-    const days = Array.isArray(item.lessonDays) ? item.lessonDays.join(", ") : item.days || "";
+    const daySet = new Set(Array.isArray(item.lessonDays) ? item.lessonDays.map(String) : String(item.days || "").split(",").map((part) => part.trim()).filter(Boolean));
     return `
-      <label><span>Guruh nomi *</span><input name="name" required value="${escapeHtml(item.name)}" /></label>
-      <label><span>Kurs</span><select name="course"><option value="">Kurs</option>${courseOptions}</select></label>
-      <label><span>O'qituvchi</span><select name="teacherId"><option value="">O'qituvchi</option>${teacherOptions}</select></label>
-      <label><span>Xona</span><input name="room" value="${escapeHtml(item.room)}" /></label>
-      <label><span>Narx</span><input name="price" type="number" min="0" value="${Number(item.price || item.monthly_price || 250000)}" /></label>
-      <label><span>Boshlanish vaqti</span><input name="startTime" type="time" value="${item.startTime || item.start_time || "08:30"}" /></label>
-      <label><span>Tugash vaqti</span><input name="endTime" type="time" value="${item.endTime || item.end_time || "10:00"}" /></label>
-      <label><span>Dars kunlari</span><input name="lessonDays" value="${escapeHtml(days)}" placeholder="Dushanba, Chorshanba, Juma" /></label>
-      <label><span>Boshlanish sanasi</span><input name="startDate" type="date" value="${formatDate(item.startDate || item.starts_at)}" /></label>
-      <label><span>Status</span><select name="status"><option value="active" ${item.status === "active" ? "selected" : ""}>Faol</option><option value="trial" ${item.status === "trial" ? "selected" : ""}>Sinov darsida</option><option value="archived" ${item.status === "archived" ? "selected" : ""}>Arxiv</option></select></label>
-      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
+      <div class="crm-form-layout">
+        <section class="crm-form-section-block">
+          <div class="crm-form-section-head"><h3>Guruh ma'lumotlari</h3><p>Guruh nomi, kurs va narx bilan bog'liq asosiy ma'lumotlar.</p></div>
+          <div class="crm-form-grid-2">
+            <label class="wide"><span>Guruh nomi *</span><input name="name" required value="${escapeHtml(item.name)}" placeholder="Masalan: HARVARD" /></label>
+            <label><span>Kurs *</span><select name="course"><option value="">Kursni tanlang</option>${courseOptions}</select></label>
+            <label><span>Guruh narxi *</span><input name="price" type="number" min="0" value="${Number(item.price || item.monthly_price || 250000)}" placeholder="so'm" /></label>
+            <label class="wide"><span>Xona *</span><input name="room" value="${escapeHtml(item.room)}" placeholder="Xonani tanlang" /></label>
+          </div>
+        </section>
+        <section class="crm-form-section-block">
+          <div class="crm-form-section-head"><h3>Dars jadvali</h3><p>Kun, vaqt va start sanasini sozlang.</p></div>
+          <div class="crm-form-grid-2">
+            <div class="crm-field wide">
+              <span>Dars kunini tanlang</span>
+              <div class="crm-day-selector">
+                <label class="crm-check-tile"><input type="checkbox" name="lessonDaysSet" value="Toq kunlar" ${daySet.has("Toq kunlar") ? "checked" : ""} /><span>Toq kunlar</span></label>
+                <label class="crm-check-tile"><input type="checkbox" name="lessonDaysSet" value="Juft kunlar" ${daySet.has("Juft kunlar") ? "checked" : ""} /><span>Juft kunlar</span></label>
+                <label class="crm-check-tile"><input type="checkbox" name="lessonDaysSet" value="Dushanba" ${daySet.has("Dushanba") ? "checked" : ""} /><span>Dushanba</span></label>
+                <label class="crm-check-tile"><input type="checkbox" name="lessonDaysSet" value="Chorshanba" ${daySet.has("Chorshanba") ? "checked" : ""} /><span>Chorshanba</span></label>
+                <label class="crm-check-tile"><input type="checkbox" name="lessonDaysSet" value="Juma" ${daySet.has("Juma") ? "checked" : ""} /><span>Juma</span></label>
+                <label class="crm-check-tile"><input type="checkbox" name="lessonDaysSet" value="Boshqa" ${daySet.has("Boshqa") ? "checked" : ""} /><span>Boshqa</span></label>
+              </div>
+            </div>
+            <label><span>Boshlanish vaqti *</span><input name="startTime" type="time" value="${item.startTime || item.start_time || "08:30"}" /></label>
+            <label><span>Tugash vaqti *</span><input name="endTime" type="time" value="${item.endTime || item.end_time || "10:00"}" /></label>
+            <label class="wide"><span>Qo'shimcha kunlar</span><input name="lessonDays" value="${escapeHtml(Array.from(daySet).filter((day) => !["Toq kunlar","Juft kunlar","Dushanba","Chorshanba","Juma","Boshqa"].includes(day)).join(", ") || item.days || "")}" placeholder="Masalan: Seshanba, Payshanba" /></label>
+            <label class="wide"><span>Boshlanish sanasi *</span><input name="startDate" type="date" value="${formatDate(item.startDate || item.starts_at)}" /></label>
+          </div>
+        </section>
+        <section class="crm-form-section-block">
+          <div class="crm-form-section-head"><h3>Mas'ul va integratsiyalar</h3><p>O'qituvchi, maosh va kanal sozlamalari.</p></div>
+          <div class="crm-form-grid-2">
+            <label class="wide"><span>O'qituvchi *</span><select name="teacherId"><option value="">O'qituvchini tanlang</option>${teacherOptions}</select></label>
+            <label><span>O'qituvchi maoshi *</span><input name="teacherSalary" type="number" min="0" value="${Number(item.teacher_salary || item.salary_rate || 0)}" placeholder="so'm" /></label>
+            <label><span>Maosh turi *</span><select name="salaryType"><option value="fixed" ${(item.salary_type || "fixed") === "fixed" ? "selected" : ""}>Oylik</option><option value="percentage" ${(item.salary_type) === "percentage" ? "selected" : ""}>Foiz</option><option value="per_lesson" ${(item.salary_type) === "per_lesson" ? "selected" : ""}>Darsbay</option></select></label>
+            <label class="wide"><span>Telegram Chat ID</span><input name="chatId" value="${escapeHtml(item.chat_id || "")}" placeholder="Masalan: -100..." /></label>
+            <div class="crm-field wide">
+              <span>Format</span>
+              <div class="crm-radio-row">
+                <label class="crm-radio-pill"><input type="radio" name="deliveryMode" value="offline" ${(item.delivery_mode || "offline") === "offline" ? "checked" : ""} /><span>offline</span></label>
+                <label class="crm-radio-pill"><input type="radio" name="deliveryMode" value="online" ${(item.delivery_mode) === "online" ? "checked" : ""} /><span>online</span></label>
+              </div>
+            </div>
+            <label><span>Status</span><select name="status"><option value="active" ${item.status === "active" ? "selected" : ""}>Faol</option><option value="trial" ${item.status === "trial" ? "selected" : ""}>Sinov darsida</option><option value="archived" ${item.status === "archived" ? "selected" : ""}>Arxiv</option></select></label>
+            <label class="wide"><span>Izoh</span><textarea name="note" placeholder="Guruh bo'yicha izoh">${escapeHtml(item.note)}</textarea></label>
+          </div>
+        </section>
+      </div>`;
   }
   if (type === "courses") {
     return `
@@ -4621,8 +4694,10 @@ function renderDrawer() {
   const backdrop = document.querySelector("[data-crm-drawer-backdrop]");
   if (!drawer || !form || !backdrop) return;
   drawer.classList.toggle("open", crmDrawerState.open);
+  drawer.classList.toggle("is-wide", ["students", "groups"].includes(crmDrawerState.type));
   backdrop.classList.toggle("open", crmDrawerState.open);
   drawer.setAttribute("aria-hidden", crmDrawerState.open ? "false" : "true");
+  drawer.dataset.drawerType = crmDrawerState.type || "";
   if (!crmDrawerState.open) {
     form.innerHTML = "";
     return;
@@ -4678,7 +4753,10 @@ function crmApiPayload(resource, item) {
 }
 
 async function saveCrmDrawer(form) {
-  const data = Object.fromEntries(new FormData(form).entries());
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+  const lessonDaysSet = formData.getAll("lessonDaysSet").filter(Boolean);
+  if (lessonDaysSet.length) data.lessonDaysSet = lessonDaysSet;
   const error = validateCrmDrawer(crmDrawerState.type, data);
   const errorNode = form.querySelector("[data-crm-drawer-error]");
   if (error) {
@@ -4690,9 +4768,13 @@ async function saveCrmDrawer(form) {
   const existing = crmDrawerItem();
   let item;
   if (resource === "students") {
-    item = { ...existing, id: editing ? existing.id : nextCrmId("students"), fullName: data.fullName.trim(), full_name: data.fullName.trim(), phone: data.phone, parentPhone: data.parentPhone, parent_phone: data.parentPhone, birthDate: data.birthDate, birth_date: data.birthDate, gender: data.gender, address: data.address, fatherName: data.fatherName, motherName: data.motherName, note: data.note, groupIds: data.groupId ? [Number(data.groupId)] : [], group_id: data.groupId || "", group_name: crmGroupName(data.groupId, existing.group_name), course: data.course, course_name: data.course, teacher: crmTeacherName(data.teacherId, existing.teacher || existing.teacher_full_name), teacher_id: data.teacherId || "", status: data.status || "active", tags: String(data.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean), balance: Number(existing.balance || 0), discount: Number(data.discount || 0) };
+    const notificationChannels = ["telegram", "call", "visit", "document", "sms"].filter((key) => data[`channel_${key}`] === "on");
+    item = { ...existing, id: editing ? existing.id : nextCrmId("students"), fullName: data.fullName.trim(), full_name: data.fullName.trim(), phone: data.phone, parentPhone: data.parentPhone, parent_phone: data.parentPhone, birthDate: data.birthDate, birth_date: data.birthDate, gender: data.gender, address: data.address, fatherName: data.fatherName, motherName: data.motherName, note: data.note, groupIds: data.groupId ? [Number(data.groupId)] : [], group_id: data.groupId || "", group_name: crmGroupName(data.groupId, existing.group_name), course: data.course || state.groups.find((entry) => String(entry.id) === String(data.groupId))?.course_name || existing.course, course_name: data.course || state.groups.find((entry) => String(entry.id) === String(data.groupId))?.course_name || existing.course_name, teacher: crmTeacherName(data.teacherId, existing.teacher || existing.teacher_full_name), teacher_id: data.teacherId || "", status: data.status || "active", tags: String(data.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean), balance: Number(existing.balance || 0), discount: Number(data.discount || 0), paymentType: data.paymentType || "monthly", payment_type: data.paymentType || "monthly", startDate: data.startDate || existing.startDate, created_at: existing.created_at || data.startDate || new Date().toISOString().slice(0, 10), password_preview: data.password || existing.password_preview || "", notificationChannels };
   } else if (resource === "groups") {
-    item = { ...existing, id: editing ? existing.id : nextCrmId("groups"), name: data.name.trim(), course: data.course, course_name: data.course, teacherIds: data.teacherId ? [Number(data.teacherId)] : [], teacher_id: data.teacherId || "", teacher_name: crmTeacherName(data.teacherId, existing.teacher_name), teacher_full_name: crmTeacherName(data.teacherId, existing.teacher_full_name), room: data.room, price: Number(data.price || 0), monthly_price: Number(data.price || 0), startTime: data.startTime, start_time: data.startTime, endTime: data.endTime, end_time: data.endTime, lessonDays: String(data.lessonDays || "").split(",").map((day) => day.trim()).filter(Boolean), days: data.lessonDays, startDate: data.startDate, starts_at: data.startDate, status: data.status || "active", note: data.note, studentCount: existing.studentCount || existing.student_count || 0, student_count: existing.student_count || existing.studentCount || 0 };
+    const selectedDays = Array.isArray(data.lessonDaysSet) ? data.lessonDaysSet : [data.lessonDaysSet].filter(Boolean);
+    const customDays = String(data.lessonDays || "").split(",").map((day) => day.trim()).filter(Boolean);
+    const lessonDays = [...selectedDays, ...customDays].filter(Boolean);
+    item = { ...existing, id: editing ? existing.id : nextCrmId("groups"), name: data.name.trim(), course: data.course, course_name: data.course, teacherIds: data.teacherId ? [Number(data.teacherId)] : [], teacher_id: data.teacherId || "", teacher_name: crmTeacherName(data.teacherId, existing.teacher_name), teacher_full_name: crmTeacherName(data.teacherId, existing.teacher_full_name), room: data.room, price: Number(data.price || 0), monthly_price: Number(data.price || 0), startTime: data.startTime, start_time: data.startTime, endTime: data.endTime, end_time: data.endTime, lessonDays, days: lessonDays.join(", "), startDate: data.startDate, starts_at: data.startDate, status: data.status || "active", note: data.note, studentCount: existing.studentCount || existing.student_count || 0, student_count: existing.student_count || existing.studentCount || 0, teacher_salary: Number(data.teacherSalary || existing.teacher_salary || 0), salary_rate: Number(data.teacherSalary || existing.salary_rate || 0), salary_type: data.salaryType || existing.salary_type || "fixed", chat_id: data.chatId || existing.chat_id || "", delivery_mode: data.deliveryMode || existing.delivery_mode || "offline" };
   } else if (resource === "courses") {
     item = { ...existing, id: editing ? existing.id : nextCrmId("courses"), name: data.name.trim(), description: data.description, price: Number(data.price || 0), duration: data.duration, level: data.level, lesson_type: data.lesson_type || "group", status: data.status || "active" };
   } else if (resource === "rooms") {
@@ -4730,31 +4812,210 @@ async function saveCrmDrawer(form) {
   showToast(editing ? "Ma'lumotlar saqlandi." : "Yangi ma'lumot ro'yxatga qo'shildi.");
 }
 
+function crmInitials(name = "") {
+  return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "ST";
+}
+
+function crmStudentCoinBalance(student) {
+  if (Number.isFinite(Number(student.coins || student.tanga || student.coin_balance))) return Number(student.coins || student.tanga || student.coin_balance || 0);
+  const attendanceCount = state.attendance.filter((item) => String(item.student_id || "") === String(student.id) || item.student_name === (student.full_name || student.fullName)).length;
+  return attendanceCount * 10;
+}
+
+function crmStudentCrystalBalance(student) {
+  if (Number.isFinite(Number(student.crystals || student.kristal || student.crystal_balance))) return Number(student.crystals || student.kristal || student.crystal_balance || 0);
+  const paymentCount = state.payments.filter((item) => String(item.student_id || "") === String(student.id)).length;
+  return paymentCount * 2;
+}
+
+function crmStudentsForGroup(group) {
+  return (state.students || []).filter((student) => {
+    const ids = Array.isArray(student.groupIds) ? student.groupIds.map(String) : [String(student.group_id || "")].filter(Boolean);
+    return ids.includes(String(group.id)) || String(student.group_name || "") === String(group.name);
+  });
+}
+
+function crmAttendanceForStudent(student) {
+  return (state.attendance || []).filter((item) => String(item.student_id || "") === String(student.id) || item.student_name === (student.full_name || student.fullName));
+}
+
+function crmAttendanceForGroup(group) {
+  return (state.attendance || []).filter((item) => String(item.group_id || "") === String(group.id) || item.group_name === group.name);
+}
+
+function crmProfileEmpty(title, hint = "Hozircha ma'lumot topilmadi.") {
+  return `<div class="profile-empty"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(hint)}</span></div>`;
+}
+
+function crmProfileTable(headers, rows, emptyTitle = "Ma'lumot topilmadi", emptyHint = "Bu bo'lim uchun yozuvlar hali mavjud emas.") {
+  return `<div class="profile-table-wrap"><table class="profile-table"><thead><tr>${headers.map((head) => `<th>${head}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${headers.length}">${crmProfileEmpty(emptyTitle, emptyHint)}</td></tr>`}</tbody></table></div>`;
+}
+
+function crmStudentHistory(student, payments, attendance, groups) {
+  const events = [];
+  if (student.created_at || student.startDate || student.birth_date) {
+    events.push({ date: student.created_at || student.startDate || student.birth_date, title: "Talaba qo'shildi", detail: crmCenterTitle() });
+  }
+  groups.forEach((group) => events.push({ date: group.starts_at || group.startDate || student.created_at, title: "Guruhga biriktirildi", detail: group.name }));
+  payments.forEach((payment) => events.push({ date: payment.paid_at || payment.paymentDate, title: "To'lov qo'shildi", detail: `${formatMoney(payment.amount || payment.paid_amount || 0)} · ${payment.group_name || crmGroupName(payment.group_id)}` }));
+  attendance.forEach((item) => events.push({ date: item.lesson_date, title: "Davomat qayd etildi", detail: `${statusLabels[item.status] || item.status} · ${item.group_name || ""}` }));
+  return events.filter((item) => item.date).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 12);
+}
+
+function crmStudentProfileMarkup(student) {
+  const payments = (state.payments || []).filter((item) => String(item.student_id || "") === String(student.id));
+  const attendance = crmAttendanceForStudent(student);
+  const groups = crmStudentGroups(student).map((name) => (state.groups || []).find((entry) => entry.name === name || String(entry.id) === String(student.group_id))).filter(Boolean);
+  const coins = crmStudentCoinBalance(student);
+  const crystals = crmStudentCrystalBalance(student);
+  const history = crmStudentHistory(student, payments, attendance, groups);
+  const discounts = payments.filter((item) => Number(item.discount || 0) > 0);
+  const coinRows = [
+    { section: "Attendance", type: "coins", amount: Math.max(coins - Math.floor(crystals * 0.5), 0), date: student.created_at || new Date().toISOString().slice(0, 10) },
+    { section: "Exam", type: "coins", amount: Math.floor(coins / 2), date: student.created_at || new Date().toISOString().slice(0, 10) },
+    { section: "Reason", type: "crystal", amount: crystals, date: student.created_at || new Date().toISOString().slice(0, 10) }
+  ].filter((row) => Number(row.amount) > 0);
+  return `
+    <div class="profile-page-head">
+      <div><button class="crm-back-link" type="button" data-view="students">← Ro'yxatga qaytish</button><h1>${escapeHtml(student.full_name || student.fullName)}</h1><p>${escapeHtml(student.course_name || student.course || "-")} / ${escapeHtml(crmStudentGroups(student)[0] || "-")}</p></div>
+      <div class="crm-head-actions"><button type="button" data-crm-action="edit" data-resource="students" data-id="${student.id}">Tahrirlash</button><button type="button" data-crm-action="payment" data-resource="students" data-id="${student.id}">To'lov qo'shish</button></div>
+    </div>
+    <div class="profile-shell" data-profile-root="student">
+      <aside class="profile-sidebar">
+        <section class="profile-card profile-hero-card">
+          <div class="profile-avatar">${escapeHtml(crmInitials(student.full_name || student.fullName))}</div>
+          <div class="profile-hero-meta"><h2>${escapeHtml(student.full_name || student.fullName)}</h2><p>ID: ${escapeHtml(String(student.id || "-"))}</p></div>
+          <div class="profile-metric-pills">
+            <span class="metric-pill ${Number(student.balance || 0) > 0 ? "danger" : ""}">${formatMoney(student.balance || 0)} balans</span>
+            <span class="metric-pill gold">${coins} tanga</span>
+            <span class="metric-pill mint">${crystals} kristal</span>
+          </div>
+          <div class="profile-summary-list compact">
+            <div><span>Telefon raqam</span><strong>${escapeHtml(student.phone || "-")}</strong></div>
+            <div><span>Tug'ilgan sana</span><strong>${formatDate(student.birth_date || student.birthDate) || "-"}</strong></div>
+            <div><span>Ota-ona</span><strong>${escapeHtml(student.parent_phone || student.parentPhone || "-")}</strong></div>
+            <div><span>Qo'shilgan sana</span><strong>${formatDate(student.created_at || student.startDate) || "-"}</strong></div>
+          </div>
+          <button class="profile-link-button" type="button" data-crm-action="edit" data-resource="students" data-id="${student.id}">+ qo'shimcha ma'lumot</button>
+        </section>
+        <section class="profile-card note-card">
+          <div class="profile-card-head"><h3>Eslatma</h3><button type="button" data-crm-action="edit" data-resource="students" data-id="${student.id}">✎</button></div>
+          <p>${escapeHtml(student.note || "Izoh kiritilmagan")}</p>
+        </section>
+      </aside>
+      <section class="profile-main">
+        <div class="profile-tabs-wrap">
+          <div class="profile-tabs">
+            <button class="active" type="button" data-crm-action="profile-tab" data-profile-target="groups">Guruhlar</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="payments">To'lovlar</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="wallet">Tanga/Kristal hisobi</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="note">Eslatma</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="discounts">Chegirma</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="exams">Imtihonlar</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="history">Tarix</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="purchases">Xaridlar</button>
+            <button type="button" data-crm-action="profile-tab" data-profile-target="sms">SMS</button>
+          </div>
+        </div>
+        <section class="profile-panel active" data-profile-panel="groups">
+          <div class="profile-panel-grid">${groups.length ? groups.map((group) => `<article class="profile-info-card"><div class="profile-info-card-head"><h3>${escapeHtml(group.name)}</h3><span class="profile-chip">${escapeHtml(group.status || "active")}</span></div><div class="profile-summary-list"><div><span>O'qituvchi</span><strong>${escapeHtml(crmGroupTeachers(group)[0] || "-")}</strong></div><div><span>Dars kunlari</span><strong>${escapeHtml(group.days || group.lessonDays?.join(", ") || "-")}</strong></div><div><span>Vaqti</span><strong>${escapeHtml(group.start_time || group.startTime || "-")} - ${escapeHtml(group.end_time || group.endTime || "-")}</strong></div><div><span>Narxi</span><strong>${formatMoney(group.monthly_price || group.price || 0)}</strong></div></div><div class="profile-info-card-footer"><button type="button" data-view="group-profile" data-id="${group.id}">Davomat &amp; Baho →</button></div></article>`).join("") : crmProfileEmpty("Guruh biriktirilmagan", "Talabani guruhga qo'shgandan so'ng bu yerda ko'rinadi.")}</div>
+        </section>
+        <section class="profile-panel" data-profile-panel="payments" hidden>
+          ${crmProfileTable(["SANA", "NARX", "GURUH", "HOLATI", "TO'LOV TURI"], payments.map((item) => `<tr><td>${formatDate(item.paid_at || item.paymentDate) || "-"}</td><td><strong class="${paymentRemainder(item) > 0 ? "text-danger" : "text-success"}">${formatMoney(item.amount || item.paid_amount || 0)}</strong> <small>(${paymentRemainder(item)} so'm qoldiq)</small></td><td>${escapeHtml(item.group_name || crmGroupName(item.group_id))}</td><td>${renderBadge(item.status || (paymentRemainder(item) ? "partial" : "paid"))}</td><td>${escapeHtml(item.payment_type || item.method || "-")}</td></tr>`), "To'lov topilmadi", "Bu talaba uchun hali to'lovlar kiritilmagan.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="wallet" hidden>
+          <div class="wallet-summary"><div><b>Tangalar:</b> <span class="metric-pill gold">${coins}</span></div><div><b>Kristall:</b> <span class="metric-pill mint">${crystals}</span></div></div>
+          ${crmProfileTable(["BO'LIM", "TURI", "SONI", "YARATILGAN VAQTI"], coinRows.map((row) => `<tr><td>${escapeHtml(row.section)}</td><td><span class="profile-chip ${row.type === "coins" ? "gold" : "mint"}">${row.type === "coins" ? "coins" : "crystal"}</span></td><td>${escapeHtml(String(row.amount))}</td><td>${formatDate(row.date) || "-"}</td></tr>`), "Wallet yozuvlari yo'q", "Tanga va kristal harakatlari shu yerda chiqadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="note" hidden>
+          <article class="profile-rich-note"><h3>Eslatma</h3><p>${escapeHtml(student.note || "Bu talaba uchun izoh kiritilmagan.")}</p></article>
+        </section>
+        <section class="profile-panel" data-profile-panel="discounts" hidden>
+          ${crmProfileTable(["GURUH", "QIYMAT", "OY", "SABAB"], discounts.map((item) => `<tr><td>${escapeHtml(item.group_name || crmGroupName(item.group_id))}</td><td>${formatMoney(item.discount || 0)}</td><td>${escapeHtml(item.payment_month || "-")}</td><td>${escapeHtml(item.note || "Chegirma qo'llangan")}</td></tr>`), "Chegirma mavjud emas", "Bu talaba uchun hali chegirma kiritilmagan.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="exams" hidden>
+          ${crmProfileTable(["NOMI", "SANA", "BAL", "O'RNI", "GURUH"], (student.exams || []).map((item) => `<tr><td>${escapeHtml(item.name || item.title || "Imtihon")}</td><td>${formatDate(item.date) || "-"}</td><td>${escapeHtml(String(item.score || item.ball || "-"))}</td><td>${escapeHtml(String(item.rank || item.place || "-"))}</td><td>${escapeHtml(item.group_name || crmStudentGroups(student)[0] || "-")}</td></tr>`), "Imtihon topilmadi", "Imtihon natijalari kiritilganda shu yerda ko'rinadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="history" hidden>
+          <div class="timeline-list">${history.length ? history.map((event) => `<article><strong>${escapeHtml(event.title)}</strong><span>${escapeHtml(event.detail || "")}</span><time>${formatDate(event.date) || "-"}</time></article>`).join("") : crmProfileEmpty("Tarix topilmadi", "Jarayonlarga ulangan loglar shu yerda chiqadi.")}</div>
+        </section>
+        <section class="profile-panel" data-profile-panel="purchases" hidden>
+          ${crmProfileTable(["NOMI", "SUMMA", "TANGALAR", "TO'LOV USULI", "SANA"], (student.purchases || []).map((item) => `<tr><td>${escapeHtml(item.name || item.title || "-")}</td><td>${formatMoney(item.amount || 0)}</td><td>${escapeHtml(String(item.coins || 0))}</td><td>${escapeHtml(item.payment_type || "-")}</td><td>${formatDate(item.date) || "-"}</td></tr>`), "Ma'lumot topilmadi", "Talaba market yoki shop xaridlari shu yerda ko'rinadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="sms" hidden>
+          ${crmProfileTable(["KANAL", "MATN", "HOLAT", "VAQT"], (student.smsHistory || []).map((item) => `<tr><td>${escapeHtml(item.channel || "SMS")}</td><td>${escapeHtml(item.text || item.message || "-")}</td><td>${renderBadge(item.status || "sent")}</td><td>${formatDate(item.date || item.created_at) || "-"}</td></tr>`), "Xabarlar yo'q", "SMS va boshqa yuborilgan xabarlar shu yerda ko'rinadi.")}
+        </section>
+      </section>
+    </div>`;
+}
+
+function crmGroupProfileMarkup(group) {
+  const groupStudents = crmStudentsForGroup(group);
+  const attendance = crmAttendanceForGroup(group);
+  const payments = (state.payments || []).filter((item) => String(item.group_id || "") === String(group.id) || item.group_name === group.name);
+  const dates = [...new Set(attendance.map((item) => formatDate(item.lesson_date)).filter(Boolean))].slice(0, 8);
+  const dateHeaders = dates.length ? dates : [];
+  const gradingDates = dateHeaders.length ? dateHeaders : [formatDate(group.starts_at || group.startDate) || "Bugun"];
+  const discountRows = payments.filter((item) => Number(item.discount || 0) > 0);
+  const history = [{ date: group.starts_at || group.startDate, title: "Guruh yaratildi", detail: group.name }, ...groupStudents.map((student) => ({ date: student.created_at || group.starts_at, title: "Talaba guruhga qo'shildi", detail: student.full_name || student.fullName }))].filter((item) => item.date).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 12);
+  return `
+    <div class="profile-page-head">
+      <div><button class="crm-back-link" type="button" data-view="groups">← Ro'yxatga qaytish</button><h1>${escapeHtml(group.name)}</h1><p>${escapeHtml(group.course_name || group.course || "-")} / ${escapeHtml(crmGroupTeachers(group)[0] || "-")}</p></div>
+      <div class="crm-head-actions"><button type="button" data-crm-action="edit" data-resource="groups" data-id="${group.id}">Tahrirlash</button><button type="button" data-view="attendance">Davomat olish</button></div>
+    </div>
+    <div class="profile-shell" data-profile-root="group">
+      <aside class="profile-sidebar">
+        <section class="profile-card profile-hero-card">
+          <div class="profile-hero-meta stacked"><h2>${escapeHtml(group.name)}</h2><p>O'qituvchi: <b>${escapeHtml(crmGroupTeachers(group)[0] || "-")}</b></p><p>Narx: <b>${formatMoney(group.monthly_price || group.price || 0)}</b></p><p>Vaqt: <b>${escapeHtml(group.start_time || group.startTime || "-")} - ${escapeHtml(group.end_time || group.endTime || "-")}</b></p><p>Kurs: <b>${escapeHtml(group.course_name || group.course || "-")}</b></p><p>Xona: <b>${escapeHtml(group.room || "-")}</b></p><p>Dars kunlari: <b>${escapeHtml(group.days || group.lessonDays?.join(", ") || "-")}</b></p></div>
+          <div class="profile-student-list">${groupStudents.map((student, index) => `<div class="student-row"><span>${index + 1}</span><b>${escapeHtml(student.full_name || student.fullName)}</b><small>${escapeHtml(student.phone || "-")}</small></div>`).join("") || `<div class="profile-empty-inline">Talaba biriktirilmagan</div>`}</div>
+          <div class="profile-side-actions"><button type="button" data-open-modal="students">Talaba qo'shish</button><button type="button" data-crm-action="active-students-report">+ arxivlanganlar</button></div>
+        </section>
+      </aside>
+      <section class="profile-main">
+        <div class="profile-tabs-wrap"><div class="profile-tabs">
+          <button class="active" type="button" data-crm-action="profile-tab" data-profile-target="attendance">Davomat</button>
+          <button type="button" data-crm-action="profile-tab" data-profile-target="grading">Baholash</button>
+          <button type="button" data-crm-action="profile-tab" data-profile-target="homework">Mashqlar</button>
+          <button type="button" data-crm-action="profile-tab" data-profile-target="discounts">Chegirma</button>
+          <button type="button" data-crm-action="profile-tab" data-profile-target="exams">Imtihonlar</button>
+          <button type="button" data-crm-action="profile-tab" data-profile-target="history">Tarix</button>
+          <button type="button" data-crm-action="profile-tab" data-profile-target="note">Izoh</button>
+        </div></div>
+        <section class="profile-panel active" data-profile-panel="attendance">
+          ${dateHeaders.length ? crmProfileTable(["TALABALAR", ...dateHeaders], groupStudents.map((student) => `<tr><td>${escapeHtml(student.full_name || student.fullName)}</td>${dateHeaders.map((date) => { const record = attendance.find((item) => (String(item.student_id || "") === String(student.id) || item.student_name === (student.full_name || student.fullName)) && formatDate(item.lesson_date) === date); const status = record?.status || ""; const label = status === "present" ? "✓" : status === "late" ? "◔" : status === "absent" ? "✕" : ""; return `<td><span class="status-cell ${status || "empty"}">${label}</span></td>`; }).join("")}</tr>`), "Davomat topilmadi", "Bu guruh uchun hali davomat yozuvlari yo'q.") : crmProfileEmpty("Davomat topilmadi", "Dars o'tilgach davomat jurnali shu yerda chiqadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="grading" hidden>
+          ${crmProfileTable(["TALABALAR", ...gradingDates], groupStudents.map((student) => `<tr><td>${escapeHtml(student.full_name || student.fullName)}</td>${gradingDates.map((date, index) => `<td><input class="profile-cell-input" type="text" value="${escapeHtml(String(student.grades?.[index] || student.score || 5))}" /></td>`).join("")}</tr>`), "Baholar topilmadi", "Baholash natijalari kiritilgandan keyin shu yerda ko'rinadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="homework" hidden>
+          ${crmProfileTable(["TALABALAR", ...gradingDates], groupStudents.map((student, rowIndex) => `<tr><td>${escapeHtml(student.full_name || student.fullName)}</td>${gradingDates.map((date, colIndex) => `<td><span class="profile-chip gold">${rowIndex === 0 && colIndex === 0 ? "TAKRORLASH" : `${student.homeworkPercent || 0}%`}</span></td>`).join("")}</tr>`), "Mashqlar topilmadi", "Uyga vazifa va mashq foizlari shu yerda aks etadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="discounts" hidden>
+          ${crmProfileTable(["TALABA", "QIYMAT", "OY", "SABAB"], discountRows.map((item) => `<tr><td>${escapeHtml(item.student_name || "-")}</td><td>${formatMoney(item.discount || 0)}</td><td>${escapeHtml(item.payment_month || "-")}</td><td>${escapeHtml(item.note || "Chegirma")}</td></tr>`), "Chegirma topilmadi", "Bu guruh uchun chegirma yozuvlari mavjud emas.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="exams" hidden>
+          ${crmProfileTable(["TALABA", "SANA", "BAL", "STATUS"], groupStudents.flatMap((student) => (student.exams || []).map((exam) => `<tr><td>${escapeHtml(student.full_name || student.fullName)}</td><td>${formatDate(exam.date) || "-"}</td><td>${escapeHtml(String(exam.score || exam.ball || "-"))}</td><td>${renderBadge(exam.status || "done")}</td></tr>`)), "Imtihon natijalari topilmadi", "Guruh imtihonlari shu bo'limda ko'rinadi.")}
+        </section>
+        <section class="profile-panel" data-profile-panel="history" hidden>
+          <div class="timeline-list">${history.length ? history.map((event) => `<article><strong>${escapeHtml(event.title)}</strong><span>${escapeHtml(event.detail || "")}</span><time>${formatDate(event.date) || "-"}</time></article>`).join("") : crmProfileEmpty("Tarix topilmadi", "Guruhga oid tarix loglari shu yerda ko'rinadi.")}</div>
+        </section>
+        <section class="profile-panel" data-profile-panel="note" hidden>
+          <article class="profile-rich-note"><h3>Izoh</h3><p>${escapeHtml(group.note || "Guruh bo'yicha izoh kiritilmagan.")}</p></article>
+        </section>
+      </section>
+    </div>`;
+}
+
 function renderCrmProfiles() {
   const studentNode = document.querySelector("[data-student-profile]");
   if (studentNode) {
     const student = findByPathOrFirst(state.students, "students");
-    if (student) {
-      const studentPayments = state.payments.filter((item) => String(item.student_id) === String(student.id));
-      const studentAttendance = state.attendance.filter((item) => item.student_name === (student.full_name || student.fullName) || String(item.student_id) === String(student.id));
-      studentNode.innerHTML = `
-        <div class="page-head"><div><h1>${escapeHtml(student.full_name || student.fullName)}</h1><p>${escapeHtml(student.course_name || student.course || "-")} / ${escapeHtml(student.group_name || crmStudentGroups(student)[0] || "-")}</p></div><div class="crm-head-actions"><button type="button" data-view="students">Ro'yxatga qaytish</button><button type="button" data-crm-action="edit" data-resource="students" data-id="${student.id}">Tahrirlash</button><button type="button" data-crm-action="payment" data-resource="students" data-id="${student.id}">To'lov qo'shish</button></div></div>
-        <div class="profile-tabs"><button class="active" type="button" data-crm-action="profile-tab">Asosiy ma'lumotlar</button><button type="button" data-crm-action="profile-tab">Guruhlar</button><button type="button" data-crm-action="profile-tab">To'lov tarixi</button><button type="button" data-crm-action="profile-tab">Davomat tarixi</button><button type="button" data-crm-action="profile-tab">Izohlar</button><button type="button" data-crm-action="profile-tab">Hujjatlar</button></div>
-        <div class="profile-grid"><article><span>Telefon</span><strong>${escapeHtml(student.phone || "-")}</strong></article><article><span>Ota-ona telefoni</span><strong>${escapeHtml(student.parent_phone || student.parentPhone || "-")}</strong></article><article><span>Tug'ilgan sana</span><strong>${formatDate(student.birth_date || student.birthDate) || "-"}</strong></article><article><span>Balans</span><strong>${formatMoney(student.balance)}</strong></article></div>
-        <div class="profile-columns"><section><h3>To'lov tarixi</h3>${studentPayments.map((item) => `<p><b>${formatDate(item.paid_at)}</b><span>${formatMoney(item.amount)} - ${statusLabels[item.status] || item.status}</span></p>`).join("") || "<p>To'lov yo'q</p>"}</section><section><h3>Davomat tarixi</h3>${studentAttendance.map((item) => `<p><b>${formatDate(item.lesson_date)}</b><span>${statusLabels[item.status] || item.status} - ${item.group_name || ""}</span></p>`).join("") || "<p>Davomat yo'q</p>"}</section></div>`;
-    }
+    if (student) studentNode.innerHTML = crmStudentProfileMarkup(student);
   }
   const groupNode = document.querySelector("[data-group-profile]");
   if (groupNode) {
     const group = findByPathOrFirst(state.groups, "groups");
-    if (group) {
-      const groupStudents = state.students.filter((student) => String(student.group_id) === String(group.id));
-      groupNode.innerHTML = `
-        <div class="page-head"><div><h1>${escapeHtml(group.name)}</h1><p>${escapeHtml(group.course_name || group.course || "-")} / ${escapeHtml(group.teacher_full_name || group.teacher_name || "-")}</p></div><div class="crm-head-actions"><button type="button" data-view="groups">Ro'yxatga qaytish</button><button type="button" data-crm-action="edit" data-resource="groups" data-id="${group.id}">Tahrirlash</button><button type="button" data-view="attendance">Davomat olish</button></div></div>
-        <div class="profile-tabs"><button class="active" type="button" data-crm-action="profile-tab">Guruh ma'lumotlari</button><button type="button" data-crm-action="profile-tab">Talabalar</button><button type="button" data-crm-action="profile-tab">Davomat</button><button type="button" data-crm-action="profile-tab">To'lovlar</button><button type="button" data-crm-action="profile-tab">Dars jadvali</button><button type="button" data-crm-action="profile-tab">O'qituvchi</button></div>
-        <div class="profile-grid"><article><span>Dars kunlari</span><strong>${escapeHtml(group.days || "-")}</strong></article><article><span>Vaqt</span><strong>${escapeHtml(group.start_time || group.startTime || "")} - ${escapeHtml(group.end_time || group.endTime || "")}</strong></article><article><span>Xona</span><strong>${escapeHtml(group.room || "-")}</strong></article><article><span>Narx</span><strong>${formatMoney(group.monthly_price || group.price)}</strong></article></div>
-        <section class="settings-panel"><h3>Talabalar</h3><div class="mini-list">${groupStudents.map((student) => `<span>${escapeHtml(student.full_name || student.fullName)}</span>`).join("") || "Talaba yo'q"}</div></section>`;
-    }
+    if (group) groupNode.innerHTML = crmGroupProfileMarkup(group);
   }
   const teacherNode = document.querySelector("[data-teacher-profile]");
   if (teacherNode) {
@@ -5101,9 +5362,16 @@ async function handleCrmAction(action, button) {
     return;
   }
   if (action === "profile-tab") {
-    button.closest(".profile-tabs")?.querySelectorAll("button").forEach((tab) => tab.classList.remove("active"));
+    const tabs = button.closest(".profile-tabs");
+    tabs?.querySelectorAll("button").forEach((tab) => tab.classList.remove("active"));
     button.classList.add("active");
-    showToast(`${button.textContent.trim()} bo'limi tanlandi.`);
+    const root = button.closest("[data-profile-root]");
+    const target = button.dataset.profileTarget;
+    root?.querySelectorAll("[data-profile-panel]").forEach((panel) => {
+      const active = panel.dataset.profilePanel === target;
+      panel.hidden = !active;
+      panel.classList.toggle("active", active);
+    });
     return;
   }
 
