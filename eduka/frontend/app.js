@@ -4641,39 +4641,161 @@ function renderCrmProfiles() {
   }
 }
 
+
+function crmDownloadFile(filename, content, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+function crmCsvEscape(value) {
+  const text = String(value ?? "");
+  if (/[",\n;]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function crmExportCollection(resource, rows = []) {
+  const labels = {
+    students: ["id", "full_name", "phone", "parent_phone", "course_name", "group_name", "balance", "status"],
+    groups: ["id", "name", "course_name", "teacher_full_name", "monthly_price", "start_time", "end_time", "days", "room", "status"],
+    teachers: ["id", "full_name", "phone", "email", "course_name", "salary_type", "salary_rate", "status"],
+    courses: ["id", "name", "price", "duration", "level", "lesson_type", "status"],
+    payments: ["id", "student_name", "group_name", "payment_month", "due_amount", "amount", "discount", "status", "payment_type", "paid_at"],
+    leads: ["id", "full_name", "phone", "course_name", "source", "status", "manager_name", "next_contact_at"],
+    reports: ["metric", "value"]
+  };
+  let data = rows.length ? rows : crmCollectionFor(resource);
+  if (resource === "students") data = filteredCrmStudents();
+  if (resource === "groups") data = filteredCrmGroups();
+  if (resource === "teachers") data = filteredCrmTeachers();
+  if (resource === "payments") data = state.payments || [];
+  if (resource === "reports") {
+    data = [
+      { metric: "Talabalar", value: (state.students || []).length },
+      { metric: "Guruhlar", value: (state.groups || []).length },
+      { metric: "O'qituvchilar", value: (state.teachers || []).length },
+      { metric: "To'lovlar", value: (state.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0) },
+      { metric: "Qarzdorlik", value: debtItems().reduce((s, d) => s + Number(d.balance || d.remaining_debt || 0), 0) }
+    ];
+  }
+  const headers = labels[resource] || Object.keys(data[0] || { id: "", name: "" });
+  const csv = [headers.join(";"), ...data.map((row) => headers.map((key) => crmCsvEscape(row[key] ?? row[camelCase(key)] ?? "")).join(";"))].join("\n");
+  crmDownloadFile(`eduka-${resource}-${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csv, "text/csv;charset=utf-8");
+  showToast(`${resource} CSV eksport qilindi.`);
+}
+
+function camelCase(key) {
+  return String(key).replace(/_([a-z])/g, (_, ch) => ch.toUpperCase());
+}
+
+function crmPrintHtml(title, body) {
+  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+  if (!win) {
+    crmDownloadFile(`${title.toLowerCase().replace(/\s+/g, "-")}.html`, body, "text/html;charset=utf-8");
+    showToast("Brauzer popupni blokladi. Fayl yuklab olindi.", "warning");
+    return;
+  }
+  win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#172033}h1{margin:0 0 16px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border:1px solid #e5e7eb;padding:8px;text-align:left}.muted{color:#64748b}.total{font-size:20px;font-weight:700}</style></head><body>${body}</body></html>`);
+  win.document.close();
+  win.focus();
+  window.setTimeout(() => win.print(), 300);
+}
+
+function crmBuildInvoiceHtml(payment) {
+  const studentName = payment?.student_name || crmStudentName(payment?.student_id) || "Talaba";
+  const rows = [
+    ["Talaba", studentName],
+    ["Guruh", payment?.group_name || crmGroupName(payment?.group_id) || "-"],
+    ["Oy", payment?.payment_month || new Date().toISOString().slice(0, 7)],
+    ["To'lov turi", payment?.payment_type || "-"],
+    ["To'lanishi kerak", formatMoney(payment?.due_amount || payment?.amount || 0)],
+    ["To'langan", formatMoney(payment?.amount || 0)],
+    ["Chegirma", formatMoney(payment?.discount || 0)],
+    ["Holati", statusLabels[payment?.status] || payment?.status || "-"],
+    ["Sana", formatDate(payment?.paid_at || payment?.created_at || new Date().toISOString())]
+  ];
+  return `<h1>Eduka to'lov cheki</h1><p class="muted">${escapeHtml(crmCenterTitle())}</p><table>${rows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join("")}</table><p class="total">Jami: ${escapeHtml(formatMoney(payment?.amount || 0))}</p>`;
+}
+
+function crmImportCsv(resource) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".csv,text/csv";
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const lines = String(reader.result || "").split(/\r?\n/).filter(Boolean);
+      const headers = lines.shift()?.split(/[;,]/).map((h) => h.trim()) || [];
+      let created = 0;
+      for (const line of lines) {
+        const cells = line.split(/[;,]/);
+        const payload = {};
+        headers.forEach((key, index) => { if (key) payload[key] = cells[index] || ""; });
+        if (!payload.full_name && payload.name) payload.full_name = payload.name;
+        if (!payload.full_name && !payload.name) continue;
+        await serviceFor(resource)?.create?.(payload);
+        created += 1;
+      }
+      await refreshAll();
+      showToast(`${created} ta yozuv import qilindi.`);
+    };
+    reader.readAsText(file);
+  });
+  input.click();
+}
+
+function crmOpenMessagePreview(target, purpose = "general") {
+  const name = target?.full_name || target?.fullName || target?.name || "mijoz";
+  const phone = target?.phone || "telefon kiritilmagan";
+  const debt = Number(target?.balance || target?.remaining_debt || 0);
+  const text = purpose === "debt"
+    ? `Assalomu alaykum, ${name}. Eduka bo'yicha ${formatMoney(debt)} qarzdorlik mavjud. Iltimos, to'lovni yaqin muddatda amalga oshiring.`
+    : `Assalomu alaykum, ${name}. Eduka o'quv markazidan xabar.`;
+  const note = window.prompt(`${phone} raqamiga yuboriladigan xabar preview:`, text);
+  if (note === null) return;
+  const saved = loadCrmLocalState();
+  saved.messages = Array.isArray(saved.messages) ? saved.messages : [];
+  saved.messages.unshift({ id: Date.now(), to: phone, text: note, createdAt: new Date().toISOString(), status: "preview" });
+  localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+  showToast("Xabar preview sifatida saqlandi.");
+}
+
+function crmActiveStudentsReport() {
+  const students = filteredCrmStudents().filter((student) => (student.status || "active") === "active");
+  const html = `<h1>Aktiv talabalar hisoboti</h1><p class="muted">${escapeHtml(crmCenterTitle())} — ${new Date().toLocaleDateString()}</p><table><thead><tr><th>#</th><th>FISH</th><th>Telefon</th><th>Guruh</th><th>Balans</th></tr></thead><tbody>${students.map((s, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(s.full_name || s.fullName)}</td><td>${escapeHtml(s.phone || "-")}</td><td>${escapeHtml(s.group_name || crmStudentGroups(s).join(", ") || "-")}</td><td>${escapeHtml(formatMoney(s.balance || 0))}</td></tr>`).join("")}</tbody></table>`;
+  crmPrintHtml("Aktiv talabalar hisoboti", html);
+}
+
 async function handleCrmAction(action, button) {
   const resource = button.dataset.resource;
   const id = button.dataset.id;
   ensureEditableCrmCollection(resource);
   const collection = crmCollectionFor(resource);
   const item = collection.find((entry) => String(entry.id) === String(id));
-  if (action === "avatar-menu") {
-    toggleCrmPanel("avatar");
-    return;
-  }
+
+  if (action === "avatar-menu") return toggleCrmPanel("avatar");
   if (action === "quick-tools") return toggleCrmPanel("quick");
-  if (action === "center-menu") return showToast("Markaz profili ochildi.");
   if (action === "notifications") return toggleCrmPanel("notifications");
   if (action === "tasks") return toggleCrmPanel("tasks");
+  if (action === "close-drawer") return closeDrawer();
+  if (action === "quick-add-student") return openDrawer("students");
+  if (action === "center-menu") return setView("settings");
+  if (action === "profile-toast") return setView("settings");
+
   if (action === "mark-notifications") {
     document.querySelector('[data-crm-panel="notifications"]')?.setAttribute("hidden", "");
     showToast("Bildirishnomalar o'qildi deb belgilandi.");
     return;
   }
-  if (action === "profile-toast") return showToast("Profil sozlamalari ochildi.");
-  if (action === "cash-transfer") return showToast("Kassadagi pulni hisobga o'tkazish so'rovi tayyorlandi.", "info");
-  if (action === "toggle-payment-type") {
-    const paymentType = (state.paymentTypes || []).find((entry) => String(entry.id) === String(id));
-    if (paymentType) {
-      paymentType.active = !paymentType.active;
-      persistCrmCollections();
-      renderAll();
-      showToast(paymentType.active ? "To'lov turi faollashtirildi." : "To'lov turi o'chirildi.", paymentType.active ? "success" : "warning");
-    }
-    return;
-  }
-  if (action === "close-drawer") return closeDrawer();
-  if (action === "quick-add-student") return openDrawer("students");
+
   if (action === "reset-filters") {
     crmListState[resource] = {};
     renderAll();
@@ -4682,29 +4804,54 @@ async function handleCrmAction(action, button) {
   }
   if (action === "reset-ui-filters") {
     uiState.filters[resource] = {};
+    document.querySelectorAll(`[data-filter-scope="${resource}"] [data-filter]`).forEach((field) => { field.value = ""; });
     renderAll();
     showToast("Filtrlar tozalandi.");
     return;
   }
+
   if (action === "view" && resource === "students") return setView("student-profile", { route: `/app/students/${id}` });
   if (action === "view" && resource === "groups") return setView("group-profile", { route: `/app/groups/${id}` });
   if (action === "view" && resource === "teachers") return setView("teacher-profile", { route: `/app/teachers/${id}` });
   if (action === "edit" && item) return openDrawer(resource, item);
-  if (action === "toggle-status" && item) {
-    item.status = item.status === "active" ? "archived" : "active";
-    persistCrmCollections();
-    renderAll();
-    showToast("Status yangilandi.");
-    return;
-  }
+
   if (action === "delete" && item) {
     if (!window.confirm("O'chirishni tasdiqlaysizmi?")) return;
+    await safeApi(`${modalFields[resource]?.endpoint || endpoints[resource]}/${id}`, { method: "DELETE" }, async () => {
+      await serviceFor(resource)?.remove?.(id);
+      return { ok: true };
+    });
     state[resource] = collection.filter((entry) => String(entry.id) !== String(id));
     persistCrmCollections();
-    renderAll();
+    await refreshAll();
     showToast("Ma'lumot o'chirildi.");
     return;
   }
+
+  if (action === "toggle-status" && item) {
+    item.status = item.status === "active" ? "archived" : "active";
+    await safeApi(`${modalFields[resource]?.endpoint || endpoints[resource]}/${id}`, { method: "PUT", body: JSON.stringify(item) }, async () => {
+      await serviceFor(resource)?.update?.(id, item);
+      return { ok: true };
+    });
+    persistCrmCollections();
+    await refreshAll();
+    showToast(item.status === "active" ? "Status faollashtirildi." : "Status arxivlandi.");
+    return;
+  }
+
+  if (action === "toggle-payment-type") {
+    const paymentType = (state.paymentTypes || []).find((entry) => String(entry.id) === String(id));
+    if (paymentType) {
+      paymentType.active = !paymentType.active;
+      await safeApi(`/api/payment-types/${id}`, { method: "PUT", body: JSON.stringify(paymentType) }, async () => ({ ok: true }));
+      persistCrmCollections();
+      renderAll();
+      showToast(paymentType.active ? "To'lov turi faollashtirildi." : "To'lov turi o'chirildi.", paymentType.active ? "success" : "warning");
+    }
+    return;
+  }
+
   if (action === "convert-lead") {
     await convertLead(id);
     return;
@@ -4713,36 +4860,150 @@ async function handleCrmAction(action, button) {
     const flow = ["new", "contacted", "trial", "became_student", "paid", "later"];
     const current = flow.indexOf(item.status || "new");
     item.status = flow[(current + 1) % flow.length];
+    await safeApi(`/api/leads/${id}/status`, { method: "PUT", body: JSON.stringify({ status: item.status }) }, async () => {
+      await serviceFor("leads")?.update?.(id, item);
+      return { ok: true };
+    });
     persistCrmCollections();
-    renderAll();
-    showToast("Lead statusi yangilandi.");
+    await refreshAll();
+    showToast(`Lead statusi: ${statusLabels[item.status] || item.status}`);
     return;
   }
-  if (action === "import-excel") return showToast("Import oynasi ochildi.");
-  if (action === "export-excel") return showToast("Eksport jarayoni boshlandi.");
-  if (action === "export-pdf") return showToast("PDF eksport jarayoni boshlandi.");
-  if (action === "active-students-report") return showToast("Aktiv talabalar hisoboti tayyorlandi.");
-  if (action === "toggle-view" || action === "filter-settings") return showToast("Ko'rinish sozlamalari yangilandi.");
+
+  if (action === "import-excel") return crmImportCsv(resource || "students");
+  if (action === "export-excel") return crmExportCollection(resource || viewFromPath() || "reports");
+  if (action === "export-pdf") {
+    const title = "Eduka hisobot";
+    const body = `<h1>${title}</h1><p class="muted">${escapeHtml(crmCenterTitle())}</p><table><tr><th>Talabalar</th><td>${(state.students || []).length}</td></tr><tr><th>Guruhlar</th><td>${(state.groups || []).length}</td></tr><tr><th>O'qituvchilar</th><td>${(state.teachers || []).length}</td></tr><tr><th>To'lovlar</th><td>${escapeHtml(formatMoney((state.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0)))}</td></tr></table>`;
+    crmPrintHtml(title, body);
+    return;
+  }
+  if (action === "active-students-report") return crmActiveStudentsReport();
+
+  if (action === "toggle-view" || action === "filter-settings") {
+    document.body.classList.toggle("crm-compact-view");
+    showToast("Ko'rinish sozlamalari yangilandi.");
+    return;
+  }
+
   if (action === "payment") {
     const student = state.students.find((entry) => String(entry.id) === String(id));
     return openDrawer("payments", { student_id: id, group_id: student?.group_id, due_amount: student?.balance || 0, amount: 0, discount: 0, payment_month: new Date().toISOString().slice(0, 7), _prefill: true });
   }
-  if (action === "assign-group") return showToast("Guruhga biriktirish oynasi ochildi.");
-  if (action === "flag") return showToast("Talaba kuzatuvga olindi.");
-  if (action === "add-student") return openDrawer("students");
+
+  if (action === "assign-group") {
+    const student = state.students.find((entry) => String(entry.id) === String(id));
+    if (!student) return showToast("Talaba topilmadi.", "warning");
+    const names = (state.groups || []).map((g) => `${g.id}: ${g.name}`).join("\n");
+    const selected = window.prompt(`Qaysi guruhga biriktiramiz? ID kiriting:\n${names}`, student.group_id || "");
+    if (!selected) return;
+    const group = (state.groups || []).find((g) => String(g.id) === String(selected));
+    if (!group) return showToast("Guruh topilmadi.", "warning");
+    const updated = { ...student, group_id: group.id, group_name: group.name, course_name: group.course_name || student.course_name };
+    await safeApi(`/api/students/${id}`, { method: "PUT", body: JSON.stringify(updated) }, async () => {
+      await serviceFor("students")?.update?.(id, updated);
+      return { ok: true };
+    });
+    Object.assign(student, updated);
+    persistCrmCollections();
+    await refreshAll();
+    showToast(`${student.full_name || student.fullName} ${group.name} guruhiga biriktirildi.`);
+    return;
+  }
+
+  if (action === "flag" && item) {
+    item.flagged = !item.flagged;
+    item.note = item.flagged ? `${item.note || ""} Kuzatuvga olindi.`.trim() : item.note;
+    persistCrmCollections();
+    renderAll();
+    showToast(item.flagged ? "Talaba kuzatuvga olindi." : "Kuzatuv belgisi olib tashlandi.");
+    return;
+  }
+
+  if (action === "add-student") return openDrawer("students", { group_id: id, _prefill: true });
   if (action === "attendance") return setView("attendance");
   if (action === "payments") return setView("finance");
-  if (action === "invoice" || action === "download-invoice") return showToast("Invoice tayyorlandi.");
+
+  if (action === "invoice" || action === "download-invoice") {
+    const payment = item || (state.payments || [])[0] || { amount: 0 };
+    crmPrintHtml("Eduka invoice", crmBuildInvoiceHtml(payment));
+    return;
+  }
+
   if (action === "debt") return setView("debtors");
-  if (action === "debt-message" || action === "debt-message-all") return showToast("Telegram/SMS xabar preview tayyorlandi: qarzdorlik eslatmasi yuborish navbatga qo'shildi.", "info");
-  if (action === "called") return showToast("Qo'ng'iroq holati belgilandi.");
-  if (action === "groups") return showToast("O'qituvchi guruhlari ko'rsatildi.");
+  if (action === "debt-message") {
+    const target = debtItems().find((entry) => String(entry.id) === String(id)) || (state.students || []).find((entry) => String(entry.id) === String(id));
+    crmOpenMessagePreview(target, "debt");
+    return;
+  }
+  if (action === "debt-message-all") {
+    debtItems().forEach((target) => crmOpenMessagePreview(target, "debt"));
+    return;
+  }
+  if (action === "called" && id) {
+    const saved = loadCrmLocalState();
+    saved.calls = Array.isArray(saved.calls) ? saved.calls : [];
+    saved.calls.unshift({ id: Date.now(), student_id: id, createdAt: new Date().toISOString(), status: "called" });
+    localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+    showToast("Qo'ng'iroq holati belgilandi.");
+    return;
+  }
+
+  if (action === "groups" && resource === "teachers") {
+    const teacher = state.teachers.find((entry) => String(entry.id) === String(id));
+    const groups = (state.groups || []).filter((g) => String(g.teacher_id) === String(id) || String(g.teacher_name || g.teacher_full_name || "").toLowerCase() === String(teacher?.full_name || teacher?.fullName || "").toLowerCase());
+    alert(groups.map((g) => `${g.name} — ${g.days || "kun tanlanmagan"}`).join("\n") || "Bu o'qituvchiga guruh biriktirilmagan.");
+    return;
+  }
+
   if (action === "schedule") return setView("schedule");
-  if (action === "schedule-edit" || action === "schedule-mode") return showToast("Jadval ko'rinishi yangilandi.");
-  if (action === "message" || action === "teacher-message") return showToast("Xabar yuborish oynasi ochildi.");
-  if (action === "profile-tab") return showToast("Bo'lim ochildi.");
-  if (action === "save-generated-settings") return showToast("Sozlamalar saqlandi.");
-  if (action === "upgrade-plan" || action === "extend-subscription" || action === "contact-support") return showToast("So'rov qabul qilindi.");
+  if (action === "schedule-edit") return openDrawer("schedule", item || {});
+  if (action === "schedule-mode") {
+    document.querySelectorAll('[data-crm-action="schedule-mode"]').forEach((btn) => btn.classList.remove("active"));
+    button.classList.add("active");
+    showToast(`${button.textContent.trim()} jadval ko'rinishi tanlandi.`);
+    return;
+  }
+  if (action === "message" || action === "teacher-message") {
+    crmOpenMessagePreview(item || (state.teachers || [])[0] || {}, "general");
+    return;
+  }
+  if (action === "profile-tab") {
+    button.closest(".profile-tabs")?.querySelectorAll("button").forEach((tab) => tab.classList.remove("active"));
+    button.classList.add("active");
+    showToast(`${button.textContent.trim()} bo'limi tanlandi.`);
+    return;
+  }
+
+  if (action === "cash-transfer") {
+    const amount = window.prompt("Kassadan hisobga o'tkaziladigan summa:", "0");
+    if (amount === null) return;
+    state.financeTransactions = state.financeTransactions || [];
+    state.financeTransactions.unshift({ id: nextCrmId("financeTransactions"), type: "transfer", category: "Kassa o'tkazma", amount: Number(amount || 0), transaction_date: new Date().toISOString().slice(0, 10) });
+    persistCrmCollections();
+    showToast("Kassa o'tkazmasi saqlandi.");
+    return;
+  }
+
+  if (action === "save-generated-settings") {
+    const fields = Object.fromEntries([...document.querySelectorAll(".settings-panel input, .settings-panel select, .settings-panel textarea")].map((field) => [field.previousElementSibling?.textContent || field.name || field.placeholder || "field", field.type === "checkbox" ? field.checked : field.value]));
+    const saved = loadCrmLocalState();
+    saved.generatedSettings = { ...(saved.generatedSettings || {}), [viewFromPath()]: fields };
+    localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
+    showToast("Sozlamalar saqlandi.");
+    return;
+  }
+
+  if (action === "upgrade-plan" || action === "extend-subscription") {
+    setView("subscription");
+    showToast("Tarif/obuna bo'limi ochildi.");
+    return;
+  }
+  if (action === "contact-support") {
+    window.location.href = "mailto:support@eduka.uz?subject=Eduka%20support";
+    return;
+  }
+
   if (action === "save-settings") {
     const form = document.querySelector("[data-crm-settings-form]");
     const saved = loadCrmLocalState();
@@ -4758,6 +5019,7 @@ async function handleCrmAction(action, button) {
     showToast("Sozlamalar saqlandi.");
     return;
   }
+
   if (action === "save-attendance-page") {
     const groupId = document.querySelector("[data-attendance-group]")?.value;
     const lessonDate = document.querySelector("[data-attendance-date]")?.value;
@@ -4771,24 +5033,22 @@ async function handleCrmAction(action, button) {
       showToast("Guruh, sana va o'quvchilarni tekshiring.");
       return;
     }
-    try {
-      await api("/api/attendance", { method: "POST", body: JSON.stringify({ records }) });
-    } catch {
+    await safeApi("/api/attendance", { method: "POST", body: JSON.stringify({ records }) }, async () => {
       records.forEach((record) => {
         const student = state.students.find((entry) => String(entry.id) === String(record.student_id));
         const group = state.groups.find((entry) => String(entry.id) === String(groupId));
         state.attendance.unshift({ id: nextCrmId("attendance"), ...record, student_name: student?.full_name || student?.fullName, group_name: group?.name, teacher_name: group?.teacher_full_name || group?.teacher_name });
       });
       persistCrmCollections();
-    }
-    if (stateMeta.attendance) await refreshAll();
-    else renderAll();
+      return { ok: true };
+    });
+    await refreshAll();
     showToast("Davomat saqlandi.");
     return;
   }
-  showToast("So'rov qabul qilindi.");
-}
 
+  showToast("Amal bajarildi.");
+}
 async function deleteItem(resource, id) {
   try {
     await safeApi(`${modalFields[resource].endpoint}/${id}`, { method: "DELETE" }, async () => {

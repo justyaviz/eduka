@@ -5159,3 +5159,11 @@ body {
     align-items: stretch;
   }
 }
+
+/* Eduka professional action upgrades */
+.crm-compact-view .crm-table th,
+.crm-compact-view .crm-table td { padding-top: 8px; padding-bottom: 8px; }
+.crm-compact-view .crm-list-page { gap: 14px; }
+.crm-actions-menu div button { text-align: left; }
+.crm-money.debt { color: #dc2626; }
+.crm-tag { display: inline-flex; align-items: center; gap: 4px; }
