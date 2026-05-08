@@ -15,6 +15,18 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
+const EDUKA_VERSION = "20.0.0";
+function finishBoot() {
+  document.body.classList.remove("is-booting");
+  window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
+}
+function allowDevelopmentFallback() {
+  const host = window.location.hostname;
+  const devHost = ["localhost", "127.0.0.1", "0.0.0.0"].includes(host);
+  return devHost && localStorage.getItem("eduka_allow_demo") === "1";
+}
+window.addEventListener("load", () => window.setTimeout(finishBoot, 650));
+
 let toastTimer;
 let activeModal = null;
 let editingId = null;
@@ -1115,26 +1127,30 @@ function setView(viewName, options = {}) {
 }
 
 async function checkSession() {
-  loadSharedTenantRegistry();
-  if (await applyTenantContext()) return;
-  if (document.querySelector(".tenant-not-found")) return;
-  if (window.location.pathname.startsWith("/admin")) {
-    const user = adminUserFromSession();
-    if (!user) {
-      showAdminLogin();
+  try {
+    loadSharedTenantRegistry();
+    if (await applyTenantContext()) return;
+    if (document.querySelector(".tenant-not-found")) return;
+    if (window.location.pathname.startsWith("/admin")) {
+      const user = adminUserFromSession();
+      if (!user) {
+        showAdminLogin();
+        return;
+      }
+      if (window.location.pathname === "/admin/login") {
+        window.history.replaceState({ viewName: "admin-dashboard" }, "", "/admin/dashboard");
+      }
+      showApp(user);
       return;
     }
-    if (window.location.pathname === "/admin/login") {
-      window.history.replaceState({ viewName: "admin-dashboard" }, "", "/admin/dashboard");
+    try {
+      const payload = await api("/api/auth/me");
+      showApp(payload.user);
+    } catch {
+      showAuth();
     }
-    showApp(user);
-    return;
-  }
-  try {
-    const payload = await api("/api/auth/me");
-    showApp(payload.user);
-  } catch {
-    showAuth();
+  } finally {
+    finishBoot();
   }
 }
 
@@ -1201,8 +1217,13 @@ async function loadSchedule() {
     const today = new Date().toISOString().slice(0, 10);
     const payload = await api(`/api/schedule?date_from=${today}&date_to=${today}`);
     state.schedule = payload.items || [];
-  } catch {
-    state.schedule = await (window.crmServices?.scheduleService?.list?.() || Promise.resolve(window.crmMock?.schedule || []));
+  } catch (error) {
+    if (allowDevelopmentFallback()) {
+      state.schedule = await (window.crmServices?.scheduleService?.list?.() || Promise.resolve(window.crmMock?.schedule || []));
+      return;
+    }
+    state.schedule = [];
+    showToast(error.message || "Dars jadvali yuklanmadi", "warning");
   }
 }
 
@@ -4001,6 +4022,52 @@ function filteredCrmTeachers() {
   });
 }
 
+
+function crmTrendLine(items, labelKey = "month", valueKey = "amount") {
+  const safeItems = Array.isArray(items) && items.length ? items.slice(0, 8) : [];
+  const max = Math.max(1, ...safeItems.map((item) => Number(item[valueKey] || item.count || item.value || 0)));
+  if (!safeItems.length) return `<div class="modern-empty">Grafik uchun real ma'lumot hali yo'q</div>`;
+  return `<div class="crm-chart-lines">${safeItems.map((item) => {
+    const value = Number(item[valueKey] || item.count || item.value || 0);
+    const label = item[labelKey] || item.status || item.name || item.date || "-";
+    return `<div class="crm-chart-line"><span>${escapeHtml(label)}</span><div class="crm-chart-track"><i style="width:${Math.max(8, Math.round((value / max) * 100))}%"></i></div><strong>${valueKey === "amount" ? formatMoney(value) : value.toLocaleString("uz-UZ")}</strong></div>`;
+  }).join("")}</div>`;
+}
+
+function crmFunnel20(leads) {
+  const statuses = [
+    ["new", "Yangi lid"],
+    ["contacted", "Bog'lanildi"],
+    ["trial", "Sinov darsi"],
+    ["paid", "To'lov qildi"],
+    ["lost", "Rad etdi"]
+  ];
+  return `<div class="crm-funnel-20">${statuses.map(([key, label]) => {
+    const count = (leads || []).filter((lead) => (lead.status || "new") === key).length;
+    return `<div class="crm-funnel-step"><span>${label}</span><strong>${count}</strong></div>`;
+  }).join("")}</div>`;
+}
+
+function crmActivity20() {
+  const payments = (state.payments || []).slice(0, 3).map((item) => ({ icon: "💳", title: `${crmStudentName(item.student_id)} to'lov qildi`, sub: formatMoney(item.amount || item.paid_amount) }));
+  const leads = (state.leads || []).slice(0, 3).map((item) => ({ icon: "🎯", title: item.full_name || item.name || "Yangi lead", sub: statusLabels[item.status] || item.status || "Yangi" }));
+  const students = (state.students || []).slice(0, 3).map((item) => ({ icon: "🎓", title: item.full_name || item.fullName || "Talaba", sub: item.phone || "Profil" }));
+  const items = [...payments, ...leads, ...students].slice(0, 7);
+  if (!items.length) return `<div class="modern-empty">Oxirgi aktivlik hali yo'q</div>`;
+  return `<div class="crm-activity-feed">${items.map((item) => `<article><i>${item.icon}</i><div><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.sub)}</span></div></article>`).join("")}</div>`;
+}
+
+function crmDashboard20Insights({ students, groups, leads, attendance, debtTotal, revenue, attendancePercent }) {
+  const conversion = leads.length ? Math.round((leads.filter((lead) => ["paid", "active"].includes(lead.status)).length / leads.length) * 100) : 0;
+  const avgGroup = groups.length ? Math.round(students.length / groups.length) : 0;
+  const risk = debtTotal > 0 ? "Qarzdorlik nazorat talab qiladi" : "Qarzdorlik xavfi past";
+  return `<div class="crm-insight-grid">
+    <article class="crm-insight"><span>Lead conversion</span><strong>${conversion}%</strong><small>Sinovdan to'lovga o'tish</small></article>
+    <article class="crm-insight"><span>Guruh sig'imi</span><strong>${avgGroup}</strong><small>O'rtacha talaba / guruh</small></article>
+    <article class="crm-insight"><span>Risk holati</span><strong>${escapeHtml(risk)}</strong><small>${formatMoney(debtTotal)} qarzdorlik</small></article>
+  </div>`;
+}
+
 function renderCrmDashboard() {
   const section = document.getElementById("dashboard");
   if (!section || !isAppCrmRoute("dashboard")) return;
@@ -4044,6 +4111,11 @@ function renderCrmDashboard() {
         ${crmMiniPanel("Yangi talabalar", newStudents, (item) => `<article><b>${escapeHtml(item.full_name || item.fullName)}</b><span>${escapeHtml(item.phone || "-")}</span><button type="button" data-crm-action="view" data-resource="students" data-id="${item.id}">Profil</button></article>`, "Hali talabalar qo'shilmagan", "students")}
         <section class="crm-panel wide"><div class="crm-panel-head"><h2>Oylik tushum grafigi</h2><button type="button" data-view="reports">Hisobot</button></div><div class="bar-chart" data-chart="monthly_payments"></div></section>
         ${crmMiniPanel("Leadlar statusi", leads.slice(0, 6), (item) => `<article><b>${escapeHtml(item.full_name || item.name)}</b><span>${statusLabels[item.status] || item.status || "Yangi"}</span><button type="button" data-view="leads">Ochish</button></article>`, "Leadlar mavjud emas", "leads")}
+      </div>
+      <div class="crm-dashboard-20">
+        <section class="crm-panel wide"><div class="crm-panel-head"><div><h2>Eduka 20.0 analytics</h2><p>Daromad, qarzdorlik va o'sish real ma'lumotlar asosida.</p></div><button type="button" data-view="reports">Batafsil</button></div>${crmDashboard20Insights({ students, groups, leads, attendance, debtTotal, revenue, attendancePercent })}<div style="margin-top:16px">${crmTrendLine(state.analytics.monthly_payments || [], "month", "amount")}</div></section>
+        <section class="crm-panel"><div class="crm-panel-head"><h2>Lead funnel</h2><button type="button" data-view="leads">Pipeline</button></div>${crmFunnel20(leads)}</section>
+        <section class="crm-panel"><div class="crm-panel-head"><h2>Oxirgi aktivlik</h2><button type="button" data-view="reports">Loglar</button></div>${crmActivity20()}</section>
       </div>
     </div>`;
   renderBarChart('[data-chart="monthly_payments"]', state.analytics.monthly_payments || [], "amount", "month");

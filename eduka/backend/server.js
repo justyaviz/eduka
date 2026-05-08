@@ -610,7 +610,17 @@ function sendFile(response, filePath) {
       return;
     }
 
-    response.writeHead(200, { "Content-Type": contentType });
+    const noCache = [".html", ".js", ".css"].includes(extension);
+    const headers = {
+      "Content-Type": contentType,
+      "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
+      "X-Eduka-Version": "20.0.0"
+    };
+    if (noCache) {
+      headers.Pragma = "no-cache";
+      headers.Expires = "0";
+    }
+    response.writeHead(200, headers);
     response.end(content);
   });
 }

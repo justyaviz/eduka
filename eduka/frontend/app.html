@@ -3,15 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eduka CRM - Kabinet</title>
+    <title>Eduka CRM 20.0 - Kabinet</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="description" content="Eduka CRM ichki kabineti: lidlar, o'qituvchilar, guruhlar, talabalar, davomat, moliya va sozlamalar." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="/app.css?v=20.0.0" />
   </head>
-  <body>
+  <body class="is-booting">
+    <div class="eduka-boot-loader" data-boot-loader>
+      <div class="boot-orb"><span></span><span></span><span></span></div>
+      <div class="boot-logo"><img src="/assets/logo_icon.png" alt="" /><strong>EDUKA</strong></div>
+      <p>Platforma yuklanmoqda...</p>
+      <div class="boot-progress"><i></i></div>
+    </div>
     <main class="auth-screen" data-auth-screen>
       <section class="login-panel" aria-labelledby="login-title">
         <a class="brand" href="/">
@@ -316,8 +325,8 @@
     </div>
 
     <div class="toast" data-toast></div>
-    <script src="/crm-services.js"></script>
+    <script src="/crm-services.js?v=20.0.0"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="/app.js"></script>
+    <script src="/app.js?v=20.0.0"></script>
   </body>
 </html>
