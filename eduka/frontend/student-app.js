@@ -1,4 +1,4 @@
-const EDUKA_STUDENT_VERSION = "20.2.0";
+const EDUKA_STUDENT_VERSION = "20.3.0";
 function finishStudentBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);

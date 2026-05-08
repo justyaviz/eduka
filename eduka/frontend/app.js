@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "20.2.0";
+const EDUKA_VERSION = "20.3.0";
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -44,6 +44,11 @@ const state = {
   schedule: [],
   rooms: [],
   paymentTypes: [],
+  extraIncomes: [],
+  expenses: [],
+  salaryPayments: [],
+  bonuses: [],
+  financeTransactions: [],
   staffAttendance: [],
   audit: [],
   superCenters: [],
@@ -1902,6 +1907,11 @@ function renderAll() {
   renderCrmTeachers();
   renderCrmCourses();
   renderCrmPayments();
+  renderCrmExtraIncomePage();
+  renderCrmSalaryPage();
+  renderCrmBonusesPage();
+  renderCrmExpensesPage();
+  renderCrmCashPage();
   renderCrmDebts();
   renderCrmLeads();
   renderCrmAttendancePage();
@@ -4241,6 +4251,130 @@ function renderCrmCourses() {
   </div>`;
 }
 
+
+function crmFinanceTabs(active = "finance") {
+  const tabs = [
+    ["finance", "To'lovlar", "wallet"],
+    ["extra-income", "Qo'shimcha daromadlar", "circle-dollar-sign"],
+    ["salary", "Ish haqi", "badge-dollar-sign"],
+    ["bonuses", "Bonuslar", "gift"],
+    ["expenses", "Xarajatlar", "receipt"],
+    ["debtors", "Qarzdorlar", "badge-alert"],
+    ["finance-cash", "Kassa", "landmark"]
+  ];
+  return `<nav class="finance-modern-tabs">${tabs.map(([view, label, icon]) => `<button type="button" class="${active === view ? "active" : ""}" data-view="${view}"><i data-lucide="${icon}"></i>${label}</button>`).join("")}</nav>`;
+}
+
+function crmFinanceAmount(item) {
+  return Number(item.amount || item.paid_amount || item.price || item.sum || 0);
+}
+
+function crmFinanceMethod(item) {
+  return item.payment_type || item.method || item.paymentMethod || "Naqd pul";
+}
+
+function crmFinanceSource(item) {
+  return item.source || item.from || item.account || item.taken_from || "kassa";
+}
+
+function crmFinanceDate(item, fallback = new Date().toISOString().slice(0, 10)) {
+  return formatDate(item.paid_at || item.spent_at || item.transaction_date || item.date || item.created_at) || fallback;
+}
+
+function crmFinanceTable(headers, rows, empty = "Ma'lumot topilmadi") {
+  return `<div class="finance-pro-table"><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="finance-empty-cell">${empty}</td></tr>`}</tbody></table></div>`;
+}
+
+function crmMoneyClass(value) {
+  const n = Number(value || 0);
+  if (n < 0) return "danger";
+  if (n > 0) return "success";
+  return "muted";
+}
+
+function renderCrmExtraIncomePage() {
+  const section = document.getElementById("extra-income");
+  if (!section) return;
+  const items = state.extraIncomes || [];
+  const total = items.reduce((sum, item) => sum + crmFinanceAmount(item), 0);
+  section.innerHTML = `<div class="finance-pro-page">
+    ${crmFinanceTabs("extra-income")}
+    <div class="finance-pro-head"><div><h1>Qo'shimcha daromadlar</h1><p>Mahsulot, xizmat, market va boshqa daromadlarni boshqaring.</p></div><button class="crm-primary-button" type="button" data-open-modal="extraIncomes"><i data-lucide="plus"></i>Yangi daromad qo'shish</button></div>
+    <div class="finance-kpi-grid"><article><span>Jami daromad</span><strong class="success">${formatMoney(total)}</strong></article><article><span>Yozuvlar</span><strong>${items.length}</strong></article><article><span>O'rtacha summa</span><strong>${formatMoney(items.length ? Math.round(total / items.length) : 0)}</strong></article></div>
+    <div class="finance-filter-bar"><input type="date" value="2026-05-01" /><input type="date" value="2026-05-31" /><select><option>Bo'lim bo'yicha</option></select><select><option>To'lov usuli</option></select><input placeholder="Ism orqali qidirish" /><button type="button">Tozalash</button></div>
+    ${crmFinanceTable(["T/R", "NARX", "TANGALAR", "SANA", "DAROMAD TURI", "TO'LOV USULI", "XARIDOR FISH", "HODIM", "IZOH"], items.map((item, index) => `<tr><td>${index + 1}</td><td><b class="success">${formatMoney(crmFinanceAmount(item))}</b></td><td>${item.coins || 0}</td><td>${crmFinanceDate(item)}</td><td>${escapeHtml(item.category || item.type || "Qo'shimcha")}</td><td>${escapeHtml(crmFinanceMethod(item))}</td><td>${escapeHtml(item.customer_name || item.client || "-")}</td><td>${escapeHtml(item.staff_name || item.employee || currentUser.name || "CEO")}</td><td>${escapeHtml(item.note || "-")}</td></tr>`))}
+  </div>`;
+}
+
+function renderCrmExpensesPage() {
+  const section = document.getElementById("expenses");
+  if (!section) return;
+  const items = state.expenses || [];
+  const total = items.reduce((sum, item) => sum + crmFinanceAmount(item), 0);
+  section.innerHTML = `<div class="finance-pro-page">
+    ${crmFinanceTabs("expenses")}
+    <div class="finance-pro-head"><div><h1>Xarajatlar</h1><p>O'zgaruvchi xarajatlar, rejalashtirish va xodimlarga bog'liq chiqimlar.</p></div><button class="crm-primary-button" type="button" data-open-modal="expenses"><i data-lucide="plus"></i>Yangi xarajat qo'shish</button></div>
+    <div class="finance-kpi-grid"><article><span>Jami xarajat</span><strong class="danger">${formatMoney(total)}</strong></article><article><span>Kassa orqali</span><strong>${formatMoney(items.filter(i => crmFinanceSource(i)==="kassa").reduce((s,i)=>s+crmFinanceAmount(i),0))}</strong></article><article><span>Hisob orqali</span><strong>${formatMoney(items.filter(i => crmFinanceSource(i)==="hisob").reduce((s,i)=>s+crmFinanceAmount(i),0))}</strong></article></div>
+    <div class="finance-filter-bar"><input placeholder="Sabab bo'yicha" /><select><option>Bo'limni tanlang</option></select><input type="date" value="2026-05-01" /><input type="date" placeholder="Gacha" /><button type="button">Tozalash</button></div>
+    ${crmFinanceTable(["T/R", "SABAB", "XARAJAT TURI", "NARX", "TO'LOV USULI", "QAYERDAN OLINGANLIGI", "SANA", "HODIM"], items.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(item.reason || item.title || item.note || "-")}</td><td>${escapeHtml(item.category || item.type || "O'zgaruvchi")}</td><td><b class="danger">${formatMoney(crmFinanceAmount(item))}</b></td><td>${escapeHtml(crmFinanceMethod(item))}</td><td>${escapeHtml(crmFinanceSource(item))}</td><td>${crmFinanceDate(item)}</td><td>${escapeHtml(item.staff_name || currentUser.name || "CEO")}</td></tr>`))}
+  </div>`;
+}
+
+function renderCrmSalaryPage() {
+  const section = document.getElementById("salary");
+  if (!section) return;
+  const teachers = state.teachers || [];
+  const paid = (state.salaryPayments || []).reduce((sum, item) => sum + crmFinanceAmount(item), 0);
+  const expected = teachers.reduce((sum, teacher) => sum + Number(teacher.salaryValue || teacher.salary_rate || 0), 0);
+  section.innerHTML = `<div class="finance-pro-page">
+    ${crmFinanceTabs("salary")}
+    <div class="finance-pro-head"><div><h1>Ish haqi</h1><p>O'qituvchi va xodimlar maoshi, to'langan/qoldiq summalar.</p></div><button class="crm-primary-button" type="button" data-open-modal="salaryPayments"><i data-lucide="plus"></i>Ish haqi qo'shish</button></div>
+    <div class="finance-kpi-grid"><article><span>Hisoblangan</span><strong>${formatMoney(expected)}</strong></article><article><span>To'langan</span><strong class="success">${formatMoney(paid)}</strong></article><article><span>Qoldiq</span><strong class="danger">${formatMoney(Math.max(expected - paid, 0))}</strong></article></div>
+    <div class="finance-filter-bar"><select><option>Xodim bo'yicha</option></select><input type="month" value="2026-05" /><select><option>Maosh turi</option></select><button type="button">Tozalash</button></div>
+    ${crmFinanceTable(["T/R", "HODIM", "GURUHLAR", "MAOSH TURI", "HISOBLANGAN", "TO'LANGAN", "QOLDIQ", "SANA", "IZOH"], teachers.map((teacher, index) => { const salary = Number(teacher.salaryValue || teacher.salary_rate || 0); const teacherPaid = (state.salaryPayments || []).filter(p => String(p.employee_id || p.teacher_id) === String(teacher.id)).reduce((s,p)=>s+crmFinanceAmount(p),0); return `<tr><td>${index + 1}</td><td>${escapeHtml(teacher.full_name || teacher.fullName || "-")}</td><td>${crmPill(crmTeacherGroups(teacher), "-")}</td><td>${statusLabels[teacher.salary_type || teacher.salaryType] || teacher.salary_type || "Foiz"}</td><td>${formatMoney(salary)}</td><td><b class="success">${formatMoney(teacherPaid)}</b></td><td><b class="danger">${formatMoney(Math.max(salary - teacherPaid, 0))}</b></td><td>${crmFinanceDate(teacher, "-")}</td><td>${escapeHtml(teacher.note || "-")}</td></tr>`; }))}
+  </div>`;
+}
+
+function renderCrmBonusesPage() {
+  const section = document.getElementById("bonuses");
+  if (!section) return;
+  const items = state.bonuses || [];
+  const total = items.reduce((sum, item) => sum + crmFinanceAmount(item), 0);
+  section.innerHTML = `<div class="finance-pro-page">
+    ${crmFinanceTabs("bonuses")}
+    <div class="finance-pro-head"><div><h1>Bonuslar</h1><p>Xodim va o'qituvchilar uchun qo'shimcha rag'batlantirish.</p></div><button class="crm-primary-button" type="button" data-open-modal="bonuses"><i data-lucide="plus"></i>Yangi bonus qo'shish</button></div>
+    <div class="finance-kpi-grid"><article><span>Jami bonus</span><strong class="success">${formatMoney(total)}</strong></article><article><span>Bonuslar soni</span><strong>${items.length}</strong></article><article><span>O'rtacha bonus</span><strong>${formatMoney(items.length ? Math.round(total / items.length) : 0)}</strong></article></div>
+    <div class="finance-filter-bar"><input type="date" value="2026-05-01" /><input type="date" value="2026-05-31" /><select><option>Xodim bo'yicha</option></select><select><option>To'lov turi bo'yicha</option></select><button type="button">Tozalash</button></div>
+    ${crmFinanceTable(["T/R", "SANA", "NARX", "HODIM", "TO'LOV TURI", "QAYERDAN OLINGANLIGI", "IZOH"], items.map((item, index) => `<tr><td>${index + 1}</td><td>${crmFinanceDate(item)}</td><td><b class="success">${formatMoney(crmFinanceAmount(item))}</b></td><td>${escapeHtml(item.employee_name || item.staff_name || "-")}</td><td>${escapeHtml(crmFinanceMethod(item))}</td><td>${escapeHtml(crmFinanceSource(item))}</td><td>${escapeHtml(item.note || "-")}</td></tr>`))}
+  </div>`;
+}
+
+function renderCrmCashPage() {
+  const section = document.getElementById("finance-cash");
+  if (!section) return;
+  const payments = state.payments || [];
+  const tx = state.financeTransactions || [];
+  const cash = payments.filter((item) => ["naqd", "cash", "naqd pul"].includes(String(crmFinanceMethod(item)).toLowerCase())).reduce((s,i)=>s+crmFinanceAmount(i),0);
+  const card = payments.filter((item) => ["karta", "card", "plastik karta", "click", "payme", "uzum"].includes(String(crmFinanceMethod(item)).toLowerCase())).reduce((s,i)=>s+crmFinanceAmount(i),0);
+  const bank = payments.filter((item) => ["bank", "bank hisobi"].includes(String(crmFinanceMethod(item)).toLowerCase())).reduce((s,i)=>s+crmFinanceAmount(i),0);
+  const total = Math.max(cash + card + bank, 1);
+  section.innerHTML = `<div class="finance-pro-page">
+    ${crmFinanceTabs("finance-cash")}
+    <div class="finance-cash-board">
+      <section class="cash-big-card"><strong class="success">${formatMoney(cash)}</strong><span>Kassadagi jami naqd pullar</span></section>
+      <section class="cash-big-card"><strong class="danger">${formatMoney(card)}</strong><span>Kassadagi jami boshqa pullar</span></section>
+      <section class="cash-big-card wide"><strong class="success">${formatMoney(bank)}</strong><span>Hisobdagi naqd pul</span></section>
+      <section class="cash-big-card wide"><strong class="danger">0 so'm</strong><span>Hisobdagi naqd bo'lmagan pul</span></section>
+      <section class="finance-flow-card"><header><h2>Kirimlar</h2><button type="button">batafsil</button></header>${[["Naqd pul", cash, "banknote"], ["Plastik karta", card, "credit-card"], ["Bank hisobi", bank, "landmark"]].map(([label, value, icon]) => `<div><i data-lucide="${icon}"></i><b>${formatMoney(value)}</b><span>${label}</span><em><strong style="width:${Math.round((Number(value)/total)*100)}%"></strong></em><small>${Math.round((Number(value)/total)*100)}%</small></div>`).join("")}</section>
+      <section class="finance-flow-card"><header><h2>Chiqimlar</h2><button type="button">batafsil</button></header>${[["Naqd pul", 0, "banknote"], ["Plastik karta", 0, "credit-card"], ["Bank hisobi", 0, "landmark"]].map(([label, value, icon]) => `<div><i data-lucide="${icon}"></i><b>${formatMoney(value)}</b><span>${label}</span><em><strong style="width:0%"></strong></em><small>0%</small></div>`).join("")}</section>
+      <button class="finance-transfer-cta" type="button" data-crm-action="cash-transfer">Kassadagi pulni hisobga o'tkazish →</button>
+    </div>
+    <div class="finance-pro-head compact"><div><h2>O'tkazmalar ro'yhati</h2><p>Kassa va hisob harakatlari.</p></div><button class="crm-icon-button" type="button" data-crm-action="filter-settings"><i data-lucide="settings"></i></button></div>
+    <div class="finance-filter-bar"><input placeholder="Dan" /><input placeholder="Gacha" /><select><option>Tur bo'yicha</option></select><button type="button">Tozalash</button></div>
+    ${crmFinanceTable(["T/R", "SANA", "NARX", "HODIM", "TURI", "SABAB"], tx.map((item, index) => `<tr><td>${index + 1}</td><td>${crmFinanceDate(item)}</td><td>${formatMoney(crmFinanceAmount(item))}</td><td>${escapeHtml(item.staff_name || currentUser.name || "CEO")}</td><td>${escapeHtml(item.type || "Kassa o'tkazma")}</td><td>${escapeHtml(item.category || item.reason || "-")}</td></tr>`), "O'tkazmalar hali mavjud emas")}
+  </div>`;
+}
+
 function renderCrmPayments() {
   const section = document.getElementById("finance");
   if (!section) return;
@@ -4270,12 +4404,17 @@ function renderCrmDebts() {
   const section = document.getElementById("debtors");
   if (!section) return;
   const items = debtItems();
-  section.innerHTML = `<div class="crm-list-page">
-    <div class="crm-list-head"><div><h1>Qarzdorlik</h1><p>Qarzdor talabalar va eslatma yuborish</p></div><button class="crm-soft-button" type="button" data-crm-action="debt-message-all">Eslatma yuborish</button></div>
-    <div class="crm-summary-strip"><article><span>Jami qarzdorlik</span><strong>${formatMoney(items.reduce((sum, item) => sum + Number(item.balance || item.remaining_debt || 0), 0))}</strong></article><article><span>Qarzdor talabalar</span><strong>${items.length}</strong></article></div>
-    <div class="crm-table-card"><table class="crm-table"><thead><tr><th>Talaba</th><th>Telefon</th><th>Ota-ona telefoni</th><th>Guruh</th><th>Qarzdorlik</th><th>Necha kundan beri</th><th>Oxirgi to'lov</th><th>Amallar</th></tr></thead><tbody>${items.length ? items.map((item) => `<tr><td>${escapeHtml(item.full_name || item.fullName)}</td><td>${escapeHtml(item.phone || "-")}</td><td>${escapeHtml(item.parent_phone || item.parentPhone || "-")}</td><td>${escapeHtml(item.group_name || "-")}</td><td><strong class="crm-money debt">${formatMoney(item.balance || item.remaining_debt)}</strong></td><td>${overdueDays(item)}</td><td>${formatDate(item.last_payment_at)}</td><td><button type="button" data-crm-action="payment" data-resource="students" data-id="${item.id}">To'lov</button><button type="button" data-crm-action="debt-message" data-id="${item.id}">Xabar</button><button type="button" data-crm-action="called" data-id="${item.id}">Qo'ng'iroq</button></td></tr>`).join("") : `<tr><td colspan="8">${crmEmptyState("Qarzdor talabalar yo'q")}</td></tr>`}</tbody></table></div>
+  const total = items.reduce((sum, item) => sum + Number(item.balance || item.remaining_debt || 0), 0);
+  section.innerHTML = `<div class="finance-pro-page debtor-pro-page">
+    ${crmFinanceTabs("debtors")}
+    <div class="finance-pro-head"><div><h1>Qarzdorlar</h1><p>To'lov muddati o'tgan talabalar, balans va tezkor xabarlar.</p></div><button class="crm-icon-button" type="button" data-crm-action="debt-message"><i data-lucide="mail"></i></button></div>
+    <div class="finance-kpi-grid"><article><span>Jami qarzdorlik</span><strong class="danger">${formatMoney(total)}</strong></article><article><span>Qarzdor talabalar</span><strong>${items.length}</strong></article><article><span>O'rtacha qarz</span><strong>${formatMoney(items.length ? Math.round(total / items.length) : 0)}</strong></article></div>
+    <div class="finance-filter-bar"><input placeholder="Dan" /><input placeholder="Gacha" /><input placeholder="Ism orqali qidirish" /><input placeholder="Telefon raqam orqali qidirish" /><select><option>Guruhni tanlang</option></select><select><option>Barcha status</option></select><button type="button">Tozalash</button></div>
+    <p class="finance-total-line">Jami: <b class="danger">${formatMoney(total)}</b> / ${items.length} ta</p>
+    ${crmFinanceTable(["T/R", "FISH", "TELEFON RAQAM", "GURUH", "BALANS", "IZOH", "AMALLAR"], items.map((item, index) => `<tr><td>${index + 1}</td><td><button class="crm-link" type="button" data-view="student-profile" data-id="${item.id}">${escapeHtml(item.full_name || item.fullName)}</button></td><td>${escapeHtml(item.phone || "-")}</td><td>${escapeHtml(item.group_name || crmStudentGroups(item)[0] || "-")}</td><td><b class="danger">${formatMoney(item.balance || item.remaining_debt || 0)}</b></td><td>${escapeHtml(item.note || "-")}</td><td><button type="button" data-crm-action="payment" data-resource="students" data-id="${item.id}">To'lov</button> ${crmActionMenu("students", item.id)}</td></tr>`), "Qarzdor talabalar yo'q")}
   </div>`;
 }
+
 
 function renderCrmLeads() {
   const section = document.getElementById("leads");
@@ -4504,6 +4643,10 @@ function crmDrawerTitle() {
     teachers: crmDrawerState.itemId ? "O'qituvchini tahrirlash" : "Yangi o'qituvchi qo'shish",
     courses: crmDrawerState.itemId ? "Kursni tahrirlash" : "Yangi kurs qo'shish",
     payments: crmDrawerState.itemId ? "To'lovni tahrirlash" : "To'lov qo'shish",
+    extraIncomes: crmDrawerState.itemId ? "Daromadni tahrirlash" : "Yangi daromad qo'shish",
+    salaryPayments: crmDrawerState.itemId ? "Ish haqini tahrirlash" : "Ish haqi to'lash",
+    bonuses: crmDrawerState.itemId ? "Bonusni tahrirlash" : "Yangi bonus qo'shish",
+    expenses: crmDrawerState.itemId ? "Xarajatni tahrirlash" : "Yangi xarajat qo'shish",
     leads: crmDrawerState.itemId ? "Leadni tahrirlash" : "Lead qo'shish",
     rooms: crmDrawerState.itemId ? "Xonani tahrirlash" : "Xona qo'shish",
     paymentTypes: crmDrawerState.itemId ? "To'lov turini tahrirlash" : "To'lov turi qo'shish"
@@ -4649,6 +4792,29 @@ function crmDrawerFields(type, item = {}) {
       <label><span>Turi</span><select name="type"><option value="Markaz">Markaz</option><option value="Tizim" ${item.type === "Tizim" ? "selected" : ""}>Tizim</option></select></label>
       <label class="crm-check-field"><input name="active" type="checkbox" ${item.active !== false ? "checked" : ""} /><span>Faol</span></label>`;
   }
+  if (["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(type)) {
+    const staffOptions = (state.teachers || []).map((teacher) => `<option value="${teacher.id}" ${String(item.employee_id || item.teacher_id) === String(teacher.id) ? "selected" : ""}>${escapeHtml(teacher.full_name || teacher.fullName)}</option>`).join("");
+    const labels = {
+      extraIncomes: ["Yangi daromad qo'shish", "Daromad turi", "Xaridor FISH", "Daromad haqida izoh"],
+      salaryPayments: ["Ish haqi to'lash", "Maosh turi", "Xodimni tanlang", "Ish haqi izohi"],
+      bonuses: ["Yangi bonus qo'shish", "Bonus turi", "Xodim", "Bonus sababi"],
+      expenses: ["Yangi xarajat qo'shish", "Bo'limni tanlang", "Xodimni tanlang", "Xarajat sababi"]
+    }[type];
+    return `<div class="finance-drawer-form">
+      <section class="crm-form-section-block"><div class="crm-form-section-head"><h3>${labels[0]}</h3><p>Summa, usul, manba va izohlarni to'ldiring.</p></div>
+        <div class="crm-form-grid-2">
+          <label class="wide"><span>${type === "expenses" ? "Sabab" : labels[2]} ${type === "extraIncomes" ? "" : "*"}</span>${type === "expenses" ? `<textarea name="reason" required placeholder="Sabab">${escapeHtml(item.reason || item.note || "")}</textarea>` : `<select name="employee_id"><option value="">${labels[2]}</option>${staffOptions}</select>`}</label>
+          ${type === "extraIncomes" ? `<label><span>Xaridor FISH</span><input name="customer_name" value="${escapeHtml(item.customer_name || "")}" placeholder="Xaridor" /></label>` : ""}
+          <label><span>Narx *</span><input name="amount" type="number" required value="${Number(item.amount || 0)}" placeholder="so'm" /></label>
+          <label><span>${labels[1]} *</span><select name="category"><option value="${escapeHtml(item.category || "default")}">${escapeHtml(item.category || labels[1])}</option><option value="kassa">Kassa</option><option value="hisob">Hisob</option><option value="marketing">Marketing</option><option value="office">Ofis</option></select></label>
+          <label><span>To'lov usuli *</span><select name="payment_type"><option value="Naqd pul">Naqd pul</option><option value="Plastik karta">Plastik karta</option><option value="Bank hisobi">Bank hisobi</option></select></label>
+          <div class="crm-field wide"><span>Qayerdan olinganligi *</span><div class="crm-radio-row"><label class="crm-radio-pill"><input type="radio" name="source" value="kassa" ${(item.source || "kassa") === "kassa" ? "checked" : ""} /><span>kassa</span></label><label class="crm-radio-pill"><input type="radio" name="source" value="hisob" ${item.source === "hisob" ? "checked" : ""} /><span>hisob</span></label></div></div>
+          <label class="wide"><span>Sana *</span><input name="date" type="date" value="${crmFinanceDate(item)}" /></label>
+          <label class="wide"><span>Izoh</span><textarea name="note" placeholder="${labels[3]}">${escapeHtml(item.note || "")}</textarea></label>
+        </div>
+      </section>
+    </div>`;
+  }
   if (type === "payments") {
     const studentOptions = (state.students || []).map((student) => `<option value="${student.id}" ${String(item.student_id) === String(student.id) ? "selected" : ""}>${escapeHtml(student.full_name || student.fullName)}</option>`).join("");
     const groupOptionsPayment = (state.groups || []).map((group) => `<option value="${group.id}" ${String(item.group_id) === String(group.id) ? "selected" : ""}>${escapeHtml(group.name)}</option>`).join("");
@@ -4781,6 +4947,9 @@ async function saveCrmDrawer(form) {
     item = { ...existing, id: editing ? existing.id : nextCrmId("rooms"), name: data.name.trim(), capacity: Number(data.capacity || 0), note: data.note };
   } else if (resource === "paymentTypes") {
     item = { ...existing, id: editing ? existing.id : nextCrmId("paymentTypes"), name: data.name.trim(), type: data.type || "Markaz", active: data.active === "on" };
+  } else if (["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(resource)) {
+    const staff = state.teachers.find((entry) => String(entry.id) === String(data.employee_id));
+    item = { ...existing, id: editing ? existing.id : nextCrmId(resource), employee_id: data.employee_id || "", teacher_id: data.employee_id || "", employee_name: staff?.full_name || staff?.fullName || data.employee_name || "", staff_name: staff?.full_name || staff?.fullName || currentUser.name || "CEO", customer_name: data.customer_name || "", reason: data.reason || data.note || "", title: data.reason || data.category || data.note || "", category: data.category || "default", amount: Number(data.amount || 0), payment_type: data.payment_type || "Naqd pul", source: data.source || "kassa", date: data.date || new Date().toISOString().slice(0, 10), created_at: existing.created_at || new Date().toISOString(), note: data.note };
   } else if (resource === "payments") {
     const student = state.students.find((entry) => String(entry.id) === String(data.student_id));
     const group = state.groups.find((entry) => String(entry.id) === String(data.group_id || student?.group_id));
