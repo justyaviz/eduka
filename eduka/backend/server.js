@@ -623,7 +623,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.0.1"
+      "X-Eduka-Version": "22.0.2"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -1908,7 +1908,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.1', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.2', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
@@ -2714,8 +2714,10 @@ async function createRow(request, response, config) {
     }
     const createdItem = result.rows[0];
     const notice = workflowNotificationFor(config.entity, "create", createdItem);
-    await createNotification(pool, user, notice.title, notice.body, notice.type);
-    await writeAudit(pool, user, "create", config.entity, createdItem?.id, data.audit || body);
+    Promise.allSettled([
+      createNotification(pool, user, notice.title, notice.body, notice.type),
+      writeAudit(pool, user, "create", config.entity, createdItem?.id, data.audit || body)
+    ]).catch(() => {});
     sendJson(response, 201, { ok: true, item: createdItem });
   } catch (error) {
     withError(response, `Create ${config.entity}`, error);
@@ -2748,8 +2750,10 @@ async function updateRow(request, response, config, id) {
     }
 
     const notice = workflowNotificationFor(config.entity, "update", result.rows[0]);
-    await createNotification(pool, user, notice.title, notice.body, notice.type);
-    await writeAudit(pool, user, "update", config.entity, id, { before: before.rows[0] || null, after: result.rows[0] });
+    Promise.allSettled([
+      createNotification(pool, user, notice.title, notice.body, notice.type),
+      writeAudit(pool, user, "update", config.entity, id, { before: before.rows[0] || null, after: result.rows[0] })
+    ]).catch(() => {});
     sendJson(response, 200, { ok: true, item: result.rows[0] });
   } catch (error) {
     withError(response, `Update ${config.entity}`, error);

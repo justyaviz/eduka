@@ -320,7 +320,7 @@ adminRouteKeys.forEach((key) => {
 });
 routeByView["admin-login"] = "/ceo/login";
 routeByView["admin-dashboard"] = "/ceo/dashboard";
-// 21.8.3: /ceo/dashboard must render the real Super Admin dashboard, not CRM dashboard.
+// 22.0.2: /ceo/dashboard must render the real Super Admin dashboard, not CRM dashboard.
 routeByView["admin-centers-new"] = "/ceo/centers/new";
 routeByView["admin-center-profile"] = "/ceo/centers";
 routeByView["super-center-profile"] = "/ceo/centers";
@@ -912,14 +912,25 @@ function adminApiHeaders() {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...tenantApiHeaders(), ...adminApiHeaders(), ...(options.headers || {}) },
-    ...options
-  });
-  const payload = await readJson(response);
-  if (!response.ok) throw new Error(payload.message || "So'rov bajarilmadi");
-  return payload;
+  const timeoutMs = Number(options.timeoutMs || 18000);
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(path, {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", ...tenantApiHeaders(), ...adminApiHeaders(), ...(options.headers || {}) },
+      ...options,
+      signal: options.signal || controller.signal
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(payload.message || "So'rov bajarilmadi");
+    return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("Server javobi kechikdi. Internet yoki backend holatini tekshiring.");
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 function serviceFor(resource) {
@@ -1468,7 +1479,7 @@ function withQuery(resource, endpoint) {
 }
 
 async function refreshAll() {
-  await Promise.all([
+  const criticalTasks = [
     loadSummary(),
     loadAnalytics(),
     loadCollection("students", endpoints.students),
@@ -1484,8 +1495,11 @@ async function refreshAll() {
     loadCollection("staffAttendance", endpoints.staffAttendance),
     loadCollection("notifications", endpoints.notifications),
     loadCollection("audit", endpoints.audit)
-  ]);
-  await Promise.all([loadFinanceBuckets(), loadSchedule(), loadSuperData(), loadStudentAppAdminData()]);
+  ];
+  const secondaryTasks = [loadFinanceBuckets(), loadSchedule(), loadSuperData(), loadStudentAppAdminData()];
+  const results = await Promise.allSettled([...criticalTasks, ...secondaryTasks]);
+  const failed = results.filter((item) => item.status === "rejected");
+  if (failed.length) console.warn("refreshAll partial errors:", failed.map((item) => item.reason?.message || item.reason));
   syncCrmLocalState();
   renderAll();
 }
@@ -2403,7 +2417,7 @@ function closeModal() {
 const adminStorageKey = "eduka_admin_state_v2";
 const legacyAdminStorageKeys = ["eduka_admin_state_v1"];
 const adminSessionKey = "eduka_admin_session_v1";
-const adminAccounts = []; // 21.8.3: client-side demo CEO accounts removed. Login uses /api/auth/login only.
+const adminAccounts = []; // 22.0.2: client-side demo CEO accounts removed. Login uses /api/auth/login only.
 const reservedSubdomains = ["www", "app", "api", "admin", "super", "mail", "support", "help", "dashboard", "control", "billing"];
 const adminMenu = [
   ["admin-dashboard", "Dashboard"],
@@ -5251,14 +5265,30 @@ function crmApiPayload(resource, item) {
 }
 
 async function saveCrmDrawer(form) {
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (form.dataset.saving === "1") return;
+  form.dataset.saving = "1";
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.dataset.originalText = submitButton.textContent || "Saqlash";
+    submitButton.textContent = "Saqlanmoqda...";
+  }
   const formData = new FormData(form);
   const data = Object.fromEntries(formData.entries());
   const lessonDaysSet = formData.getAll("lessonDaysSet").filter(Boolean);
   if (lessonDaysSet.length) data.lessonDaysSet = lessonDaysSet;
   const error = validateCrmDrawer(crmDrawerState.type, data);
   const errorNode = form.querySelector("[data-crm-drawer-error]");
+  const stopSaving = () => {
+    form.dataset.saving = "0";
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = submitButton.dataset.originalText || "Saqlash";
+    }
+  };
   if (error) {
     if (errorNode) errorNode.textContent = error;
+    stopSaving();
     return;
   }
   const resource = crmDrawerState.type;
@@ -5297,7 +5327,7 @@ async function saveCrmDrawer(form) {
   try {
     const endpoint = endpoints[resource] || modalFields[resource]?.endpoint;
     if (endpoint) {
-      const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)) });
+      const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)), timeoutMs: 18000 });
       if (result.item) item = { ...item, ...result.item };
       if (resource === "students" && data.password && item.id) {
         await api(`/api/students/${item.id}/app-password`, { method: "POST", body: JSON.stringify({ password: data.password }) });
@@ -5323,12 +5353,26 @@ async function saveCrmDrawer(form) {
     } else {
       if (errorNode) errorNode.textContent = error.message || "Ma'lumot saqlanmadi";
       showToast(error.message || "Ma'lumot saqlanmadi", "error");
+      stopSaving();
       return;
     }
   }
   closeDrawer(true);
-  if (stateMeta[resource] || ["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(resource)) await refreshAll();
-  else renderAll();
+  try {
+    if (stateMeta[resource] || ["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(resource)) {
+      await Promise.allSettled([
+        loadCollection(resource, endpoints[resource] || modalFields[resource]?.endpoint),
+        loadSummary(),
+        loadAnalytics()
+      ]);
+      syncCrmLocalState();
+      renderAll();
+    } else {
+      renderAll();
+    }
+  } finally {
+    stopSaving();
+  }
   showToast(editing ? "Ma'lumotlar saqlandi." : "Yangi ma'lumot ro'yxatga qo'shildi.");
 }
 
@@ -6180,6 +6224,9 @@ loginForm?.addEventListener("submit", async (event) => {
 
 modalForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const submitButton = modalForm.querySelector('button[type="submit"]');
+  const originalSubmitText = submitButton?.textContent || "Saqlash";
+  if (submitButton) { submitButton.disabled = true; submitButton.textContent = "Saqlanmoqda..."; }
   if (String(activeModal || "").startsWith("admin-")) {
     handleAdminModalSubmit();
     return;
@@ -6223,7 +6270,9 @@ modalForm?.addEventListener("submit", async (event) => {
     await refreshAll();
     showToast(editingId ? "Ma'lumot saqlandi." : "Ma'lumot yaratildi.");
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
+  } finally {
+    if (submitButton) { submitButton.disabled = false; submitButton.textContent = originalSubmitText; }
   }
 });
 
