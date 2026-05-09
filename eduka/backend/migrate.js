@@ -36,6 +36,12 @@ async function applyProductionHardening(pool) {
     DELETE FROM organization_branding a USING organization_branding b
     WHERE a.ctid < b.ctid AND a.organization_id = b.organization_id;
 
+    DELETE FROM student_app_settings a USING student_app_settings b
+    WHERE a.ctid < b.ctid AND a.organization_id = b.organization_id;
+
+    DELETE FROM student_app_modules a USING student_app_modules b
+    WHERE a.id < b.id AND a.organization_id = b.organization_id AND a.key = b.key;
+
     DELETE FROM organization_feature_flags a USING organization_feature_flags b
     WHERE a.ctid < b.ctid AND a.organization_id = b.organization_id AND a.feature_key = b.feature_key;
 
@@ -57,6 +63,7 @@ async function applyProductionHardening(pool) {
     CREATE UNIQUE INDEX IF NOT EXISTS users_normalized_phone_unique_exact_2001 ON users (normalized_phone) WHERE normalized_phone IS NOT NULL AND normalized_phone <> '';
     CREATE UNIQUE INDEX IF NOT EXISTS organization_settings_org_unique_exact_2001 ON organization_settings (organization_id);
     CREATE UNIQUE INDEX IF NOT EXISTS organization_branding_org_unique_exact_2001 ON organization_branding (organization_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS student_app_settings_org_unique_exact_2101 ON student_app_settings (organization_id);
     CREATE UNIQUE INDEX IF NOT EXISTS organization_feature_flags_org_key_unique_exact_2001 ON organization_feature_flags (organization_id, feature_key);
     CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_org_unique_exact_2001 ON subscriptions (organization_id);
     CREATE UNIQUE INDEX IF NOT EXISTS organization_roles_org_name_unique_exact_2001 ON organization_roles (organization_id, name);
