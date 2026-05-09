@@ -250,7 +250,7 @@ function receiptMessage(receipt) {
   ].filter(Boolean).join("\n");
 }
 
-async function sendReceiptByStartParam(token, chatId, startParam, deps) {
+async function sendReceiptByStartParam(token, chatId, startParam, deps, telegramUserId) {
   const receiptKey = String(startParam || "").replace(/^receipt_/i, "");
   if (!receiptKey || !deps.findPaymentReceiptByNumber) return false;
   const receipt = await deps.findPaymentReceiptByNumber(receiptKey);
@@ -258,6 +258,29 @@ async function sendReceiptByStartParam(token, chatId, startParam, deps) {
     await sendMessage(token, chatId, "Chek topilmadi. Iltimos, chek raqamini tekshiring yoki administratorga murojaat qiling.");
     return true;
   }
+
+  // QR orqali kirgan studentni chekdagi student profiliga avtomatik bog'lash.
+  try {
+    const studentId = receipt.payment?.student_id || receipt.payment?.studentId;
+    const organizationId = receipt.payment?.organization_id || receipt.payment?.organizationId;
+    if (studentId && organizationId && process.env.DATABASE_URL) {
+      const pool = deps.getDbPool();
+      await deps.ensureSchema(pool);
+      const current = await pool.query("SELECT id, full_name, telegram_user_id, telegram_chat_id FROM students WHERE id=$1 AND organization_id=$2", [studentId, organizationId]);
+      const student = current.rows[0];
+      if (student) {
+        if (!student.telegram_user_id || String(student.telegram_user_id) === String(telegramUserId || "")) {
+          await pool.query("UPDATE students SET telegram_user_id=$3, telegram_chat_id=$4, last_student_app_login=COALESCE(last_student_app_login, NOW()) WHERE id=$1 AND organization_id=$2", [studentId, organizationId, String(telegramUserId || ""), String(chatId)]);
+        } else {
+          await sendMessage(token, chatId, "Bu o'quvchi profili boshqa Telegram akkauntga bog'langan. Administratorga murojaat qiling.");
+          return true;
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Receipt Telegram link warning: ${error.message}`);
+  }
+
   await sendMessage(token, chatId, receiptMessage(receipt));
   return true;
 }
@@ -271,8 +294,14 @@ async function handleCommand(token, message, deps) {
   const startParam = parts.slice(1).join(" ");
   if (command === "/start") {
     if (startParam && startParam.startsWith("receipt_")) {
-      const handled = await sendReceiptByStartParam(token, chatId, startParam, deps);
+      const handled = await sendReceiptByStartParam(token, chatId, startParam, deps, message.from?.id);
       if (handled) return;
+    }
+    const linkedStudent = await findStudentByTelegram(deps, message.from?.id);
+    if (linkedStudent) {
+      const payload = await deps.createLinkedStudentAppSession(linkedStudent, String(message.from?.id || ""), String(chatId));
+      await sendMessage(token, chatId, "Siz allaqachon ro'yxatdan o'tgansiz. Qayta ro'yxatdan o'tish shart emas.\n\nStudent App'ni ochish uchun quyidagi tugmani bosing.", webAppKeyboard(payload.webAppUrl));
+      return;
     }
     return askForContact(token, chatId);
   }

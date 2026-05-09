@@ -403,7 +403,7 @@ function getStudentTelegramConfig(options = {}) {
 }
 
 function getStudentWebAppUrlBase() {
-  return String(process.env.STUDENT_WEBAPP_URL || process.env.WEBAPP_URL || "https://eduka.uz/student-app").trim();
+  return String(process.env.STUDENT_WEBAPP_URL || process.env.WEBAPP_URL || "https://eduka.uz/app").trim();
 }
 
 function telegramConfiguredLabel(isConfigured) {
@@ -3983,16 +3983,16 @@ async function handleTelegramHealth(response, shouldCheckTelegram) {
 }
 
 const studentAppDefaultModules = [
-  ["group", "Mening guruhim", "Guruh, o'qituvchi, jadval va davomat", "users-round", 10],
-  ["exams", "Imtihonlarim", "Natijalar va sinov imtihonlari", "file-check-2", 20],
-  ["library", "Kutubxona", "Kitob, audio, video va resurslar", "book-open", 30],
-  ["dictionary", "Lug'atlar", "So'zlar, izohlar va misollar", "languages", 40],
-  ["extra_lesson", "Qo'shimcha dars", "Qo'shimcha darsga yozilish", "calendar-plus", 50],
-  ["rating", "Reyting", "Ball, kristal va yutuqlar", "trophy", 60],
-  ["referral", "Referral tizimi", "Do'st taklif qilish va bonuslar", "gift", 70],
-  ["news", "Yangiliklar", "Markaz yangiliklari va tadbirlar", "megaphone", 80],
-  ["payments", "Balans va to'lov", "Balans, qarzdorlik va to'lov tarixi", "wallet", 90],
-  ["feedback", "Shikoyat va taklif", "Mas'ullarga murojaat yuborish", "message-square", 100]
+  ["home", "Bosh sahifa", "Bugungi dars, to'lov, davomat va coin balans", "home", 10],
+  ["schedule", "Jadval", "Dars kunlari, vaqt va xona", "calendar", 20],
+  ["payments", "To'lovlar", "Balans, qarzdorlik va to'lov tarixi", "wallet", 30],
+  ["attendance", "Davomat", "Davomat foizi va tarix", "check-circle", 40],
+  ["coins", "Coinlar", "O'qituvchi bergan coinlar tarixi", "coins", 50],
+  ["rewards", "Sovg'alar do'koni", "Coin evaziga sovg'alar olish", "gift", 60],
+  ["rating", "Reyting", "Coin va natijalar bo'yicha reyting", "trophy", 70],
+  ["achievements", "Yutuqlar", "Medal, streak va progress", "badge", 80],
+  ["materials", "Materiallar", "PDF va video dars materiallari", "book-open", 90],
+  ["notifications", "Bildirishnomalar", "To'lov, dars va coin xabarlari", "bell", 100]
 ];
 
 function studentAppSecret() {
@@ -4047,8 +4047,8 @@ function studentAppWebUrl(organization, token = "") {
   const base = getStudentWebAppUrlBase();
   const url = new URL(base);
   const cleanPath = url.pathname.replace(/\/+$/, "");
-  if (cleanPath === "" || cleanPath.endsWith("/student-app")) {
-    url.pathname = `${cleanPath || "/student-app"}/home`;
+  if (cleanPath === "" || cleanPath.endsWith("/student-app") || cleanPath.endsWith("/app")) {
+    url.pathname = `${cleanPath || "/app"}/home`;
   }
   if (token) url.searchParams.set("token", token);
   return url.toString();
@@ -4441,6 +4441,36 @@ async function handleStudentAppReferralShare(request, response) {
 }
 
 const studentAppAdminTables = {
+  rewards: {
+    table: "student_reward_products",
+    fields: ["title", "description", "image_url", "coin_price", "stock", "category", "status"],
+    defaults: { coin_price: 0, stock: 0, category: "Boshqalar", status: "active" },
+    search: ["title", "description", "category", "status"]
+  },
+  "reward-redemptions": {
+    table: "student_reward_redemptions",
+    fields: ["student_id", "product_id", "product_title", "coin_price", "status", "admin_note"],
+    defaults: { status: "pending" },
+    search: ["product_title", "status", "admin_note"]
+  },
+  "coin-transactions": {
+    table: "student_coin_transactions",
+    fields: ["student_id", "teacher_id", "amount", "type", "reason", "source"],
+    defaults: { type: "award", source: "admin_panel", amount: 0 },
+    search: ["type", "reason", "source"]
+  },
+  achievements: {
+    table: "student_achievements",
+    fields: ["student_id", "key", "title", "description", "icon", "progress", "target", "completed_at"],
+    defaults: { progress: 0, target: 1 },
+    search: ["key", "title", "description"]
+  },
+  materials: {
+    table: "student_library_items",
+    fields: ["title", "type", "description", "cover_url", "file_url", "external_url", "course_id", "level", "status"],
+    defaults: { type: "pdf", status: "published" },
+    search: ["title", "type", "description"]
+  },
   dictionary: {
     table: "student_dictionary_words",
     fields: ["word", "translation", "pronunciation", "example", "level", "category", "status"],
@@ -5023,6 +5053,286 @@ async function handleGlobalSearchRequest(request, response, query) {
     sendJson(response, 200, { ok: true, results: [...students.rows, ...groups.rows, ...teachers.rows, ...leads.rows] });
   } catch (error) {
     withError(response, "Global search", error);
+  }
+}
+
+
+
+// Eduka 22.1.0 — Student App 22 + Gamification overrides
+async function ensureStudentGamificationDefaults(pool, organizationId) {
+  if (!organizationId) return;
+  await pool.query(
+    `INSERT INTO student_app_settings (organization_id, enabled, coins_enabled, rating_enabled, library_enabled, payments_enabled, news_enabled, schedule_enabled, attendance_enabled, rewards_enabled, achievements_enabled, materials_enabled)
+     VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+     ON CONFLICT (organization_id) DO NOTHING`,
+    [organizationId]
+  );
+  await ensureStudentAppDefaults(pool, organizationId);
+  const rewards = [
+    ["Daftar (A5)", "O'quv daftar", 40, "Kitoblar"],
+    ["Suv idishi", "Eduka brendli suv idishi", 120, "Boshqalar"],
+    ["Quloqchin", "Bluetooth quloqchin", 180, "Gadjetlar"],
+    ["Futbolka", "Eduka futbolkasi", 250, "Boshqalar"],
+    ["Power Bank", "Telefon uchun power bank", 300, "Gadjetlar"],
+    ["Vaucher (50 000 so'm)", "O'quv to'loviga chegirma vaucheri", 200, "Vaucher"]
+  ];
+  for (const [title, description, price, category] of rewards) {
+    await pool.query(
+      `INSERT INTO student_reward_products (organization_id, title, description, coin_price, stock, category, status)
+       SELECT $1,$2,$3,$4,25,$5,'active'
+       WHERE NOT EXISTS (SELECT 1 FROM student_reward_products WHERE organization_id=$1 AND LOWER(title)=LOWER($2))`,
+      [organizationId, title, description, price, category]
+    );
+  }
+}
+
+function studentAppModuleEnabled(payload, key) {
+  const settings = payload.settings || {};
+  const map = {
+    schedule: settings.schedule_enabled,
+    attendance: settings.attendance_enabled,
+    payments: settings.payments_enabled,
+    coins: settings.coins_enabled,
+    rewards: settings.rewards_enabled,
+    rating: settings.rating_enabled,
+    achievements: settings.achievements_enabled,
+    materials: settings.materials_enabled ?? settings.library_enabled,
+    notifications: settings.news_enabled,
+    profile: settings.profile_enabled
+  };
+  if (map[key] === false) return false;
+  const module = (payload.modules || []).find((item) => String(item.key) === key);
+  return !module || module.enabled !== false;
+}
+
+function buildStudentAchievements(student, attendanceRows, coinRows) {
+  const present = attendanceRows.filter((item) => ["present", "online"].includes(String(item.status))).length;
+  const coins = Number(student.coins || 0);
+  return [
+    { key: "active_student", title: "Faol o'quvchi", description: "10 darsda qatnashish", progress: Math.min(present, 10), target: 10, icon: "medal", completed: present >= 10 },
+    { key: "coin_collector", title: "Coin to'plash ustasi", description: "500 coin to'plash", progress: Math.min(coins, 500), target: 500, icon: "coin", completed: coins >= 500 },
+    { key: "streak", title: "Ketma-ketlik", description: "7 kun faol bo'lish", progress: Math.min(Math.max(coinRows.length, present), 7), target: 7, icon: "flame", completed: Math.max(coinRows.length, present) >= 7 }
+  ];
+}
+
+async function studentAppBasePayload(pool, row) {
+  await ensureStudentGamificationDefaults(pool, row.organization_id);
+  const queries = await Promise.all([
+    pool.query("SELECT * FROM student_app_settings WHERE organization_id=$1 LIMIT 1", [row.organization_id]),
+    pool.query("SELECT * FROM student_app_modules WHERE organization_id=$1 ORDER BY sort_order ASC, id ASC", [row.organization_id]),
+    pool.query("SELECT * FROM student_library_items WHERE organization_id=$1 AND status='published' ORDER BY id DESC LIMIT 100", [row.organization_id]),
+    pool.query("SELECT p.*, g.name AS group_name FROM payments p LEFT JOIN groups g ON g.id=p.group_id WHERE p.organization_id=$1 AND p.student_id=$2 ORDER BY p.paid_at DESC, p.id DESC LIMIT 100", [row.organization_id, row.id]),
+    pool.query("SELECT g.*, t.full_name AS teacher_name FROM groups g LEFT JOIN teachers t ON t.id=g.teacher_id WHERE g.organization_id=$1 AND (g.id=$2 OR g.id IN (SELECT group_id FROM group_students WHERE organization_id=$1 AND student_id=$3)) ORDER BY g.id DESC", [row.organization_id, row.group_id, row.id]),
+    pool.query("SELECT * FROM attendance_records WHERE organization_id=$1 AND student_id=$2 ORDER BY lesson_date DESC LIMIT 120", [row.organization_id, row.id]),
+    pool.query("SELECT c.*, t.full_name AS teacher_name FROM student_coin_transactions c LEFT JOIN teachers t ON t.id=c.teacher_id WHERE c.organization_id=$1 AND c.student_id=$2 ORDER BY c.created_at DESC LIMIT 100", [row.organization_id, row.id]),
+    pool.query("SELECT * FROM student_reward_products WHERE organization_id=$1 AND status='active' ORDER BY coin_price ASC, id DESC LIMIT 100", [row.organization_id]),
+    pool.query("SELECT * FROM student_reward_redemptions WHERE organization_id=$1 AND student_id=$2 ORDER BY created_at DESC LIMIT 50", [row.organization_id, row.id])
+  ]);
+  const [settings, modules, library, payments, groups, attendance, coins, rewards, redemptions] = queries.map((q) => q.rows || []);
+  const paid = payments.reduce((sum, item) => sum + Number(item.amount || 0) + Number(item.discount || 0), 0);
+  const due = payments.reduce((sum, item) => sum + Number(item.due_amount || 0), 0);
+  const balance = Math.max(Number(row.balance || 0), Math.max(due - paid, 0));
+  const present = attendance.filter((item) => ["present", "online"].includes(String(item.status))).length;
+  const attendancePercent = attendance.length ? Math.round((present / attendance.length) * 100) : 0;
+  const student = studentPublic({ ...row, balance, group_name: groups[0]?.name || row.group_name });
+  student.attendancePercent = attendancePercent;
+  const lessons = groups.map((group) => ({
+    id: group.id,
+    title: group.course_name || group.name,
+    group_name: group.name,
+    teacher_name: group.teacher_name || "-",
+    room: group.room || "-",
+    days: group.lesson_days || group.days || "Dushanba, Chorshanba, Juma",
+    start_time: String(group.start_time || "09:00").slice(0, 5),
+    end_time: String(group.end_time || "10:30").slice(0, 5),
+    time: `${String(group.start_time || "09:00").slice(0, 5)} - ${String(group.end_time || "10:30").slice(0, 5)}`,
+    status: "active"
+  }));
+  const notifications = [
+    ...coins.slice(0, 8).map((item) => ({ id: `coin-${item.id}`, type: "coin", title: `${item.teacher_name || "Ustoz"} sizga ${item.amount} coin berdi`, description: item.reason || "Faol ishtirok uchun", time: item.created_at, unread: false })),
+    ...payments.slice(0, 5).map((item) => ({ id: `payment-${item.id}`, type: "payment", title: "To'lov qabul qilindi", description: `${Number(item.amount || 0).toLocaleString("uz-UZ")} so'm to'lov tizimga kiritildi`, time: item.paid_at, unread: false }))
+  ];
+  const ranking = await pool.query(
+    `SELECT id AS student_id, full_name, coins AS score, avatar_url
+     FROM students WHERE organization_id=$1 AND student_app_enabled=TRUE
+     ORDER BY coins DESC, id ASC LIMIT 30`,
+    [row.organization_id]
+  );
+  const payload = {
+    student,
+    organization: { id: row.organization_id, name: row.organization_name, subdomain: row.organization_subdomain, phone: row.organization_phone },
+    settings: settings[0] || {},
+    modules,
+    payments,
+    groups,
+    lessons,
+    attendance,
+    coinTransactions: coins,
+    rewards,
+    redemptions,
+    achievements: buildStudentAchievements(student, attendance, coins),
+    library,
+    materials: library,
+    notifications,
+    ranking: ranking.rows,
+    paymentSummary: { due, paid, balance },
+    enabled: {}
+  };
+  for (const key of ["schedule", "attendance", "payments", "coins", "rewards", "rating", "achievements", "materials", "notifications", "profile"]) {
+    payload.enabled[key] = studentAppModuleEnabled(payload, key);
+  }
+  return payload;
+}
+
+async function handleStudentAppData(request, response, resource) {
+  if (!process.env.DATABASE_URL) {
+    sendJson(response, 503, { ok: false, message: "Student App real rejimda ishlashi uchun DATABASE_URL sozlanishi shart" });
+    return;
+  }
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const payload = await studentAppBasePayload(session.pool, session.row);
+  const responses = {
+    home: payload,
+    dashboard: payload,
+    profile: payload,
+    group: { student: payload.student, groups: payload.groups, attendance: payload.attendance },
+    study: { lessons: payload.lessons, groups: payload.groups },
+    schedule: { lessons: payload.lessons, groups: payload.groups, enabled: payload.enabled },
+    attendance: { attendance: payload.attendance, student: payload.student, enabled: payload.enabled },
+    rating: { ranking: payload.ranking, student: payload.student, enabled: payload.enabled },
+    achievements: { achievements: payload.achievements, enabled: payload.enabled },
+    coins: { coinTransactions: payload.coinTransactions, student: payload.student, enabled: payload.enabled },
+    rewards: { rewards: payload.rewards, redemptions: payload.redemptions, student: payload.student, enabled: payload.enabled },
+    library: { items: payload.library, enabled: payload.enabled },
+    materials: { items: payload.materials, enabled: payload.enabled },
+    notifications: { notifications: payload.notifications, enabled: payload.enabled },
+    news: { news: payload.notifications, events: [] },
+    payments: { payments: payload.payments, student: payload.student, paymentSummary: payload.paymentSummary, enabled: payload.enabled },
+    "payment-history": { payments: payload.payments, student: payload.student, paymentSummary: payload.paymentSummary, enabled: payload.enabled },
+    settings: { settings: payload.settings }
+  };
+  sendJson(response, 200, { ok: true, ...(responses[resource] || payload) });
+}
+
+async function handleStudentRewardRedeem(request, response, productId) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const pool = session.pool;
+  const productResult = await pool.query("SELECT * FROM student_reward_products WHERE id=$1 AND organization_id=$2 AND status='active' LIMIT 1", [productId, session.row.organization_id]);
+  const product = productResult.rows[0];
+  if (!product) {
+    sendJson(response, 404, { ok: false, message: "Sovg'a topilmadi" });
+    return;
+  }
+  const price = Number(product.coin_price || 0);
+  const currentCoins = Number(session.row.coins || 0);
+  if (price > currentCoins) {
+    sendJson(response, 409, { ok: false, message: "Coin yetarli emas" });
+    return;
+  }
+  if (Number(product.stock || 0) <= 0) {
+    sendJson(response, 409, { ok: false, message: "Sovg'a omborda qolmagan" });
+    return;
+  }
+  await pool.query("BEGIN");
+  try {
+    await pool.query("UPDATE students SET coins=GREATEST(coins-$3,0), updated_at=NOW() WHERE id=$1 AND organization_id=$2", [session.row.id, session.row.organization_id, price]);
+    await pool.query("UPDATE student_reward_products SET stock=GREATEST(stock-1,0), updated_at=NOW() WHERE id=$1 AND organization_id=$2", [product.id, session.row.organization_id]);
+    const redemption = await pool.query(
+      `INSERT INTO student_reward_redemptions (organization_id, student_id, product_id, product_title, coin_price, status)
+       VALUES ($1,$2,$3,$4,$5,'pending') RETURNING *`,
+      [session.row.organization_id, session.row.id, product.id, product.title, price]
+    );
+    await pool.query(
+      `INSERT INTO student_coin_transactions (organization_id, student_id, amount, type, reason, source)
+       VALUES ($1,$2,$3,'spend',$4,'reward_store')`,
+      [session.row.organization_id, session.row.id, -price, `Sovg'a olindi: ${product.title}`]
+    );
+    await pool.query("COMMIT");
+    sendJson(response, 200, { ok: true, redemption: redemption.rows[0], message: "Sovg'a so'rovi qabul qilindi" });
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
+  }
+}
+
+async function handleStudentAppProfileUpdate(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const body = await readJsonBody(request);
+  const result = await session.pool.query(
+    `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, address=$6, email=$7, updated_at=NOW()
+     WHERE id=$1 AND organization_id=$2 RETURNING *`,
+    [session.row.id, session.row.organization_id, asText(body.full_name || body.fullName, session.row.full_name), asText(body.phone, session.row.phone), asText(body.parent_phone || body.parentPhone, session.row.parent_phone), asText(body.address, session.row.address), asText(body.email, session.row.email)]
+  );
+  sendJson(response, 200, { ok: true, student: studentPublic(result.rows[0]), message: "Profil saqlandi" });
+}
+
+async function handleStudentAppPasswordChange(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const body = await readJsonBody(request);
+  const current = String(body.current_password || body.currentPassword || "");
+  const next = String(body.new_password || body.newPassword || "");
+  if (!next || next.length < 6) {
+    sendJson(response, 400, { ok: false, message: "Yangi parol kamida 6 belgidan iborat bo'lishi kerak" });
+    return;
+  }
+  if (session.row.app_password_hash && !verifyPassword(current, session.row.app_password_hash)) {
+    sendJson(response, 401, { ok: false, message: "Joriy parol noto'g'ri" });
+    return;
+  }
+  await session.pool.query("UPDATE students SET app_password_hash=$3, app_password_set_at=NOW(), app_password_reset_required=FALSE WHERE id=$1 AND organization_id=$2", [session.row.id, session.row.organization_id, hashPassword(next)]);
+  sendJson(response, 200, { ok: true, message: "Parol yangilandi" });
+}
+
+async function handleAdminAwardStudentCoins(request, response, studentId) {
+  try {
+    const user = await requireUser(request, response, "students:write");
+    if (!user) return;
+    const body = await readJsonBody(request);
+    const amount = Math.max(1, Math.min(10000, Math.round(Number(body.amount || 0))));
+    const reason = asText(body.reason, "Faol ishtirok uchun");
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const student = await pool.query("SELECT * FROM students WHERE id=$1 AND organization_id=$2", [studentId, user.organization_id]);
+    if (!student.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "O'quvchi topilmadi" });
+      return;
+    }
+    await pool.query("UPDATE students SET coins=coins+$3, updated_at=NOW() WHERE id=$1 AND organization_id=$2", [studentId, user.organization_id, amount]);
+    const tx = await pool.query(
+      `INSERT INTO student_coin_transactions (organization_id, student_id, teacher_id, amount, type, reason, source, created_by)
+       VALUES ($1,$2,$3,$4,'award',$5,'admin_panel',$6) RETURNING *`,
+      [user.organization_id, studentId, body.teacher_id || null, amount, reason, user.id]
+    );
+    const linked = student.rows[0];
+    if (linked.telegram_chat_id) {
+      await sendStudentTelegramMessage(pool, linked, `🎉 Sizga <b>${amount} coin</b> berildi!\nSabab: ${reason}\n\nCoinlaringizni Student App ichidagi sovg'alar do'konida ishlatishingiz mumkin.`).catch(() => null);
+    }
+    sendJson(response, 200, { ok: true, item: tx.rows[0], message: `${amount} coin berildi` });
+  } catch (error) {
+    withError(response, "Award student coins", error);
+  }
+}
+
+async function handleAdminRewardRedemptionAction(request, response, redemptionId, action) {
+  try {
+    const user = await requireUser(request, response, "settings:write");
+    if (!user) return;
+    const statusMap = { approve: "approved", reject: "rejected", complete: "completed" };
+    const status = statusMap[action] || "pending";
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const result = await pool.query(
+      `UPDATE student_reward_redemptions SET status=$3, completed_at=CASE WHEN $3='completed' THEN NOW() ELSE completed_at END
+       WHERE id=$1 AND organization_id=$2 RETURNING *`,
+      [redemptionId, user.organization_id, status]
+    );
+    sendJson(response, result.rows[0] ? 200 : 404, result.rows[0] ? { ok: true, item: result.rows[0] } : { ok: false, message: "So'rov topilmadi" });
+  } catch (error) {
+    withError(response, "Reward redemption action", error);
   }
 }
 
@@ -5638,9 +5948,25 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const studentDataMatch = urlPath.match(/^\/api\/student-app\/(home|profile|group|study|rating|library|dictionary|exams|referrals|news|payments|settings)$/);
+  const studentDataMatch = urlPath.match(/^\/api\/student-app\/(home|dashboard|profile|group|study|schedule|attendance|rating|library|materials|dictionary|exams|achievements|coins|rewards|referrals|news|notifications|payments|payment-history|settings)$/);
   if (studentDataMatch && request.method === "GET") {
     handleStudentAppData(request, response, studentDataMatch[1]);
+    return;
+  }
+
+  const studentRewardRedeemMatch = urlPath.match(/^\/api\/student-app\/rewards\/(\d+)\/redeem$/);
+  if (studentRewardRedeemMatch && request.method === "POST") {
+    handleStudentRewardRedeem(request, response, Number(studentRewardRedeemMatch[1]));
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/profile") {
+    handleStudentAppProfileUpdate(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/password") {
+    handleStudentAppPasswordChange(request, response);
     return;
   }
 
@@ -5690,7 +6016,19 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|news|events|referrals|extra-lessons|mock-exams|exams|feedback)(?:\/(\d+))?$/);
+  const gamificationAwardMatch = urlPath.match(/^\/api\/app\/gamification\/students\/(\d+)\/coins$/);
+  if (gamificationAwardMatch && request.method === "POST") {
+    handleAdminAwardStudentCoins(request, response, Number(gamificationAwardMatch[1]));
+    return;
+  }
+
+  const rewardRedemptionMatch = urlPath.match(/^\/api\/app\/gamification\/redemptions\/(\d+)\/(approve|reject|complete)$/);
+  if (rewardRedemptionMatch && request.method === "POST") {
+    handleAdminRewardRedemptionAction(request, response, Number(rewardRedemptionMatch[1]), rewardRedemptionMatch[2]);
+    return;
+  }
+
+  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|materials|news|events|rewards|coin-transactions|reward-redemptions|achievements|referrals|extra-lessons|mock-exams|exams|feedback)(?:\/(\d+))?$/);
   if (studentAdminTableMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
     handleAdminStudentAppTable(request, response, studentAdminTableMatch[1], studentAdminTableMatch[2] ? Number(studentAdminTableMatch[2]) : null);
     return;

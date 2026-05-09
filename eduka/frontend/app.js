@@ -206,6 +206,10 @@ const studentAppAdminViews = [
   "student-app-access",
   "student-app-modules",
   "student-app-library",
+  "student-app-rewards",
+  "student-app-coin-transactions",
+  "student-app-reward-redemptions",
+  "student-app-materials",
   "student-app-dictionary",
   "student-app-academic-help",
   "student-app-news",
@@ -223,6 +227,10 @@ const studentAppRouteByView = {
   "student-app-access": "/admin/settings/student-app/access",
   "student-app-modules": "/admin/settings/student-app/modules",
   "student-app-library": "/admin/settings/student-app/library",
+  "student-app-rewards": "/admin/settings/student-app/rewards",
+  "student-app-coin-transactions": "/admin/settings/student-app/coin-transactions",
+  "student-app-reward-redemptions": "/admin/settings/student-app/reward-redemptions",
+  "student-app-materials": "/admin/settings/student-app/materials",
   "student-app-dictionary": "/admin/settings/student-app/dictionary",
   "student-app-academic-help": "/admin/settings/student-app/academic-help",
   "student-app-news": "/admin/settings/student-app/news",
@@ -1414,13 +1422,11 @@ async function loadStudentAppAdminData() {
       settings,
       modules,
       access,
-      library,
-      dictionary,
+      rewards,
+      coinTransactions,
+      rewardRedemptions,
+      materials,
       news,
-      events,
-      referrals,
-      extraLessons,
-      exams,
       feedback
     ] = await Promise.allSettled([
       service.dashboard(),
@@ -1429,13 +1435,11 @@ async function loadStudentAppAdminData() {
       service.settings(),
       service.modules(),
       service.access(),
-      service.list("library"),
-      service.list("dictionary"),
+      service.list("rewards"),
+      service.list("coin-transactions"),
+      service.list("reward-redemptions"),
+      service.list("materials"),
       service.list("news"),
-      service.list("events"),
-      service.list("referrals"),
-      service.list("extra-lessons"),
-      service.list("exams"),
       service.list("feedback")
     ]);
     const value = (result, fallback) => result.status === "fulfilled" ? result.value : fallback;
@@ -1449,13 +1453,11 @@ async function loadStudentAppAdminData() {
     state.studentApp.settings = value(settings, {}).settings || {};
     state.studentApp.modules = value(modules, []);
     state.studentApp.access = value(access, []);
-    state.studentApp.library = value(library, []);
-    state.studentApp.dictionary = value(dictionary, []);
+    state.studentApp.rewards = value(rewards, []);
+    state.studentApp.coinTransactions = value(coinTransactions, []);
+    state.studentApp.rewardRedemptions = value(rewardRedemptions, []);
+    state.studentApp.materials = value(materials, []);
     state.studentApp.news = value(news, []);
-    state.studentApp.events = value(events, []);
-    state.studentApp.referrals = value(referrals, []);
-    state.studentApp.extraLessons = value(extraLessons, []);
-    state.studentApp.exams = value(exams, []);
     state.studentApp.feedback = value(feedback, []);
   } catch (error) {
     state.studentApp.error = error.message;
@@ -3859,6 +3861,68 @@ const studentAppResourceConfig = {
     ],
     row: (item) => [item.title, item.type, item.level || "-", item.status]
   },
+  rewards: {
+    title: "Sovg'alar do'koni",
+    backend: "rewards",
+    stateKey: "rewards",
+    columns: ["Mahsulot", "Coin", "Ombor", "Holat"],
+    fields: [
+      ["title", "Mahsulot nomi", "text", true],
+      ["description", "Tavsif", "textarea"],
+      ["image_url", "Rasm URL", "url"],
+      ["coin_price", "Narxi (coin)", "number", true],
+      ["stock", "Ombor", "number", true],
+      ["category", "Kategoriya", "text"],
+      ["status", "Holat", "select", true, ["active", "draft", "sold_out"]]
+    ],
+    row: (item) => [item.title, `${Number(item.coin_price || 0).toLocaleString("uz-UZ")} coin`, item.stock || 0, item.status]
+  },
+  "coin-transactions": {
+    title: "Coin tarixi",
+    backend: "coin-transactions",
+    stateKey: "coinTransactions",
+    columns: ["O'quvchi ID", "Miqdor", "Sabab", "Manba"],
+    fields: [
+      ["student_id", "O'quvchi ID", "number", true],
+      ["teacher_id", "O'qituvchi ID", "number"],
+      ["amount", "Coin miqdori", "number", true],
+      ["reason", "Sabab", "textarea"],
+      ["type", "Turi", "select", true, ["award", "spend", "bonus"]],
+      ["source", "Manba", "text"]
+    ],
+    row: (item) => [item.student_id, item.amount, item.reason || "-", item.source || "-"]
+  },
+  "reward-redemptions": {
+    title: "Sovg'a so'rovlari",
+    backend: "reward-redemptions",
+    stateKey: "rewardRedemptions",
+    columns: ["O'quvchi", "Sovg'a", "Coin", "Holat"],
+    fields: [
+      ["student_id", "O'quvchi ID", "number", true],
+      ["product_id", "Mahsulot ID", "number"],
+      ["product_title", "Sovg'a nomi", "text", true],
+      ["coin_price", "Coin", "number"],
+      ["status", "Holat", "select", true, ["pending", "approved", "rejected", "completed"]],
+      ["admin_note", "Admin izohi", "textarea"]
+    ],
+    row: (item) => [item.student_id, item.product_title, item.coin_price || 0, item.status]
+  },
+  materials: {
+    title: "Materiallar",
+    backend: "materials",
+    stateKey: "materials",
+    columns: ["Nomi", "Turi", "Daraja", "Holat"],
+    fields: [
+      ["title", "Nomi", "text", true],
+      ["type", "Turi", "select", true, ["pdf", "video", "audio", "file"]],
+      ["description", "Izoh", "textarea"],
+      ["level", "Daraja", "text"],
+      ["file_url", "Fayl URL", "url"],
+      ["external_url", "Tashqi havola", "url"],
+      ["status", "Holat", "select", true, ["published", "draft"]]
+    ],
+    row: (item) => [item.title, item.type, item.level || "-", item.status]
+  },
   dictionary: {
     title: "Lug'atlar",
     backend: "dictionary",
@@ -4141,7 +4205,7 @@ function renderCrmStudentAppPages() {
   renderStudentAppDashboard();
   renderStudentAppAccess();
   renderStudentAppModules();
-  ["library", "dictionary", "news", "events", "referrals", "extra-lessons", "exams", "feedback"].forEach(renderStudentAppResource);
+  ["rewards", "coin-transactions", "reward-redemptions", "materials", "news"].forEach(renderStudentAppResource);
   renderStudentAppInfoPage("student-app-academic-help", "Akademik yordam", "Support teacher, qo'shimcha izoh va o'quvchiga yordam sozlamalari.", ["Mas'ul o'qituvchi", "Javob berish vaqti", "Qo'llab-quvvatlash matni"]);
   renderStudentAppInfoPage("student-app-offers", "Takliflar", "Student App ichidagi maxsus takliflar, bonuslar va kampaniyalar.", ["Taklif nomi", "Bonus miqdori", "Amal qilish muddati"]);
   renderStudentAppSettings();
@@ -4235,7 +4299,7 @@ async function handleStudentAppAction(button) {
   const action = button.dataset.studentAppAction;
   const service = window.crmServices?.studentAppAdminService;
   if (action === "preview") {
-    window.open("/student-app/home?preview=1", "_blank", "noopener,noreferrer");
+    window.open("/app/home?preview=1", "_blank", "noopener,noreferrer");
     return;
   }
   if (action === "open-webhook-doc") {
