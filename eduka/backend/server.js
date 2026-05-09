@@ -19,6 +19,7 @@ const sessionMaxAgeSeconds = 60 * 60 * 24 * 7;
 const loginAttempts = new Map();
 let pgPool;
 let schemaReadyPromise;
+let studentAppCompatReadyPromise;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -188,6 +189,14 @@ async function ensureSchema(pool) {
   }
 
   await schemaReadyPromise;
+
+  if (!studentAppCompatReadyPromise) {
+    studentAppCompatReadyPromise = ensureStudentApp22Compatibility(pool).catch((error) => {
+      studentAppCompatReadyPromise = null;
+      throw error;
+    });
+  }
+  await studentAppCompatReadyPromise;
 }
 
 function publicUser(row) {
@@ -623,7 +632,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.0.4"
+      "X-Eduka-Version": "22.1.2"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -4135,6 +4144,7 @@ async function createStudentAppSession(pool, student, meta = {}) {
 async function createLinkedStudentAppSession(student, telegramUserId, telegramChatId) {
   const pool = getDbPool();
   await ensureSchema(pool);
+  await ensureStudentApp22Compatibility(pool);
   await ensureStudentAppDefaults(pool, student.organization_id);
   await pool.query(
     "UPDATE students SET telegram_user_id=$2, telegram_chat_id=$3, last_student_app_login=NOW() WHERE id=$1",
@@ -4328,6 +4338,7 @@ async function studentAppPasswordPreview(payload) {
 async function studentAppPasswordLogin(payload, meta = {}) {
   const pool = getDbPool();
   await ensureSchema(pool);
+  await ensureStudentApp22Compatibility(pool);
   const rows = await findStudentsByPhone(pool, payload.phone, { organizationId: payload.organization_id, subdomain: payload.subdomain });
   const student = rows[0];
   if (!student) {
@@ -5093,9 +5104,77 @@ async function handleGlobalSearchRequest(request, response, query) {
 
 
 
+
+// Eduka 22.1.2 — compatibility layer for old Railway databases
+async function ensureStudentApp22Compatibility(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_app_settings (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT UNIQUE NOT NULL REFERENCES organizations(id) ON DELETE CASCADE
+    );
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS crystals_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS coins_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS rating_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS referral_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS library_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS dictionary_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS extra_lessons_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS exams_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS news_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS payments_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS complaints_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS theme_primary TEXT NOT NULL DEFAULT '#0A84FF';
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS app_name TEXT NOT NULL DEFAULT 'Eduka Student App';
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS support_text TEXT;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS session_days INTEGER NOT NULL DEFAULT 30;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS schedule_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS attendance_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS profile_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS rewards_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS achievements_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS homework_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS materials_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS online_payment_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+    CREATE TABLE IF NOT EXISTS student_app_modules (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      key TEXT NOT NULL
+    );
+    ALTER TABLE student_app_modules ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+    ALTER TABLE student_app_modules ADD COLUMN IF NOT EXISTS description TEXT;
+    ALTER TABLE student_app_modules ADD COLUMN IF NOT EXISTS icon TEXT;
+    ALTER TABLE student_app_modules ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_modules ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE student_app_modules ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    CREATE UNIQUE INDEX IF NOT EXISTS student_app_modules_org_key_unique_2212 ON student_app_modules (organization_id, key);
+
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS telegram_user_id TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS crystals INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS last_student_app_login TIMESTAMPTZ;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS student_app_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS student_app_blocked BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS app_password_hash TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS app_password_set_at TIMESTAMPTZ;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS app_password_reset_required BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS referral_code TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  `);
+}
+
+
 // Eduka 22.1.1 — Student App 22 + Gamification overrides
 async function ensureStudentGamificationDefaults(pool, organizationId) {
   if (!organizationId) return;
+  await ensureStudentApp22Compatibility(pool);
   await pool.query(
     `INSERT INTO student_app_settings (organization_id, enabled, coins_enabled, rating_enabled, library_enabled, payments_enabled, news_enabled, schedule_enabled, attendance_enabled, rewards_enabled, achievements_enabled, materials_enabled)
      VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
