@@ -623,7 +623,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.0.2"
+      "X-Eduka-Version": "22.0.4"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -1908,7 +1908,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.2', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.4', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 

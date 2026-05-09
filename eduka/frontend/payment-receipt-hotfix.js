@@ -433,12 +433,34 @@
     }
   }
 
+  function isPaymentForm(form) {
+    if (!(form instanceof HTMLFormElement)) return false;
+
+    // Do not hijack the general CRM drawer for students/groups/teachers.
+    // The student drawer contains labels like "To'lov turi" and the calculated
+    // "To'lanishi kerak" helper, so the old text-based detector incorrectly
+    // treated student creation as a payment submit and showed "Talabani tanlang".
+    const drawer = form.closest("[data-crm-drawer]");
+    const drawerType = drawer?.dataset?.drawerType || drawer?.getAttribute("data-drawer-type") || "";
+    if (drawer && drawerType && drawerType !== "payments") return false;
+
+    if (form.matches("[data-payment-form], [data-crm-payment-form]")) return true;
+    if (drawerType === "payments") return true;
+    if (form.dataset.resource === "payments" || form.dataset.type === "payments") return true;
+
+    const studentField = findField(form, ["student_id", "student", "talaba", "o'quvchi", "oquvchi"]);
+    const amountField = findField(form, ["amount", "paid_amount", "narx", "summa", "to'langan"]);
+    const monthField = findField(form, ["payment_month", "month", "oy"]);
+    const methodField = findField(form, ["payment_type", "payment_method", "to'lov usuli", "tolov usuli", "usul"]);
+
+    // A real payment form must have a student selector plus payment amount/month/method fields.
+    // Student create forms can have payment_type/discount/balance, but they do not have student_id.
+    return Boolean(studentField && (amountField || monthField || methodField));
+  }
+
   function interceptPaymentSubmit(event) {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    const scopeText = (form.closest("[data-modal], .modal, dialog, .drawer")?.textContent || form.textContent || "").toLowerCase();
-    const looksLikePayment = scopeText.includes("to'lov") || scopeText.includes("tolov") || scopeText.includes("payment");
-    if (!looksLikePayment) return;
+    if (!isPaymentForm(form)) return;
 
     event.preventDefault();
     event.stopPropagation();
