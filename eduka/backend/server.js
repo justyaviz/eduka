@@ -1888,7 +1888,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '19.7', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '21.8.1', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
@@ -4889,7 +4889,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "21.8.0",
+      version: "21.8.1",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });

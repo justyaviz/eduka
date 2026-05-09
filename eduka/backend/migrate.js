@@ -308,6 +308,69 @@ async function seedStudentApp21Demo(pool) {
   await ensureStudentAppDefaults(pool, organizationId);
 }
 
+function quoteIdent(identifier) {
+  const value = String(identifier || "");
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) throw new Error(`Unsafe SQL identifier: ${value}`);
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+async function resetToOwnerOnly(pool, ownerEmail) {
+  if (process.env.EDUKA_SKIP_OWNER_RESET === "1") {
+    console.log("Owner-only reset skipped by EDUKA_SKIP_OWNER_RESET=1");
+    return;
+  }
+
+  console.log("Resetting Eduka to clean owner-only production state...");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Keep only the platform owner user. Remove demo requests and all tenant data.
+    await client.query("DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE LOWER(COALESCE(email,'')) <> $1)", [ownerEmail]);
+    await client.query("DELETE FROM demo_requests").catch(() => null);
+
+    const orgTables = await client.query(`
+      SELECT DISTINCT table_name
+      FROM information_schema.columns
+      WHERE table_schema='public' AND column_name='organization_id'
+      ORDER BY table_name DESC
+    `);
+
+    for (const row of orgTables.rows) {
+      const table = String(row.table_name || "");
+      if (!table || table === "organizations") continue;
+      try {
+        await client.query(`DELETE FROM ${quoteIdent(table)} WHERE organization_id IS NOT NULL`);
+      } catch (error) {
+        console.warn(`Owner reset skipped table ${table}: ${error.message}`);
+      }
+    }
+
+    await client.query("DELETE FROM organizations");
+    await client.query("DELETE FROM users WHERE LOWER(COALESCE(email,'')) <> $1", [ownerEmail]);
+    await client.query(
+      `UPDATE users
+       SET organization_id=NULL,
+           role='super_admin',
+           is_active=TRUE,
+           temporary_password=FALSE,
+           permissions='["*"]'::jsonb,
+           metadata = COALESCE(metadata, '{}'::jsonb) || '{"ownerOnly":"true","seed":"21.8.1"}'::jsonb,
+           updated_at=NOW()
+       WHERE LOWER(COALESCE(email,''))=$1`,
+      [ownerEmail]
+    );
+
+    await client.query("COMMIT");
+    console.log("Owner-only reset completed: centers=0, students=0, teachers=0, users=1.");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function run() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured");
   const pool = new Pool({
@@ -315,9 +378,9 @@ async function run() {
     ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false }
   });
 
-  const superEmail = (process.env.SUPER_ADMIN_EMAIL || "admin@eduka.uz").toLowerCase();
-  const superPassword = process.env.SUPER_ADMIN_PASSWORD || "12345678";
-  const superPhone = process.env.SUPER_ADMIN_PHONE || "+998901234567";
+  const superEmail = (process.env.SUPER_ADMIN_EMAIL || "yaviz@eduka.uz").toLowerCase();
+  const superPassword = process.env.SUPER_ADMIN_PASSWORD || "owner";
+  const superPhone = process.env.SUPER_ADMIN_PHONE || "+998200049899";
   const normalizedPhone = String(superPhone).replace(/\D/g, "") || "998901234567";
 
   try {
@@ -355,14 +418,11 @@ async function run() {
       [superEmail, superPhone, normalizedPhone, hashPassword(superPassword)]
     );
 
-    try {
-      await seedStudentApp21Demo(pool);
-    } catch (seedError) {
-      console.warn("Optional Student App 21.0 demo seed skipped:", seedError.message);
-      console.warn("Migration will continue so the production server can start.");
-    }
+    await resetToOwnerOnly(pool, superEmail);
 
-    console.log("Eduka 21.8 migration completed.");
+    console.log("Demo seed disabled: no centers, no students, no teachers are created automatically.");
+
+    console.log("Eduka 21.8.1 migration completed.");
     console.log(`Super Admin: ${superEmail}`);
     console.log(`Temporary password: ${superPassword}`);
   } finally {
