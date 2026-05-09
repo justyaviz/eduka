@@ -1432,6 +1432,113 @@ async function handleScheduleRequest(request, response) {
   }
 }
 
+
+function receiptSettingsDefaults(settings = {}) {
+  const receipt = settings.receipt || {};
+  return {
+    enabled: receipt.enabled !== false,
+    auto_print: receipt.auto_print !== false,
+    center_name: receipt.center_name || settings.center_name || "EDUKA",
+    address: receipt.address || "",
+    phone: receipt.phone || "",
+    prefix: receipt.prefix || "EDU",
+    footer: receipt.footer || "To'lovingiz uchun rahmat!",
+    paper: receipt.paper || "80mm",
+    show_qr: receipt.show_qr !== false
+  };
+}
+
+async function getOrganizationSettings(pool, organizationId) {
+  const result = await pool.query("SELECT settings FROM organization_settings WHERE organization_id=$1", [organizationId]);
+  return result.rows[0]?.settings || {};
+}
+
+async function ensureDefaultPaymentTypes(pool, organizationId) {
+  const defaults = ["Naqd pul", "Plastik karta", "Bank hisobi", "Click", "Payme", "Uzum"];
+  for (const name of defaults) {
+    await pool.query(
+      `INSERT INTO payment_types (organization_id, name, type, active)
+       VALUES ($1,$2,'Markaz',TRUE)
+       ON CONFLICT DO NOTHING`,
+      [organizationId, name]
+    );
+  }
+}
+
+async function createNotification(pool, user, title, body, type = "info") {
+  try {
+    await pool.query(
+      `INSERT INTO notifications (organization_id, user_id, title, body, type)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [user.organization_id, user.id || null, title, body, type]
+    );
+  } catch (error) {
+    console.warn("Notification skipped:", error.message);
+  }
+}
+
+async function handleReceiptSettingsRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "PUT" ? "settings:write" : "read");
+    if (!user) return;
+    const pool = getDbPool();
+    const settings = await getOrganizationSettings(pool, user.organization_id);
+    if (request.method === "GET") {
+      sendJson(response, 200, { ok: true, settings: receiptSettingsDefaults(settings) });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const current = receiptSettingsDefaults(settings);
+    const next = { ...current, ...body };
+    const merged = { ...settings, receipt: next };
+    await pool.query(
+      `INSERT INTO organization_settings (organization_id, settings, updated_at)
+       VALUES ($1,$2::jsonb,NOW())
+       ON CONFLICT (organization_id) DO UPDATE SET settings=EXCLUDED.settings, updated_at=NOW()`,
+      [user.organization_id, JSON.stringify(merged)]
+    );
+    await writeAudit(pool, user, "update", "receipt_settings", user.organization_id, next);
+    sendJson(response, 200, { ok: true, settings: next });
+  } catch (error) {
+    withError(response, "Receipt settings", error);
+  }
+}
+
+async function handlePaymentReceiptRequest(request, response, paymentId) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    const query = requestQuery(request);
+    const markPrinted = query.get("mark") === "1" || request.method === "POST";
+    if (markPrinted) {
+      await pool.query("UPDATE payments SET receipt_printed_at=NOW(), receipt_status='printed' WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
+    }
+    const result = await pool.query(
+      `SELECT p.*, s.full_name AS student_name, s.phone AS student_phone, g.name AS group_name, g.course_name,
+              u.full_name AS cashier_name, o.name AS organization_name, o.phone AS organization_phone, o.address AS organization_address
+       FROM payments p
+       LEFT JOIN students s ON s.id=p.student_id
+       LEFT JOIN groups g ON g.id=p.group_id
+       LEFT JOIN users u ON u.id=p.created_by
+       LEFT JOIN organizations o ON o.id=p.organization_id
+       WHERE p.id=$1 AND p.organization_id=$2`,
+      [paymentId, user.organization_id]
+    );
+    if (!result.rows[0]) return sendJson(response, 404, { ok: false, message: "To'lov topilmadi" });
+    const settings = receiptSettingsDefaults(await getOrganizationSettings(pool, user.organization_id));
+    const payment = result.rows[0];
+    if (!payment.receipt_no) {
+      const receiptNo = `${settings.prefix}-${String(payment.id).padStart(6, "0")}`;
+      const upd = await pool.query("UPDATE payments SET receipt_no=$3 WHERE id=$1 AND organization_id=$2 RETURNING receipt_no", [paymentId, user.organization_id, receiptNo]);
+      payment.receipt_no = upd.rows[0]?.receipt_no || receiptNo;
+    }
+    sendJson(response, 200, { ok: true, receipt: { settings, payment, printed_at: markPrinted ? new Date().toISOString() : payment.receipt_printed_at } });
+  } catch (error) {
+    withError(response, "Payment receipt", error);
+  }
+}
+
 async function handleSettingsRequest(request, response) {
   try {
     const user = await requireUser(request, response, request.method === "PUT" ? "settings:write" : "read");
@@ -2573,9 +2680,10 @@ async function handlePaymentCreate(request, response) {
     const discount = asNumber(body.discount);
     const dueAmount = asNumber(body.due_amount, amount + discount);
     const pool = getDbPool();
+    const settings = receiptSettingsDefaults(await getOrganizationSettings(pool, user.organization_id));
     const result = await pool.query(
-      `INSERT INTO payments (organization_id, student_id, group_id, payment_month, due_amount, amount, discount, status, payment_type, note, created_by, paid_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12::timestamptz,NOW())) RETURNING *`,
+      `INSERT INTO payments (organization_id, student_id, group_id, payment_month, due_amount, amount, paid_amount, discount, status, payment_type, note, created_by, paid_at, payment_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,COALESCE($12::timestamptz,NOW()),COALESCE($13::date,CURRENT_DATE)) RETURNING *`,
       [
         user.organization_id,
         body.student_id || null,
@@ -2585,19 +2693,29 @@ async function handlePaymentCreate(request, response) {
         amount,
         discount,
         paymentStatusFrom(amount, dueAmount, discount, body.status),
-        asText(body.payment_type, "naqd"),
+        asText(body.payment_type, "Naqd pul"),
         asText(body.note),
         user.id,
-        asDate(body.paid_at)
+        asDate(body.paid_at),
+        asDate(body.payment_date || body.paid_at)
       ]
     );
+
+    let item = result.rows[0];
+    const receiptNo = `${settings.prefix}-${String(item.id).padStart(6, "0")}`;
+    const updated = await pool.query(
+      `UPDATE payments SET receipt_no=COALESCE(receipt_no,$3), receipt_status='created' WHERE id=$1 AND organization_id=$2 RETURNING *`,
+      [item.id, user.organization_id, receiptNo]
+    );
+    item = updated.rows[0] || item;
 
     if (body.student_id) {
       await recalculateStudentBalance(pool, user.organization_id, body.student_id);
     }
 
-    await writeAudit(pool, user, "create", "payments", result.rows[0].id, body);
-    sendJson(response, 201, { ok: true, item: result.rows[0] });
+    await createNotification(pool, user, "To'lov qabul qilindi", `${amount.toLocaleString("uz-UZ")} so'm to'lov amalga oshirildi. Chek: ${item.receipt_no}`, "success");
+    await writeAudit(pool, user, "create", "payments", item.id, { ...body, receipt_no: item.receipt_no });
+    sendJson(response, 201, { ok: true, item, receipt_no: item.receipt_no, print_receipt: settings.auto_print });
   } catch (error) {
     withError(response, "Create payments", error);
   }
@@ -2644,6 +2762,12 @@ async function handlePaymentUpdate(request, response, paymentId) {
       ]
     );
 
+    if (!result.rows[0].receipt_no) {
+      const settings = receiptSettingsDefaults(await getOrganizationSettings(pool, user.organization_id));
+      await pool.query("UPDATE payments SET receipt_no=$3 WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id, `${settings.prefix}-${String(paymentId).padStart(6, "0")}`]);
+    }
+
+    // Payment updated notification 211
     await recalculateStudentBalance(pool, user.organization_id, before.student_id);
     if (String(before.student_id || "") !== String(studentId || "")) {
       await recalculateStudentBalance(pool, user.organization_id, studentId);
@@ -3287,6 +3411,7 @@ async function handleSimpleCrudRequest(request, response, config, id = null) {
     const pool = getDbPool();
 
     if (request.method === "GET" && !id) {
+      if (config.table === "payment_types") await ensureDefaultPaymentTypes(pool, user.organization_id);
       const result = await pool.query(config.listSql, [user.organization_id]);
       let items = result.rows;
       if (config.table === "finance_transactions" && request.edukaFinanceAlias && request.edukaFinanceAlias !== "transactions") {
@@ -4821,6 +4946,19 @@ const server = http.createServer((request, response) => {
   const staffAttendanceActionMatch = urlPath.match(/^\/api\/app\/staff-attendance(?:\/(check-in|check-out|(\d+)))?$/);
   if (staffAttendanceActionMatch) {
     handleStaffAttendanceRequest(request, response, staffAttendanceActionMatch[1] || "", staffAttendanceActionMatch[2] ? Number(staffAttendanceActionMatch[2]) : null);
+    return;
+  }
+
+
+  const receiptSettingsMatch = urlPath.match(/^\/api(?:\/app)?\/receipt-settings$/);
+  if (receiptSettingsMatch && ["GET", "PUT"].includes(request.method)) {
+    handleReceiptSettingsRequest(request, response);
+    return;
+  }
+
+  const paymentReceiptMatch = urlPath.match(/^\/api(?:\/app)?\/payments\/(\d+)\/receipt$/);
+  if (paymentReceiptMatch && ["GET", "POST"].includes(request.method)) {
+    handlePaymentReceiptRequest(request, response, Number(paymentReceiptMatch[1]));
     return;
   }
 

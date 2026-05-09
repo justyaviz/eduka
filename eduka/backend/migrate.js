@@ -73,6 +73,7 @@ async function applyProductionHardening(pool) {
     CREATE UNIQUE INDEX IF NOT EXISTS student_app_modules_org_key_unique_exact_2001 ON student_app_modules (organization_id, key);
     CREATE UNIQUE INDEX IF NOT EXISTS attendance_org_group_student_date_unique_exact_2001 ON attendance_records (organization_id, group_id, student_id, lesson_date);
     CREATE UNIQUE INDEX IF NOT EXISTS group_students_org_group_student_unique_exact_2001 ON group_students (organization_id, group_id, student_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS payments_org_receipt_no_unique_211 ON payments (organization_id, receipt_no) WHERE receipt_no IS NOT NULL;
   `);
 }
 
@@ -98,6 +99,9 @@ async function applyEduka21Stability(pool) {
     ALTER TABLE teachers ADD COLUMN IF NOT EXISTS note TEXT;
     ALTER TABLE teachers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_no TEXT;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_printed_at TIMESTAMPTZ;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_status TEXT NOT NULL DEFAULT 'not_printed';
     ALTER TABLE courses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
     ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;

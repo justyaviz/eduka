@@ -113,10 +113,10 @@ const endpoints = {
   paymentTypes: "/api/payment-types",
   staffAttendance: "/api/app/staff-attendance",
   financeTransactions: "/api/app/finance/transactions",
-  extraIncomes: "/api/app/finance/transactions",
-  salaryPayments: "/api/app/finance/transactions",
-  bonuses: "/api/app/finance/transactions",
-  expenses: "/api/app/finance/transactions",
+  extraIncomes: "/api/app/finance/extra-incomes",
+  salaryPayments: "/api/app/finance/salary",
+  bonuses: "/api/app/finance/bonuses",
+  expenses: "/api/app/finance/expenses",
   audit: "/api/audit-logs"
 };
 const uiState = {
@@ -625,7 +625,7 @@ function generatedViewHtml(title, description, type) {
     return `<section class="settings-panel"><div class="page-head"><h1>${title}</h1><button class="section-action" type="button">Lavozim qo'shish</button></div><p>${description}</p><div class="role-list">${["Exerciser", "Developer", "Kassir", "Chop etuvchi", "Marketolog", "Adminstrator", "Buxgalter", "Teacher"].map((role) => `<article><b>${role[0]}</b><span>${role}</span><small>global</small></article>`).join("")}</div></section>`;
   }
   if (type === "receipt") {
-    return `<section class="split-panels"><article><div class="page-head"><h1>${title}</h1><button class="section-action">Tahrirlash</button></div><div class="table simple-table"><div><b>T/R</b><b>Nomi</b></div><div class="table-empty">Ma'lumot topilmadi</div></div></article><article><h1>Chek ko'rinishi</h1><div class="receipt-preview">EDUKA<br/>O'quv markazi cheki</div></article></section>`;
+    return `<section class="split-panels receipt-settings-page"><article><div class="page-head"><h1>${title}</h1><button class="section-action" type="submit" form="receipt-settings-form">Saqlash</button></div><p>${description}</p><form id="receipt-settings-form" data-receipt-settings-form class="settings-form receipt-settings-form"><label>Chek prefiksi<input name="prefix" value="EDU" /></label><label>Markaz nomi<input name="center_name" value="EDUKA" /></label><label>Telefon<input name="phone" placeholder="+998" /></label><label>Manzil<input name="address" placeholder="Markaz manzili" /></label><label>Pastki matn<input name="footer" value="To'lovingiz uchun rahmat!" /></label><label>Qog'oz<select name="paper"><option value="80mm">80mm</option><option value="58mm">58mm</option><option value="a4">A4</option></select></label><label class="check-field"><input name="enabled" type="checkbox" checked /><span>Chek chiqarish yoqilsin</span></label><label class="check-field"><input name="auto_print" type="checkbox" checked /><span>To'lovdan keyin avtomatik chek chiqarish</span></label></form></article><article><h1>Chek ko'rinishi</h1><div class="receipt-preview receipt-preview-pro"><b>EDUKA</b><span>O'quv markazi cheki</span><hr/><p>Chek: EDU-000001</p><p>Talaba: YAHYOBEK</p><p>Summa: 250 000 so'm</p><small>To'lovingiz uchun rahmat!</small></div></article></section>`;
   }
   if (type === "market") {
     return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-grid"><article><h2>Telegram bot</h2><p>Davomat va qarzdorlik xabarlari.</p></article><article><h2>Excel import/export</h2><p>Talabalar va moliya fayllari.</p></article><article><h2>SMS gateway</h2><p>Auto SMS va shablonlar.</p></article></div></section>`;
@@ -1529,6 +1529,49 @@ function renderResource(resource, emptyText, renderer) {
   renderPager(resource, total, maxPage);
 }
 
+
+function paymentReceiptHtml(receipt) {
+  const p = receipt.payment || {};
+  const s = receipt.settings || {};
+  const total = Number(p.amount || p.paid_amount || 0);
+  const due = Number(p.due_amount || total || 0);
+  const debt = Math.max(due - total - Number(p.discount || 0), 0);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Chek ${escapeHtml(p.receipt_no || "")}</title><style>body{font-family:Inter,Arial,sans-serif;margin:0;background:#f3f6fb;color:#111827}.receipt{width:320px;margin:20px auto;background:white;border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(15,23,42,.18)}.head{text-align:center}.brand{font-size:22px;font-weight:900}.muted{color:#64748b;font-size:12px}.row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed #dbe3ef;padding:8px 0;font-size:13px}.total{font-size:18px;font-weight:900}.ok{color:#059669}.footer{text-align:center;margin-top:14px;font-size:12px}.actions{display:flex;gap:8px;justify-content:center;margin:16px}@media print{body{background:white}.receipt{box-shadow:none;margin:0 auto}.actions{display:none}}</style></head><body><div class="receipt"><div class="head"><div class="brand">${escapeHtml(s.center_name || p.organization_name || "EDUKA")}</div><div class="muted">${escapeHtml(s.address || p.organization_address || "")}</div><div class="muted">${escapeHtml(s.phone || p.organization_phone || "")}</div></div><div class="row"><span>Chek</span><b>${escapeHtml(p.receipt_no || "-")}</b></div><div class="row"><span>Sana</span><b>${formatDate(p.paid_at || p.payment_date)}</b></div><div class="row"><span>Talaba</span><b>${escapeHtml(p.student_name || "-")}</b></div><div class="row"><span>Telefon</span><b>${escapeHtml(p.student_phone || "-")}</b></div><div class="row"><span>Guruh</span><b>${escapeHtml(p.group_name || "-")}</b></div><div class="row"><span>Oy</span><b>${escapeHtml(p.payment_month || "-")}</b></div><div class="row"><span>To'lov usuli</span><b>${escapeHtml(p.payment_type || "-")}</b></div><div class="row"><span>To'lanishi kerak</span><b>${formatMoney(due)}</b></div><div class="row"><span>Chegirma</span><b>${formatMoney(p.discount || 0)}</b></div><div class="row total"><span>To'landi</span><b class="ok">${formatMoney(total)}</b></div><div class="row"><span>Qoldiq</span><b>${formatMoney(debt)}</b></div><div class="row"><span>Kassir</span><b>${escapeHtml(p.cashier_name || currentUser?.fullName || currentUser?.name || "-")}</b></div><div class="footer">${escapeHtml(s.footer || "To'lovingiz uchun rahmat!")}</div></div><div class="actions"><button onclick="window.print()">Chop etish</button><button onclick="window.close()">Yopish</button></div><script>setTimeout(()=>window.print(),350)</script></body></html>`;
+}
+
+async function printPaymentReceipt(paymentId) {
+  if (!paymentId) return;
+  try {
+    const result = await api(`/api/payments/${paymentId}/receipt?mark=1`);
+    const win = window.open("", "_blank", "width=420,height=700");
+    if (!win) {
+      showToast("Brauzer popupni blokladi. Popup ruxsatini yoqing.", "warning");
+      return;
+    }
+    win.document.open();
+    win.document.write(paymentReceiptHtml(result.receipt || {}));
+    win.document.close();
+    showToast("Chek chiqarish oynasi ochildi.", "success");
+  } catch (error) {
+    showToast(error.message || "Chek chiqarilmadi", "error");
+  }
+}
+
+async function loadReceiptSettings() {
+  const form = document.querySelector("[data-receipt-settings-form]");
+  if (!form) return;
+  try {
+    const result = await api("/api/app/receipt-settings");
+    const settings = result.settings || {};
+    Object.entries(settings).forEach(([key, value]) => {
+      const input = form.elements[key];
+      if (!input) return;
+      if (input.type === "checkbox") input.checked = value !== false;
+      else input.value = value ?? "";
+    });
+  } catch {}
+}
+
 function actionButtons(resource, item) {
   const wrap = document.createElement("span");
   wrap.className = "row-actions";
@@ -1545,6 +1588,13 @@ function actionButtons(resource, item) {
     profile.append(svgIcon("layers"), document.createTextNode("Profil"));
     profile.addEventListener("click", () => setView("group-profile", { route: `/app/groups/${item.id}` }));
     wrap.append(profile);
+  }
+  if (resource === "payments") {
+    const receipt = document.createElement("button");
+    receipt.type = "button";
+    receipt.append(svgIcon("receipt-text"), document.createTextNode("Chek"));
+    receipt.addEventListener("click", () => printPaymentReceipt(item.id));
+    wrap.append(receipt);
   }
   if (resource === "leads" && canWrite(resource)) {
     const convert = document.createElement("button");
@@ -1915,6 +1965,7 @@ function renderProfiles() {
 }
 
 function renderAll() {
+  loadReceiptSettings();
   renderResource("students", "Hali talabalar yo'q. Talaba yaratish tugmasini bosing.", (table, item) => row(table, [item.full_name, item.phone, item.group_name, item.course_name, badge(item.payment_status || (Number(item.balance || 0) > 0 ? "debt" : "paid")), item.attendance_percent || "-", badge(item.status), actionButtons("students", item)]));
   renderResource("leads", "Hali lidlar yo'q. Lid yaratish orqali pipeline boshlang.", (table, item) => row(table, [item.full_name, item.phone, item.course_name, item.source, badge(item.status), item.manager_name, formatDate(item.next_contact_at), actionButtons("leads", item)]));
   renderResource("groups", "Hali guruhlar yo'q.", (table, item) => row(table, [item.name, item.course_name, item.teacher_full_name || item.teacher_name, item.days, `${item.start_time || ""} - ${item.end_time || ""}`, item.room, item.student_count || 0, money(item.monthly_price), badge(item.status), actionButtons("groups", item)]));
@@ -4826,7 +4877,7 @@ function crmDrawerFields(type, item = {}) {
     return `
       <label class="wide"><span>Nomi *</span><input name="name" required value="${escapeHtml(item.name)}" placeholder="1-xona" /></label>
       <label class="wide"><span>Xona sig'imi</span><input name="capacity" type="number" min="1" value="${Number(item.capacity || 12)}" /></label>
-      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
+      <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label><label class="crm-check-field wide"><input name="print_receipt" type="checkbox" checked /><span>Saqlagandan keyin chek chiqarish</span></label>`;
   }
   if (type === "paymentTypes") {
     return `
@@ -4867,7 +4918,7 @@ function crmDrawerFields(type, item = {}) {
       <label><span>To'lanishi kerak</span><input name="due_amount" type="number" value="${Number(item.due_amount || item.amount || 0)}" /></label>
       <label><span>To'langan summa</span><input name="amount" type="number" value="${Number(item.amount || 0)}" /></label>
       <label><span>Chegirma</span><input name="discount" type="number" value="${Number(item.discount || 0)}" /></label>
-      <label><span>To'lov usuli</span><select name="payment_type"><option value="naqd">Naqd</option><option value="karta">Karta</option><option value="click">Click</option><option value="payme">Payme</option><option value="bank">Bank</option></select></label>
+      <label><span>To'lov usuli</span><select name="payment_type"><option value="Naqd pul" ${(item.payment_type || "Naqd pul") === "Naqd pul" || item.payment_type === "naqd" ? "selected" : ""}>Naqd pul</option><option value="Plastik karta" ${item.payment_type === "Plastik karta" || item.payment_type === "karta" ? "selected" : ""}>Plastik karta</option><option value="Click" ${item.payment_type === "Click" || item.payment_type === "click" ? "selected" : ""}>Click</option><option value="Payme" ${item.payment_type === "Payme" || item.payment_type === "payme" ? "selected" : ""}>Payme</option><option value="Bank hisobi" ${item.payment_type === "Bank hisobi" || item.payment_type === "bank" ? "selected" : ""}>Bank hisobi</option></select></label>
       <label><span>Sana</span><input name="paid_at" type="date" value="${formatDate(item.paid_at) || new Date().toISOString().slice(0, 10)}" /></label>
       <label class="wide"><span>Izoh</span><textarea name="note">${escapeHtml(item.note)}</textarea></label>`;
   }
@@ -4955,7 +5006,8 @@ function crmApiPayload(resource, item) {
   if (resource === "groups") return { name: item.name, course_name: item.course_name, status: item.status, teacher_id: item.teacher_id || null, teacher_name: item.teacher_name, days: item.days, start_time: item.start_time, end_time: item.end_time, monthly_price: item.monthly_price, starts_at: item.starts_at, room: item.room, note: item.note };
   if (resource === "teachers") return { full_name: item.full_name, phone: item.phone, email: item.email, course_name: item.course_name, groups: crmTeacherGroups(item).join(", "), login_enabled: item.loginEnabled, status: item.status, salary_type: item.salary_type, salary_rate: item.salary_rate, note: item.note };
   if (resource === "courses") return { name: item.name, description: item.description, price: item.price, duration: item.duration, level: item.level, lesson_type: item.lesson_type, status: item.status };
-  if (resource === "payments") return { student_id: item.student_id || null, group_id: item.group_id || null, payment_month: item.payment_month, due_amount: item.due_amount, amount: item.amount, discount: item.discount, payment_type: item.payment_type, paid_at: item.paid_at, note: item.note };
+  if (["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(resource)) return { type: item.type, category: item.category, amount: item.amount, payment_type_id: item.payment_type_id || null, employee_id: item.employee_id || null, reason: item.reason || item.title || item.note, note: item.note, transaction_date: item.transaction_date || item.date, payment_type: item.payment_type, source: item.source, customer_name: item.customer_name };
+  if (resource === "payments") return { student_id: item.student_id || null, group_id: item.group_id || null, payment_month: item.payment_month, due_amount: item.due_amount, amount: item.amount, discount: item.discount, payment_type: item.payment_type, paid_at: item.paid_at, payment_date: item.paid_at, note: item.note };
   if (resource === "leads") return { full_name: item.full_name, phone: item.phone, course_name: item.course_name, source: item.source, status: item.status, manager_name: item.manager_name, note: item.note };
   return item;
 }
@@ -5009,6 +5061,7 @@ async function saveCrmDrawer(form) {
     if (endpoint) {
       const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)) });
       if (result.item) item = { ...item, ...result.item };
+      if (resource === "payments" && data.print_receipt === "on" && item.id) await printPaymentReceipt(item.id);
       if (Array.isArray(state[resource])) {
         if (editing) state[resource] = state[resource].map((entry) => String(entry.id) === String(item.id) ? item : entry);
         else state[resource].unshift(item);
@@ -6145,6 +6198,22 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+
+  const receiptSettingsForm = event.target.closest("[data-receipt-settings-form]");
+  if (receiptSettingsForm) {
+    event.preventDefault();
+    const raw = Object.fromEntries(new FormData(receiptSettingsForm).entries());
+    raw.enabled = receiptSettingsForm.elements.enabled?.checked !== false;
+    raw.auto_print = receiptSettingsForm.elements.auto_print?.checked !== false;
+    try {
+      await api("/api/app/receipt-settings", { method: "PUT", body: JSON.stringify(raw) });
+      showToast("Chek sozlamalari saqlandi.", "success");
+    } catch (error) {
+      showToast(error.message || "Chek sozlamalari saqlanmadi", "error");
+    }
+    return;
+  }
+
   const tenantLoginForm = event.target.closest("[data-tenant-login-form]");
   if (tenantLoginForm) {
     event.preventDefault();
