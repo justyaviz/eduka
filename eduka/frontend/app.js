@@ -1130,7 +1130,8 @@ function renderOnboarding() {
   if (!onboardingSteps || !onboardingForm) return;
   onboardingSteps.innerHTML = onboardingTitles.map(([title], index) => `<span class="${index === onboardingStep ? "active" : ""}">${index + 1}. ${title}</span>`).join("");
   const [title, description] = onboardingTitles[onboardingStep];
-  onboardingForm.innerHTML = `<h3>${title}</h3><p>${description}</p>${onboardingFields(onboardingStep)}<div class="modal-actions">${onboardingStep ? '<button type="button" data-onboarding-back>Ortga</button>' : ""}<button type="submit">${onboardingStep === onboardingTitles.length - 1 ? "Dashboardga o'tish" : "Davom etish"}</button></div>`;
+  const isLastStep = onboardingStep === onboardingTitles.length - 1;
+  onboardingForm.innerHTML = `<h3>${title}</h3><p>${description}</p>${onboardingFields(onboardingStep)}<div class="modal-actions">${onboardingStep ? '<button type="button" data-onboarding-back>Ortga</button>' : ""}${isLastStep ? '<button type="button" class="ghost" data-onboarding-skip>Keyinroq to\'ldiraman</button>' : ""}<button type="submit" data-onboarding-submit>${isLastStep ? "Dashboardga o\'tish" : "Davom etish"}</button></div>`;
 }
 
 function onboardingFields(step) {
@@ -6723,6 +6724,49 @@ document.querySelector("[data-forgot]")?.addEventListener("click", () => {
   showToast("Parol esdan chiqqan bo'lsa, Telegram adminiga yozing: @eduka_admin");
 });
 
+async function finishOnboarding({ skip = false } = {}) {
+  const submitButton = onboardingForm?.querySelector("[data-onboarding-submit]");
+  const skipButton = onboardingForm?.querySelector("[data-onboarding-skip]");
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = skip ? "O'tkazilmoqda..." : "Dashboard ochilmoqda...";
+  }
+  if (skipButton) skipButton.disabled = true;
+
+  try {
+    const payload = await safeApi("/api/onboarding", {
+      method: "POST",
+      body: JSON.stringify(skip ? { skip: true } : onboardingData)
+    }, async () => {
+      if (!skip) {
+        for (const course of onboardingData.courses || []) await window.crmServices?.courseService?.create?.(course);
+        for (const teacher of onboardingData.teachers || []) await window.crmServices?.teacherService?.create?.(teacher);
+        for (const group of onboardingData.groups || []) await window.crmServices?.groupService?.create?.(group);
+        for (const student of onboardingData.students || []) await window.crmServices?.studentService?.create?.(student);
+      }
+      return { user: { ...currentUser, organization: { ...(currentUser?.organization || {}), ...onboardingData.center, needsOnboarding: false, setupCompletedAt: new Date().toISOString() } } };
+    });
+
+    currentUser = payload.user || currentUser;
+    if (currentUser?.organization) {
+      currentUser.organization.needsOnboarding = false;
+      currentUser.organization.setupCompletedAt = currentUser.organization.setupCompletedAt || new Date().toISOString();
+    }
+    closeOnboarding();
+    centerName.textContent = currentUser?.organization?.name || "Eduka CRM";
+    await refreshAll();
+    setView("dashboard", { replace: true });
+    showToast(skip ? "Setup keyinroq davom ettiriladi. Dashboard ochildi." : "Markaz sozlandi. Dashboard tayyor.");
+  } catch (error) {
+    showToast(error.message || "Setup yakunlanmadi. Ma'lumotlarni tekshiring.", "error");
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "Dashboardga o'tish";
+    }
+    if (skipButton) skipButton.disabled = false;
+  }
+}
+
 onboardingForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   saveOnboardingStep();
@@ -6731,30 +6775,17 @@ onboardingForm?.addEventListener("submit", async (event) => {
     renderOnboarding();
     return;
   }
-  try {
-    const payload = await safeApi("/api/onboarding", { method: "POST", body: JSON.stringify(onboardingData) }, async () => {
-      for (const course of onboardingData.courses || []) await window.crmServices?.courseService?.create?.(course);
-      for (const teacher of onboardingData.teachers || []) await window.crmServices?.teacherService?.create?.(teacher);
-      for (const group of onboardingData.groups || []) await window.crmServices?.groupService?.create?.(group);
-      for (const student of onboardingData.students || []) await window.crmServices?.studentService?.create?.(student);
-      return { user: { ...currentUser, organization: { ...(currentUser?.organization || {}), ...onboardingData.center, needsOnboarding: false } } };
-    });
-    currentUser = payload.user || currentUser;
-    closeOnboarding();
-    centerName.textContent = currentUser?.organization?.name || "Eduka CRM";
-    await refreshAll();
-    setView("dashboard");
-    showToast("Markaz sozlandi. Dashboard tayyor.");
-  } catch (error) {
-    showToast(error.message);
-  }
+  await finishOnboarding({ skip: false });
 });
 
-onboarding?.addEventListener("click", (event) => {
+onboarding?.addEventListener("click", async (event) => {
   if (event.target.closest("[data-onboarding-back]")) {
     saveOnboardingStep();
     onboardingStep = Math.max(0, onboardingStep - 1);
     renderOnboarding();
+  }
+  if (event.target.closest("[data-onboarding-skip]")) {
+    await finishOnboarding({ skip: true });
   }
 });
 

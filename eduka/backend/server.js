@@ -623,7 +623,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.0.0"
+      "X-Eduka-Version": "22.0.1"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -1198,6 +1198,18 @@ async function handleOnboardingRequest(request, response) {
     await pool.query("BEGIN");
     try {
       const center = body.center || {};
+      if (body.skip) {
+        await pool.query(
+          "UPDATE organizations SET setup_completed_at=COALESCE(setup_completed_at, NOW()), updated_at=NOW() WHERE id=$1",
+          [user.organization_id]
+        );
+        await writeAudit(pool, user, "skip", "onboarding", user.organization_id, { skipped: true });
+        await pool.query("COMMIT");
+        const fresh = await loadUserById(pool, user.id);
+        sendJson(response, 200, { ok: true, skipped: true, user: publicUser(fresh) });
+        return;
+      }
+
       await pool.query(
         `UPDATE organizations
          SET name=COALESCE(NULLIF($2,''), name), phone=$3, address=$4, logo_url=$5, has_branches=$6, setup_completed_at=NOW(), updated_at=NOW()
@@ -1896,7 +1908,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.0', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.1', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
