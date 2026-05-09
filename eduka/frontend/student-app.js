@@ -1,4 +1,4 @@
-const EDUKA_STUDENT_VERSION = "22.1.3";
+const EDUKA_STUDENT_VERSION = "22.1.4";
 const screen = document.querySelector("[data-student-screen]");
 const logo = "/assets/logo_icon.webp";
 const state = { token: "", data: null, route: "home", loginStep: "phone", phone: "", org: null, toastTimer: null };
@@ -26,19 +26,44 @@ async function boot() {
   document.querySelector("[data-boot-loader]")?.remove();
   if (window.Telegram?.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
 
-  // Eduka 22.1.3: Student App login/parol formasi olib tashlandi.
-  // Student Telegram bot telefon + kod/parolni tekshiradi va token bilan /app/home ochadi.
+  // 1) Bot inline tugmasi token bilan ochsa — darhol dashboard.
   if (state.token) {
     try {
       await load();
       if (["login", ""].includes(route())) history.replaceState({}, "", "/app/home");
       renderRoute(route() || "home");
       return;
-    } catch {
+    } catch (error) {
       localStorage.removeItem("eduka_student_token");
       state.token = "";
     }
   }
+
+  // 2) Telegram WebApp menyu tugmasidan token yo'q ochilsa — initData orqali avtomatik sessiya yaratamiz.
+  const tg = window.Telegram?.WebApp;
+  const tgUserId = tg?.initDataUnsafe?.user?.id || "";
+  if (tg?.initData || tgUserId) {
+    try {
+      const payload = await fetch("/api/student-app/auth/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: tg.initData || "", telegram_user_id: String(tgUserId || "") })
+      }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) throw new Error(data.message || "Telegram orqali kirib bo'lmadi");
+        return data;
+      });
+      setToken(payload.token);
+      state.data = payload;
+      history.replaceState({}, "", "/app/home");
+      renderRoute("home");
+      return;
+    } catch (error) {
+      renderBotAccess(error.message || "Telegram profilingiz bot orqali tasdiqlanmagan.");
+      return;
+    }
+  }
+
   renderBotAccess();
 }
 async function load() { state.data = await api("/api/student-app/me"); return state.data; }

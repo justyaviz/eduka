@@ -632,7 +632,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.1.3"
+      "X-Eduka-Version": "22.1.4"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -4021,6 +4021,33 @@ function rawStudentAppToken() {
   return crypto.randomBytes(32).toString("base64url");
 }
 
+function parseTelegramInitData(initData) {
+  const params = new URLSearchParams(String(initData || ""));
+  const data = {};
+  for (const [key, value] of params.entries()) data[key] = value;
+  return data;
+}
+
+function verifyTelegramWebAppInitData(initData) {
+  const token = String(process.env.STUDENT_BOT_TOKEN || process.env.BOT_TOKEN || "").trim();
+  const raw = String(initData || "").trim();
+  if (!raw || !token) return { ok: false, user: null, reason: "missing_init_data" };
+  const params = new URLSearchParams(raw);
+  const receivedHash = params.get("hash");
+  if (!receivedHash) return { ok: false, user: null, reason: "missing_hash" };
+  params.delete("hash");
+  const dataCheckString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+  const secret = crypto.createHmac("sha256", "WebAppData").update(token).digest();
+  const calculated = crypto.createHmac("sha256", secret).update(dataCheckString).digest("hex");
+  const ok = crypto.timingSafeEqual(Buffer.from(calculated, "hex"), Buffer.from(receivedHash, "hex"));
+  let user = null;
+  try { user = params.get("user") ? JSON.parse(params.get("user")) : null; } catch { user = null; }
+  return { ok, user, reason: ok ? "verified" : "bad_hash" };
+}
+
 function maskedName(fullName) {
   const text = asText(fullName, "O'quvchi");
   const parts = text.split(/\s+/).filter(Boolean);
@@ -4396,6 +4423,47 @@ async function handleStudentAppAuthPassword(request, response) {
     sendJson(response, 200, { ok: true, ...payload });
   } catch (error) {
     sendJson(response, error.statusCode || 500, { ok: false, message: error.message });
+  }
+}
+
+async function handleStudentAppTelegramAuth(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    const initData = String(body.init_data || body.initData || "").trim();
+    const verified = verifyTelegramWebAppInitData(initData);
+    let telegramUserId = verified.user?.id ? String(verified.user.id) : String(body.telegram_user_id || body.telegramUserId || "").trim();
+
+    // In production we prefer verified Telegram WebApp initData. For Railway previews or older Telegram clients,
+    // a fallback telegram_user_id is accepted only when the student was already linked by the bot.
+    if (!telegramUserId) {
+      sendJson(response, 401, { ok: false, message: "Telegram tasdiqlash ma'lumoti topilmadi" });
+      return;
+    }
+
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStudentApp22Compatibility(pool);
+    const result = await pool.query(
+      `SELECT s.*, o.name AS organization_name, o.slug AS organization_slug, COALESCE(o.subdomain, o.slug) AS organization_subdomain
+       FROM students s
+       JOIN organizations o ON o.id=s.organization_id
+       WHERE s.telegram_user_id=$1
+         AND s.student_app_enabled=TRUE
+         AND s.student_app_blocked=FALSE
+       ORDER BY s.last_student_app_login DESC NULLS LAST, s.id DESC
+       LIMIT 1`,
+      [telegramUserId]
+    );
+    const student = result.rows[0];
+    if (!student) {
+      sendJson(response, 404, { ok: false, message: "Telegram profilingiz hali o'quvchi profiliga ulanmagan. Botda /start orqali tasdiqlang." });
+      return;
+    }
+    const payload = await createLinkedStudentAppSession(student, telegramUserId, body.telegram_chat_id || body.telegramChatId || null);
+    const basePayload = await studentAppBasePayload(pool, { ...student, telegram_user_id: telegramUserId });
+    sendJson(response, 200, { ok: true, token: payload.token, webAppUrl: payload.webAppUrl, ...basePayload });
+  } catch (error) {
+    sendJson(response, error.statusCode || 500, { ok: false, message: error.message || "Telegram orqali kirishda xatolik" });
   }
 }
 
@@ -5105,7 +5173,7 @@ async function handleGlobalSearchRequest(request, response, query) {
 
 
 
-// Eduka 22.1.3 — compatibility layer for old Railway databases
+// Eduka 22.1.4 — compatibility layer for old Railway databases
 async function ensureStudentApp22Compatibility(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS student_app_settings (
@@ -5175,7 +5243,7 @@ async function ensureStudentApp22Compatibility(pool) {
 async function ensureStudentGamificationDefaults(pool, organizationId) {
   if (!organizationId) return;
   await ensureStudentApp22Compatibility(pool);
-  // Eduka 22.1.3: do not target optional columns in INSERT.
+  // Eduka 22.1.4: do not target optional columns in INSERT.
   // Old Railway databases may still miss some feature columns during startup.
   // Compatibility ALTERs above set defaults; this insert only creates the row safely.
   await pool.query(
@@ -6052,6 +6120,11 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "POST" && urlPath === "/api/student-app/auth/password") {
     handleStudentAppAuthPassword(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/auth/telegram") {
+    handleStudentAppTelegramAuth(request, response);
     return;
   }
 
