@@ -5253,8 +5253,30 @@ function validateCrmDrawer(type, data) {
   return "";
 }
 
+function crmIsoDate(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const match = text.match(/^(\d{1,2})[\/. -](\d{1,2})[\/. -](\d{4})$/);
+  if (match) {
+    const [, d, m, y] = match;
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  return text;
+}
+
+function withTimeout(promise, ms = 12000, message = "Amal bajarilishi kechikdi. Backend javobini tekshiring.") {
+  let timer;
+  return Promise.race([
+    promise.finally(() => window.clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(message)), ms);
+    })
+  ]);
+}
+
 function crmApiPayload(resource, item) {
-  if (resource === "students") return { full_name: item.full_name, phone: item.phone, parent_phone: item.parent_phone, birth_date: item.birth_date, address: item.address, course_name: item.course_name, group_id: item.group_id || null, payment_type: item.paymentType || item.payment_type, discount: item.discount, status: item.status, balance: item.balance, note: item.note };
+  if (resource === "students") return { full_name: item.full_name, phone: item.phone, parent_phone: item.parent_phone, birth_date: crmIsoDate(item.birth_date), address: item.address, course_name: item.course_name, group_id: item.group_id || null, payment_type: item.paymentType || item.payment_type, discount: item.discount, status: item.status, balance: item.balance, note: item.note, gender: item.gender, father_name: item.fatherName || item.father_name, mother_name: item.motherName || item.mother_name, tags: Array.isArray(item.tags) ? item.tags : [] };
   if (resource === "groups") return { name: item.name, course_name: item.course_name, status: item.status, teacher_id: item.teacher_id || null, teacher_name: item.teacher_name, days: item.days, start_time: item.start_time, end_time: item.end_time, monthly_price: item.monthly_price, starts_at: item.starts_at, room: item.room, note: item.note };
   if (resource === "teachers") return { full_name: item.full_name, phone: item.phone, email: item.email, course_name: item.course_name, groups: crmTeacherGroups(item).join(", "), login_enabled: item.loginEnabled, status: item.status, salary_type: item.salary_type, salary_rate: item.salary_rate, note: item.note };
   if (resource === "courses") return { name: item.name, description: item.description, price: item.price, duration: item.duration, level: item.level, lesson_type: item.lesson_type, status: item.status };
@@ -5358,22 +5380,20 @@ async function saveCrmDrawer(form) {
     }
   }
   closeDrawer(true);
-  try {
-    if (stateMeta[resource] || ["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(resource)) {
-      await Promise.allSettled([
-        loadCollection(resource, endpoints[resource] || modalFields[resource]?.endpoint),
-        loadSummary(),
-        loadAnalytics()
-      ]);
-      syncCrmLocalState();
-      renderAll();
-    } else {
-      renderAll();
-    }
-  } finally {
-    stopSaving();
-  }
-  showToast(editing ? "Ma'lumotlar saqlandi." : "Yangi ma'lumot ro'yxatga qo'shildi.");
+  stopSaving();
+  syncCrmLocalState();
+  renderAll();
+  showToast(editing ? "Ma'lumotlar saqlandi." : "Yangi ma'lumot ro'yxatga qo'shildi.", "success");
+
+  // Heavy dashboard reloads must not block the student-create drawer.
+  Promise.allSettled([
+    stateMeta[resource] ? withTimeout(loadCollection(resource, endpoints[resource] || modalFields[resource]?.endpoint), 8000) : Promise.resolve(),
+    withTimeout(loadSummary(), 8000),
+    withTimeout(loadAnalytics(), 8000)
+  ]).then(() => {
+    syncCrmLocalState();
+    renderAll();
+  }).catch(() => {});
 }
 
 function crmInitials(name = "") {
@@ -6667,6 +6687,21 @@ document.addEventListener("change", (event) => {
     return;
   }
   if (event.target.closest(".admin-filters")) renderAdminView(viewFromPath());
+});
+
+document.addEventListener("click", (event) => {
+  const saveButton = event.target.closest('[data-crm-drawer-form] button[type="submit"]');
+  if (!saveButton) return;
+  const form = saveButton.closest('[data-crm-drawer-form]');
+  if (!form || form.dataset.saving === "1") return;
+  // Some browser/overlay states on the drawer were swallowing native submit.
+  // requestSubmit guarantees the same validation + submit handler runs.
+  window.setTimeout(() => {
+    if (form && form.dataset.saving !== "1") {
+      if (typeof form.requestSubmit === "function") form.requestSubmit();
+      else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    }
+  }, 0);
 });
 
 document.addEventListener("submit", async (event) => {
