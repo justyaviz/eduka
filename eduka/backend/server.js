@@ -623,7 +623,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "21.0.0"
+      "X-Eduka-Version": "21.8.3"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -644,6 +644,10 @@ function sendRedirect(response, location) {
 
 function sendAppShell(response) {
   sendFile(response, path.join(root, "app.html"));
+}
+
+function sendCeoLoginShell(response) {
+  sendFile(response, path.join(root, "ceo-login.html"));
 }
 
 function sendStudentAppShell(response) {
@@ -4889,10 +4893,20 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "21.8.1",
+      version: "21.8.3",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
+    return;
+  }
+
+  if (request.method === "GET" && (urlPath === "/ceo/login" || urlPath === "/super/login")) {
+    sendCeoLoginShell(response);
+    return;
+  }
+
+  if (request.method === "GET" && (urlPath === "/ceo-login.html" || urlPath === "/admin-login.html")) {
+    sendCeoLoginShell(response);
     return;
   }
 

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eduka CEO Login 21.8.3</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; font-family: Inter, system-ui, sans-serif; background: radial-gradient(circle at top left, #dbeafe, transparent 32%), linear-gradient(135deg, #eef5ff 0%, #f8fbff 55%, #ffffff 100%); color: #0f172a; display: grid; place-items: center; padding: 24px; }
+      .card { width: min(100%, 460px); background: rgba(255,255,255,.92); border: 1px solid rgba(148,163,184,.35); box-shadow: 0 24px 80px rgba(15,23,42,.14); border-radius: 28px; padding: 34px; }
+      .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; font-weight: 800; font-size: 22px; color: #0f172a; text-decoration: none; }
+      .brand img { width: 44px; height: 44px; border-radius: 14px; box-shadow: 0 14px 32px rgba(37,99,235,.25); }
+      .eyebrow { color: #2563eb; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+      h1 { margin: 8px 0 10px; font-size: 30px; line-height: 1.1; }
+      p { color: #64748b; line-height: 1.6; margin: 0 0 26px; }
+      label { display: grid; gap: 8px; font-weight: 700; color: #334155; margin-bottom: 16px; }
+      input { width: 100%; border: 1px solid #d8e1f0; border-radius: 16px; padding: 15px 16px; font: inherit; outline: none; background: #fff; color: #0f172a; }
+      input:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.12); }
+      button { width: 100%; border: 0; border-radius: 16px; padding: 15px 18px; font: inherit; font-weight: 800; color: #fff; background: linear-gradient(135deg, #2563eb, #0ea5e9); cursor: pointer; box-shadow: 0 16px 36px rgba(37,99,235,.24); }
+      button:disabled { opacity: .65; cursor: wait; }
+      .error { min-height: 22px; color: #dc2626; font-weight: 700; margin: -2px 0 14px; }
+      .hint { margin-top: 18px; padding: 14px; border-radius: 16px; background: #eff6ff; color: #475569; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <a class="brand" href="/">
+        <img src="/assets/logo_icon.webp" alt="Eduka" />
+        <span>EDUKA</span>
+      </a>
+      <span class="eyebrow">CEO Control Center</span>
+      <h1>Super Admin kirish</h1>
+      <p>Bu sahifa faqat Eduka platforma egasi uchun. O‘quv markaz kabineti bu yerda ochilmaydi.</p>
+      <form id="ceoLoginForm">
+        <label>Email
+          <input name="login" type="email" placeholder="yaviz@eduka.uz" autocomplete="username" required />
+        </label>
+        <label>Parol
+          <input name="password" type="password" placeholder="owner" autocomplete="current-password" required />
+        </label>
+        <div class="error" id="ceoLoginError"></div>
+        <button type="submit">CEO panelga kirish</button>
+      </form>
+      <div class="hint">To‘g‘ri URL: <b>/ceo/login</b>. Eski center sessionlar bu sahifaga ta’sir qilmaydi.</div>
+    </main>
+    <script src="/ceo-login.js?v=21.8.3"></script>
+  </body>
+</html>

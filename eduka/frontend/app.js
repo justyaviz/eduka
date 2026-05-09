@@ -320,6 +320,7 @@ adminRouteKeys.forEach((key) => {
 });
 routeByView["admin-login"] = "/ceo/login";
 routeByView["admin-dashboard"] = "/ceo/dashboard";
+// 21.8.3: /ceo/dashboard must render the real Super Admin dashboard, not CRM dashboard.
 routeByView["admin-centers-new"] = "/ceo/centers/new";
 routeByView["admin-center-profile"] = "/ceo/centers";
 routeByView["super-center-profile"] = "/ceo/centers";
@@ -344,11 +345,23 @@ function viewFromPath(pathname = window.location.pathname) {
     return viewFromPath(window.location.pathname);
   }
   if (normalized === "/ceo/login") return "admin-login";
-  if (normalized === "/ceo" || normalized === "/ceo/dashboard") return "admin-dashboard";
+  if (normalized === "/ceo" || normalized === "/ceo/dashboard") return "super-dashboard";
   if (normalized === "/ceo/centers/new") return "admin-centers-new";
   if (/^\/ceo\/centers\/\d+$/.test(normalized)) return "super-center-profile";
   if (normalized.startsWith("/ceo/")) {
+    const ceoMap = {
+      dashboard: "super-dashboard",
+      centers: "super-centers",
+      tariffs: "super-tariffs",
+      subscriptions: "super-subscriptions",
+      payments: "super-payments",
+      support: "super-support",
+      domains: "super-domains",
+      invoices: "super-invoices",
+      settings: "super-settings"
+    };
     const slug = normalized.replace("/ceo/", "");
+    if (ceoMap[slug]) return ceoMap[slug];
     const view = `admin-${slug}`;
     return adminViews.has(view) ? view : "admin-not-found";
   }
@@ -1206,7 +1219,7 @@ async function checkSession() {
           role: payload.user.role,
           loggedInAt: new Date().toISOString()
         }));
-        if (isPlatformLoginPath()) window.history.replaceState({ viewName: "admin-dashboard" }, "", "/ceo/dashboard");
+        if (isPlatformLoginPath()) window.history.replaceState({ viewName: "super-dashboard" }, "", "/ceo/dashboard");
         showApp(payload.user);
         return;
       } catch {
@@ -1221,7 +1234,7 @@ async function checkSession() {
     try {
       const payload = await api("/api/auth/me");
       if (isSuperRole(payload.user?.role)) {
-        window.history.replaceState({ viewName: "admin-dashboard" }, "", "/ceo/dashboard");
+        window.history.replaceState({ viewName: "super-dashboard" }, "", "/ceo/dashboard");
         showApp(payload.user);
         return;
       }
@@ -2389,7 +2402,7 @@ function closeModal() {
 const adminStorageKey = "eduka_admin_state_v2";
 const legacyAdminStorageKeys = ["eduka_admin_state_v1"];
 const adminSessionKey = "eduka_admin_session_v1";
-const adminAccounts = []; // 21.8.2: client-side demo CEO accounts removed. Login uses /api/auth/login only.
+const adminAccounts = []; // 21.8.3: client-side demo CEO accounts removed. Login uses /api/auth/login only.
 const reservedSubdomains = ["www", "app", "api", "admin", "super", "mail", "support", "help", "dashboard", "control", "billing"];
 const adminMenu = [
   ["admin-dashboard", "Dashboard"],
@@ -6728,7 +6741,7 @@ onboardingForm?.addEventListener("submit", async (event) => {
     });
     currentUser = payload.user || currentUser;
     closeOnboarding();
-    centerName.textContent = currentUser?.organization?.name || "ilm academy uz";
+    centerName.textContent = currentUser?.organization?.name || "Eduka CRM";
     await refreshAll();
     setView("dashboard");
     showToast("Markaz sozlandi. Dashboard tayyor.");
