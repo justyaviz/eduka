@@ -12,6 +12,36 @@ function hashPassword(password) {
   return `scrypt$${salt}$${hash}`;
 }
 
+
+async function applyMigrationFiles(pool) {
+  const migrationsDir = path.join(__dirname, "migrations");
+  if (!fs.existsSync(migrationsDir)) return;
+  await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+    id BIGSERIAL PRIMARY KEY,
+    filename TEXT NOT NULL UNIQUE,
+    checksum TEXT NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  const files = fs.readdirSync(migrationsDir).filter((file) => file.endsWith(".sql")).sort();
+  for (const file of files) {
+    const fullPath = path.join(migrationsDir, file);
+    const sql = fs.readFileSync(fullPath, "utf8");
+    const checksum = crypto.createHash("sha256").update(sql).digest("hex");
+    const exists = await pool.query("SELECT checksum FROM schema_migrations WHERE filename=$1", [file]);
+    if (exists.rows[0]) continue;
+    console.log(`Applying migration ${file}...`);
+    await pool.query("BEGIN");
+    try {
+      await pool.query(sql);
+      await pool.query("INSERT INTO schema_migrations (filename, checksum) VALUES ($1,$2)", [file, checksum]);
+      await pool.query("COMMIT");
+    } catch (error) {
+      await pool.query("ROLLBACK");
+      throw error;
+    }
+  }
+}
+
 async function applyProductionHardening(pool) {
   console.log("Applying production unique constraints...");
   await pool.query(`
@@ -297,6 +327,7 @@ async function run() {
 
     await applyProductionHardening(pool);
     await applyEduka21Stability(pool);
+    await applyMigrationFiles(pool);
 
     // Make sure the platform owner phone does not conflict with an existing non-owner account.
     // Email is the authoritative login for the platform owner; phone can be reassigned safely.
@@ -331,7 +362,7 @@ async function run() {
       console.warn("Migration will continue so the production server can start.");
     }
 
-    console.log("Eduka 21.0 migration completed.");
+    console.log("Eduka 21.8 migration completed.");
     console.log(`Super Admin: ${superEmail}`);
     console.log(`Temporary password: ${superPassword}`);
   } finally {

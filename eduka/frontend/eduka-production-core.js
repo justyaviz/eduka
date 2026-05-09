@@ -2,7 +2,7 @@
   "use strict";
   const qs = (selector, root = document) => root.querySelector(selector);
   const qsa = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const storageKey = "eduka:21.7:ui";
+  const storageKey = "eduka:21.8:ui";
   const profileRoutes = {
     students: (id) => `/admin/students/${id}`,
     groups: (id) => `/admin/groups/${id}`,

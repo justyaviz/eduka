@@ -1,0 +1,5 @@
+.eduka-real-action { position: relative; }
+.eduka-real-action:focus-visible { outline: 3px solid rgba(22,144,245,.24); outline-offset: 2px; }
+.eduka-danger-mini { border: 1px solid rgba(239,68,68,.25); background: #fff5f5; color: #b91c1c; border-radius: 10px; padding: 7px 10px; font-weight: 700; margin-left: 6px; cursor: pointer; }
+.eduka-danger-mini:hover { background: #fee2e2; }
+.eduka-dark .eduka-danger-mini { background: rgba(239,68,68,.12); color: #fecaca; }

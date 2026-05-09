@@ -29,7 +29,9 @@ const mimeTypes = {
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
-  ".webmanifest": "application/manifest+json; charset=utf-8"
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".webp": "image/webp",
+  ".csv": "text/csv; charset=utf-8"
 };
 
 function sendJson(response, statusCode, payload) {
@@ -3432,6 +3434,112 @@ async function createSimpleFinance(request, response, tableName, dateColumn, tit
   }
 }
 
+
+function csvCell(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, " ");
+  return /[",;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function sendCsv(response, filename, rows, columns) {
+  const header = columns.map(([key, label]) => csvCell(label || key)).join(",");
+  const body = rows.map((row) => columns.map(([key]) => csvCell(row[key])).join(",")).join("\n");
+  response.writeHead(200, {
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${filename}"`
+  });
+  response.end(`\ufeff${header}\n${body}`);
+}
+
+async function handleExportRequest(request, response, resource) {
+  try {
+    const user = await requireUser(request, response, "reports:read");
+    if (!user) return;
+    const pool = getDbPool();
+    const query = requestQuery(request);
+    const dateFrom = asDate(query.get("date_from"));
+    const dateTo = asDate(query.get("date_to"));
+    const allowed = {
+      students: {
+        filename: "eduka-students.csv",
+        sql: `SELECT id, full_name, phone, parent_phone, course_name, status, balance, created_at FROM students WHERE organization_id=$1 ORDER BY id DESC LIMIT 5000`,
+        params: [user.organization_id],
+        columns: [["id","ID"],["full_name","FISH"],["phone","Telefon"],["parent_phone","Ota-ona"],["course_name","Kurs"],["status","Status"],["balance","Balans"],["created_at","Yaratilgan"]]
+      },
+      groups: {
+        filename: "eduka-groups.csv",
+        sql: `SELECT g.id, g.name, g.course_name, g.teacher_name, g.days, g.start_time, g.end_time, g.status, COUNT(s.id)::int AS student_count FROM groups g LEFT JOIN students s ON s.group_id=g.id WHERE g.organization_id=$1 GROUP BY g.id ORDER BY g.id DESC LIMIT 5000`,
+        params: [user.organization_id],
+        columns: [["id","ID"],["name","Guruh"],["course_name","Kurs"],["teacher_name","O'qituvchi"],["days","Kunlar"],["start_time","Boshlanish"],["end_time","Tugash"],["status","Status"],["student_count","Talabalar"]]
+      },
+      teachers: {
+        filename: "eduka-teachers.csv",
+        sql: `SELECT id, full_name, phone, email, course_name, subjects, status, salary_type, salary_rate FROM teachers WHERE organization_id=$1 ORDER BY id DESC LIMIT 5000`,
+        params: [user.organization_id],
+        columns: [["id","ID"],["full_name","FISH"],["phone","Telefon"],["email","Email"],["course_name","Kurs"],["subjects","Fanlar"],["status","Status"],["salary_type","Oylik turi"],["salary_rate","Stavka"]]
+      },
+      payments: null,
+      attendance: null,
+      debts: {
+        filename: "eduka-debtors.csv",
+        sql: `SELECT id, full_name, phone, parent_phone, course_name, balance, note FROM students WHERE organization_id=$1 AND COALESCE(balance,0)>0 ORDER BY balance DESC LIMIT 5000`,
+        params: [user.organization_id],
+        columns: [["id","ID"],["full_name","FISH"],["phone","Telefon"],["parent_phone","Ota-ona"],["course_name","Kurs"],["balance","Qarz"],["note","Izoh"]]
+      }
+    };
+    const params = [user.organization_id];
+    let config = allowed[resource];
+    if (resource === "payments") {
+      let where = "WHERE p.organization_id=$1";
+      if (dateFrom) { params.push(dateFrom); where += ` AND p.paid_at::date >= $${params.length}::date`; }
+      if (dateTo) { params.push(dateTo); where += ` AND p.paid_at::date <= $${params.length}::date`; }
+      config = {
+        filename: "eduka-payments.csv",
+        sql: `SELECT p.id, s.full_name AS student_name, g.name AS group_name, p.payment_month, p.due_amount, p.amount, p.discount, p.status, p.payment_type, p.receipt_no, p.paid_at FROM payments p LEFT JOIN students s ON s.id=p.student_id LEFT JOIN groups g ON g.id=p.group_id ${where} ORDER BY p.paid_at DESC, p.id DESC LIMIT 5000`,
+        params,
+        columns: [["id","ID"],["student_name","Talaba"],["group_name","Guruh"],["payment_month","Oy"],["due_amount","Kerak"],["amount","To'landi"],["discount","Chegirma"],["status","Status"],["payment_type","Usul"],["receipt_no","Chek"],["paid_at","Sana"]]
+      };
+    }
+    if (resource === "attendance") {
+      let where = "WHERE a.organization_id=$1";
+      if (dateFrom) { params.push(dateFrom); where += ` AND a.lesson_date >= $${params.length}::date`; }
+      if (dateTo) { params.push(dateTo); where += ` AND a.lesson_date <= $${params.length}::date`; }
+      config = {
+        filename: "eduka-attendance.csv",
+        sql: `SELECT a.id, a.lesson_date, s.full_name AS student_name, g.name AS group_name, a.status, a.note FROM attendance_records a LEFT JOIN students s ON s.id=a.student_id LEFT JOIN groups g ON g.id=a.group_id ${where} ORDER BY a.lesson_date DESC, a.id DESC LIMIT 5000`,
+        params,
+        columns: [["id","ID"],["lesson_date","Sana"],["student_name","Talaba"],["group_name","Guruh"],["status","Holat"],["note","Izoh"]]
+      };
+    }
+    if (!config) {
+      sendJson(response, 404, { ok: false, message: "Export turi topilmadi" });
+      return;
+    }
+    const result = await pool.query(config.sql, config.params);
+    await writeAudit(pool, user, "export", resource, null, { count: result.rows.length });
+    sendCsv(response, config.filename, result.rows, config.columns);
+  } catch (error) {
+    withError(response, "Export", error);
+  }
+}
+
+async function handlePaymentCancelRequest(request, response, paymentId) {
+  try {
+    const user = await requireUser(request, response, "payments:write");
+    if (!user) return;
+    const pool = getDbPool();
+    const before = await pool.query("SELECT * FROM payments WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
+    if (!before.rows[0]) {
+      sendJson(response, 404, { ok: false, message: "To'lov topilmadi" });
+      return;
+    }
+    const result = await pool.query("UPDATE payments SET status='cancelled', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING *", [paymentId, user.organization_id]);
+    await writeAudit(pool, user, "cancel", "payments", paymentId, { before: before.rows[0] });
+    sendJson(response, 200, { ok: true, item: result.rows[0] });
+  } catch (error) {
+    withError(response, "Cancel payment", error);
+  }
+}
+
 async function handleDemoRequest(request, response) {
   try {
     const body = await readJsonBody(request);
@@ -4781,7 +4889,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "21.7.0",
+      version: "21.8.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -4851,6 +4959,24 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/api/app/global-search") {
     handleGlobalSearchRequest(request, response, query);
+    return;
+  }
+
+  const exportMatch = urlPath.match(/^\/api(?:\/app)?\/export\/(students|groups|teachers|payments|attendance|debts)$/);
+  if (exportMatch && request.method === "GET") {
+    handleExportRequest(request, response, exportMatch[1]);
+    return;
+  }
+
+  const appStudentProfileMatch = urlPath.match(/^\/api\/app\/students\/(\d+)\/profile$/);
+  if (appStudentProfileMatch && request.method === "GET") {
+    handleStudentProfileRequest(request, response, Number(appStudentProfileMatch[1]));
+    return;
+  }
+
+  const appGroupProfileMatch = urlPath.match(/^\/api\/app\/groups\/(\d+)\/profile$/);
+  if (appGroupProfileMatch && request.method === "GET") {
+    handleGroupProfileRequest(request, response, Number(appGroupProfileMatch[1]));
     return;
   }
 
@@ -5173,6 +5299,12 @@ const server = http.createServer((request, response) => {
     findPaymentReceiptByNumber(decodeURIComponent(publicReceiptMatch[1]))
       .then((receipt) => receipt ? sendJson(response, 200, { ok: true, receipt }) : sendJson(response, 404, { ok: false, message: "Chek topilmadi" }))
       .catch((error) => withError(response, "Public receipt", error));
+    return;
+  }
+
+  const paymentCancelMatch = urlPath.match(/^\/api(?:\/app)?\/payments\/(\d+)\/cancel$/);
+  if (paymentCancelMatch && request.method === "POST") {
+    handlePaymentCancelRequest(request, response, Number(paymentCancelMatch[1]));
     return;
   }
 

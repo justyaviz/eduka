@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "21.4.2";
+const EDUKA_VERSION = "21.8.0";
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -6152,7 +6152,7 @@ function normalizeDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
-// Eduka 21.7.0 public UI hooks for production-core layer.
+// Eduka 21.8.0 public UI hooks for production-core and real-crud layers.
 window.showToast = window.showToast || showToast;
 window.setView = window.setView || setView;
 
