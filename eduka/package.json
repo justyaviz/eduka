@@ -1,13 +1,13 @@
 {
   "name": "eduka",
-  "version": "21.8.4",
+  "version": "22.0.0",
   "private": true,
   "description": "Eduka landing frontend and backend service for eduka.uz",
   "scripts": {
     "start": "node backend/migrate.js || echo \"Eduka migration warning: server will start anyway\"; node backend/server.js",
     "dev": "node backend/server.js",
     "seed": "node backend/seed.js",
-    "build": "node --check backend/server.js && node --check backend/migrate.js && node --check backend/telegram-bot.js && node --check backend/set-telegram-webhook.js && node --check backend/seed.js && node --check frontend/crm-services.js && node --check frontend/app.js && node --check frontend/ceo-login.js && node --check frontend/student-app.js && node --check frontend/eduka-production-core.js && node --check frontend/eduka-real-crud.js && node --check backend/routes/students.routes.js && node --check backend/routes/groups.routes.js && node --check backend/routes/teachers.routes.js && node --check backend/routes/payments.routes.js && node --check backend/routes/attendance.routes.js && node --check backend/routes/reports.routes.js && node --check backend/routes/settings.routes.js && node --check backend/routes/super-admin.routes.js && node --check backend/services/payment.service.js && node --check backend/services/receipt.service.js && node --check backend/services/telegram.service.js && node --check backend/services/report.service.js && node --check backend/middleware/auth.middleware.js && node --check backend/middleware/permission.middleware.js && node --check backend/middleware/tenant.middleware.js && node --check backend/db/pool.js && node --check backend/reset-owner-only.js",
+    "build": "node --check backend/server.js && node --check backend/migrate.js && node --check backend/telegram-bot.js && node --check backend/set-telegram-webhook.js && node --check backend/seed.js && node --check frontend/crm-services.js && node --check frontend/app.js && node --check frontend/ceo-login.js && node --check frontend/ceo-console.js && node --check frontend/student-app.js && node --check frontend/eduka-production-core.js && node --check frontend/eduka-real-crud.js && node --check backend/routes/students.routes.js && node --check backend/routes/groups.routes.js && node --check backend/routes/teachers.routes.js && node --check backend/routes/payments.routes.js && node --check backend/routes/attendance.routes.js && node --check backend/routes/reports.routes.js && node --check backend/routes/settings.routes.js && node --check backend/routes/super-admin.routes.js && node --check backend/services/payment.service.js && node --check backend/services/receipt.service.js && node --check backend/services/telegram.service.js && node --check backend/services/report.service.js && node --check backend/middleware/auth.middleware.js && node --check backend/middleware/permission.middleware.js && node --check backend/middleware/tenant.middleware.js && node --check backend/db/pool.js && node --check backend/reset-owner-only.js",
     "migrate": "node backend/migrate.js",
     "start:no-migrate": "node backend/server.js",
     "start:safe": "node backend/server.js",

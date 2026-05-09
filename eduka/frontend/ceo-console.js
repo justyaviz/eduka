@@ -1,164 +1,119 @@
 (() => {
-  const state = {
-    user: null,
-    page: new URL(location.href).pathname.split('/').filter(Boolean)[1] || 'dashboard',
-    dashboard: null,
-    centers: [],
-    plans: [],
-    subscriptions: [],
-    payments: [],
-    support: [],
-    admins: [],
-    audit: [],
-    search: ''
+  const FEATURES = {
+    students:'Talabalar', groups:'Guruhlar', teachers:'O‘qituvchilar', courses:'Kurslar', payments:'To‘lovlar', attendance:'Davomat', reports:'Hisobotlar', finance:'Moliya', leads:'Leadlar', student_app:'Student App', parent_app:'Parent App', homework:'Uyga vazifa', tests:'Test/imtihon', certificates:'Sertifikat', telegram:'Telegram bot', sms:'SMS', import_export:'Import/Export', custom_domain:'Custom domain', custom_branding:'Custom branding', multi_branch:'Filiallar', api_access:'API access', role_permission:'Rollar/Ruxsatlar'
   };
-
-  const featureLabels = {
-    students: 'Talabalar', groups: 'Guruhlar', teachers: 'O‘qituvchilar', finance: 'Moliya', attendance: 'Davomat', leads: 'Leadlar', student_app: 'Student App', parent_app: 'Parent App', sms: 'SMS', telegram: 'Telegram', custom_domain: 'Custom domain', advanced_reports: 'Keng hisobotlar', multi_branch: 'Filiallar', teacher_salary: 'Oylik/KPI', import_export: 'Import/Export', api_access: 'API access', white_label: 'White label', role_permission: 'Rollar/Ruxsatlar'
+  const DEFAULT_FLAGS = Object.fromEntries(Object.keys(FEATURES).map(k => [k, ['students','groups','teachers','courses','payments','attendance'].includes(k)]));
+  const PLAN_FLAGS = {
+    Start: {...DEFAULT_FLAGS},
+    Growth: {...DEFAULT_FLAGS, leads:true, reports:true, finance:true, student_app:true, telegram:true, import_export:true, multi_branch:true},
+    Pro: Object.fromEntries(Object.keys(FEATURES).map(k => [k, !['custom_branding','white_label'].includes(k)])),
+    Enterprise: Object.fromEntries(Object.keys(FEATURES).map(k => [k, true]))
   };
-  const planDefaults = {
-    Start: { students:true, groups:true, teachers:true, finance:true, attendance:true, leads:false, student_app:false, parent_app:false, sms:false, telegram:false, custom_domain:false, advanced_reports:false, multi_branch:false, teacher_salary:false, import_export:false, api_access:false, white_label:false, role_permission:false },
-    Growth: { students:true, groups:true, teachers:true, finance:true, attendance:true, leads:true, student_app:true, parent_app:false, sms:false, telegram:true, custom_domain:false, advanced_reports:true, multi_branch:true, teacher_salary:true, import_export:true, api_access:false, white_label:false, role_permission:false },
-    Pro: { students:true, groups:true, teachers:true, finance:true, attendance:true, leads:true, student_app:true, parent_app:true, sms:true, telegram:true, custom_domain:true, advanced_reports:true, multi_branch:true, teacher_salary:true, import_export:true, api_access:true, white_label:false, role_permission:true },
-    Enterprise: { students:true, groups:true, teachers:true, finance:true, attendance:true, leads:true, student_app:true, parent_app:true, sms:true, telegram:true, custom_domain:true, advanced_reports:true, multi_branch:true, teacher_salary:true, import_export:true, api_access:true, white_label:true, role_permission:true }
-  };
-
-  const $ = (s) => document.querySelector(s);
-  const root = $('#appRoot');
-  const modal = $('#modal');
-  const modalTitle = $('#modalTitle');
-  const modalBody = $('#modalBody');
-  const title = $('#pageTitle');
-  const userLine = $('#userLine');
-
-  function escapeHtml(v='') { return String(v ?? '').replace(/[&<>"]/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
-  function money(v) { return `${Number(v || 0).toLocaleString('uz-UZ')} UZS`; }
-  function date(v) { return v ? String(v).slice(0,10) : '-'; }
-  function badge(v) { const k = String(v || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g,'-'); return `<span class="badge ${k}">${escapeHtml(v || 'unknown')}</span>`; }
-  function toast(text) { const t=$('#toast'); t.textContent=text; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
-  function pagePath(page) { return page === 'dashboard' ? '/ceo/dashboard' : `/ceo/${page}`; }
-  function isSuperRole(role) { return ['super_admin','platform_owner','platform_admin','owner'].includes(String(role||'').toLowerCase()); }
-
-  async function api(url, options={}) {
-    const res = await fetch(url, { credentials:'same-origin', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || `${res.status} ${res.statusText}`);
-    return data;
+  const state = { user:null, page:pathPage(), dashboard:{}, centers:[], plans:[], subscriptions:[], billing:[], invoices:[], support:[], admins:[], audit:[], notifications:[], q:'' };
+  const $ = s => document.querySelector(s);
+  const root=$('#appRoot'), modal=$('#modal'), modalTitle=$('#modalTitle'), modalBody=$('#modalBody'), drawer=$('#drawer'), drawerBody=$('#drawerBody');
+  function pathPage(){ const p=location.pathname.split('/').filter(Boolean)[1]; return p && p !== 'login' ? p : 'dashboard'; }
+  function esc(v=''){ return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function money(v){ return `${Number(v||0).toLocaleString('uz-UZ')} UZS`; }
+  function date(v){ return v ? String(v).slice(0,10) : '-'; }
+  function num(v){ return Number(v||0).toLocaleString('uz-UZ'); }
+  function badge(v){ const k=String(v||'unknown').toLowerCase().replace(/[^a-z0-9]+/g,'-'); return `<span class="badge ${k}">${esc(v||'unknown')}</span>`; }
+  function pageUrl(p){ return p==='dashboard' ? '/ceo/dashboard' : `/ceo/${p}`; }
+  function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2800); }
+  function allowedRole(r){ return ['super_admin','platform_owner','platform_admin','support_manager','sales_manager','finance_manager','technical_manager'].includes(String(r||'').toLowerCase()); }
+  async function api(url,opt={}){ const res=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt}); const data=await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.message||`${res.status} ${res.statusText}`); return data; }
+  async function loadMe(){ const {user}=await api('/api/auth/me'); if(!allowedRole(user?.role)) throw new Error('CEO console faqat platforma adminlari uchun.'); state.user=user; $('#userLine').textContent=`${user.fullName||user.full_name||user.email} · ${user.role}`; }
+  async function loadAll(){ root.classList.add('loading'); try{
+    const calls = await Promise.allSettled([api('/api/super/dashboard'),api('/api/super/centers'),api('/api/super/plans'),api('/api/super/subscriptions'),api('/api/super/payments'),api('/api/super/invoices'),api('/api/super/support-tickets'),api('/api/super/admin-users'),api('/api/super/audit'),api('/api/super/notifications')]);
+    const val=i=>calls[i].status==='fulfilled'?calls[i].value:{};
+    state.dashboard=val(0)||{}; state.centers=val(1).items||[]; state.plans=val(2).items||defaultPlans(); state.subscriptions=val(3).items||[]; state.billing=val(4).items||[]; state.invoices=val(5).items||[]; state.support=val(6).items||[]; state.admins=val(7).items||[]; state.audit=val(8).items||[]; state.notifications=val(9).items||buildLocalNotifications();
+    if(!state.plans.length) state.plans=defaultPlans();
+  } finally{ root.classList.remove('loading'); }}
+  function defaultPlans(){ return ['Start','Growth','Pro','Enterprise'].map((name,i)=>({id:`local-${name}`,name,monthly_price:[99000,249000,499000,0][i],student_limit:[100,500,2000,100000][i],teacher_limit:[5,20,100,5000][i],branch_limit:[1,3,10,1000][i],group_limit:[10,50,200,10000][i],sms_limit:[0,1000,5000,100000][i],storage_limit_mb:[1024,4096,10240,102400][i],support_level:['basic','priority','premium','dedicated'][i],feature_flags:PLAN_FLAGS[name],is_active:true})); }
+  function buildLocalNotifications(){ const list=[]; state.subscriptions.filter(s=>['overdue','expired'].includes(String(s.status))).slice(0,5).forEach(s=>list.push({title:'Obuna muddati muammo',body:s.center_name||s.organization_name,type:'warning'})); state.support.filter(t=>['open','in_progress'].includes(String(t.status))).slice(0,5).forEach(t=>list.push({title:'Support ticket',body:t.subject,type:'support'})); state.invoices.filter(i=>['unpaid','overdue'].includes(String(i.status))).slice(0,5).forEach(i=>list.push({title:'To‘lov kutilmoqda',body:`${i.center_name||'-'} · ${money(i.amount)}`,type:'billing'})); return list; }
+  function setPage(p,push=true){ state.page=p||'dashboard'; if(push) history.pushState({},'',pageUrl(state.page)); document.querySelectorAll('#ceoNav button').forEach(b=>b.classList.toggle('active',b.dataset.page===state.page)); $('#pageTitle').textContent=({dashboard:'CEO Dashboard',centers:'O‘quv markazlar', 'new-center':'Yangi markaz qo‘shish', plans:'Tariflar', features:'Ruxsatlar', subscriptions:'Obunalar', billing:'Billing', invoices:'Invoice', support:'Support', admins:'Adminlar', audit:'Audit log', settings:'Sozlamalar'})[state.page]||'CEO Console'; render(); }
+  function render(){ const f={dashboard,centers,newCenter,plans,features,subscriptions,billing,invoices,support,admins,audit,settings}[state.page.replace('-','')] || dashboard; root.innerHTML=f(); }
+  function panel(title,body,tools=''){ return `<section class="panel"><div class="panel-head"><h2>${title}</h2><div class="panel-tools">${tools}</div></div>${body}</section>`; }
+  function body(html){ return `<div class="panel-body">${html}</div>`; }
+  function table(heads,rows,empty='Ma’lumot yo‘q'){ return `<div class="table-wrap"><table class="table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.join(''):`<tr><td colspan="${heads.length}"><div class="empty">${empty}</div></td></tr>`}</tbody></table></div>`; }
+  function kpis(items){ return `<div class="kpis">${items.map(([l,v])=>`<article class="kpi"><span>${l}</span><strong>${v}</strong></article>`).join('')}</div>`; }
+  function dashboard(){ const s=state.dashboard.summary||{}; return `${kpis([['Jami markazlar',s.centers??state.centers.length],['Faol',s.active_centers||0],['Trial',s.trial_centers||0],['Bloklangan',s.blocked_centers||0],['MRR',money(s.mrr||0)],['Oylik tushum',money(s.monthly_revenue||0)],['Kutilayotgan',money(s.expected_revenue||0)],['Support',s.open_support_tickets||0]])}<div class="grid2">${panel('Tezkor amallar',body(`<div class="quick-grid"><div class="quick-card" data-page-go="new-center"><b>Yangi markaz</b><br><span class="mini">Hamkor qo‘shish</span></div><div class="quick-card" data-action="plan-new"><b>Tarif yaratish</b><br><span class="mini">Limit/ruxsatlar</span></div><div class="quick-card" data-page-go="support"><b>Support</b><br><span class="mini">Murojaatlar</span></div><div class="quick-card" data-page-go="invoices"><b>Invoice</b><br><span class="mini">To‘lov nazorati</span></div></div>`))}${panel('CEO profile', profileCard())}</div>${panel('O‘quv markazlar', table(centerHead(), centerRows().slice(0,8)), `<button class="btn primary" data-page-go="new-center">Markaz qo‘shish</button>`)}${panel('Bildirishnomalar', body(notificationList()))}`; }
+  function profileCard(){ const u=state.user||{}; const api=state.dashboard.api||{}; return body(`<div class="profile-card"><h3>${esc(u.fullName||u.full_name||'CEO')}</h3><p>${esc(u.email||'')}</p><p>${badge(u.role||'super_admin')} ${badge('active')}</p><hr><p>Platform version: <b>${esc(api.version||'22.0.0')}</b></p><p>API: ${badge(api.status||'healthy')}</p><p>Demo mode: ${badge(api.demoMode?'on':'off')}</p><button class="btn" data-action="change-password">Parol almashtirish</button></div>`); }
+  function notificationList(){ const n=state.notifications||[]; return n.length?n.map(x=>`<div class="result"><b>${esc(x.title)}</b><br><span class="mini">${esc(x.body||x.message||'')}</span></div>`).join(''):'<div class="empty">Hozircha bildirishnoma yo‘q</div>'; }
+  function centerHead(){ return ['Markaz','Owner','Tarif','Status','Obuna','O‘quvchi','Muddati','Amallar']; }
+  function centerRows(list=state.centers){ const q=state.q.toLowerCase(); return list.filter(c=>!q||JSON.stringify(c).toLowerCase().includes(q)).map(c=>`<tr><td><b>${esc(c.name)}</b><br><span class="mini">${esc(c.subdomain||c.slug||'')}.eduka.uz</span></td><td>${esc(c.owner_name||c.owner||'-')}<br><span class="mini">${esc(c.email||c.phone||'')}</span></td><td>${esc(c.plan||c.tariff_name||'Start')}</td><td>${badge(c.status)}</td><td>${badge(c.subscription_status||'trial')}</td><td>${num(c.students_count)}</td><td>${date(c.license_expires_at||c.trial_ends_at)}</td><td class="actions"><button data-action="center-view" data-id="${c.id}">Ko‘rish</button><button data-action="center-plan" data-id="${c.id}">Tarif</button><button data-action="center-features" data-id="${c.id}">Ruxsat</button><button data-action="center-reset" data-id="${c.id}">Parol</button><button data-action="center-login" data-id="${c.id}">Kirish</button><button class="${c.status==='blocked'?'green':'red'}" data-action="center-toggle" data-id="${c.id}">${c.status==='blocked'?'Aktiv':'Blok'}</button></td></tr>`); }
+  function centers(){ return panel('O‘quv markazlar', table(centerHead(), centerRows(), 'Hali markaz yo‘q'), `<input class="input" data-search placeholder="Markaz qidirish..."><button class="btn primary" data-page-go="new-center">Yangi markaz</button>`); }
+  function newCenter(){ return panel('Yangi markaz/hamkor qo‘shish', body(centerForm())); }
+  function centerForm(c={}){ return `<form data-form="center"><div class="form-grid"><label>Markaz nomi<input class="input" name="name" required value="${esc(c.name||'')}"></label><label>Subdomain<input class="input" name="subdomain" required placeholder="ilm-academy" value="${esc(c.subdomain||c.slug||'')}"></label><label>Owner ism-familiya<input class="input" name="admin_name" required value="${esc(c.owner_name||'')}"></label><label>Owner email<input class="input" name="admin_email" type="email" required value="${esc(c.email||'')}"></label><label>Owner telefon<input class="input" name="admin_phone" required value="${esc(c.phone||'')}"></label><label>Tarif<select class="select" name="plan">${planOptions(c.plan||'Start')}</select></label><label>Trial muddati / kun<input class="input" name="trial_days" type="number" value="14"></label><label>Boshlang‘ich parol<input class="input" name="password" placeholder="Bo‘sh qoldirilsa avtomatik"></label><label class="full">Manzil<input class="input" name="address" value="${esc(c.address||'')}"></label><label class="full">Custom domain<input class="input" name="custom_domain" placeholder="academy.uz" value="${esc(c.custom_domain||'')}"></label></div><br><button class="btn primary" type="submit">Markaz yaratish</button></form>`; }
+  function planOptions(sel){ return state.plans.map(p=>`<option value="${esc(p.name)}" ${String(p.name).toLowerCase()===String(sel).toLowerCase()?'selected':''}>${esc(p.name)} · ${money(p.monthly_price||p.price)}</option>`).join(''); }
+  function plans(){ return panel('Tariflar', `<div class="plans">${state.plans.map(p=>`<article class="plan"><h3>${esc(p.name)}</h3><strong>${money(p.monthly_price||p.price)}</strong><p>${num(p.student_limit)} o‘quvchi · ${num(p.teacher_limit)} o‘qituvchi · ${num(p.branch_limit)} filial</p><p>${badge(p.is_active===false?'inactive':'active')} ${badge(p.support_level||'standard')}</p><div class="actions"><button data-action="plan-edit" data-id="${p.id}">Tahrirlash</button><button data-action="plan-features" data-id="${p.id}">Ruxsatlar</button></div></article>`).join('')}</div>`, `<button class="btn primary" data-action="plan-new">Tarif qo‘shish</button>`); }
+  function features(){ return panel('Ruxsatlar / feature flags', body(`<p class="mini">Har bir markazga tarifdan tashqari alohida ruxsat berish mumkin.</p>${table(['Markaz','Tarif','Ruxsatlar','Amallar'], state.centers.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.plan||'Start')}</td><td>${Object.entries(c.feature_flags||{}).filter(([,v])=>v).slice(0,6).map(([k])=>esc(FEATURES[k]||k)).join(', ')||'Tarif bo‘yicha'}</td><td class="actions"><button data-action="center-features" data-id="${c.id}">Sozlash</button></td></tr>`))}`)); }
+  function subscriptions(){ const rows=state.subscriptions.map(s=>`<tr><td>${esc(s.center_name||s.organization_name||'-')}</td><td>${esc(s.tariff_name||s.plan||'-')}</td><td>${badge(s.status)}</td><td>${money(s.monthly_price)}</td><td>${date(s.current_period_end||s.ends_at)}</td><td>${badge(s.payment_status||'-')}</td><td class="actions"><button data-action="sub-extend" data-id="${s.id}">Uzaytirish</button><button data-action="sub-trial" data-id="${s.id}">Trial</button><button data-action="invoice-new" data-org="${s.organization_id}" data-sub="${s.id}" data-amount="${s.monthly_price||0}">Invoice</button></td></tr>`); return panel('Obunalar', table(['Markaz','Tarif','Status','Narx','Tugash','To‘lov','Amallar'], rows)); }
+  function billing(){ const rows=state.billing.map(p=>`<tr><td>${esc(p.center_name||'-')}</td><td>${money(p.amount)}</td><td>${esc(p.method||p.payment_method||'-')}</td><td>${badge(p.status)}</td><td>${date(p.paid_at||p.created_at)}</td><td>${esc(p.note||'')}</td></tr>`); return panel('Platforma to‘lovlari', table(['Markaz','Summa','Usul','Status','Sana','Izoh'], rows), `<button class="btn primary" data-action="payment-new">To‘lov qo‘shish</button>`); }
+  function invoices(){ const rows=state.invoices.map(i=>`<tr><td>${esc(i.invoice_number)}</td><td>${esc(i.center_name||'-')}</td><td>${esc(i.plan_name||'-')}</td><td>${money(i.amount)}</td><td>${badge(i.status)}</td><td>${date(i.due_date)}</td><td class="actions"><button data-action="invoice-paid" data-id="${i.id}">Tasdiqlash</button><button data-action="invoice-print" data-id="${i.id}">Print</button></td></tr>`); return panel('Invoice', table(['№','Markaz','Tarif','Summa','Status','Muddat','Amallar'], rows), `<button class="btn primary" data-action="invoice-new">Invoice yaratish</button>`); }
+  function support(){ const rows=state.support.map(t=>`<tr><td>${esc(t.center_name||'-')}</td><td><b>${esc(t.subject)}</b><br><span class="mini">${esc(t.latest_message||t.message||'')}</span></td><td>${badge(t.priority||'normal')}</td><td>${badge(t.status)}</td><td>${date(t.updated_at||t.created_at)}</td><td class="actions"><button data-action="support-reply" data-id="${t.id}">Javob</button><button data-action="support-close" data-id="${t.id}">Yopish</button></td></tr>`); return panel('Support', table(['Markaz','Mavzu','Prioritet','Status','Sana','Amallar'], rows), `<button class="btn primary" data-action="support-new">Ticket qo‘shish</button>`); }
+  function admins(){ const rows=state.admins.map(a=>`<tr><td><b>${esc(a.full_name)}</b><br><span class="mini">${esc(a.email)}</span></td><td>${esc(a.phone||'-')}</td><td>${badge(a.role)}</td><td>${badge(a.is_active?'active':'blocked')}</td><td>${date(a.last_login_at)}</td><td class="actions"><button data-action="admin-edit" data-id="${a.id}">Tahrirlash</button><button data-action="admin-reset" data-id="${a.id}">Parol</button><button data-action="admin-block" data-id="${a.id}">${a.is_active?'Blok':'Aktiv'}</button></td></tr>`); return panel('CEO adminlar', table(['Admin','Telefon','Rol','Status','Oxirgi login','Amallar'], rows), `<button class="btn primary" data-action="admin-new">Admin qo‘shish</button>`); }
+  function audit(){ const rows=state.audit.map(a=>`<tr><td>${esc(a.admin_name||a.user_id||'-')}</td><td>${esc(a.action)}</td><td>${esc(a.entity)} #${esc(a.entity_id||'')}</td><td>${esc(a.center_name||'-')}</td><td>${date(a.created_at)}</td></tr>`); return panel('Audit log', table(['User','Action','Target','Markaz','Sana'], rows)); }
+  function settings(){ return `<div class="grid2">${panel('Platform sozlamalari', body(`<form data-form="settings"><div class="form-grid"><label>CEO email<input class="input" name="ceo_email" value="${esc(state.user?.email||'')}"></label><label>Support Telegram<input class="input" name="support_telegram" value="@eduka_admin"></label><label>Trial kun<input class="input" name="trial_days" type="number" value="14"></label><label>Default domain<input class="input" name="base_domain" value="eduka.uz"></label></div><br><button class="btn primary">Saqlash</button></form>`))}${panel('Xavfsizlik', body(`<p>CEO login: <b>/ceo/login</b></p><p>Center login: <b>/admin/login</b></p><button class="btn" data-action="clear-session">Session/cache tozalash</button> <button class="btn" data-action="change-password">Parol almashtirish</button>`))}</div>`; }
+  function featureInputs(flags={}){ return `<div class="switch-list">${Object.entries(FEATURES).map(([k,l])=>`<label class="switch"><span>${esc(l)}</span><input type="checkbox" name="feature_${esc(k)}" ${flags[k]?'checked':''}></label>`).join('')}</div>`; }
+  function collectFeatures(form){ const flags={}; Object.keys(FEATURES).forEach(k=>flags[k]=!!form.querySelector(`[name="feature_${CSS.escape(k)}"]`)?.checked); return flags; }
+  function openModal(t,h){ modalTitle.textContent=t; modalBody.innerHTML=h; modal.classList.add('show'); }
+  function closeModal(){ modal.classList.remove('show'); modalBody.innerHTML=''; }
+  function openDrawer(t,h){ drawerBody.innerHTML=`<h3>${esc(t)}</h3>${h}`; drawer.classList.add('show'); }
+  function closeDrawer(){ drawer.classList.remove('show'); }
+  function findCenter(id){ return state.centers.find(x=>String(x.id)===String(id)); }
+  function findPlan(id){ return state.plans.find(x=>String(x.id)===String(id)); }
+  async function handleAction(action,id,el){ const c=findCenter(id), p=findPlan(id);
+    if(action==='center-view'&&c) return openModal(c.name, `<div class="center-profile"><div><h3>Asosiy</h3><p>Subdomain: <b>${esc(c.subdomain||c.slug)}</b></p><p>Owner: <b>${esc(c.owner_name||'-')}</b></p><p>Email: <b>${esc(c.email||'-')}</b></p><p>Telefon: <b>${esc(c.phone||'-')}</b></p><p>Status: ${badge(c.status)}</p></div><div><h3>Amallar</h3><p><button class="btn" data-action="center-plan" data-id="${c.id}">Tarif o‘zgartirish</button></p><p><button class="btn" data-action="center-features" data-id="${c.id}">Ruxsatlar</button></p><p><button class="btn" data-action="center-reset" data-id="${c.id}">Parol reset</button></p><p><button class="btn" data-action="center-login" data-id="${c.id}">Markazga kirish</button></p></div></div>`);
+    if(action==='center-toggle'&&c){ await api(`/api/super/centers/${c.id}/status`,{method:'PUT',body:JSON.stringify({status:c.status==='blocked'?'active':'blocked'})}); await reload('Status yangilandi'); return; }
+    if(action==='center-plan'&&c) return openModal('Tarif o‘zgartirish', `<form data-form="center-plan" data-id="${c.id}"><label>Tarif<select class="select" name="plan">${planOptions(c.plan||'Start')}</select></label><br><button class="btn primary">Saqlash</button></form>`);
+    if(action==='center-features'&&c) return openModal('Ruxsatlar', `<form data-form="center-features" data-id="${c.id}">${featureInputs(c.feature_flags||PLAN_FLAGS[c.plan]||DEFAULT_FLAGS)}<br><button class="btn primary">Saqlash</button></form>`);
+    if(action==='center-reset'&&c){ const res=await api(`/api/super/centers/${c.id}/admin-reset`,{method:'POST',body:JSON.stringify({})}); return openModal('Parol reset qilindi', `<p>Markaz: <b>${esc(c.name)}</b></p><p>Email: <b>${esc(res.admin?.email||c.email||'-')}</b></p><p>Yangi vaqtinchalik parol:</p><h2>${esc(res.temporaryPassword)}</h2>`); }
+    if(action==='center-login'&&c){ const res=await api(`/api/super/centers/${c.id}/login-as`,{method:'POST'}); toast('Markaz CRM sessiyasi ochildi'); window.open(res.redirect||'/admin/dashboard','_blank'); return; }
+    if(action==='plan-new') return openModal('Tarif qo‘shish', planForm());
+    if(action==='plan-edit'&&p) return openModal('Tarif tahrirlash', planForm(p));
+    if(action==='plan-features'&&p) return openModal('Tarif ruxsatlari', planForm(p,true));
+    if(action==='sub-extend') return openModal('Obunani uzaytirish', `<form data-form="sub-action" data-id="${id}"><input type="hidden" name="action" value="extend"><label>Kun<input class="input" type="number" name="days" value="30"></label><br><button class="btn primary">Uzaytirish</button></form>`);
+    if(action==='sub-trial') return openModal('Trial berish', `<form data-form="sub-action" data-id="${id}"><input type="hidden" name="action" value="trial"><label>Kun<input class="input" type="number" name="days" value="7"></label><br><button class="btn primary">Berish</button></form>`);
+    if(action==='invoice-new') return openModal('Invoice yaratish', `<form data-form="invoice"><div class="form-grid"><label>Markaz<select class="select" name="organization_id">${state.centers.map(x=>`<option value="${x.id}" ${String(el?.dataset.org)===String(x.id)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label><label>Subscription ID<input class="input" name="subscription_id" value="${esc(el?.dataset.sub||'')}"></label><label>Summa<input class="input" name="amount" type="number" value="${esc(el?.dataset.amount||0)}"></label><label>Muddati<input class="input" name="due_date" type="date"></label><label class="full">Izoh<input class="input" name="note"></label></div><br><button class="btn primary">Invoice yaratish</button></form>`);
+    if(action==='invoice-paid'){ await api(`/api/super/invoices/${id}`,{method:'PUT',body:JSON.stringify({status:'paid',paid_at:new Date().toISOString(),payment_method:'manual'})}); await reload('Invoice tasdiqlandi'); return; }
+    if(action==='invoice-print') return window.print();
+    if(action==='payment-new') return openModal('Platforma to‘lovi qo‘shish', `<form data-form="payment"><div class="form-grid"><label>Markaz<select class="select" name="organization_id">${state.centers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Summa<input class="input" name="amount" type="number" required></label><label>Usul<select class="select" name="method"><option>cash</option><option>card</option><option>bank</option><option>click</option><option>payme</option></select></label><label>Status<select class="select" name="status"><option>paid</option><option>pending</option><option>cancelled</option></select></label><label class="full">Izoh<input class="input" name="note"></label></div><br><button class="btn primary">Saqlash</button></form>`);
+    if(action==='support-new') return openModal('Support ticket', `<form data-form="support"><label>Markaz<select class="select" name="organization_id"><option value="">Platforma</option>${state.centers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Mavzu<input class="input" name="subject" required></label><label>Prioritet<select class="select" name="priority"><option>normal</option><option>high</option><option>urgent</option></select></label><label>Xabar<textarea name="message" rows="4"></textarea></label><button class="btn primary">Yuborish</button></form>`);
+    if(action==='support-reply') return openModal('Support javob', `<form data-form="support-reply" data-id="${id}"><label>Status<select class="select" name="status"><option>open</option><option>in_progress</option><option>resolved</option><option>closed</option></select></label><label>Javob<textarea name="message" rows="5"></textarea></label><br><button class="btn primary">Saqlash</button></form>`);
+    if(action==='support-close'){ await api(`/api/super/support-tickets/${id}`,{method:'PUT',body:JSON.stringify({status:'closed'})}); await reload('Ticket yopildi'); return; }
+    if(action==='admin-new') return openModal('CEO admin qo‘shish', adminForm());
+    if(action==='admin-edit'){ const a=state.admins.find(x=>String(x.id)===String(id)); return openModal('Admin tahrirlash', adminForm(a)); }
+    if(action==='admin-reset'){ const res=await api(`/api/super/admin-users/${id}/reset-password`,{method:'POST',body:JSON.stringify({})}); return openModal('Admin paroli', `<p>Yangi vaqtinchalik parol:</p><h2>${esc(res.temporaryPassword)}</h2>`); }
+    if(action==='admin-block'){ const a=state.admins.find(x=>String(x.id)===String(id)); await api(`/api/super/admin-users/${id}`,{method:'PUT',body:JSON.stringify({is_active:!a.is_active})}); await reload('Admin statusi yangilandi'); return; }
+    if(action==='clear-session'){ localStorage.clear(); sessionStorage.clear(); toast('Local session tozalandi'); return; }
+    if(action==='change-password') return openModal('Parol almashtirish', `<p class="mini">Bu bosqichda parolni CEO adminlar bo‘limidagi reset orqali yangilash mumkin. Keyingi xavfsizlik bosqichida 2FA qo‘shiladi.</p>`);
   }
-  async function loadMe() {
-    const data = await api('/api/auth/me');
-    const user = data.user;
-    if (!isSuperRole(user?.role)) throw new Error('Bu sahifa faqat CEO/Super Admin uchun. /admin markaz CRM uchun ishlatiladi.');
-    state.user = user;
-    userLine.textContent = `${user.fullName || user.full_name || user.email} · ${user.role}`;
+  function planForm(p={},featuresOnly=false){ const flags=p.feature_flags||PLAN_FLAGS[p.name]||DEFAULT_FLAGS; return `<form data-form="plan" data-id="${p.id||''}">${featuresOnly?'':`<div class="form-grid"><label>Nomi<input class="input" name="name" value="${esc(p.name||'') || ''}" required></label><label>Narx<input class="input" name="monthly_price" type="number" value="${p.monthly_price||0}"></label><label>O‘quvchi limit<input class="input" name="student_limit" type="number" value="${p.student_limit||100}"></label><label>O‘qituvchi limit<input class="input" name="teacher_limit" type="number" value="${p.teacher_limit||5}"></label><label>Filial limit<input class="input" name="branch_limit" type="number" value="${p.branch_limit||1}"></label><label>Guruh limit<input class="input" name="group_limit" type="number" value="${p.group_limit||10}"></label><label>SMS limit<input class="input" name="sms_limit" type="number" value="${p.sms_limit||0}"></label><label>Support<select class="select" name="support_level"><option>basic</option><option>priority</option><option>premium</option><option>dedicated</option></select></label></div>`}${featureInputs(flags)}<br><button class="btn primary">Saqlash</button></form>`; }
+  function adminForm(a={}){ return `<form data-form="admin" data-id="${a.id||''}"><div class="form-grid"><label>Ism<input class="input" name="full_name" value="${esc(a.full_name||'')}" required></label><label>Email<input class="input" name="email" type="email" value="${esc(a.email||'')}" ${a.id?'readonly':''} required></label><label>Telefon<input class="input" name="phone" value="${esc(a.phone||'')}"></label><label>Rol<select class="select" name="role"><option>platform_admin</option><option>support_manager</option><option>sales_manager</option><option>finance_manager</option><option>technical_manager</option></select></label></div><br><button class="btn primary">Saqlash</button></form>`; }
+  async function submitForm(form){ const kind=form.dataset.form; const d=Object.fromEntries(new FormData(form).entries());
+    if(kind==='center'){ const res=await api('/api/super/centers/wizard',{method:'POST',body:JSON.stringify(d)}); closeModal(); await reload(); return openModal('Markaz yaratildi', `<p>URL: <b>${esc(res.login?.url||'')}</b></p><p>Email: <b>${esc(res.login?.email||d.admin_email)}</b></p><p>Temporary password:</p><h2>${esc(res.login?.password||'yaratildi')}</h2>`); }
+    if(kind==='center-plan'){ await api(`/api/super/centers/${form.dataset.id}/plan`,{method:'PUT',body:JSON.stringify({plan:d.plan})}); closeModal(); await reload('Tarif yangilandi'); return; }
+    if(kind==='center-features'){ await api(`/api/super/centers/${form.dataset.id}/features`,{method:'PUT',body:JSON.stringify({features:collectFeatures(form)})}); closeModal(); await reload('Ruxsatlar saqlandi'); return; }
+    if(kind==='plan'){ const data={...d,feature_flags:collectFeatures(form),is_active:true}; await api(`/api/super/plans${form.dataset.id?`/${form.dataset.id}`:''}`,{method:form.dataset.id?'PUT':'POST',body:JSON.stringify(data)}); closeModal(); await reload('Tarif saqlandi'); return; }
+    if(kind==='sub-action'){ await api(`/api/super/subscriptions/${form.dataset.id}/action`,{method:'PUT',body:JSON.stringify(d)}); closeModal(); await reload('Obuna yangilandi'); return; }
+    if(kind==='invoice'){ await api('/api/super/invoices',{method:'POST',body:JSON.stringify(d)}); closeModal(); await reload('Invoice yaratildi'); return; }
+    if(kind==='payment'){ await api('/api/super/payments',{method:'POST',body:JSON.stringify(d)}); closeModal(); await reload('To‘lov qo‘shildi'); return; }
+    if(kind==='support'){ await api('/api/super/support-tickets',{method:'POST',body:JSON.stringify(d)}); closeModal(); await reload('Ticket yaratildi'); return; }
+    if(kind==='support-reply'){ await api(`/api/super/support-tickets/${form.dataset.id}`,{method:'PUT',body:JSON.stringify(d)}); closeModal(); await reload('Support yangilandi'); return; }
+    if(kind==='admin'){ await api(`/api/super/admin-users${form.dataset.id?`/${form.dataset.id}`:''}`,{method:form.dataset.id?'PUT':'POST',body:JSON.stringify(d)}); closeModal(); await reload('Admin saqlandi'); return; }
+    if(kind==='settings'){ closeModal(); toast('Sozlamalar saqlandi'); return; }
   }
-  async function loadAll() {
-    root.classList.add('loading');
-    try {
-      const [dash, centers, plans, subs, payments, support, admins, audit] = await Promise.allSettled([
-        api('/api/super/dashboard'), api('/api/super/centers'), api('/api/super/plans'), api('/api/super/subscriptions'), api('/api/super/payments'), api('/api/super/support-tickets'), api('/api/super/admin-users'), api('/api/super/audit')
-      ]);
-      state.dashboard = dash.value || {};
-      state.centers = centers.value?.items || [];
-      state.plans = plans.value?.items || [];
-      state.subscriptions = subs.value?.items || [];
-      state.payments = payments.value?.items || [];
-      state.support = support.value?.items || support.value?.tickets || [];
-      state.admins = admins.value?.items || [];
-      state.audit = audit.value?.items || [];
-      if (!state.plans.length) state.plans = Object.keys(planDefaults).map((name, i) => ({ id:i+1, name, monthly_price:[0,250000,500000,1200000][i], student_limit:[50,200,500,5000][i], teacher_limit:[3,10,30,100][i], branch_limit:[1,2,5,50][i], group_limit:[5,20,80,1000][i], feature_flags:planDefaults[name], support_level:['basic','standard','priority','vip'][i], is_active:true }));
-    } finally { root.classList.remove('loading'); }
-  }
-
-  function setPage(page, push=true) {
-    state.page = page || 'dashboard';
-    if (push) history.pushState({}, '', pagePath(state.page));
-    document.querySelectorAll('#ceoNav button').forEach(b => b.classList.toggle('active', b.dataset.page === state.page));
-    title.textContent = ({dashboard:'CEO Dashboard',centers:'O‘quv markazlar',plans:'Tariflar va ruxsatlar',subscriptions:'Obunalar',payments:'Platforma to‘lovlari',support:'Support',admins:'CEO adminlar',audit:'Audit log',settings:'Sozlamalar'})[state.page] || 'CEO Console';
-    render();
-  }
-
-  function render() {
-    const map = { dashboard: renderDashboard, centers: renderCenters, plans: renderPlans, subscriptions: renderSubscriptions, payments: renderPayments, support: renderSupport, admins: renderAdmins, audit: renderAudit, settings: renderSettings };
-    root.innerHTML = (map[state.page] || renderDashboard)();
-  }
-
-  function kpis(items) { return `<div class="kpis">${items.map(([l,v])=>`<article class="kpi"><span>${l}</span><strong>${v}</strong></article>`).join('')}</div>`; }
-  function table(headers, rows, empty='Ma’lumot yo‘q') { return `<div class="table-wrap"><table class="table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.join(''):`<tr><td colspan="${headers.length}"><div class="empty">${empty}</div></td></tr>`}</tbody></table></div>`; }
-  function panel(name, body, tools='') { return `<section class="panel"><div class="panel-head"><h2>${name}</h2><div class="panel-tools">${tools}</div></div>${body}</section>`; }
-  function centerRows() {
-    const q = state.search.toLowerCase();
-    return state.centers.filter(c => !q || JSON.stringify(c).toLowerCase().includes(q)).map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong><br><small>${escapeHtml(c.subdomain || c.slug || '')}.eduka.uz</small></td><td>${escapeHtml(c.owner_name || c.owner || '-')}<br><small>${escapeHtml(c.email || c.phone || '')}</small></td><td>${escapeHtml(c.plan || c.tariff_name || 'Start')}</td><td>${badge(c.status)}</td><td>${badge(c.subscription_status || 'trial')}</td><td>${c.students_count||0}</td><td>${date(c.license_expires_at || c.trial_ends_at)}</td><td class="actions"><button data-action="center-view" data-id="${c.id}">Ko‘rish</button><button data-action="center-plan" data-id="${c.id}">Tarif</button><button data-action="center-features" data-id="${c.id}">Ruxsatlar</button><button class="${c.status==='blocked'?'green':'red'}" data-action="center-block" data-id="${c.id}">${c.status==='blocked'?'Aktiv qilish':'Bloklash'}</button></td></tr>`);
-  }
-
-  function renderDashboard() {
-    const s = state.dashboard.summary || state.dashboard || {};
-    return `${kpis([['Markazlar',s.centers||state.centers.length],['Faol',s.active_centers||0],['Trial',s.trial_centers||0],['Bloklangan',s.blocked_centers||0],['MRR',money(s.mrr||0)],['Oylik tushum',money(s.monthly_revenue||0)],['Kutilayotgan',money(s.expected_revenue||0)],['Bugun yangi',s.new_today||0]])}${panel('Tezkor amallar',`<div class="content"><button class="btn primary" data-action="center-new">Yangi markaz qo‘shish</button> <button class="btn" data-page-go="plans">Tariflarni sozlash</button> <button class="btn" data-page-go="support">Supportni ko‘rish</button></div>`)}${panel('Oxirgi o‘quv markazlar', table(['Markaz','Owner','Tarif','Status','Obuna','O‘quvchi','Muddati','Amallar'], centerRows().slice(0,6)), '<input class="input" data-search placeholder="Qidirish...">')}`;
-  }
-  function renderCenters() { return `${panel('O‘quv markazlar', table(['Markaz','Owner','Tarif','Status','Obuna','O‘quvchi','Muddati','Amallar'], centerRows(), 'Hali markaz yo‘q'), `<input class="input" data-search placeholder="Markaz qidirish..."><button class="btn primary" data-action="center-new">Yangi markaz qo‘shish</button>`)}`; }
-  function renderPlans() {
-    const cards = `<div class="plans">${state.plans.map(p=>`<article class="plan"><h3>${escapeHtml(p.name)}</h3><strong>${money(p.monthly_price||p.price)}</strong><p>${p.student_limit||0} o‘quvchi · ${p.teacher_limit||0} o‘qituvchi · ${p.branch_limit||1} filial</p>${badge(p.is_active===false?'inactive':'active')}<div class="actions"><button data-action="plan-edit" data-id="${p.id}">Tahrirlash</button></div></article>`).join('')}</div>`;
-    return `${panel('Tariflar va ruxsatlar', cards, '<button class="btn primary" data-action="plan-new">Tarif qo‘shish</button>')}`;
-  }
-  function renderSubscriptions() { const rows=state.subscriptions.map(x=>`<tr><td>${escapeHtml(x.center_name||x.organization_name||'-')}</td><td>${escapeHtml(x.tariff_name||x.plan||'-')}</td><td>${badge(x.status)}</td><td>${money(x.monthly_price)}</td><td>${date(x.ends_at||x.current_period_end)}</td><td>${badge(x.payment_status||'-')}</td></tr>`); return panel('Obunalar', table(['Markaz','Tarif','Status','Narx','Tugash','To‘lov'], rows)); }
-  function renderPayments() { const rows=state.payments.map(x=>`<tr><td>${escapeHtml(x.center_name||'-')}</td><td>${money(x.amount)}</td><td>${escapeHtml(x.payment_type||x.method||'-')}</td><td>${badge(x.status||'paid')}</td><td>${date(x.paid_at||x.created_at)}</td></tr>`); return panel('Platforma to‘lovlari', table(['Markaz','Summa','Usul','Status','Sana'], rows)); }
-  function renderSupport() { const rows=state.support.map(x=>`<tr><td>${escapeHtml(x.center_name||'-')}</td><td>${escapeHtml(x.subject||x.title||'Support')}</td><td>${badge(x.status||'open')}</td><td>${escapeHtml(x.priority||'-')}</td><td>${date(x.created_at)}</td></tr>`); return panel('Support', table(['Markaz','Mavzu','Status','Prioritet','Sana'], rows)); }
-  function renderAdmins() { const rows=state.admins.map(a=>`<tr><td>${escapeHtml(a.full_name||a.name||'-')}</td><td>${escapeHtml(a.email||'-')}</td><td>${escapeHtml(a.role||'-')}</td><td>${badge(a.is_active===false?'blocked':'active')}</td><td class="actions"><button data-action="admin-reset" data-id="${a.id}">Parol</button></td></tr>`); return panel('CEO adminlar', table(['Ism','Email','Rol','Status','Amal'], rows), '<button class="btn primary" data-action="admin-new">Admin qo‘shish</button>'); }
-  function renderAudit() { const rows=state.audit.map(a=>`<tr><td>${escapeHtml(a.admin_name||a.user_id||'-')}</td><td>${escapeHtml(a.action||'-')}</td><td>${escapeHtml(a.entity||a.target_type||'-')}</td><td>${escapeHtml(a.entity_id||a.target_id||'-')}</td><td>${date(a.created_at)}</td></tr>`); return panel('Audit log', table(['Admin','Action','Entity','ID','Sana'], rows)); }
-  function renderSettings() { return panel('Soddalashtirilgan sozlamalar', `<div class="content"><div class="notice">CEO console hozir CRMdan to‘liq ajratilgan. /ceo/* faqat platforma boshqaruvi, /admin/* esa o‘quv markaz CRM.</div><button class="btn" data-action="reload-cache">Cache/session tozalash</button></div>`); }
-
-  function openModal(name, body) { modalTitle.textContent=name; modalBody.innerHTML=body; modal.classList.add('open'); }
-  function closeModal(){ modal.classList.remove('open'); modalBody.innerHTML=''; }
-  function planOptions(selected='') { return state.plans.map(p=>`<option value="${escapeHtml(p.name)}" ${p.name===selected?'selected':''}>${escapeHtml(p.name)}</option>`).join(''); }
-  function featureInputs(flags={}) { return `<div class="features">${Object.entries(featureLabels).map(([key,label])=>`<label><input type="checkbox" name="${key}" ${flags[key]?'checked':''}> ${label}</label>`).join('')}</div>`; }
-  function collectFeatures(form) { const out={}; Object.keys(featureLabels).forEach(k=>out[k]=Boolean(form.elements[k]?.checked)); return out; }
-
-  async function handleAction(action, id) {
-    const center = state.centers.find(c=>String(c.id)===String(id));
-    const plan = state.plans.find(p=>String(p.id)===String(id));
-    if (action==='center-new') return openModal('Yangi markaz qo‘shish', `<form data-form="center"><div class="form-grid"><label>Markaz nomi<input class="input" name="name" required></label><label>Subdomain<input class="input" name="subdomain" required placeholder="ilm-academy"></label><label>Owner ism<input class="input" name="admin_name" required></label><label>Owner email<input class="input" name="admin_email" required type="email"></label><label>Telefon<input class="input" name="admin_phone" required></label><label>Tarif<select class="select" name="plan">${planOptions('Start')}</select></label><label>Trial kun<input class="input" name="trial_days" type="number" value="14"></label><label>Manzil<input class="input" name="address"></label><label class="full">Custom domain<input class="input" name="custom_domain" placeholder="academy.uz"></label></div><br><button class="btn primary" type="submit">Markaz yaratish</button></form>`);
-    if (action==='center-view' && center) return openModal(center.name, `<div class="grid2"><div><h3>Ma’lumot</h3><p>Subdomain: <b>${escapeHtml(center.subdomain||center.slug||'-')}</b></p><p>Status: ${badge(center.status)}</p><p>Obuna: ${badge(center.subscription_status)}</p><p>Tarif: <b>${escapeHtml(center.plan||'Start')}</b></p></div><div><h3>Amallar</h3><p><button class="btn" data-action="center-plan" data-id="${center.id}">Tarif tanlash</button></p><p><button class="btn" data-action="center-features" data-id="${center.id}">Ruxsatlar</button></p><p><button class="btn danger" data-action="center-block" data-id="${center.id}">Bloklash/Aktiv</button></p></div></div>`);
-    if (action==='center-block' && center) { await api(`/api/super/centers/${center.id}/status`, {method:'PUT', body:JSON.stringify({status:center.status==='blocked'?'active':'blocked'})}); toast('Status yangilandi'); await loadAll(); render(); return; }
-    if (action==='center-plan' && center) return openModal('Tarif tanlash', `<form data-form="center-plan" data-id="${center.id}"><label>Tarif<select class="select" name="plan">${planOptions(center.plan)}</select></label><br><button class="btn primary" type="submit">Tarifni yangilash</button></form>`);
-    if (action==='center-features' && center) { const flags=center.feature_flags||planDefaults[center.plan]||{}; return openModal('Markaz ruxsatlari', `<form data-form="center-features" data-id="${center.id}">${featureInputs(flags)}<br><button class="btn primary" type="submit">Ruxsatlarni saqlash</button></form>`); }
-    if (action==='plan-new') return openModal('Tarif qo‘shish', `<form data-form="plan"><div class="form-grid"><label>Nomi<input class="input" name="name" required></label><label>Narx<input class="input" name="monthly_price" type="number" value="0"></label><label>O‘quvchi limit<input class="input" name="student_limit" type="number" value="100"></label><label>O‘qituvchi limit<input class="input" name="teacher_limit" type="number" value="5"></label><label>Filial limit<input class="input" name="branch_limit" type="number" value="1"></label><label>Guruh limit<input class="input" name="group_limit" type="number" value="10"></label><label>Support<input class="input" name="support_level" value="standard"></label></div>${featureInputs(planDefaults.Start)}<br><button class="btn primary" type="submit">Tarif saqlash</button></form>`);
-    if (action==='plan-edit' && plan) return openModal('Tarifni tahrirlash', `<form data-form="plan" data-id="${plan.id}"><div class="form-grid"><label>Nomi<input class="input" name="name" value="${escapeHtml(plan.name)}" required></label><label>Narx<input class="input" name="monthly_price" type="number" value="${plan.monthly_price||0}"></label><label>O‘quvchi limit<input class="input" name="student_limit" type="number" value="${plan.student_limit||0}"></label><label>O‘qituvchi limit<input class="input" name="teacher_limit" type="number" value="${plan.teacher_limit||0}"></label><label>Filial limit<input class="input" name="branch_limit" type="number" value="${plan.branch_limit||1}"></label><label>Guruh limit<input class="input" name="group_limit" type="number" value="${plan.group_limit||10}"></label><label>Support<input class="input" name="support_level" value="${escapeHtml(plan.support_level||'standard')}"></label></div>${featureInputs(plan.feature_flags||planDefaults[plan.name]||{})}<br><button class="btn primary" type="submit">Tarif yangilash</button></form>`);
-    if (action==='admin-new') return openModal('CEO admin qo‘shish', `<form data-form="admin"><div class="form-grid"><label>Ism<input class="input" name="full_name" required></label><label>Email<input class="input" name="email" type="email" required></label><label>Telefon<input class="input" name="phone"></label><label>Rol<select class="select" name="role"><option>platform_admin</option><option>sales_manager</option><option>support_manager</option><option>finance_manager</option></select></label></div><br><button class="btn primary" type="submit">Admin yaratish</button></form>`);
-    if (action==='reload-cache') { localStorage.clear(); sessionStorage.clear(); toast('Browser cache/session tozalandi'); return; }
-  }
-
-  async function submitForm(form) {
-    const kind = form.dataset.form;
-    const data = Object.fromEntries(new FormData(form).entries());
-    if (kind==='center') {
-      const res = await api('/api/super/centers/wizard', {method:'POST', body:JSON.stringify(data)});
-      closeModal(); await loadAll(); render();
-      return toast(`Markaz yaratildi. Login: ${res.login?.email || data.admin_email}, parol: ${res.login?.password || 'yaratildi'}`);
-    }
-    if (kind==='center-plan') { await api(`/api/super/centers/${form.dataset.id}/plan`, {method:'PUT', body:JSON.stringify({plan:data.plan})}); closeModal(); await loadAll(); render(); return toast('Tarif yangilandi'); }
-    if (kind==='center-features') { await api(`/api/super/centers/${form.dataset.id}/features`, {method:'PUT', body:JSON.stringify({features:collectFeatures(form)})}); closeModal(); await loadAll(); render(); return toast('Ruxsatlar saqlandi'); }
-    if (kind==='plan') {
-      data.feature_flags = collectFeatures(form); data.is_active = true;
-      await api(`/api/super/plans${form.dataset.id?`/${form.dataset.id}`:''}`, {method:form.dataset.id?'PUT':'POST', body:JSON.stringify(data)});
-      closeModal(); await loadAll(); render(); return toast('Tarif saqlandi');
-    }
-    if (kind==='admin') { const res=await api('/api/super/admin-users', {method:'POST', body:JSON.stringify(data)}); closeModal(); await loadAll(); render(); return toast(`Admin yaratildi. Parol: ${res.temporaryPassword || 'yaratildi'}`); }
-  }
-
-  document.addEventListener('click', async (e) => {
-    const nav = e.target.closest('[data-page]'); if (nav) return setPage(nav.dataset.page);
-    const go = e.target.closest('[data-page-go]'); if (go) return setPage(go.dataset.pageGo);
-    const act = e.target.closest('[data-action]'); if (act) { try { await handleAction(act.dataset.action, act.dataset.id); } catch(err) { toast(err.message); } }
-  });
-  document.addEventListener('input', (e) => { if (e.target.matches('[data-search]')) { state.search=e.target.value; render(); } });
-  document.addEventListener('submit', async (e) => { if (e.target.matches('[data-form]')) { e.preventDefault(); try { await submitForm(e.target); } catch(err) { toast(err.message); } } });
-  $('#modalClose').addEventListener('click', closeModal);
-  $('#refreshBtn').addEventListener('click', async()=>{ await loadAll(); render(); toast('Yangilandi'); });
-  $('#logoutBtn').addEventListener('click', async()=>{ try{await api('/api/auth/logout',{method:'POST'});}catch{} location.href='/ceo/login'; });
-  window.addEventListener('popstate',()=>{ const p=location.pathname.split('/').filter(Boolean)[1]||'dashboard'; setPage(p,false); });
-
-  (async function init(){
-    try { await loadMe(); await loadAll(); setPage(state.page,false); }
-    catch(err) { localStorage.clear(); sessionStorage.clear(); location.replace('/ceo/login?reason=' + encodeURIComponent(err.message)); }
-  })();
+  async function reload(msg){ await loadAll(); render(); if(msg) toast(msg); }
+  function globalResults(q){ q=q.toLowerCase(); const items=[]; state.centers.forEach(c=>{ if(JSON.stringify(c).toLowerCase().includes(q)) items.push({t:'Markaz',name:c.name,sub:c.email||c.phone,go:'centers'}); }); state.invoices.forEach(i=>{ if(JSON.stringify(i).toLowerCase().includes(q)) items.push({t:'Invoice',name:i.invoice_number,sub:`${i.center_name||'-'} · ${money(i.amount)}`,go:'invoices'}); }); state.support.forEach(s=>{ if(JSON.stringify(s).toLowerCase().includes(q)) items.push({t:'Support',name:s.subject,sub:s.center_name||'',go:'support'}); }); return items.slice(0,20); }
+  document.addEventListener('click',async e=>{ const nav=e.target.closest('[data-page]'); if(nav) return setPage(nav.dataset.page); const go=e.target.closest('[data-page-go]'); if(go) return setPage(go.dataset.pageGo); const act=e.target.closest('[data-action]'); if(act){ try{ await handleAction(act.dataset.action,act.dataset.id,act); }catch(err){ toast(err.message); } }});
+  document.addEventListener('submit',async e=>{ if(e.target.matches('[data-form]')){ e.preventDefault(); try{ await submitForm(e.target); }catch(err){ toast(err.message); } }});
+  document.addEventListener('input',e=>{ if(e.target.matches('[data-search]')){ state.q=e.target.value; render(); }});
+  $('#globalSearch').addEventListener('input',e=>{ const q=e.target.value.trim(); if(!q) return closeDrawer(); const rows=globalResults(q).map(r=>`<div class="result" data-page-go="${r.go}"><b>${esc(r.t)} · ${esc(r.name)}</b><br><span class="mini">${esc(r.sub)}</span></div>`).join('')||'<div class="empty">Topilmadi</div>'; openDrawer('Global qidiruv',rows); });
+  window.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#globalSearch').focus(); }});
+  $('#modalClose').addEventListener('click',closeModal); $('#drawerClose').addEventListener('click',closeDrawer); $('#menuBtn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
+  $('#refreshBtn').addEventListener('click',()=>reload('Yangilandi')); $('#notifBtn').addEventListener('click',()=>openDrawer('Bildirishnomalar',notificationList()));
+  $('#logoutBtn').addEventListener('click',async()=>{ try{await api('/api/auth/logout',{method:'POST'});}catch{} location.href='/ceo/login'; });
+  window.addEventListener('popstate',()=>setPage(pathPage(),false));
+  (async()=>{ try{ await loadMe(); await loadAll(); setPage(state.page,false); } catch(err){ localStorage.clear(); sessionStorage.clear(); location.replace('/ceo/login?reason='+encodeURIComponent(err.message)); } })();
 })();

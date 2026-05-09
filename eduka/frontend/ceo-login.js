@@ -82,7 +82,7 @@
             loggedInAt: new Date().toISOString()
           }));
         } catch {}
-        window.location.replace("/ceo/dashboard?v=21.8.4");
+        window.location.replace("/ceo/dashboard?v=22.0.0");
       } catch (error) {
         errorBox.textContent = error.message || "Login xato";
         button.disabled = false;

@@ -3,40 +3,52 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Eduka CEO Console 21.8.4</title>
-  <link rel="stylesheet" href="/ceo-console.css?v=21.8.4" />
+  <title>Eduka CEO Console 22.0</title>
+  <link rel="stylesheet" href="/ceo-console.css?v=22.0.0" />
 </head>
 <body>
   <div class="ceo-shell">
-    <aside class="ceo-side">
-      <div class="brand"><div class="brand-mark">↗</div><span>EDUKA CEO</span></div>
+    <aside class="ceo-side" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">E</div>
+        <div><b>Eduka CEO</b><span>Platform Control Center</span></div>
+      </div>
       <nav class="ceo-nav" id="ceoNav">
-        <button data-page="dashboard" class="active">Dashboard</button>
-        <button data-page="centers">O‘quv markazlar</button>
-        <button data-page="plans">Tariflar va ruxsatlar</button>
-        <button data-page="subscriptions">Obunalar</button>
-        <button data-page="payments">Platforma to‘lovlari</button>
-        <button data-page="support">Support</button>
-        <button data-page="admins">CEO adminlar</button>
-        <button data-page="audit">Audit log</button>
-        <button data-page="settings">Sozlamalar</button>
+        <button data-page="dashboard" class="active"><span>⌂</span>Dashboard</button>
+        <button data-page="centers"><span>▦</span>O‘quv markazlar</button>
+        <button data-page="new-center"><span>＋</span>Yangi markaz</button>
+        <button data-page="plans"><span>◆</span>Tariflar</button>
+        <button data-page="features"><span>☑</span>Ruxsatlar</button>
+        <button data-page="subscriptions"><span>⏱</span>Obunalar</button>
+        <button data-page="billing"><span>₽</span>Billing</button>
+        <button data-page="invoices"><span>▤</span>Invoice</button>
+        <button data-page="support"><span>?</span>Support</button>
+        <button data-page="admins"><span>♙</span>Adminlar</button>
+        <button data-page="audit"><span>⎇</span>Audit log</button>
+        <button data-page="settings"><span>⚙</span>Sozlamalar</button>
       </nav>
-      <div class="side-foot">CEO qism alohida. O‘quv markaz CRM menyusi bu yerda chiqmaydi.<br/>v21.8.4 Simple Functional</div>
+      <div class="side-foot">
+        <b>v22.0</b><br/>CEO panel va Center CRM alohida ishlaydi.
+      </div>
     </aside>
     <main class="ceo-main">
       <header class="topbar">
-        <div><h1 id="pageTitle">CEO Dashboard</h1><small id="userLine">Tekshirilmoqda...</small></div>
+        <button class="icon" id="menuBtn">☰</button>
+        <div class="titlebox"><h1 id="pageTitle">CEO Dashboard</h1><small id="userLine">Tekshirilmoqda...</small></div>
+        <label class="search"><span>⌕</span><input id="globalSearch" placeholder="Markaz, owner, invoice, support...  Ctrl+K" /></label>
         <div class="top-actions">
+          <button class="btn ghost" id="notifBtn">Bildirishnomalar</button>
           <button class="btn ghost" id="refreshBtn">Yangilash</button>
-          <a class="btn ghost" href="/admin">Markaz CRM</a>
+          <a class="btn ghost" href="/admin/login" target="_blank">Center CRM</a>
           <button class="btn danger" id="logoutBtn">Chiqish</button>
         </div>
       </header>
       <section class="content" id="appRoot"><div class="notice">Yuklanmoqda...</div></section>
     </main>
   </div>
+  <div class="drawer" id="drawer"><div class="drawer-head"><b>Natijalar</b><button class="btn ghost" id="drawerClose">✕</button></div><div id="drawerBody"></div></div>
   <div class="modal" id="modal"><div class="dialog"><div class="dialog-head"><h3 id="modalTitle">Modal</h3><button class="btn ghost" id="modalClose">✕</button></div><div class="dialog-body" id="modalBody"></div></div></div>
   <div class="toast" id="toast"></div>
-  <script src="/ceo-console.js?v=21.8.4"></script>
+  <script src="/ceo-console.js?v=22.0.0"></script>
 </body>
 </html>

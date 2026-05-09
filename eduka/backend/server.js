@@ -623,7 +623,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "21.8.3"
+      "X-Eduka-Version": "22.0.0"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -1259,7 +1259,7 @@ async function requireSuperUser(request, response) {
     sendJson(response, 401, { ok: false, message: "Unauthorized" });
     return null;
   }
-  if (!["super_admin", "owner", "platform_owner", "support_manager", "sales_manager", "finance_manager", "technical_manager"].includes(role)) {
+  if (!["super_admin", "platform_owner", "platform_admin", "support_manager", "sales_manager", "finance_manager", "technical_manager"].includes(role)) {
     sendJson(response, 403, { ok: false, message: "Bu sahifa faqat platforma egasi uchun" });
     return null;
   }
@@ -1269,7 +1269,7 @@ async function requireSuperUser(request, response) {
 function superAdminPermissionsForRole(role) {
   const map = {
     super_admin: ["*"],
-    owner: ["*"],
+    platform_admin: ["centers.view", "centers.create", "centers.manage", "plans.manage", "billing.view", "billing.manage", "support.manage", "admins.manage", "audit.view"],
     platform_owner: ["*"],
     support_manager: ["centers.view", "support.manage", "audit.view"],
     sales_manager: ["centers.view", "centers.create", "plans.manage"],
@@ -1896,7 +1896,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '21.8.1', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.0', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
@@ -2192,6 +2192,75 @@ async function handleSuperAdminUserResetRequest(request, response, adminUserId) 
   } catch (error) {
     withError(response, "Super admin reset", error);
   }
+}
+
+
+async function handleSuperNotificationsRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const pool = getDbPool();
+    const support = await pool.query(`SELECT 'Support ticket' AS title, subject AS body, priority AS type, updated_at AS created_at FROM support_tickets WHERE status IN ('open','in_progress') ORDER BY updated_at DESC LIMIT 8`);
+    const invoices = await pool.query(`SELECT 'To‘lov kutilmoqda' AS title, CONCAT(o.name, ' · ', i.amount::text, ' UZS') AS body, i.status AS type, i.created_at FROM subscription_invoices i LEFT JOIN organizations o ON o.id=i.organization_id WHERE i.status IN ('unpaid','overdue') ORDER BY i.created_at DESC LIMIT 8`);
+    const subs = await pool.query(`SELECT 'Obuna muddati tugayapti' AS title, o.name AS body, s.status AS type, s.updated_at AS created_at FROM subscriptions s LEFT JOIN organizations o ON o.id=s.organization_id WHERE s.current_period_end <= NOW() + interval '7 days' ORDER BY s.current_period_end ASC LIMIT 8`);
+    sendJson(response, 200, { ok: true, items: [...support.rows, ...invoices.rows, ...subs.rows].slice(0,20) });
+  } catch (error) { withError(response, "Super notifications", error); }
+}
+
+async function handleSuperCenterImpersonateRequest(request, response, centerId) {
+  try {
+    const user = await requireSuperPermission(request, response, "centers.manage"); if (!user) return;
+    const pool = getDbPool();
+    const admin = await pool.query(`SELECT id, email, full_name FROM users WHERE organization_id=$1 AND is_active=TRUE ORDER BY CASE WHEN role IN ('center_admin','owner','admin') THEN 0 ELSE 1 END, id ASC LIMIT 1`, [centerId]);
+    if (!admin.rows[0]) { sendJson(response, 404, { ok: false, message: "Markaz admini topilmadi" }); return; }
+    await writeAudit(pool, user, "impersonate_center", "organization", centerId, { target_user_id: admin.rows[0].id, target_email: admin.rows[0].email });
+    const token = crypto.randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + sessionMaxAgeSeconds * 1000);
+    await pool.query("INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)", [admin.rows[0].id, hashToken(token), expiresAt]);
+    sendJsonWithHeaders(response, 200, { ok: true, redirect: "/admin/dashboard", user: admin.rows[0] }, { "Set-Cookie": buildSessionCookie(token) });
+  } catch (error) { withError(response, "Super center login as", error); }
+}
+
+async function handleSuperSubscriptionActionRequest(request, response, subscriptionId) {
+  try {
+    const user = await requireSuperPermission(request, response, "billing.manage"); if (!user) return;
+    const body = await readJsonBody(request);
+    const days = Math.max(1, asNumber(body.days, 30));
+    const action = asText(body.action, "extend");
+    const status = action === "trial" ? "trial" : asText(body.status, "active");
+    const pool = getDbPool();
+    const result = await pool.query(`UPDATE subscriptions SET status=$2, current_period_end=COALESCE(current_period_end,NOW()) + ($3 || ' days')::interval, ends_at=COALESCE(ends_at,NOW()) + ($3 || ' days')::interval, next_payment_date=COALESCE(next_payment_date,NOW()) + ($3 || ' days')::interval, payment_status=CASE WHEN $2='trial' THEN 'pending' ELSE payment_status END, updated_at=NOW() WHERE id=$1 RETURNING *`, [subscriptionId, status, days]);
+    if (result.rows[0]?.organization_id) {
+      await pool.query(`UPDATE organizations SET subscription_status=$2, license_expires_at=$3, trial_ends_at=CASE WHEN $2='trial' THEN $3 ELSE trial_ends_at END, updated_at=NOW() WHERE id=$1`, [result.rows[0].organization_id, status, result.rows[0].current_period_end || result.rows[0].ends_at]);
+    }
+    await writeAudit(pool, user, `subscription_${action}`, "subscription", subscriptionId, { days, status });
+    sendJson(response, 200, { ok: true, item: result.rows[0] || null });
+  } catch (error) { withError(response, "Super subscription action", error); }
+}
+
+async function handleSuperPlatformPaymentsWriteRequest(request, response) {
+  try {
+    const user = await requireSuperPermission(request, response, "billing.manage"); if (!user) return;
+    const body = await readJsonBody(request);
+    const pool = getDbPool();
+    const sub = body.subscription_id ? Number(body.subscription_id) : null;
+    const invoice = body.invoice_id ? Number(body.invoice_id) : null;
+    const result = await pool.query(`INSERT INTO subscription_payments (organization_id, subscription_id, invoice_id, amount, method, status, paid_at, note) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7::timestamptz,NOW()),$8) RETURNING *`, [body.organization_id, sub, invoice, asNumber(body.amount), asText(body.method, "manual"), asText(body.status, "paid"), asDate(body.paid_at), asText(body.note)]);
+    if (invoice && asText(body.status, "paid") === "paid") await pool.query(`UPDATE subscription_invoices SET status='paid', paid_at=NOW(), payment_method=$2, updated_at=NOW() WHERE id=$1`, [invoice, asText(body.method, "manual")]);
+    await writeAudit(pool, user, "create_platform_payment", "subscription_payment", result.rows[0].id, body);
+    sendJson(response, 201, { ok: true, item: result.rows[0] });
+  } catch (error) { withError(response, "Super platform payment", error); }
+}
+
+async function handleSuperGlobalSearchRequest(request, response, query) {
+  try {
+    const user = await requireSuperUser(request, response); if (!user) return;
+    const q = `%${asText(query.get('q')).toLowerCase()}%`;
+    const pool = getDbPool();
+    const centers = await pool.query(`SELECT 'center' AS type, id, name AS title, COALESCE(email, phone, subdomain, slug) AS subtitle FROM organizations WHERE lower(name) LIKE $1 OR lower(COALESCE(email,'')) LIKE $1 OR lower(COALESCE(phone,'')) LIKE $1 OR lower(COALESCE(subdomain,slug,'')) LIKE $1 ORDER BY id DESC LIMIT 10`, [q]);
+    const invoices = await pool.query(`SELECT 'invoice' AS type, i.id, i.invoice_number AS title, CONCAT(COALESCE(o.name,'-'), ' · ', i.amount::text, ' UZS') AS subtitle FROM subscription_invoices i LEFT JOIN organizations o ON o.id=i.organization_id WHERE lower(i.invoice_number) LIKE $1 OR lower(COALESCE(o.name,'')) LIKE $1 ORDER BY i.id DESC LIMIT 10`, [q]);
+    const tickets = await pool.query(`SELECT 'support' AS type, t.id, t.subject AS title, COALESCE(o.name,'Platforma') AS subtitle FROM support_tickets t LEFT JOIN organizations o ON o.id=t.organization_id WHERE lower(t.subject) LIKE $1 OR lower(COALESCE(o.name,'')) LIKE $1 ORDER BY t.id DESC LIMIT 10`, [q]);
+    sendJson(response, 200, { ok: true, items: [...centers.rows, ...invoices.rows, ...tickets.rows].slice(0,25) });
+  } catch (error) { withError(response, "Super global search", error); }
 }
 
 
@@ -5161,6 +5230,34 @@ const server = http.createServer((request, response) => {
   const superSupportTicketsMatch = urlPath.match(/^\/api\/super\/support-tickets(?:\/(\d+))?$/);
   if (superSupportTicketsMatch && ["GET", "POST", "PUT"].includes(request.method)) {
     handleSuperSupportTicketsRequest(request, response, superSupportTicketsMatch[1] ? Number(superSupportTicketsMatch[1]) : null);
+    return;
+  }
+
+
+  if (request.method === "GET" && urlPath === "/api/super/notifications") {
+    handleSuperNotificationsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/super/global-search") {
+    handleSuperGlobalSearchRequest(request, response, query);
+    return;
+  }
+
+  const superCenterLoginAsMatch = urlPath.match(/^\/api\/super\/centers\/(\d+)\/login-as$/);
+  if (superCenterLoginAsMatch && request.method === "POST") {
+    handleSuperCenterImpersonateRequest(request, response, Number(superCenterLoginAsMatch[1]));
+    return;
+  }
+
+  const superSubscriptionActionMatch = urlPath.match(/^\/api\/super\/subscriptions\/(\d+)\/action$/);
+  if (superSubscriptionActionMatch && request.method === "PUT") {
+    handleSuperSubscriptionActionRequest(request, response, Number(superSubscriptionActionMatch[1]));
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/super/payments") {
+    handleSuperPlatformPaymentsWriteRequest(request, response);
     return;
   }
 
