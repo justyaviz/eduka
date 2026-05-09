@@ -320,7 +320,12 @@ async function run() {
       [superEmail, superPhone, normalizedPhone, hashPassword(superPassword)]
     );
 
-    await seedStudentApp21Demo(pool);
+    try {
+      await seedStudentApp21Demo(pool);
+    } catch (seedError) {
+      console.warn("Optional Student App 21.0 demo seed skipped:", seedError.message);
+      console.warn("Migration will continue so the production server can start.");
+    }
 
     console.log("Eduka 21.0 migration completed.");
     console.log(`Super Admin: ${superEmail}`);
