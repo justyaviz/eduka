@@ -6444,3 +6444,140 @@ body {
     width: min(100vw, 460px);
   }
 }
+
+
+/* Eduka 21.0.3 Uiverse-style toast hotfix */
+.toast-stack {
+  position: fixed !important;
+  right: 18px !important;
+  top: 18px !important;
+  bottom: auto !important;
+  z-index: 99999 !important;
+  display: grid !important;
+  gap: 10px !important;
+  width: min(420px, calc(100vw - 32px)) !important;
+  pointer-events: none !important;
+}
+
+.toast-stack .toast,
+.toast[data-toast].show {
+  position: relative !important;
+  inset: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 46px !important;
+  max-width: 420px !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  border-left: 4px solid #3b82f6 !important;
+  color: #1e3a8a !important;
+  background: #dbeafe !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14) !important;
+  backdrop-filter: blur(14px) !important;
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+  transition: transform .22s ease, background .22s ease, box-shadow .22s ease, opacity .2s ease !important;
+  pointer-events: auto !important;
+  overflow: hidden !important;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+  line-height: 1.35 !important;
+}
+
+.toast-stack .toast:hover,
+.toast[data-toast].show:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18) !important;
+}
+
+.toast-stack .toast svg,
+.toast[data-toast].show svg,
+.toast-stack .toast i,
+.toast[data-toast].show i {
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 22px !important;
+  padding: 0 !important;
+  color: currentColor !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+.toast-stack .toast span,
+.toast[data-toast].show span {
+  display: block !important;
+  min-width: 0 !important;
+  color: currentColor !important;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+}
+
+.toast-stack .toast button,
+.toast[data-toast].show button {
+  margin-left: auto !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: grid !important;
+  place-items: center !important;
+  flex: 0 0 24px !important;
+  color: currentColor !important;
+  background: rgba(255, 255, 255, .46) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+
+.toast-success {
+  color: #064e3b !important;
+  background: #dcfce7 !important;
+  border-left-color: #22c55e !important;
+}
+
+.toast-info {
+  color: #1e3a8a !important;
+  background: #dbeafe !important;
+  border-left-color: #3b82f6 !important;
+}
+
+.toast-warning {
+  color: #713f12 !important;
+  background: #fef9c3 !important;
+  border-left-color: #eab308 !important;
+}
+
+.toast-error {
+  color: #7f1d1d !important;
+  background: #fee2e2 !important;
+  border-left-color: #ef4444 !important;
+}
+
+/* old single data-toast must never become a huge white panel */
+.toast[data-toast] {
+  right: 18px !important;
+  left: auto !important;
+  top: 18px !important;
+  bottom: auto !important;
+  width: min(420px, calc(100vw - 32px)) !important;
+  max-width: 420px !important;
+  min-height: auto !important;
+  height: auto !important;
+  display: none !important;
+}
+
+.toast[data-toast].show {
+  display: flex !important;
+}
+
+@media (max-width: 640px) {
+  .toast-stack,
+  .toast[data-toast].show {
+    right: 10px !important;
+    left: 10px !important;
+    top: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}

@@ -828,7 +828,8 @@ function showToast(message, type = "") {
   const icons = { success: "check-circle-2", error: "x-circle", warning: "triangle-alert", info: "info" };
   const item = document.createElement("div");
   item.className = `toast toast-${kind} show`;
-  item.innerHTML = `<i data-lucide="${icons[kind] || icons.info}"></i><span>${escapeHtml(message)}</span><button type="button" aria-label="Yopish">x</button>`;
+  item.setAttribute("role", "alert");
+  item.innerHTML = `<i data-lucide="${icons[kind] || icons.info}"></i><span>${escapeHtml(message)}</span><button type="button" aria-label="Yopish">×</button>`;
   item.querySelector("button")?.addEventListener("click", () => item.remove());
   stack.append(item);
   refreshIcons();
