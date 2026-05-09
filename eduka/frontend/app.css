@@ -6591,3 +6591,15 @@ body {
 .receipt-preview-pro span, .receipt-preview-pro small { color: #64748b; }
 .receipt-preview-pro hr { width: 100%; border: 0; border-top: 1px dashed #cbd5e1; }
 @media (max-width: 760px) { .receipt-settings-page .settings-form { grid-template-columns: 1fr; } .receipt-settings-page .check-field { grid-column: auto; } }
+
+/* Eduka 21.2 workflow + notification polish */
+.crm-alert-row.success svg { background: linear-gradient(135deg, #16a34a, #22c55e) !important; }
+.crm-alert-row.info svg { background: linear-gradient(135deg, #2563eb, #13a8ff) !important; }
+.crm-alert-row.warning svg { background: linear-gradient(135deg, #f59e0b, #f97316) !important; }
+.crm-alert-row.error svg { background: linear-gradient(135deg, #ef4444, #dc2626) !important; }
+.crm-alert-row.success { border-left: 4px solid #22c55e !important; background: linear-gradient(135deg, #f0fdf4, #ffffff) !important; }
+.crm-alert-row.info { border-left: 4px solid #3b82f6 !important; background: linear-gradient(135deg, #eff6ff, #ffffff) !important; }
+.crm-alert-row.warning { border-left: 4px solid #f59e0b !important; background: linear-gradient(135deg, #fffbeb, #ffffff) !important; }
+.crm-alert-row.error { border-left: 4px solid #ef4444 !important; background: linear-gradient(135deg, #fef2f2, #ffffff) !important; }
+.crm-drawer form [data-crm-drawer-error] { color: #dc2626; font-weight: 700; margin: 8px 0; }
+.receipt-preview-pro { border-left: 4px solid #2563eb; }

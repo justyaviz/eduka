@@ -1477,6 +1477,84 @@ async function createNotification(pool, user, title, body, type = "info") {
   }
 }
 
+
+async function handleStudentDirectPasswordRequest(request, response, studentId) {
+  try {
+    const user = await requireUser(request, response, "students:write");
+    if (!user) return;
+    const body = await readJsonBody(request);
+    const password = String(body.password || body.app_password || "8888").trim();
+    if (password.length < 4) return sendJson(response, 400, { ok: false, message: "Parol kamida 4 belgi bo'lishi kerak" });
+    const pool = getDbPool();
+    const result = await pool.query(
+      `UPDATE students SET student_app_enabled=TRUE, student_app_blocked=FALSE, app_password_hash=$3, app_password_set_at=NOW(), app_password_reset_required=FALSE
+       WHERE id=$1 AND organization_id=$2 RETURNING id, full_name, phone`,
+      [studentId, user.organization_id, hashPassword(password)]
+    );
+    if (!result.rows[0]) return sendJson(response, 404, { ok: false, message: "Talaba topilmadi" });
+    await createNotification(pool, user, "Student App parol yaratildi", `${result.rows[0].full_name} uchun Student App paroli yangilandi`, "success");
+    await writeAudit(pool, user, "update", "student_app_password", studentId, { student_id: studentId });
+    sendJson(response, 200, { ok: true, password, item: result.rows[0] });
+  } catch (error) {
+    withError(response, "Student App password", error);
+  }
+}
+
+async function handleNotificationsRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "PUT" ? "read" : "read");
+    if (!user) return;
+    const pool = getDbPool();
+    if (request.method === "GET") {
+      const result = await pool.query(
+        `SELECT id, title, body, type, is_read, created_at
+         FROM notifications
+         WHERE organization_id=$1 AND (user_id IS NULL OR user_id=$2 OR $3::text IN ('super_admin','owner','admin','ceo','center_admin'))
+         ORDER BY is_read ASC, created_at DESC
+         LIMIT 50`,
+        [user.organization_id, user.id || null, String(user.role || '').toLowerCase()]
+      );
+      const unread = result.rows.filter((item) => !item.is_read).length;
+      sendJson(response, 200, { ok: true, items: result.rows, unread });
+      return;
+    }
+    const body = await readJsonBody(request).catch(() => ({}));
+    if (body.id) {
+      await pool.query("UPDATE notifications SET is_read=TRUE WHERE id=$1 AND organization_id=$2", [body.id, user.organization_id]);
+    } else {
+      await pool.query("UPDATE notifications SET is_read=TRUE WHERE organization_id=$1 AND (user_id IS NULL OR user_id=$2)", [user.organization_id, user.id || null]);
+    }
+    sendJson(response, 200, { ok: true });
+  } catch (error) {
+    withError(response, "Notifications", error);
+  }
+}
+
+
+async function handleWorkflowReadinessRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    const checks = await Promise.allSettled([
+      pool.query("SELECT COUNT(*)::int AS count FROM students WHERE organization_id=$1", [user.organization_id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM groups WHERE organization_id=$1", [user.organization_id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM teachers WHERE organization_id=$1", [user.organization_id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM payment_types WHERE organization_id=$1", [user.organization_id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM notifications WHERE organization_id=$1", [user.organization_id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM payments WHERE organization_id=$1 AND receipt_no IS NOT NULL", [user.organization_id])
+    ]);
+    const value = (index) => checks[index].status === "fulfilled" ? Number(checks[index].value.rows[0]?.count || 0) : 0;
+    sendJson(response, 200, { ok: true, workflow: {
+      students: value(0), groups: value(1), teachers: value(2), payment_types: value(3), notifications: value(4), receipts: value(5),
+      status: "ready",
+      version: "21.2"
+    }});
+  } catch (error) {
+    withError(response, "Workflow readiness", error);
+  }
+}
+
 async function handleReceiptSettingsRequest(request, response) {
   try {
     const user = await requireUser(request, response, request.method === "PUT" ? "settings:write" : "read");
@@ -2446,6 +2524,15 @@ async function getRow(request, response, config, id) {
   }
 }
 
+
+function workflowNotificationFor(entity, action, row = {}) {
+  const names = { students: "Talaba", groups: "Guruh", teachers: "O'qituvchi", courses: "Kurs", leads: "Lid" };
+  const titleName = row.full_name || row.name || row.course_name || row.phone || `#${row.id || ''}`;
+  const actionText = { create: "yaratildi", update: "yangilandi", delete: "arxivlandi" }[action] || action;
+  const type = action === "delete" ? "warning" : action === "update" ? "info" : "success";
+  return { title: `${names[entity] || entity} ${actionText}`, body: `${titleName} bo'yicha amal bajarildi`, type };
+}
+
 async function createRow(request, response, config) {
   try {
     const user = await requireUser(request, response, `${config.permission}:write`);
@@ -2453,17 +2540,21 @@ async function createRow(request, response, config) {
 
     const body = await readJsonBody(request);
     const data = config.prepare(body, user);
-    const result = await getDbPool().query(config.insertSql, data.values);
+    const pool = getDbPool();
+    const result = await pool.query(config.insertSql, data.values);
     if (config.entity === "students" && result.rows[0]?.group_id) {
-      await getDbPool().query(
+      await pool.query(
         `INSERT INTO group_students (organization_id, group_id, student_id)
          VALUES ($1,$2,$3)
          ON CONFLICT (organization_id, group_id, student_id) DO NOTHING`,
         [user.organization_id, result.rows[0].group_id, result.rows[0].id]
       );
     }
-    await writeAudit(getDbPool(), user, "create", config.entity, result.rows[0]?.id, data.audit || body);
-    sendJson(response, 201, { ok: true, item: result.rows[0] });
+    const createdItem = result.rows[0];
+    const notice = workflowNotificationFor(config.entity, "create", createdItem);
+    await createNotification(pool, user, notice.title, notice.body, notice.type);
+    await writeAudit(pool, user, "create", config.entity, createdItem?.id, data.audit || body);
+    sendJson(response, 201, { ok: true, item: createdItem });
   } catch (error) {
     withError(response, `Create ${config.entity}`, error);
   }
@@ -2494,6 +2585,8 @@ async function updateRow(request, response, config, id) {
       );
     }
 
+    const notice = workflowNotificationFor(config.entity, "update", result.rows[0]);
+    await createNotification(pool, user, notice.title, notice.body, notice.type);
     await writeAudit(pool, user, "update", config.entity, id, { before: before.rows[0] || null, after: result.rows[0] });
     sendJson(response, 200, { ok: true, item: result.rows[0] });
   } catch (error) {
@@ -2515,6 +2608,8 @@ async function deleteRow(request, response, config, id) {
       return;
     }
 
+    const notice = workflowNotificationFor(config.entity, "delete", before.rows[0] || { id });
+    await createNotification(pool, user, notice.title, notice.body, notice.type);
     await writeAudit(pool, user, "delete", config.entity, id, { before: before.rows[0] || null });
     sendJson(response, 200, { ok: true });
   } catch (error) {
@@ -2767,7 +2862,7 @@ async function handlePaymentUpdate(request, response, paymentId) {
       await pool.query("UPDATE payments SET receipt_no=$3 WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id, `${settings.prefix}-${String(paymentId).padStart(6, "0")}`]);
     }
 
-    // Payment updated notification 211
+    await createNotification(pool, user, "To'lov yangilandi", `${Number(amount || 0).toLocaleString("uz-UZ")} so'm to'lov yozuvi yangilandi`, "info");
     await recalculateStudentBalance(pool, user.organization_id, before.student_id);
     if (String(before.student_id || "") !== String(studentId || "")) {
       await recalculateStudentBalance(pool, user.organization_id, studentId);
@@ -3442,6 +3537,10 @@ async function handleSimpleCrudRequest(request, response, config, id = null) {
         `INSERT INTO ${config.table} (${config.insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
         values
       );
+      if (config.table === "finance_transactions") {
+        const typeLabel = { income: "Qo'shimcha daromad", salary: "Ish haqi", bonus: "Bonus", expense: "Xarajat" }[String(result.rows[0].type || '').toLowerCase()] || "Moliya";
+        await createNotification(pool, user, typeLabel, `${Number(result.rows[0].amount || 0).toLocaleString("uz-UZ")} so'm yozuv yaratildi`, result.rows[0].type === "expense" ? "warning" : "success");
+      }
       await writeAudit(pool, user, "create", config.table, result.rows[0].id, body);
       sendJson(response, 201, { ok: true, item: result.rows[0] });
       return;
@@ -4883,6 +4982,12 @@ const server = http.createServer((request, response) => {
     }
   }
 
+  const studentDirectPasswordMatch = urlPath.match(/^\/api(?:\/app)?\/students\/(\d+)\/app-password$/);
+  if (studentDirectPasswordMatch && request.method === "POST") {
+    handleStudentDirectPasswordRequest(request, response, Number(studentDirectPasswordMatch[1]));
+    return;
+  }
+
   const studentProfileMatch = urlPath.match(/^\/api\/students\/(\d+)\/profile$/);
   if (studentProfileMatch && request.method === "GET") {
     handleStudentProfileRequest(request, response, Number(studentProfileMatch[1]));
@@ -4949,6 +5054,16 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+
+  if (urlPath === "/api/app/notifications" && ["GET", "PUT"].includes(request.method)) {
+    handleNotificationsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/workflow-readiness") {
+    handleWorkflowReadinessRequest(request, response);
+    return;
+  }
 
   const receiptSettingsMatch = urlPath.match(/^\/api(?:\/app)?\/receipt-settings$/);
   if (receiptSettingsMatch && ["GET", "PUT"].includes(request.method)) {

@@ -50,6 +50,7 @@ const state = {
   bonuses: [],
   financeTransactions: [],
   staffAttendance: [],
+  notifications: [],
   audit: [],
   superCenters: [],
   superTariffs: [],
@@ -112,6 +113,7 @@ const endpoints = {
   rooms: "/api/rooms",
   paymentTypes: "/api/payment-types",
   staffAttendance: "/api/app/staff-attendance",
+  notifications: "/api/app/notifications",
   financeTransactions: "/api/app/finance/transactions",
   extraIncomes: "/api/app/finance/extra-incomes",
   salaryPayments: "/api/app/finance/salary",
@@ -122,8 +124,8 @@ const endpoints = {
 const uiState = {
   globalSearch: "",
   filters: {},
-  page: { students: 1, leads: 1, groups: 1, courses: 1, teachers: 1, payments: 1, attendance: 1, debts: 1, audit: 1, superCenters: 1, superSubscriptions: 1, superPayments: 1 },
-  perPage: { students: 10, leads: 10, groups: 10, courses: 10, teachers: 10, payments: 10, attendance: 10, debts: 10, audit: 10, superCenters: 10, superSubscriptions: 10, superPayments: 10 }
+  page: { students: 1, leads: 1, groups: 1, courses: 1, teachers: 1, payments: 1, attendance: 1, debts: 1, notifications: 1, audit: 1, superCenters: 1, superSubscriptions: 1, superPayments: 1 },
+  perPage: { students: 10, leads: 10, groups: 10, courses: 10, teachers: 10, payments: 10, attendance: 10, debts: 10, notifications: 10, audit: 10, superCenters: 10, superSubscriptions: 10, superPayments: 10 }
 };
 
 const uiIcons = {
@@ -1402,6 +1404,7 @@ async function refreshAll() {
     loadCollection("rooms", endpoints.rooms),
     loadCollection("paymentTypes", endpoints.paymentTypes),
     loadCollection("staffAttendance", endpoints.staffAttendance),
+    loadCollection("notifications", endpoints.notifications),
     loadCollection("audit", endpoints.audit)
   ]);
   await Promise.all([loadFinanceBuckets(), loadSchedule(), loadSuperData(), loadStudentAppAdminData()]);
@@ -3438,15 +3441,18 @@ function renderCrmTopbarPanels() {
   }
   const notifications = document.querySelector('[data-crm-panel="notifications"]');
   if (notifications) {
+    const apiNotifications = Array.isArray(state.notifications) ? state.notifications.slice(0, 8) : [];
     const debts = debtItems().slice(0, 2);
     const latestLead = (state.leads || [])[0];
-    const list = [
-      latestLead ? ["Yangi lid", `${latestLead.full_name || latestLead.name} - ${latestLead.phone || ""}`, "kanban"] : ["Leadlar", "Yangi murojaatlar shu yerda ko'rinadi", "kanban"],
-      debts[0] ? ["Qarzdorlik eslatmasi", `${debts[0].full_name || debts[0].fullName}: ${formatMoney(debts[0].balance || debts[0].remaining_debt)}`, "badge-alert"] : ["Qarzdorlik", "Bugun muhim qarzdorlik yo'q", "badge-check"],
-      ["Bugungi dars", `${(state.schedule || []).length || (state.groups || []).length} ta dars rejalashtirilgan`, "calendar-check"],
-      ["To'lov", `${formatMoney((state.payments || []).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0))} qabul qilingan`, "wallet"]
+    const fallback = [
+      latestLead ? { title: "Yangi lid", body: `${latestLead.full_name || latestLead.name} - ${latestLead.phone || ""}`, type: "info" } : { title: "Leadlar", body: "Yangi murojaatlar shu yerda ko'rinadi", type: "info" },
+      debts[0] ? { title: "Qarzdorlik eslatmasi", body: `${debts[0].full_name || debts[0].fullName}: ${formatMoney(debts[0].balance || debts[0].remaining_debt)}`, type: "warning" } : { title: "Qarzdorlik", body: "Bugun muhim qarzdorlik yo'q", type: "success" },
+      { title: "Bugungi dars", body: `${(state.schedule || []).length || (state.groups || []).length} ta dars rejalashtirilgan`, type: "info" },
+      { title: "To'lov", body: `${formatMoney((state.payments || []).reduce((sum, item) => sum + Number(item.amount || item.paid_amount || 0), 0))} qabul qilingan`, type: "success" }
     ];
-    notifications.innerHTML = `<header><strong>Bildirishnomalar</strong><button type="button" data-crm-action="mark-notifications">Hammasini o'qildi</button></header>${list.map(([title, text, icon]) => `<article><i data-lucide="${icon}"></i><div><b>${escapeHtml(title)}</b><span>${escapeHtml(text)}</span></div></article>`).join("")}`;
+    const list = apiNotifications.length ? apiNotifications : fallback;
+    const iconByType = { success: "check-circle-2", error: "x-circle", warning: "triangle-alert", info: "info", default: "bell" };
+    notifications.innerHTML = `<header><strong>Bildirishnomalar</strong><button type="button" data-crm-action="mark-notifications">Hammasini o'qildi</button></header>${list.map((item) => `<article class="crm-alert-row ${escapeHtml(item.type || 'info')}"><i data-lucide="${iconByType[item.type] || iconByType.default}"></i><div><b>${escapeHtml(item.title || 'Bildirishnoma')}</b><span>${escapeHtml(item.body || item.message || '')}</span></div></article>`).join("")}`;
   }
   const tasks = document.querySelector('[data-crm-panel="tasks"]');
   if (tasks) {
@@ -5061,6 +5067,11 @@ async function saveCrmDrawer(form) {
     if (endpoint) {
       const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)) });
       if (result.item) item = { ...item, ...result.item };
+      if (resource === "students" && data.password && item.id) {
+        await api(`/api/students/${item.id}/app-password`, { method: "POST", body: JSON.stringify({ password: data.password }) });
+        item.student_app_enabled = true;
+        item.password_preview = data.password;
+      }
       if (resource === "payments" && data.print_receipt === "on" && item.id) await printPaymentReceipt(item.id);
       if (Array.isArray(state[resource])) {
         if (editing) state[resource] = state[resource].map((entry) => String(entry.id) === String(item.id) ? item : entry);
@@ -5461,6 +5472,8 @@ async function handleCrmAction(action, button) {
   if (action === "profile-toast") return setView("settings");
 
   if (action === "mark-notifications") {
+    try { await api("/api/app/notifications", { method: "PUT", body: JSON.stringify({ all: true }) }); } catch {}
+    state.notifications = (state.notifications || []).map((item) => ({ ...item, is_read: true }));
     document.querySelector('[data-crm-panel="notifications"]')?.setAttribute("hidden", "");
     showToast("Bildirishnomalar o'qildi deb belgilandi.");
     return;
