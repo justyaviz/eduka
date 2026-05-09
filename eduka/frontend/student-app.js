@@ -484,7 +484,7 @@ function premiumEmpty({ assetName, title, subtitle, compact = false, button = ""
   `;
 }
 
-function renderLoginRequired(expired = false) {
+function legacyRenderLoginRequired_v210(expired = false) {
   screen.innerHTML = `
     <section class="sa-login">
       ${asset("class-group-3d", "login-art", "Student App")}
@@ -495,7 +495,7 @@ function renderLoginRequired(expired = false) {
   `;
 }
 
-function renderHome(data) {
+function legacyRenderHome_v210(data) {
   const student = data.student;
   const modules = [
     { label: "Qo'shimcha dars", assetName: "teacher-support-3d", tone: "tone-purple", route: "extra-lesson" },
@@ -832,7 +832,7 @@ function dictionaryCard(item) {
   `;
 }
 
-function renderLibrary(data) {
+function legacyRenderLibrary_v210(data) {
   const tab = appState.libraryTab;
   const tabs = ["Kitoblar", "Audio kitoblar", "Videolar"];
   const items = data.library || [];
@@ -1172,7 +1172,7 @@ function renderError(error) {
   `;
 }
 
-async function renderCurrent() {
+async function legacyRenderCurrent_v210() {
   const route = currentRoute();
   appState.loadingRoute = route;
   showLoading();

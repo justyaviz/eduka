@@ -343,7 +343,7 @@
 <body>
   <div class="receipt">
     <div class="center">
-      <img class="logo" src="/assets/logo_icon.png" onerror="this.style.display='none'">
+      <img class="logo" src="/assets/logo_icon.webp" onerror="this.style.display='none'">
       <h1>${escapeHtml(first(window.__EDUKA_CENTER_NAME__, "EDUKA"))}</h1>
       <div style="font-size:18px">•</div>
       <h2>TO'LOV CHEKI</h2>

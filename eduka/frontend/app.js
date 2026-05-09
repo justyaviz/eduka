@@ -2404,7 +2404,7 @@ function showAdminLogin(error = "") {
   screen.innerHTML = `
     <section class="admin-login-card">
       <a class="brand" href="/">
-        <span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span>
+        <span class="logo-mark"><img src="/assets/logo_icon.webp" alt="" /></span>
         <span>EDUKA</span>
       </a>
       <div>
@@ -2666,7 +2666,7 @@ function tenantUserFromSession(center, session) {
 function renderTenantNotFound(subdomain) {
   authScreen.hidden = false;
   appShell.hidden = true;
-  authScreen.innerHTML = `<section class="login-panel tenant-not-found"><a class="brand" href="https://eduka.uz"><span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a><h1>Bu o'quv markaz topilmadi</h1><p class="login-copy">Siz kiritgan subdomain Eduka platformasida ro'yxatdan o'tmagan.</p><div class="tenant-chip">${escapeHtml(subdomain)}</div><div class="modal-actions"><a class="demo-login" href="https://eduka.uz">Eduka bosh sahifasiga qaytish</a><a class="forgot-link" href="mailto:support@eduka.uz">Support bilan bog'lanish</a><button type="button" onclick="window.location.reload()">Qayta urinish</button></div></section>`;
+  authScreen.innerHTML = `<section class="login-panel tenant-not-found"><a class="brand" href="https://eduka.uz"><span class="logo-mark"><img src="/assets/logo_icon.webp" alt="" /></span><span>EDUKA</span></a><h1>Bu o'quv markaz topilmadi</h1><p class="login-copy">Siz kiritgan subdomain Eduka platformasida ro'yxatdan o'tmagan.</p><div class="tenant-chip">${escapeHtml(subdomain)}</div><div class="modal-actions"><a class="demo-login" href="https://eduka.uz">Eduka bosh sahifasiga qaytish</a><a class="forgot-link" href="mailto:support@eduka.uz">Support bilan bog'lanish</a><button type="button" onclick="window.location.reload()">Qayta urinish</button></div></section>`;
 }
 
 function renderTenantLogin(center, error = "") {
@@ -2674,7 +2674,7 @@ function renderTenantLogin(center, error = "") {
   window.currentTenant = currentTenant;
   authScreen.hidden = false;
   appShell.hidden = true;
-  authScreen.innerHTML = `<section class="login-panel tenant-login-panel"><a class="brand" href="https://eduka.uz"><span class="logo-mark"><img src="/assets/logo_icon.png" alt="" /></span><span>EDUKA</span></a><div><span class="admin-login-eyebrow">${escapeHtml(center.name)}</span><h1>${escapeHtml(center.name)} kabinetiga kirish</h1><p class="login-copy">Kabinetga kirish uchun login ma'lumotlaringizni kiriting.</p></div><form data-tenant-login-form><label>Email<input name="email" type="email" autocomplete="username" required /></label><label>Parol<input name="password" type="password" autocomplete="current-password" required /></label><div class="form-error" data-tenant-login-error>${escapeHtml(error)}</div><button type="submit">Kirish</button></form><button class="forgot-link" type="button" data-tenant-forgot>Parol esdan chiqdimi?</button></section>`;
+  authScreen.innerHTML = `<section class="login-panel tenant-login-panel"><a class="brand" href="https://eduka.uz"><span class="logo-mark"><img src="/assets/logo_icon.webp" alt="" /></span><span>EDUKA</span></a><div><span class="admin-login-eyebrow">${escapeHtml(center.name)}</span><h1>${escapeHtml(center.name)} kabinetiga kirish</h1><p class="login-copy">Kabinetga kirish uchun login ma'lumotlaringizni kiriting.</p></div><form data-tenant-login-form><label>Email<input name="email" type="email" autocomplete="username" required /></label><label>Parol<input name="password" type="password" autocomplete="current-password" required /></label><div class="form-error" data-tenant-login-error>${escapeHtml(error)}</div><button type="submit">Kirish</button></form><button class="forgot-link" type="button" data-tenant-forgot>Parol esdan chiqdimi?</button></section>`;
 }
 
 async function resolveTenantCenterFromApi(subdomain) {
@@ -4780,7 +4780,7 @@ function scheduleGridHtml(items) {
   }).join("")}</div>`;
 }
 
-function renderCrmReportsPage() {
+function legacyRenderCrmReportsPage_v214() {
   const section = document.getElementById("reports");
   if (!section) return;
   const revenue = (state.payments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -4795,7 +4795,7 @@ function renderCrmReportsPage() {
   renderBarChart('[data-report-chart="conversion"]', state.analytics.lead_funnel || [], "count", "status");
 }
 
-function renderCrmSettingsPage() {
+function legacyRenderCrmSettingsPage_v214() {
   const section = document.getElementById("settings");
   if (!section) return;
   const saved = loadCrmLocalState().settings || {};
@@ -4839,7 +4839,7 @@ function ensureEditableCrmCollection(resource) {
   }
 }
 
-function renderCrmStaffAttendancePage() {
+function legacyRenderCrmStaffAttendancePage_v214() {
   const section = document.getElementById("teacher-attendance");
   if (!section) return;
   const employees = (state.teachers || []).map((teacher, index) => ({
@@ -5217,7 +5217,7 @@ async function saveCrmDrawer(form) {
       const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)) });
       if (result.item) item = { ...item, ...result.item };
       if (resource === "students" && data.password && item.id) {
-        await api(`/api/students/${item.id}/admin-password`, { method: "POST", body: JSON.stringify({ password: data.password }) });
+        await api(`/api/students/${item.id}/app-password`, { method: "POST", body: JSON.stringify({ password: data.password }) });
         item.student_app_enabled = true;
         item.password_preview = data.password;
       }

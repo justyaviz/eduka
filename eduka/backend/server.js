@@ -267,9 +267,16 @@ function validateTenantSubdomain(value) {
   return "";
 }
 
-function platformAdminAuthorized(request) {
-  const email = String(request.headers["x-platform-admin-email"] || "").toLowerCase().trim();
-  return ["admin@eduka.uz", "manager@eduka.uz"].includes(email);
+async function requirePlatformAdmin(request, response, permission = "centers.create") {
+  const user = await requireSuperPermission(request, response, permission);
+  if (!user) return null;
+  return user;
+}
+
+function platformAdminAuthorized() {
+  // Deprecated in v21.5.0: platform admin access must use a real session token,
+  // not spoofable x-platform-admin-email headers. Kept only to avoid breaking old imports.
+  return false;
 }
 
 function asNumber(value, fallback = 0) {
@@ -881,10 +888,8 @@ async function handleTenantResolveRequest(request, response, subdomain) {
 async function handleAdminCenterCreateRequest(request, response) {
   let client;
   try {
-    if (!platformAdminAuthorized(request)) {
-      sendJson(response, 401, { ok: false, message: "Admin sessiya topilmadi" });
-      return;
-    }
+    const platformUser = await requirePlatformAdmin(request, response, "centers.create");
+    if (!platformUser) return;
 
     const body = await readJsonBody(request);
     const name = asText(body.name);
@@ -4045,10 +4050,11 @@ async function studentAppPasswordLogin(payload, meta = {}) {
   const password = String(payload.password || "");
   const normalizedStudentPhone = normalizePhone(student.phone);
   const temporaryPassword = normalizedStudentPhone.slice(-4);
-  const configuredDemoPassword = String(process.env.STUDENT_APP_DEMO_PASSWORD || "8888");
+  const demoPasswordEnabled = process.env.NODE_ENV !== "production" && process.env.STUDENT_APP_DEMO_PASSWORD;
+  const configuredDemoPassword = demoPasswordEnabled ? String(process.env.STUDENT_APP_DEMO_PASSWORD) : "";
   const valid = student.app_password_hash
     ? verifyPassword(password, student.app_password_hash)
-    : (password && (password === temporaryPassword || (normalizedStudentPhone === "998931949200" && password === configuredDemoPassword)));
+    : (password && (password === temporaryPassword || (demoPasswordEnabled && normalizedStudentPhone === "998931949200" && password === configuredDemoPassword)));
   if (!valid) {
     const error = new Error("Telefon raqam yoki parol noto'g'ri");
     error.statusCode = 401;
