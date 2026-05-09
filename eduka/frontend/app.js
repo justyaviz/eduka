@@ -304,29 +304,29 @@ const routeByView = {
   journals: "/admin/reports/journals",
   "coin-report": "/admin/reports/coins-crystals",
   market: "/admin/market",
-  "super-dashboard": "/super/dashboard",
-  "super-centers": "/super/centers",
-  "super-tariffs": "/super/tariffs",
-  "super-subscriptions": "/super/subscriptions",
-  "super-payments": "/super/payments",
-  "super-support": "/super/support",
-  "super-domains": "/super/domains",
-  "super-invoices": "/super/invoices",
-  "super-settings": "/super/settings"
+  "super-dashboard": "/ceo/dashboard",
+  "super-centers": "/ceo/centers",
+  "super-tariffs": "/ceo/tariffs",
+  "super-subscriptions": "/ceo/subscriptions",
+  "super-payments": "/ceo/payments",
+  "super-support": "/ceo/support",
+  "super-domains": "/ceo/domains",
+  "super-invoices": "/ceo/invoices",
+  "super-settings": "/ceo/settings"
 };
 Object.assign(routeByView, studentAppRouteByView);
 adminRouteKeys.forEach((key) => {
-  routeByView[`admin-${key}`] = `/super/${key}`;
+  routeByView[`admin-${key}`] = `/ceo/${key}`;
 });
-routeByView["admin-login"] = "/super/login";
-routeByView["admin-dashboard"] = "/super/dashboard";
-routeByView["admin-centers-new"] = "/super/centers/new";
-routeByView["admin-center-profile"] = "/super/centers";
-routeByView["super-center-profile"] = "/super/centers";
-routeByView["admin-demo-requests"] = "/super/demo-requests";
-routeByView["admin-admin-users"] = "/super/admin-users";
-routeByView["admin-audit-log"] = "/super/audit-log";
-routeByView["admin-not-found"] = "/super/not-found";
+routeByView["admin-login"] = "/ceo/login";
+routeByView["admin-dashboard"] = "/ceo/dashboard";
+routeByView["admin-centers-new"] = "/ceo/centers/new";
+routeByView["admin-center-profile"] = "/ceo/centers";
+routeByView["super-center-profile"] = "/ceo/centers";
+routeByView["admin-demo-requests"] = "/ceo/demo-requests";
+routeByView["admin-admin-users"] = "/ceo/admin-users";
+routeByView["admin-audit-log"] = "/ceo/audit-log";
+routeByView["admin-not-found"] = "/ceo/not-found";
 
 function viewFromPath(pathname = window.location.pathname) {
   const normalized = pathname.replace(/\/$/, "") || "/";
@@ -335,12 +335,20 @@ function viewFromPath(pathname = window.location.pathname) {
   // /admin is the education-center CRM. /super is the Eduka platform owner panel.
   // Previously every /admin/* path was captured as an admin(super) route first,
   // so /admin/students became admin-not-found/admin-login and opened the rahbariyat login.
-  if (normalized === "/super/login") return "admin-login";
-  if (normalized === "/super" || normalized === "/super/dashboard") return "admin-dashboard";
-  if (normalized === "/super/centers/new") return "admin-centers-new";
-  if (/^\/super\/centers\/\d+$/.test(normalized)) return "super-center-profile";
-  if (normalized.startsWith("/super/")) {
-    const slug = normalized.replace("/super/", "");
+  if (normalized === "/super/login") {
+    window.history.replaceState({ viewName: "admin-login" }, "", "/ceo/login");
+    return "admin-login";
+  }
+  if (normalized.startsWith("/super")) {
+    window.history.replaceState({}, "", normalized.replace(/^\/super/, "/ceo"));
+    return viewFromPath(window.location.pathname);
+  }
+  if (normalized === "/ceo/login") return "admin-login";
+  if (normalized === "/ceo" || normalized === "/ceo/dashboard") return "admin-dashboard";
+  if (normalized === "/ceo/centers/new") return "admin-centers-new";
+  if (/^\/ceo\/centers\/\d+$/.test(normalized)) return "super-center-profile";
+  if (normalized.startsWith("/ceo/")) {
+    const slug = normalized.replace("/ceo/", "");
     const view = `admin-${slug}`;
     return adminViews.has(view) ? view : "admin-not-found";
   }
@@ -391,16 +399,16 @@ function viewFromPath(pathname = window.location.pathname) {
   if (normalized === "/admin/rooms" || normalized === "/admin/settings/office/rooms") return "rooms";
   if (normalized === "/admin/settings/learning/courses") return "courses";
   if (normalized === "/admin/settings/forms/payment-types") return "payment-types";
-  if (/^\/super\/centers\/\d+$/.test(normalized)) return "super-center-profile";
-  if (normalized === "/super/centers") return "super-centers";
-  if (normalized === "/super/tariffs") return "super-tariffs";
-  if (normalized === "/super/subscriptions") return "super-subscriptions";
-  if (normalized === "/super/payments") return "super-payments";
-  if (normalized === "/super/support") return "super-support";
-  if (normalized === "/super/domains") return "super-domains";
-  if (normalized === "/super/invoices") return "super-invoices";
-  if (normalized === "/super/settings") return "super-settings";
-  if (normalized === "/super/dashboard" || normalized === "/super") return "super-dashboard";
+  if (/^\/ceo\/centers\/\d+$/.test(normalized)) return "super-center-profile";
+  if (normalized === "/ceo/centers") return "super-centers";
+  if (normalized === "/ceo/tariffs") return "super-tariffs";
+  if (normalized === "/ceo/subscriptions") return "super-subscriptions";
+  if (normalized === "/ceo/payments") return "super-payments";
+  if (normalized === "/ceo/support") return "super-support";
+  if (normalized === "/ceo/domains") return "super-domains";
+  if (normalized === "/ceo/invoices") return "super-invoices";
+  if (normalized === "/ceo/settings") return "super-settings";
+  if (normalized === "/ceo/dashboard" || normalized === "/super") return "super-dashboard";
   const match = Object.entries(routeByView).find(([, path]) => path === normalized);
   if (match) return match[0];
   if (["/admin", "/crm", "/panel", "/dashboard"].includes(normalized)) return "dashboard";
@@ -412,7 +420,29 @@ function roleKey(role = currentUser?.role) {
 }
 
 function isSuperRole(role = currentUser?.role) {
-  return ["super_admin", "owner"].includes(roleKey(role));
+  return ["super_admin", "platform_owner", "platform_admin"].includes(roleKey(role));
+}
+
+function isPlatformPath(pathname = window.location.pathname) {
+  return pathname.startsWith("/ceo") || pathname.startsWith("/super");
+}
+
+function isPlatformLoginPath(pathname = window.location.pathname) {
+  return pathname === "/ceo/login" || pathname === "/super/login";
+}
+
+function normalizePlatformPath() {
+  if (isPlatformPath()) {
+    window.history.replaceState({}, "", window.location.pathname.replace(/^\/super/, "/ceo") + window.location.search + window.location.hash);
+  }
+}
+
+function clearTenantUiContext() {
+  currentTenant = null;
+  window.currentTenant = null;
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith("eduka_tenant_session_") || key.startsWith("eduka_center_")) localStorage.removeItem(key);
+  });
 }
 
 const superViews = new Set([
@@ -529,7 +559,7 @@ function isViewAllowed(viewName) {
 }
 
 function defaultViewForRole(role = currentUser?.role) {
-  if (window.location.pathname.startsWith("/super")) return isAdminAuthenticated() ? "admin-dashboard" : "admin-login";
+  if (isPlatformPath()) return isAdminAuthenticated() ? "admin-dashboard" : "admin-login";
   if (window.location.pathname.startsWith("/admin")) return "dashboard";
   return isSuperRole(role) ? "admin-dashboard" : "dashboard";
 }
@@ -546,11 +576,11 @@ function navViewFor(viewName) {
 
 function routeForView(viewName, options = {}) {
   if (options.route) return options.route;
-  if (viewName === "admin-center-profile") return `/super/centers/${adminProfileIdFromPath() || adminState.centers[0]?.id || ""}`;
+  if (viewName === "admin-center-profile") return `/ceo/centers/${adminProfileIdFromPath() || adminState.centers[0]?.id || ""}`;
   if (viewName === "student-profile") return `/admin/students/${profileIdFromPath("students") || state.students[0]?.id || ""}`;
   if (viewName === "group-profile") return `/admin/groups/${profileIdFromPath("groups") || state.groups[0]?.id || ""}`;
   if (viewName === "teacher-profile") return `/admin/teachers/${profileIdFromPath("teachers") || state.teachers[0]?.id || ""}`;
-  if (viewName === "super-center-profile") return `/super/centers/${profileIdFromPath("centers") || state.superCenters[0]?.id || ""}`;
+  if (viewName === "super-center-profile") return `/ceo/centers/${profileIdFromPath("centers") || state.superCenters[0]?.id || ""}`;
   return routeByView[viewName];
 }
 
@@ -1043,11 +1073,11 @@ function showApp(user) {
     openOnboarding();
   }
   const pathView = viewFromPath();
-  const initialView = window.location.pathname.startsWith("/super")
-    ? (isSuperRole(role) ? pathView : "dashboard")
+  const initialView = isPlatformPath()
+    ? (isSuperRole(role) ? pathView : "admin-login")
     : (isSuperRole(role) && !window.location.pathname.startsWith("/admin") ? "admin-dashboard" : pathView);
   setView(initialView, { replace: true });
-  if (window.location.pathname.startsWith("/super")) return;
+  if (isPlatformPath()) return;
   refreshAll();
 }
 
@@ -1118,7 +1148,7 @@ function saveOnboardingStep() {
 function setView(viewName, options = {}) {
   ensureAdminShell();
   ensureCrmShell();
-  if (window.location.pathname.startsWith("/super") && !isAdminAuthenticated() && viewName !== "admin-login") return;
+  if (isPlatformPath() && !isAdminAuthenticated() && viewName !== "admin-login") return;
   if (!document.getElementById(viewName)) viewName = defaultViewForRole();
   if (!isViewAllowed(viewName)) {
     const fallback = defaultViewForRole();
@@ -1156,22 +1186,45 @@ function setView(viewName, options = {}) {
 async function checkSession() {
   try {
     loadSharedTenantRegistry();
-    if (await applyTenantContext()) return;
-    if (document.querySelector(".tenant-not-found")) return;
-    if (window.location.pathname.startsWith("/super")) {
-      const user = adminUserFromSession();
-      if (!user) {
+    normalizePlatformPath();
+
+    if (isPlatformPath()) {
+      clearTenantUiContext();
+      try {
+        const payload = await api("/api/auth/me");
+        if (!isSuperRole(payload.user?.role)) {
+          try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+          localStorage.removeItem(adminSessionKey);
+          showAdminLogin("Bu sahifa faqat Eduka CEO / Super Admin uchun.");
+          return;
+        }
+        currentUser = payload.user;
+        localStorage.setItem(adminSessionKey, JSON.stringify({
+          id: payload.user.id,
+          fullName: payload.user.fullName || payload.user.full_name || "Yaviz Super Admin",
+          email: payload.user.email,
+          role: payload.user.role,
+          loggedInAt: new Date().toISOString()
+        }));
+        if (isPlatformLoginPath()) window.history.replaceState({ viewName: "admin-dashboard" }, "", "/ceo/dashboard");
+        showApp(payload.user);
+        return;
+      } catch {
+        localStorage.removeItem(adminSessionKey);
         showAdminLogin();
         return;
       }
-      if (window.location.pathname === "/super/login") {
-        window.history.replaceState({ viewName: "admin-dashboard" }, "", "/super/dashboard");
-      }
-      showApp(user);
-      return;
     }
+
+    if (await applyTenantContext()) return;
+    if (document.querySelector(".tenant-not-found")) return;
     try {
       const payload = await api("/api/auth/me");
+      if (isSuperRole(payload.user?.role)) {
+        window.history.replaceState({ viewName: "admin-dashboard" }, "", "/ceo/dashboard");
+        showApp(payload.user);
+        return;
+      }
       showApp(payload.user);
     } catch {
       showAuth();
@@ -1180,6 +1233,7 @@ async function checkSession() {
     finishBoot();
   }
 }
+
 
 async function loadSummary() {
   try {
@@ -1858,7 +1912,7 @@ function renderSuper() {
     const profile = document.createElement("button");
     profile.type = "button";
     profile.append(svgIcon("building-2"), document.createTextNode("Profil"));
-    profile.addEventListener("click", () => setView("super-center-profile", { route: `/super/centers/${center.id}` }));
+    profile.addEventListener("click", () => setView("super-center-profile", { route: `/ceo/centers/${center.id}` }));
     const block = document.createElement("button");
     block.type = "button";
     block.append(svgIcon(center.status === "blocked" ? "check" : "shield"), document.createTextNode(center.status === "blocked" ? "Aktiv" : "Bloklash"));
@@ -1915,7 +1969,7 @@ function superCenterActions(center) {
   const profile = document.createElement("button");
   profile.type = "button";
   profile.append(svgIcon("building-2"), document.createTextNode("Profil"));
-  profile.addEventListener("click", () => setView("super-center-profile", { route: `/super/centers/${center.id}` }));
+  profile.addEventListener("click", () => setView("super-center-profile", { route: `/ceo/centers/${center.id}` }));
   const trial = document.createElement("button");
   trial.type = "button";
   trial.append(svgIcon("badge-check"), document.createTextNode("Trial"));
@@ -2335,10 +2389,7 @@ function closeModal() {
 const adminStorageKey = "eduka_admin_state_v2";
 const legacyAdminStorageKeys = ["eduka_admin_state_v1"];
 const adminSessionKey = "eduka_admin_session_v1";
-const adminAccounts = [
-  { id: 1, fullName: "Eduka egasi", email: "admin@eduka.uz", password: "12345678", role: "OWNER" },
-  { id: 2, fullName: "Platforma menejeri", email: "manager@eduka.uz", password: "12345678", role: "SUPER_ADMIN" }
-];
+const adminAccounts = []; // 21.8.2: client-side demo CEO accounts removed. Login uses /api/auth/login only.
 const reservedSubdomains = ["www", "app", "api", "admin", "super", "mail", "support", "help", "dashboard", "control", "billing"];
 const adminMenu = [
   ["admin-dashboard", "Dashboard"],
@@ -2371,18 +2422,32 @@ function isAdminAuthenticated() {
 }
 
 function currentAdmin() {
-  return adminSession() || currentUser || adminAccounts[0];
+  return adminSession() || currentUser || { fullName: "Yaviz Super Admin", email: "yaviz@eduka.uz", role: "super_admin" };
 }
 
-function adminLogin(email, password) {
-  const account = adminAccounts.find((item) => item.email.toLowerCase() === String(email || "").toLowerCase().trim() && item.password === String(password || ""));
-  if (!account) return null;
-  const session = { id: account.id, fullName: account.fullName, email: account.email, role: account.role, loggedInAt: new Date().toISOString() };
+async function adminLogin(email, password) {
+  const payload = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password })
+  });
+  const user = payload.user;
+  if (!isSuperRole(user?.role)) {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+    throw new Error("Bu login Super Admin emas. /ceo/login faqat platforma egasi uchun.");
+  }
+  const session = {
+    id: user.id,
+    fullName: user.fullName || user.full_name || "Yaviz Super Admin",
+    email: user.email,
+    role: user.role,
+    loggedInAt: new Date().toISOString()
+  };
   localStorage.setItem(adminSessionKey, JSON.stringify(session));
-  currentUser = { ...session, role: account.role.toLowerCase() };
+  currentUser = { ...user, role: String(user.role || "super_admin").toLowerCase() };
   addAuditLog("login", "admin", session.email, "-", "success");
-  return session;
+  return currentUser;
 }
+
 
 function adminLogout() {
   const session = adminSession();
@@ -2412,8 +2477,8 @@ function showAdminLogin(error = "") {
         <span>EDUKA</span>
       </a>
       <div>
-        <span class="admin-login-eyebrow">Platform Control Center</span>
-        <h1>Eduka rahbariyati uchun boshqaruv paneli</h1>
+        <span class="admin-login-eyebrow">CEO Control Center</span>
+        <h1>Eduka CEO / Super Admin kirish paneli</h1>
         <p>Markazlar, obunalar, to'lovlar va platforma sozlamalarini bitta joydan boshqaring.</p>
       </div>
       <form class="admin-login-form" data-admin-login-form>
@@ -2423,7 +2488,7 @@ function showAdminLogin(error = "") {
         <button type="submit">Kirish</button>
       </form>
     </section>`;
-  if (window.location.pathname !== "/super/login") window.history.replaceState({ viewName: "admin-login" }, "", "/super/login");
+  if (!isPlatformLoginPath()) window.history.replaceState({ viewName: "admin-login" }, "", "/ceo/login");
 }
 
 function hideAdminLogin() {
@@ -2438,7 +2503,7 @@ function adminUserFromSession() {
 }
 
 function adminProfileIdFromPath() {
-  const match = window.location.pathname.match(/\/super\/centers\/(\d+)/);
+  const match = window.location.pathname.match(/\/(?:ceo|super)\/centers\/(\d+)/);
   return match ? Number(match[1]) : null;
 }
 
@@ -2906,8 +2971,8 @@ function ensureAdminShell() {
   // 21.4.2 hard route isolation:
   // /admin is the learning-center CRM. /super is the Eduka platform owner panel.
   // Never use platform-owner auth guard on /admin/* pages.
-  const inSuper = window.location.pathname.startsWith("/super");
-  if (inSuper && !isAdminAuthenticated() && window.location.pathname !== "/super/login") {
+  const inSuper = isPlatformPath();
+  if (inSuper && !isAdminAuthenticated() && !isPlatformLoginPath()) {
     showAdminLogin();
     return;
   }
@@ -3561,7 +3626,7 @@ function ensureCrmShell() {
 
 function renderCrmTopbar(viewName = viewFromPath()) {
   ensureCrmShell();
-  const inApp = isAppCrmRoute(viewName) && !window.location.pathname.startsWith("/super");
+  const inApp = isAppCrmRoute(viewName) && !isPlatformPath();
   document.body.classList.toggle("crm-app-mode", inApp);
   const tools = document.querySelector("[data-crm-topbar-tools]");
   if (tools) tools.hidden = !inApp;
@@ -6180,7 +6245,7 @@ document.addEventListener("click", async (event) => {
     if (action === "go") setView(adminAction.dataset.target);
     else if (action === "profile") {
       closeModal();
-      setView("super-center-profile", { route: `/super/centers/${adminAction.dataset.id}` });
+      setView("super-center-profile", { route: `/ceo/centers/${adminAction.dataset.id}` });
     }
     else if (action === "toast") showToast(adminAction.dataset.message || "Amal tayyor.");
     else if (action === "reset-filters") {
@@ -6580,19 +6645,20 @@ document.addEventListener("submit", async (event) => {
     const data = Object.fromEntries(new FormData(adminLoginForm).entries());
     button.disabled = true;
     button.textContent = "Tekshirilmoqda...";
-    window.setTimeout(() => {
-      const session = adminLogin(data.email, data.password);
+    try {
+      const user = await adminLogin(data.email, data.password);
       button.disabled = false;
       button.textContent = "Kirish";
-      if (!session) {
-        errorNode.textContent = "Email yoki parol noto'g'ri.";
-        return;
-      }
       hideAdminLogin();
-      showApp(adminUserFromSession());
+      if (window.location.pathname !== "/ceo/dashboard") window.history.replaceState({ viewName: "admin-dashboard" }, "", "/ceo/dashboard");
+      showApp(user);
       setView("admin-dashboard", { replace: true });
-      showToast("Platform Control Center ochildi.");
-    }, 250);
+      showToast("CEO Control Center ochildi.");
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Kirish";
+      errorNode.textContent = error.message || "Email yoki parol noto'g'ri.";
+    }
     return;
   }
 

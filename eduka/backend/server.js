@@ -655,7 +655,7 @@ function isPanelHost(request) {
   return ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix));
 }
 
-const reservedSubdomains = new Set(["www", "app", "api", "admin", "super", "mail", "support", "help", "dashboard", "control", "billing"]);
+const reservedSubdomains = new Set(["www", "app", "api", "admin", "super", "ceo", "mail", "support", "help", "dashboard", "control", "billing"]);
 
 function tenantSubdomainFromRequest(request, query = new URLSearchParams()) {
   const queryTenant = query.get("tenant");
@@ -5519,6 +5519,10 @@ const server = http.createServer((request, response) => {
   }
 
   const appRouteRedirects = new Map([
+    ["/super", "/ceo/dashboard"],
+    ["/super/", "/ceo/dashboard"],
+    ["/super/login", "/ceo/login"],
+    ["/super/login/", "/ceo/login"],
     ["/app/", "/app"],
     ["/student-app/", "/app"],
     ["/admin/", "/admin"],
@@ -5550,7 +5554,7 @@ const server = http.createServer((request, response) => {
 
   if (
     request.method === "GET" &&
-    (adminRoutes.has(urlPath) || urlPath.startsWith("/admin/") || urlPath.startsWith("/super/") || urlPath === "/crm" || urlPath === "/panel")
+    (adminRoutes.has(urlPath) || urlPath.startsWith("/admin/") || urlPath.startsWith("/super/") || urlPath === "/ceo" || urlPath.startsWith("/ceo/") || urlPath === "/crm" || urlPath === "/panel")
   ) {
     sendAppShell(response);
     return;
