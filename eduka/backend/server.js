@@ -4747,6 +4747,31 @@ async function handleTestStudentMessage(request, response, query) {
   }
 }
 
+
+async function handleGlobalSearchRequest(request, response, query) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const q = String(query.get("q") || "").trim();
+    if (q.length < 2) {
+      sendJson(response, 200, { ok: true, results: [] });
+      return;
+    }
+    const like = `%${q}%`;
+    const pool = getDbPool();
+    const organizationId = user.organization_id;
+    const [students, groups, teachers, leads] = await Promise.all([
+      pool.query("SELECT id, full_name AS title, phone AS subtitle, 'students' AS resource FROM students WHERE organization_id=$1 AND (full_name ILIKE $2 OR phone ILIKE $2 OR parent_phone ILIKE $2) ORDER BY id DESC LIMIT 8", [organizationId, like]),
+      pool.query("SELECT id, name AS title, COALESCE(course_name, status, '') AS subtitle, 'groups' AS resource FROM groups WHERE organization_id=$1 AND (name ILIKE $2 OR course_name ILIKE $2) ORDER BY id DESC LIMIT 6", [organizationId, like]),
+      pool.query("SELECT id, full_name AS title, phone AS subtitle, 'teachers' AS resource FROM teachers WHERE organization_id=$1 AND (full_name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2) ORDER BY id DESC LIMIT 6", [organizationId, like]),
+      pool.query("SELECT id, full_name AS title, phone AS subtitle, 'leads' AS resource FROM leads WHERE organization_id=$1 AND (full_name ILIKE $2 OR phone ILIKE $2 OR status ILIKE $2) ORDER BY id DESC LIMIT 6", [organizationId, like])
+    ]);
+    sendJson(response, 200, { ok: true, results: [...students.rows, ...groups.rows, ...teachers.rows, ...leads.rows] });
+  } catch (error) {
+    withError(response, "Global search", error);
+  }
+}
+
 const server = http.createServer((request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -4756,7 +4781,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "21.0.0",
+      version: "21.7.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -4816,6 +4841,16 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && ["/api/app/summary", "/api/dashboard"].includes(urlPath)) {
     handleSummaryRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && ["/api/dashboard/stats", "/api/app/dashboard/stats"].includes(urlPath)) {
+    handleAnalyticsRequest(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/global-search") {
+    handleGlobalSearchRequest(request, response, query);
     return;
   }
 

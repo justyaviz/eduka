@@ -1,0 +1,112 @@
+/* Eduka 21.7.0 Production Core UX layer */
+:root {
+  --eduka-core-primary: #2563eb;
+  --eduka-core-bg: #f8fafc;
+  --eduka-core-card: #ffffff;
+  --eduka-core-text: #0f172a;
+  --eduka-core-muted: #64748b;
+  --eduka-core-border: rgba(148, 163, 184, .28);
+  --eduka-core-shadow: 0 18px 55px rgba(15, 23, 42, .10);
+}
+body.eduka-dark {
+  --eduka-core-bg: #020617;
+  --eduka-core-card: #0f172a;
+  --eduka-core-text: #e5e7eb;
+  --eduka-core-muted: #94a3b8;
+  --eduka-core-border: rgba(148, 163, 184, .20);
+  background: var(--eduka-core-bg) !important;
+  color: var(--eduka-core-text) !important;
+}
+.eduka-core-fab {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1200;
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  border: 1px solid var(--eduka-core-border);
+  background: var(--eduka-core-primary);
+  color: white;
+  box-shadow: var(--eduka-core-shadow);
+  cursor: pointer;
+}
+.eduka-command-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: start center;
+  padding-top: 9vh;
+  background: rgba(15, 23, 42, .42);
+  backdrop-filter: blur(8px);
+}
+.eduka-command-backdrop[hidden] { display: none !important; }
+.eduka-command-palette {
+  width: min(760px, calc(100vw - 28px));
+  max-height: 78vh;
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid var(--eduka-core-border);
+  background: var(--eduka-core-card);
+  color: var(--eduka-core-text);
+  box-shadow: var(--eduka-core-shadow);
+}
+.eduka-command-header { padding: 16px; border-bottom: 1px solid var(--eduka-core-border); }
+.eduka-command-header input {
+  width: 100%;
+  height: 52px;
+  border: 1px solid var(--eduka-core-border);
+  border-radius: 16px;
+  padding: 0 16px;
+  font-size: 16px;
+  outline: none;
+  color: var(--eduka-core-text);
+  background: transparent;
+}
+.eduka-command-body { max-height: 58vh; overflow: auto; padding: 10px; }
+.eduka-command-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: var(--eduka-core-text);
+  text-align: left;
+  cursor: pointer;
+}
+.eduka-command-item:hover { background: rgba(37, 99, 235, .10); }
+.eduka-command-item small { color: var(--eduka-core-muted); }
+.eduka-core-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.eduka-core-toolbar button {
+  min-width: 38px;
+  height: 38px;
+  border: 1px solid var(--eduka-core-border);
+  border-radius: 12px;
+  background: var(--eduka-core-card);
+  color: var(--eduka-core-text);
+  cursor: pointer;
+}
+body.eduka-sidebar-collapsed .sidebar,
+body.eduka-sidebar-collapsed .crm-sidebar { width: 88px !important; min-width: 88px !important; }
+body.eduka-sidebar-collapsed .sidebar span:not(.badge),
+body.eduka-sidebar-collapsed .crm-sidebar span:not(.badge),
+body.eduka-sidebar-collapsed .side-nav button > span { display: none !important; }
+.crm-table table thead,
+.simple-table > div:first-child { position: sticky; top: 0; z-index: 2; }
+.profile-tabs { overflow-x: auto; scrollbar-width: thin; }
+.crm-row-icon, .crm-icon-button { flex: 0 0 auto; }
+@media (max-width: 900px) {
+  .app-shell, .dashboard-layout, .crm-shell { grid-template-columns: 1fr !important; }
+  .sidebar, .crm-sidebar { position: relative !important; width: 100% !important; min-width: 0 !important; }
+  .crm-filter-grid, .filters, .dashboard-grid { grid-template-columns: 1fr !important; }
+  .crm-list-head, .page-head { flex-direction: column; align-items: stretch !important; }
+  .crm-export-actions, .crm-head-actions { flex-wrap: wrap; }
+}

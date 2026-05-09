@@ -6152,6 +6152,10 @@ function normalizeDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+// Eduka 21.7.0 public UI hooks for production-core layer.
+window.showToast = window.showToast || showToast;
+window.setView = window.setView || setView;
+
 document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-tenant-forgot]")) {
     showToast("Parolni tiklash so'rovi qabul qilindi.");
