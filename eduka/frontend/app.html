@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="stylesheet" href="/app.css?v=21.3.0" />
+    <link rel="stylesheet" href="/app.css?v=21.4.0" />
   </head>
   <body class="is-booting">
     <div class="eduka-boot-loader" data-boot-loader>
@@ -50,25 +50,25 @@
         </a>
         <button class="create-student" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
-          <button class="active" type="button" data-view="dashboard" data-route="/app/dashboard" data-lucide-icon="layout-dashboard">Dashboard</button>
-          <button type="button" data-view="students" data-route="/app/students" data-lucide-icon="graduation-cap">Talabalar</button>
-          <button type="button" data-view="groups" data-route="/app/groups" data-lucide-icon="layers">Guruhlar</button>
-          <button type="button" data-view="courses" data-route="/app/courses" data-lucide-icon="book-open">Kurslar</button>
-          <button type="button" data-view="teachers" data-route="/app/teachers" data-lucide-icon="user-check">O'qituvchilar</button>
-          <button type="button" data-view="schedule" data-route="/app/schedule" data-lucide-icon="calendar-days">Dars jadvali</button>
-          <button type="button" data-view="attendance" data-route="/app/attendance" data-lucide-icon="clipboard-check">Davomad</button>
-          <button type="button" data-view="finance" data-route="/app/payments" data-lucide-icon="credit-card">To'lovlar</button>
-          <button type="button" data-view="debtors" data-route="/app/debts" data-lucide-icon="badge-alert">Qarzdorlik</button>
-          <button type="button" data-view="leads" data-route="/app/leads" data-lucide-icon="kanban">Leadlar</button>
-          <button type="button" data-view="reports" data-route="/app/reports" data-lucide-icon="bar-chart-3">Hisobotlar</button>
-          <button type="button" data-view="teacher-attendance" data-route="/app/staff-attendance" data-lucide-icon="user-round-check">Xodimlar davomati</button>
-          <button type="button" data-view="archive" data-route="/app/archive" data-lucide-icon="archive">Arxiv</button>
-          <button type="button" data-view="market" data-route="/app/market" data-lucide-icon="shopping-bag">Market</button>
-          <button type="button" data-view="branches" data-route="/app/branches" data-lucide-icon="building-2">Filiallar</button>
-          <button type="button" data-view="rooms" data-route="/app/rooms" data-lucide-icon="door-open">Xonalar</button>
-          <button type="button" data-view="telegram" data-route="/app/telegram" data-lucide-icon="send">Telegram xabarlar</button>
-          <button type="button" data-view="settings" data-route="/app/settings" data-lucide-icon="settings">Sozlamalar</button>
-          <button type="button" data-view="subscription" data-route="/app/subscription" data-lucide-icon="badge-check">Tarif / Obuna</button>
+          <button class="active" type="button" data-view="dashboard" data-route="/admin/dashboard" data-lucide-icon="layout-dashboard">Dashboard</button>
+          <button type="button" data-view="students" data-route="/admin/students" data-lucide-icon="graduation-cap">Talabalar</button>
+          <button type="button" data-view="groups" data-route="/admin/groups" data-lucide-icon="layers">Guruhlar</button>
+          <button type="button" data-view="courses" data-route="/admin/courses" data-lucide-icon="book-open">Kurslar</button>
+          <button type="button" data-view="teachers" data-route="/admin/teachers" data-lucide-icon="user-check">O'qituvchilar</button>
+          <button type="button" data-view="schedule" data-route="/admin/schedule" data-lucide-icon="calendar-days">Dars jadvali</button>
+          <button type="button" data-view="attendance" data-route="/admin/attendance" data-lucide-icon="clipboard-check">Davomad</button>
+          <button type="button" data-view="finance" data-route="/admin/payments" data-lucide-icon="credit-card">To'lovlar</button>
+          <button type="button" data-view="debtors" data-route="/admin/debts" data-lucide-icon="badge-alert">Qarzdorlik</button>
+          <button type="button" data-view="leads" data-route="/admin/leads" data-lucide-icon="kanban">Leadlar</button>
+          <button type="button" data-view="reports" data-route="/admin/reports" data-lucide-icon="bar-chart-3">Hisobotlar</button>
+          <button type="button" data-view="teacher-attendance" data-route="/admin/staff-attendance" data-lucide-icon="user-round-check">Xodimlar davomati</button>
+          <button type="button" data-view="archive" data-route="/admin/archive" data-lucide-icon="archive">Arxiv</button>
+          <button type="button" data-view="market" data-route="/admin/market" data-lucide-icon="shopping-bag">Market</button>
+          <button type="button" data-view="branches" data-route="/admin/branches" data-lucide-icon="building-2">Filiallar</button>
+          <button type="button" data-view="rooms" data-route="/admin/rooms" data-lucide-icon="door-open">Xonalar</button>
+          <button type="button" data-view="telegram" data-route="/admin/telegram" data-lucide-icon="send">Telegram xabarlar</button>
+          <button type="button" data-view="settings" data-route="/admin/settings" data-lucide-icon="settings">Sozlamalar</button>
+          <button type="button" data-view="subscription" data-route="/admin/subscription" data-lucide-icon="badge-check">Tarif / Obuna</button>
           <button type="button" data-view="super-dashboard" data-route="/super/dashboard" data-lucide-icon="shield" data-super-only>Super Admin</button>
         </nav>
         <div class="side-subnav" data-subnav="finance" hidden>
@@ -329,8 +329,8 @@
     </div>
 
     <div class="toast" data-toast></div>
-    <script src="/crm-services.js?v=21.0.3"></script>
+    <script src="/crm-services.js?v=21.4.0"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="/app.js?v=21.3.0"></script>
+    <script src="/app.js?v=21.4.0"></script>
   </body>
 </html>

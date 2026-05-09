@@ -219,91 +219,91 @@ const studentAppAdminViews = [
 ];
 
 const studentAppRouteByView = {
-  "student-app-dashboard": "/app/settings/student-app/dashboard",
-  "student-app-access": "/app/settings/student-app/access",
-  "student-app-modules": "/app/settings/student-app/modules",
-  "student-app-library": "/app/settings/student-app/library",
-  "student-app-dictionary": "/app/settings/student-app/dictionary",
-  "student-app-academic-help": "/app/settings/student-app/academic-help",
-  "student-app-news": "/app/settings/student-app/news",
-  "student-app-events": "/app/settings/student-app/events",
-  "student-app-offers": "/app/settings/student-app/offers",
-  "student-app-referrals": "/app/settings/student-app/referrals",
-  "student-app-extra-lessons": "/app/settings/student-app/extra-lessons",
-  "student-app-exams": "/app/settings/student-app/exams",
-  "student-app-feedback": "/app/settings/student-app/feedback",
-  "student-app-settings": "/app/settings/student-app/settings"
+  "student-app-dashboard": "/admin/settings/student-app/dashboard",
+  "student-app-access": "/admin/settings/student-app/access",
+  "student-app-modules": "/admin/settings/student-app/modules",
+  "student-app-library": "/admin/settings/student-app/library",
+  "student-app-dictionary": "/admin/settings/student-app/dictionary",
+  "student-app-academic-help": "/admin/settings/student-app/academic-help",
+  "student-app-news": "/admin/settings/student-app/news",
+  "student-app-events": "/admin/settings/student-app/events",
+  "student-app-offers": "/admin/settings/student-app/offers",
+  "student-app-referrals": "/admin/settings/student-app/referrals",
+  "student-app-extra-lessons": "/admin/settings/student-app/extra-lessons",
+  "student-app-exams": "/admin/settings/student-app/exams",
+  "student-app-feedback": "/admin/settings/student-app/feedback",
+  "student-app-settings": "/admin/settings/student-app/settings"
 };
 
 const routeByView = {
-  dashboard: "/app/dashboard",
-  students: "/app/students",
-  groups: "/app/groups",
-  courses: "/app/courses",
-  teachers: "/app/teachers",
-  schedule: "/app/schedule",
-  attendance: "/app/attendance",
-  finance: "/app/payments",
-  "finance-overview": "/app/finance",
-  "finance-cash": "/app/finance/cash",
-  debtors: "/app/debts",
-  leads: "/app/leads",
-  reports: "/app/reports",
-  branches: "/app/branches",
-  rooms: "/app/settings/office/rooms",
-  telegram: "/app/telegram",
-  "teacher-attendance": "/app/staff-attendance",
-  subscription: "/app/subscription",
-  settings: "/app/settings",
-  "extra-income": "/app/finance/extra-income",
-  expenses: "/app/finance/expenses",
-  salary: "/app/finance/salary",
-  bonuses: "/app/finance/bonuses",
-  "payment-types": "/app/settings/forms/payment-types",
-  "center-info": "/app/settings/center",
-  "general-settings": "/app/settings/general",
-  "office-settings": "/app/settings/office",
-  positions: "/app/settings/office/positions",
-  employees: "/app/settings/office/employees",
-  holidays: "/app/settings/office/holidays",
-  "receipt-settings": "/app/settings/office/receipt",
-  "learning-settings": "/app/settings/learning",
-  reasons: "/app/settings/learning/reasons",
-  "level-test": "/app/settings/learning/level-test",
-  points: "/app/settings/learning/points",
-  "exam-templates": "/app/settings/learning/exam-templates",
-  "sms-settings": "/app/settings/sms",
-  "sms-buy": "/app/settings/sms/buy",
-  "sms-auto": "/app/settings/sms/auto",
-  "sms-templates": "/app/settings/sms/templates",
-  forms: "/app/settings/forms",
-  "lead-forms": "/app/settings/forms/lead-forms",
-  "simple-form": "/app/settings/forms/simple-form",
-  "referral-forms": "/app/settings/forms/referral-forms",
-  tags: "/app/settings/tags",
-  integrations: "/app/settings/integrations",
-  accounting: "/app/settings/accounting",
-  archive: "/app/archive",
-  "archive-finance": "/app/archive/finance",
-  "archive-finance-payments": "/app/archive/finance/payments",
-  "archive-finance-salary": "/app/archive/finance/salary",
-  "archive-finance-expenses": "/app/archive/finance/expenses",
-  "archive-finance-extra-income": "/app/archive/finance/extra-income",
-  "archive-finance-bonuses": "/app/archive/finance/bonuses",
-  "course-report": "/app/reports/courses",
-  "teacher-efficiency": "/app/reports/teacher-performance",
-  "cashflow-report": "/app/reports/cash-flow",
-  "salary-report": "/app/reports/salary",
-  "lead-report": "/app/reports/leads",
-  "removed-students-report": "/app/reports/group-removed",
-  "points-report": "/app/reports/points",
-  "exam-report": "/app/reports/exams",
-  "discount-report": "/app/reports/discounts",
-  "sent-sms-report": "/app/reports/sent-sms",
-  "worktime-report": "/app/reports/work-time",
-  journals: "/app/reports/journals",
-  "coin-report": "/app/reports/coins-crystals",
-  market: "/app/market",
+  dashboard: "/admin/dashboard",
+  students: "/admin/students",
+  groups: "/admin/groups",
+  courses: "/admin/courses",
+  teachers: "/admin/teachers",
+  schedule: "/admin/schedule",
+  attendance: "/admin/attendance",
+  finance: "/admin/payments",
+  "finance-overview": "/admin/finance",
+  "finance-cash": "/admin/finance/cash",
+  debtors: "/admin/debts",
+  leads: "/admin/leads",
+  reports: "/admin/reports",
+  branches: "/admin/branches",
+  rooms: "/admin/settings/office/rooms",
+  telegram: "/admin/telegram",
+  "teacher-attendance": "/admin/staff-attendance",
+  subscription: "/admin/subscription",
+  settings: "/admin/settings",
+  "extra-income": "/admin/finance/extra-income",
+  expenses: "/admin/finance/expenses",
+  salary: "/admin/finance/salary",
+  bonuses: "/admin/finance/bonuses",
+  "payment-types": "/admin/settings/forms/payment-types",
+  "center-info": "/admin/settings/center",
+  "general-settings": "/admin/settings/general",
+  "office-settings": "/admin/settings/office",
+  positions: "/admin/settings/office/positions",
+  employees: "/admin/settings/office/employees",
+  holidays: "/admin/settings/office/holidays",
+  "receipt-settings": "/admin/settings/office/receipt",
+  "learning-settings": "/admin/settings/learning",
+  reasons: "/admin/settings/learning/reasons",
+  "level-test": "/admin/settings/learning/level-test",
+  points: "/admin/settings/learning/points",
+  "exam-templates": "/admin/settings/learning/exam-templates",
+  "sms-settings": "/admin/settings/sms",
+  "sms-buy": "/admin/settings/sms/buy",
+  "sms-auto": "/admin/settings/sms/auto",
+  "sms-templates": "/admin/settings/sms/templates",
+  forms: "/admin/settings/forms",
+  "lead-forms": "/admin/settings/forms/lead-forms",
+  "simple-form": "/admin/settings/forms/simple-form",
+  "referral-forms": "/admin/settings/forms/referral-forms",
+  tags: "/admin/settings/tags",
+  integrations: "/admin/settings/integrations",
+  accounting: "/admin/settings/accounting",
+  archive: "/admin/archive",
+  "archive-finance": "/admin/archive/finance",
+  "archive-finance-payments": "/admin/archive/finance/payments",
+  "archive-finance-salary": "/admin/archive/finance/salary",
+  "archive-finance-expenses": "/admin/archive/finance/expenses",
+  "archive-finance-extra-income": "/admin/archive/finance/extra-income",
+  "archive-finance-bonuses": "/admin/archive/finance/bonuses",
+  "course-report": "/admin/reports/courses",
+  "teacher-efficiency": "/admin/reports/teacher-performance",
+  "cashflow-report": "/admin/reports/cash-flow",
+  "salary-report": "/admin/reports/salary",
+  "lead-report": "/admin/reports/leads",
+  "removed-students-report": "/admin/reports/group-removed",
+  "points-report": "/admin/reports/points",
+  "exam-report": "/admin/reports/exams",
+  "discount-report": "/admin/reports/discounts",
+  "sent-sms-report": "/admin/reports/sent-sms",
+  "worktime-report": "/admin/reports/work-time",
+  journals: "/admin/reports/journals",
+  "coin-report": "/admin/reports/coins-crystals",
+  market: "/admin/market",
   "super-dashboard": "/super/dashboard",
   "super-centers": "/super/centers",
   "super-tariffs": "/super/tariffs",
@@ -338,51 +338,51 @@ function viewFromPath(pathname = window.location.pathname) {
     const view = `admin-${slug}`;
     return adminViews.has(view) ? view : "admin-not-found";
   }
-  if (normalized === "/app/settings/student-app") return "student-app-dashboard";
-  if (normalized.startsWith("/app/settings/student-app/")) {
-    const slug = normalized.replace("/app/settings/student-app/", "");
+  if (normalized === "/admin/settings/student-app") return "student-app-dashboard";
+  if (normalized.startsWith("/admin/settings/student-app/")) {
+    const slug = normalized.replace("/admin/settings/student-app/", "");
     const view = `student-app-${slug}`;
     return studentAppAdminViews.includes(view) ? view : "student-app-dashboard";
   }
   const routeAliases = {
-    "/app/finance": "finance",
-    "/app/finance/income": "extra-income",
-    "/app/finance/cash": "finance-cash",
-    "/app/journal": "attendance",
-    "/app/groups/journal": "attendance",
-    "/app/settings/center": "center-info",
-    "/app/settings/student-app/dashboard": "student-app-dashboard",
-    "/app/settings/student-app/modules": "student-app-modules",
-    "/app/settings/student-app/dictionary": "student-app-dictionary",
-    "/app/settings/student-app/academic-help": "student-app-academic-help",
-    "/app/settings/student-app/news": "student-app-news",
-    "/app/settings/student-app/offers": "student-app-offers",
-    "/app/settings/student-app/events": "student-app-events",
-    "/app/settings/student-app/library": "student-app-library",
-    "/app/settings/student-app/settings": "student-app-settings",
-    "/app/reports/finance": "reports",
-    "/app/reports/attendance": "attendance",
-    "/app/archive": "archive",
-    "/app/archive/leads": "archive-leads",
-    "/app/archive/students": "archive-students",
-    "/app/archive/teachers": "archive-teachers",
-    "/app/archive/employees": "archive-employees",
-    "/app/archive/groups": "archive-groups",
-    "/app/archive/finance": "archive-finance",
-    "/app/archive/finance/payments": "archive-finance-payments",
-    "/app/archive/finance/salary": "archive-finance-salary",
-    "/app/archive/finance/expenses": "archive-finance-expenses",
-    "/app/archive/finance/extra-income": "archive-finance-extra-income",
-    "/app/archive/finance/bonuses": "archive-finance-bonuses"
+    "/admin/finance": "finance",
+    "/admin/finance/income": "extra-income",
+    "/admin/finance/cash": "finance-cash",
+    "/admin/journal": "attendance",
+    "/admin/groups/journal": "attendance",
+    "/admin/settings/center": "center-info",
+    "/admin/settings/student-app/dashboard": "student-app-dashboard",
+    "/admin/settings/student-app/modules": "student-app-modules",
+    "/admin/settings/student-app/dictionary": "student-app-dictionary",
+    "/admin/settings/student-app/academic-help": "student-app-academic-help",
+    "/admin/settings/student-app/news": "student-app-news",
+    "/admin/settings/student-app/offers": "student-app-offers",
+    "/admin/settings/student-app/events": "student-app-events",
+    "/admin/settings/student-app/library": "student-app-library",
+    "/admin/settings/student-app/settings": "student-app-settings",
+    "/admin/reports/finance": "reports",
+    "/admin/reports/attendance": "attendance",
+    "/admin/archive": "archive",
+    "/admin/archive/leads": "archive-leads",
+    "/admin/archive/students": "archive-students",
+    "/admin/archive/teachers": "archive-teachers",
+    "/admin/archive/employees": "archive-employees",
+    "/admin/archive/groups": "archive-groups",
+    "/admin/archive/finance": "archive-finance",
+    "/admin/archive/finance/payments": "archive-finance-payments",
+    "/admin/archive/finance/salary": "archive-finance-salary",
+    "/admin/archive/finance/expenses": "archive-finance-expenses",
+    "/admin/archive/finance/extra-income": "archive-finance-extra-income",
+    "/admin/archive/finance/bonuses": "archive-finance-bonuses"
   };
   if (routeAliases[normalized]) return routeAliases[normalized];
-  if (/^\/app\/groups\/\d+\/journal$/.test(normalized)) return "attendance";
-  if (/^\/app\/students\/\d+$/.test(normalized)) return "student-profile";
-  if (/^\/app\/groups\/\d+$/.test(normalized)) return "group-profile";
-  if (/^\/app\/teachers\/\d+$/.test(normalized)) return "teacher-profile";
-  if (normalized === "/app/rooms" || normalized === "/app/settings/office/rooms") return "rooms";
-  if (normalized === "/app/settings/learning/courses") return "courses";
-  if (normalized === "/app/settings/forms/payment-types") return "payment-types";
+  if (/^\/admin\/groups\/\d+\/journal$/.test(normalized)) return "attendance";
+  if (/^\/admin\/students\/\d+$/.test(normalized)) return "student-profile";
+  if (/^\/admin\/groups\/\d+$/.test(normalized)) return "group-profile";
+  if (/^\/admin\/teachers\/\d+$/.test(normalized)) return "teacher-profile";
+  if (normalized === "/admin/rooms" || normalized === "/admin/settings/office/rooms") return "rooms";
+  if (normalized === "/admin/settings/learning/courses") return "courses";
+  if (normalized === "/admin/settings/forms/payment-types") return "payment-types";
   if (/^\/super\/centers\/\d+$/.test(normalized)) return "super-center-profile";
   if (normalized === "/super/centers") return "super-centers";
   if (normalized === "/super/tariffs") return "super-tariffs";
@@ -395,7 +395,7 @@ function viewFromPath(pathname = window.location.pathname) {
   if (normalized === "/super/dashboard" || normalized === "/super") return "super-dashboard";
   const match = Object.entries(routeByView).find(([, path]) => path === normalized);
   if (match) return match[0];
-  if (["/app", "/crm", "/panel", "/dashboard"].includes(normalized)) return "dashboard";
+  if (["/admin", "/crm", "/panel", "/dashboard"].includes(normalized)) return "dashboard";
   return "dashboard";
 }
 
@@ -537,9 +537,9 @@ function navViewFor(viewName) {
 function routeForView(viewName, options = {}) {
   if (options.route) return options.route;
   if (viewName === "admin-center-profile") return `/admin/centers/${adminProfileIdFromPath() || adminState.centers[0]?.id || ""}`;
-  if (viewName === "student-profile") return `/app/students/${profileIdFromPath("students") || state.students[0]?.id || ""}`;
-  if (viewName === "group-profile") return `/app/groups/${profileIdFromPath("groups") || state.groups[0]?.id || ""}`;
-  if (viewName === "teacher-profile") return `/app/teachers/${profileIdFromPath("teachers") || state.teachers[0]?.id || ""}`;
+  if (viewName === "student-profile") return `/admin/students/${profileIdFromPath("students") || state.students[0]?.id || ""}`;
+  if (viewName === "group-profile") return `/admin/groups/${profileIdFromPath("groups") || state.groups[0]?.id || ""}`;
+  if (viewName === "teacher-profile") return `/admin/teachers/${profileIdFromPath("teachers") || state.teachers[0]?.id || ""}`;
   if (viewName === "super-center-profile") return `/super/centers/${profileIdFromPath("centers") || state.superCenters[0]?.id || ""}`;
   return routeByView[viewName];
 }
@@ -1717,14 +1717,14 @@ function actionButtons(resource, item) {
     const profile = document.createElement("button");
     profile.type = "button";
     profile.append(svgIcon("user-plus"), document.createTextNode("Profil"));
-    profile.addEventListener("click", () => setView("student-profile", { route: `/app/students/${item.id}` }));
+    profile.addEventListener("click", () => setView("student-profile", { route: `/admin/students/${item.id}` }));
     wrap.append(profile);
   }
   if (resource === "groups") {
     const profile = document.createElement("button");
     profile.type = "button";
     profile.append(svgIcon("layers"), document.createTextNode("Profil"));
-    profile.addEventListener("click", () => setView("group-profile", { route: `/app/groups/${item.id}` }));
+    profile.addEventListener("click", () => setView("group-profile", { route: `/admin/groups/${item.id}` }));
     wrap.append(profile);
   }
   if (resource === "payments") {
@@ -2729,7 +2729,7 @@ async function applyTenantContext() {
   }
   centerName.textContent = center.name;
   showApp(tenantUserFromSession(center, session));
-  if (!window.location.pathname.startsWith("/app")) setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
+  if (!window.location.pathname.startsWith("/admin")) setView("dashboard", { route: `/admin/dashboard${window.location.search}`, replace: true });
   return true;
 }
 
@@ -2760,7 +2760,7 @@ async function handleTenantLogin(form) {
     addAuditLog("tenant login success", "center", center.name, "-", session.userEmail);
     saveAdminState();
     showApp(payload.user || tenantUserFromSession(center, session));
-    setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
+    setView("dashboard", { route: `/admin/dashboard${window.location.search}`, replace: true });
     showToast("Kabinet ochildi.");
     return;
   } catch (error) {
@@ -2792,7 +2792,7 @@ async function handleTenantLogin(form) {
   addAuditLog("tenant login success", "center", center.name, "-", user.email);
   saveAdminState();
   showApp(tenantUserFromSession(center, session));
-  setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
+  setView("dashboard", { route: `/admin/dashboard${window.location.search}`, replace: true });
   showToast("Kabinet ochildi.");
 }
 
@@ -5203,7 +5203,7 @@ async function saveCrmDrawer(form) {
       const result = await api(editing ? `${endpoint}/${item.id}` : endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(crmApiPayload(resource, item)) });
       if (result.item) item = { ...item, ...result.item };
       if (resource === "students" && data.password && item.id) {
-        await api(`/api/students/${item.id}/app-password`, { method: "POST", body: JSON.stringify({ password: data.password }) });
+        await api(`/api/students/${item.id}/admin-password`, { method: "POST", body: JSON.stringify({ password: data.password }) });
         item.student_app_enabled = true;
         item.password_preview = data.password;
       }
@@ -5628,9 +5628,9 @@ async function handleCrmAction(action, button) {
     return;
   }
 
-  if (action === "view" && resource === "students") return setView("student-profile", { route: `/app/students/${id}` });
-  if (action === "view" && resource === "groups") return setView("group-profile", { route: `/app/groups/${id}` });
-  if (action === "view" && resource === "teachers") return setView("teacher-profile", { route: `/app/teachers/${id}` });
+  if (action === "view" && resource === "students") return setView("student-profile", { route: `/admin/students/${id}` });
+  if (action === "view" && resource === "groups") return setView("group-profile", { route: `/admin/groups/${id}` });
+  if (action === "view" && resource === "teachers") return setView("teacher-profile", { route: `/admin/teachers/${id}` });
   if (action === "edit" && item) return openDrawer(resource, item);
 
   if (action === "delete" && item) {
@@ -6061,9 +6061,9 @@ document.addEventListener("click", async (event) => {
     const resource = globalResult.dataset.resource;
     const id = globalResult.dataset.id;
     document.querySelector("[data-global-results]")?.setAttribute("hidden", "");
-    if (resource === "students") setView("student-profile", { route: `/app/students/${id}` });
-    else if (resource === "groups") setView("group-profile", { route: `/app/groups/${id}` });
-    else if (resource === "teachers") setView("teacher-profile", { route: `/app/teachers/${id}` });
+    if (resource === "students") setView("student-profile", { route: `/admin/students/${id}` });
+    else if (resource === "groups") setView("group-profile", { route: `/admin/groups/${id}` });
+    else if (resource === "teachers") setView("teacher-profile", { route: `/admin/teachers/${id}` });
     else setView(globalResult.dataset.globalResult || "dashboard");
     return;
   }
@@ -6130,9 +6130,9 @@ document.addEventListener("click", async (event) => {
   if (crmRow && !event.target.closest("button, a, input, select, textarea, details, summary")) {
     const resource = crmRow.dataset.crmRow;
     const id = crmRow.dataset.id;
-    if (resource === "students") setView("student-profile", { route: `/app/students/${id}` });
-    if (resource === "groups") setView("group-profile", { route: `/app/groups/${id}` });
-    if (resource === "teachers") setView("teacher-profile", { route: `/app/teachers/${id}` });
+    if (resource === "students") setView("student-profile", { route: `/admin/students/${id}` });
+    if (resource === "groups") setView("group-profile", { route: `/admin/groups/${id}` });
+    if (resource === "teachers") setView("teacher-profile", { route: `/admin/teachers/${id}` });
     return;
   }
 
