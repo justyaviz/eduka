@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "20.4.0";
+const EDUKA_VERSION = "21.4.1";
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -316,28 +316,35 @@ const routeByView = {
 };
 Object.assign(routeByView, studentAppRouteByView);
 adminRouteKeys.forEach((key) => {
-  routeByView[`admin-${key}`] = `/admin/${key}`;
+  routeByView[`admin-${key}`] = `/super/${key}`;
 });
-routeByView["admin-login"] = "/admin/login";
-routeByView["admin-dashboard"] = "/admin/dashboard";
-routeByView["admin-centers-new"] = "/admin/centers/new";
-routeByView["admin-center-profile"] = "/admin/centers";
-routeByView["admin-demo-requests"] = "/admin/demo-requests";
-routeByView["admin-admin-users"] = "/admin/admin-users";
-routeByView["admin-audit-log"] = "/admin/audit-log";
-routeByView["admin-not-found"] = "/admin/not-found";
+routeByView["admin-login"] = "/super/login";
+routeByView["admin-dashboard"] = "/super/dashboard";
+routeByView["admin-centers-new"] = "/super/centers/new";
+routeByView["admin-center-profile"] = "/super/centers";
+routeByView["admin-demo-requests"] = "/super/demo-requests";
+routeByView["admin-admin-users"] = "/super/admin-users";
+routeByView["admin-audit-log"] = "/super/audit-log";
+routeByView["admin-not-found"] = "/super/not-found";
 
 function viewFromPath(pathname = window.location.pathname) {
-  const normalized = pathname.replace(/\/$/, "");
-  if (normalized === "/admin/login") return "admin-login";
-  if (normalized === "/admin" || normalized === "/admin/dashboard") return "admin-dashboard";
-  if (normalized === "/admin/centers/new") return "admin-centers-new";
-  if (/^\/admin\/centers\/\d+$/.test(normalized)) return "admin-center-profile";
-  if (normalized.startsWith("/admin/")) {
-    const slug = normalized.replace("/admin/", "");
+  const normalized = pathname.replace(/\/$/, "") || "/";
+
+  // 21.4.1 route guard fix:
+  // /admin is the education-center CRM. /super is the Eduka platform owner panel.
+  // Previously every /admin/* path was captured as an admin(super) route first,
+  // so /admin/students became admin-not-found/admin-login and opened the rahbariyat login.
+  if (normalized === "/super/login") return "admin-login";
+  if (normalized === "/super" || normalized === "/super/dashboard") return "admin-dashboard";
+  if (normalized === "/super/centers/new") return "admin-centers-new";
+  if (/^\/super\/centers\/\d+$/.test(normalized)) return "admin-center-profile";
+  if (normalized.startsWith("/super/")) {
+    const slug = normalized.replace("/super/", "");
     const view = `admin-${slug}`;
     return adminViews.has(view) ? view : "admin-not-found";
   }
+
+  if (normalized === "/admin" || normalized === "/admin/login" || normalized === "/admin/dashboard") return "dashboard";
   if (normalized === "/admin/settings/student-app") return "student-app-dashboard";
   if (normalized.startsWith("/admin/settings/student-app/")) {
     const slug = normalized.replace("/admin/settings/student-app/", "");
@@ -521,8 +528,9 @@ function isViewAllowed(viewName) {
 }
 
 function defaultViewForRole(role = currentUser?.role) {
-  if (window.location.pathname.startsWith("/admin")) return isAdminAuthenticated() ? "admin-dashboard" : "admin-login";
-  return isSuperRole(role) ? "super-dashboard" : "dashboard";
+  if (window.location.pathname.startsWith("/super")) return isAdminAuthenticated() ? "admin-dashboard" : "admin-login";
+  if (window.location.pathname.startsWith("/admin")) return "dashboard";
+  return isSuperRole(role) ? "admin-dashboard" : "dashboard";
 }
 
 function navViewFor(viewName) {
@@ -1033,11 +1041,11 @@ function showApp(user) {
     openOnboarding();
   }
   const pathView = viewFromPath();
-  const initialView = isSuperRole(role)
-    ? (window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/super") ? pathView : "super-dashboard")
-    : (window.location.pathname.startsWith("/super") ? "dashboard" : pathView);
+  const initialView = window.location.pathname.startsWith("/super")
+    ? (isSuperRole(role) ? pathView : "dashboard")
+    : (isSuperRole(role) && !window.location.pathname.startsWith("/admin") ? "admin-dashboard" : pathView);
   setView(initialView, { replace: true });
-  if (window.location.pathname.startsWith("/admin")) return;
+  if (window.location.pathname.startsWith("/super")) return;
   refreshAll();
 }
 
@@ -1108,7 +1116,7 @@ function saveOnboardingStep() {
 function setView(viewName, options = {}) {
   ensureAdminShell();
   ensureCrmShell();
-  if (window.location.pathname.startsWith("/admin") && !isAdminAuthenticated() && viewName !== "admin-login") return;
+  if (window.location.pathname.startsWith("/super") && !isAdminAuthenticated() && viewName !== "admin-login") return;
   if (!document.getElementById(viewName)) viewName = defaultViewForRole();
   if (!isViewAllowed(viewName)) {
     const fallback = defaultViewForRole();
@@ -1148,14 +1156,14 @@ async function checkSession() {
     loadSharedTenantRegistry();
     if (await applyTenantContext()) return;
     if (document.querySelector(".tenant-not-found")) return;
-    if (window.location.pathname.startsWith("/admin")) {
+    if (window.location.pathname.startsWith("/super")) {
       const user = adminUserFromSession();
       if (!user) {
         showAdminLogin();
         return;
       }
-      if (window.location.pathname === "/admin/login") {
-        window.history.replaceState({ viewName: "admin-dashboard" }, "", "/admin/dashboard");
+      if (window.location.pathname === "/super/login") {
+        window.history.replaceState({ viewName: "admin-dashboard" }, "", "/super/dashboard");
       }
       showApp(user);
       return;
@@ -2411,7 +2419,7 @@ function showAdminLogin(error = "") {
         <button type="submit">Kirish</button>
       </form>
     </section>`;
-  if (window.location.pathname !== "/admin/login") window.history.replaceState({ viewName: "admin-login" }, "", "/admin/login");
+  if (window.location.pathname !== "/super/login") window.history.replaceState({ viewName: "admin-login" }, "", "/super/login");
 }
 
 function hideAdminLogin() {
@@ -2426,7 +2434,7 @@ function adminUserFromSession() {
 }
 
 function adminProfileIdFromPath() {
-  const match = window.location.pathname.match(/\/admin\/centers\/(\d+)/);
+  const match = window.location.pathname.match(/\/super\/centers\/(\d+)/);
   return match ? Number(match[1]) : null;
 }
 
