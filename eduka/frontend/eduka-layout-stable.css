@@ -1,0 +1,592 @@
+/* =========================================================
+   EDUKA 21.5.1 — Stable CRM Layout Fix
+   Maqsad: premium global CSS conflictlarini olib tashlab,
+   sidebar/topbar/dashboard/card/table/button layoutini stabil qilish.
+   ========================================================= */
+
+:root {
+  --eduka-blue: #2563eb;
+  --eduka-blue-dark: #1d4ed8;
+  --eduka-blue-soft: #eff6ff;
+  --eduka-navy: #0f172a;
+  --eduka-navy-2: #172554;
+  --eduka-text: #0f172a;
+  --eduka-muted: #64748b;
+  --eduka-border: rgba(148, 163, 184, .28);
+  --eduka-bg: #f4f8ff;
+  --eduka-card: #ffffff;
+  --eduka-radius: 18px;
+  --eduka-shadow: 0 12px 32px rgba(15, 23, 42, .075);
+  --eduka-shadow-soft: 0 8px 22px rgba(15, 23, 42, .055);
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+body { background: var(--eduka-bg) !important; color: var(--eduka-text); }
+
+/* ===== App frame ===== */
+.app-shell,
+.crm-app-mode .app-shell {
+  display: grid !important;
+  grid-template-columns: 280px minmax(0, 1fr) !important;
+  width: 100% !important;
+  min-height: 100vh !important;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%) !important;
+}
+
+.workspace {
+  min-width: 0 !important;
+  width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+.content {
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  padding: 24px !important;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(37, 99, 235, .10), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%) !important;
+}
+
+/* ===== Sidebar: never let global icon-button rules break menu rows ===== */
+.sidebar,
+.crm-app-mode .sidebar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 25 !important;
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 16px 14px !important;
+  background: linear-gradient(180deg, #0f172a 0%, #172554 58%, #1e3a8a 100%) !important;
+  border-right: 1px solid rgba(255,255,255,.10) !important;
+  box-shadow: 18px 0 44px rgba(15,23,42,.16) !important;
+}
+
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 999px; }
+
+.sidebar .brand,
+.sidebar-brand,
+.crm-app-mode .brand.sidebar-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+  margin: 0 0 16px !important;
+  padding: 8px 8px 14px !important;
+  color: #fff !important;
+  text-decoration: none !important;
+  font-weight: 900 !important;
+  letter-spacing: .02em !important;
+}
+
+.sidebar .logo-mark,
+.sidebar-brand .logo-mark {
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  box-shadow: 0 12px 24px rgba(37,99,235,.28) !important;
+}
+
+.sidebar .logo-mark img { width: 22px !important; height: 22px !important; object-fit: contain !important; }
+
+.create-student,
+.crm-app-mode .create-student {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 44px !important;
+  height: 44px !important;
+  margin: 0 0 14px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9) !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+  box-shadow: 0 14px 26px rgba(37,99,235,.28) !important;
+  overflow: hidden !important;
+}
+
+.side-nav,
+.side-subnav,
+.crm-app-mode .side-nav,
+.crm-app-mode .side-subnav {
+  display: grid !important;
+  gap: 5px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.side-subnav,
+.crm-app-mode .side-subnav {
+  margin: 8px 0 12px !important;
+  padding: 8px 0 8px 12px !important;
+  border-left: 1px solid rgba(255,255,255,.18) !important;
+}
+
+.side-nav button,
+.side-subnav button,
+.sidebar-footer button,
+.crm-app-mode .side-nav button,
+.crm-app-mode .side-subnav button,
+.admin-side-nav button {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  min-height: 42px !important;
+  height: auto !important;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  background: transparent !important;
+  color: rgba(255,255,255,.76) !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  text-align: left !important;
+  white-space: normal !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+
+.side-nav button::before,
+.side-subnav button::before,
+.sidebar-footer button::before,
+.admin-side-nav button::before {
+  display: none !important;
+  content: none !important;
+}
+
+.side-nav button svg,
+.side-subnav button svg,
+.admin-side-nav button svg {
+  position: static !important;
+  width: 18px !important;
+  height: 18px !important;
+  flex: 0 0 18px !important;
+  color: rgba(191,219,254,.95) !important;
+  stroke: currentColor !important;
+  fill: none !important;
+  filter: none !important;
+}
+
+.side-nav button:hover,
+.side-subnav button:hover,
+.sidebar-footer button:hover,
+.crm-app-mode .side-nav button:hover,
+.crm-app-mode .side-subnav button:hover,
+.admin-side-nav button:hover {
+  color: #fff !important;
+  background: rgba(255,255,255,.105) !important;
+  transform: translateX(2px) !important;
+}
+
+.side-nav button.active,
+.side-subnav button.active,
+.admin-side-nav button.active,
+.crm-app-mode .side-nav button.active,
+.crm-app-mode .side-subnav button.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(37,99,235,.95), rgba(14,165,233,.82)) !important;
+  box-shadow: 0 12px 26px rgba(2,6,23,.18), inset 0 0 0 1px rgba(255,255,255,.16) !important;
+}
+
+.side-nav button.active svg,
+.side-subnav button.active svg { color: #fff !important; }
+
+.sidebar-footer {
+  display: grid !important;
+  gap: 8px !important;
+  width: 100% !important;
+  margin-top: auto !important;
+  padding: 14px 0 0 !important;
+}
+.sidebar-footer button {
+  min-height: 38px !important;
+  justify-content: center !important;
+  background: rgba(255,255,255,.08) !important;
+  color: rgba(255,255,255,.82) !important;
+}
+
+/* ===== Topbar ===== */
+.topbar,
+.crm-topbar,
+.app-header,
+.admin-topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 68px !important;
+  padding: 12px 24px !important;
+  background: rgba(255,255,255,.92) !important;
+  border-bottom: 1px solid rgba(148,163,184,.22) !important;
+  box-shadow: 0 12px 32px rgba(15,23,42,.055) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.center-name { flex: 0 0 auto !important; max-width: 230px !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+.search-box,
+.crm-search-wrap {
+  position: relative !important;
+  flex: 1 1 360px !important;
+  max-width: 520px !important;
+  min-width: 220px !important;
+  display: block !important;
+}
+.search-box span,
+.crm-search-wrap span {
+  position: absolute !important;
+  left: 42px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #64748b !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+.search-box::before,
+.crm-search-wrap::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 15px !important;
+  top: 50% !important;
+  width: 16px !important;
+  height: 16px !important;
+  transform: translateY(-50%) !important;
+  background: currentColor !important;
+  color: #64748b !important;
+  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="black" stroke-width="2" stroke-linecap="round" d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"/></svg>') center / contain no-repeat !important;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="black" stroke-width="2" stroke-linecap="round" d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"/></svg>') center / contain no-repeat !important;
+}
+.search-box input,
+.crm-search-wrap input {
+  width: 100% !important;
+  height: 44px !important;
+  padding: 0 16px 0 100px !important;
+  border: 1px solid rgba(148,163,184,.35) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 22px rgba(15,23,42,.055) !important;
+  outline: none !important;
+}
+.search-box input:focus { border-color: rgba(37,99,235,.65) !important; box-shadow: 0 0 0 4px rgba(37,99,235,.12) !important; }
+
+.lang-button,
+.ghost-icon,
+.icon-button,
+.mobile-menu,
+.crm-icon-button,
+button[data-crm-action="quick-tools"],
+button[data-crm-action="notifications"],
+button[data-crm-action="tasks"] {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(148,163,184,.28) !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 20px rgba(15,23,42,.07) !important;
+  overflow: hidden !important;
+}
+.logout-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  padding: 0 14px !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+}
+.ghost-icon span:not(.sr-only), .icon-button span:not(.sr-only) { display: none !important; }
+.logout-button span { display: inline !important; }
+
+/* ===== Hero/dashboard ===== */
+.crm-dashboard,
+.crm-list-page,
+.view.active {
+  width: 100% !important;
+  max-width: 1440px !important;
+  min-width: 0 !important;
+  margin: 0 auto !important;
+  overflow: visible !important;
+}
+
+.crm-hero,
+.crm-list-head,
+.crm-app-mode .dashboard-hero {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  width: 100% !important;
+  margin: 0 0 20px !important;
+  padding: 26px 28px !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(14,165,233,.36), transparent 24%),
+    linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #172554 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 18px 42px rgba(37,99,235,.22) !important;
+  overflow: hidden !important;
+}
+.crm-hero span,
+.crm-list-head span { color: rgba(219,234,254,.92) !important; font-weight: 900 !important; letter-spacing: .03em !important; text-transform: uppercase !important; }
+.crm-hero h1,
+.crm-list-head h1,
+.crm-app-mode .dashboard-hero h1 { margin: 6px 0 8px !important; color: #fff !important; font-size: clamp(26px, 3vw, 38px) !important; line-height: 1.06 !important; font-weight: 900 !important; letter-spacing: -.04em !important; }
+.crm-hero p,
+.crm-list-head p,
+.crm-app-mode .dashboard-hero p { max-width: 780px !important; margin: 0 !important; color: rgba(239,246,255,.88) !important; font-weight: 600 !important; line-height: 1.55 !important; }
+.crm-hero-actions { flex: 0 0 auto !important; display: flex !important; gap: 10px !important; }
+
+.dashboard-filter-row,
+.dashboard-toolbar,
+.admin-filters,
+.filter-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  margin: 0 0 18px !important;
+  padding: 10px !important;
+  border: 1px solid rgba(148,163,184,.22) !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.86) !important;
+  box-shadow: 0 8px 24px rgba(15,23,42,.045) !important;
+}
+.dashboard-filter-row:empty,
+.dashboard-toolbar:empty { display: none !important; }
+
+.crm-stat-grid,
+.metric-grid,
+.admin-kpis,
+.dashboard-grid,
+.crm-dashboard-grid {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.crm-stat-grid,
+.metric-grid,
+.admin-kpis {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 16px !important;
+  margin: 0 0 20px !important;
+}
+.crm-stat-grid article,
+.metric-grid article,
+.admin-kpis article,
+.crm-card,
+.dashboard-card,
+.admin-panel,
+.plan-card,
+.student-card {
+  min-width: 0 !important;
+  min-height: 132px !important;
+  padding: 18px !important;
+  border: 1px solid rgba(148,163,184,.22) !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  color: var(--eduka-text) !important;
+  box-shadow: var(--eduka-shadow-soft) !important;
+  overflow: hidden !important;
+  transform: none !important;
+}
+.crm-stat-grid article:hover,
+.metric-grid article:hover,
+.admin-kpis article:hover { transform: translateY(-2px) !important; box-shadow: var(--eduka-shadow) !important; }
+.crm-stat-grid article::before,
+.metric-grid article::before,
+.admin-kpis article::before { display: none !important; }
+.crm-stat-grid article::after { opacity: .55 !important; }
+.crm-stat-grid svg,
+.metric-grid svg,
+.admin-kpis svg {
+  width: 30px !important;
+  height: 30px !important;
+  padding: 7px !important;
+  border-radius: 10px !important;
+  background: #eff6ff !important;
+  color: #2563eb !important;
+}
+.crm-stat-grid strong,
+.metric-grid strong,
+.admin-kpis strong {
+  display: block !important;
+  margin: 12px 0 4px !important;
+  color: #0f172a !important;
+  font-size: clamp(26px, 3vw, 36px) !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: -.045em !important;
+}
+.crm-stat-grid span,
+.crm-stat-grid small,
+.metric-grid span,
+.metric-grid small,
+.admin-kpis span,
+.admin-kpis small { color: #64748b !important; font-weight: 750 !important; }
+
+.crm-dashboard-grid,
+.dashboard-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  align-items: start !important;
+}
+.crm-panel,
+.chart-card,
+.alerts-panel,
+.crm-table-card {
+  min-width: 0 !important;
+  border: 1px solid rgba(148,163,184,.22) !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  box-shadow: var(--eduka-shadow-soft) !important;
+  overflow: hidden !important;
+}
+.crm-panel { padding: 18px !important; }
+.crm-panel.wide { grid-column: span 1 !important; }
+.crm-panel-head h2 { color: #0f172a !important; font-weight: 900 !important; }
+.crm-panel article { min-width: 0 !important; }
+.crm-table-card,
+.table-wrap,
+.admin-table-wrap { overflow-x: auto !important; overflow-y: visible !important; }
+.crm-table,
+.admin-table { width: 100% !important; min-width: 760px !important; }
+
+/* ===== Buttons: no global pill transformation, only intended buttons ===== */
+button,
+.btn,
+.button,
+a.btn,
+[role="button"] {
+  font-family: inherit !important;
+  cursor: pointer !important;
+}
+.crm-primary-button,
+.section-action,
+button[type="submit"],
+.admin-actions button,
+.modal-actions button[type="submit"] {
+  min-height: 42px !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #fff !important;
+  font-weight: 850 !important;
+  box-shadow: 0 12px 24px rgba(37,99,235,.22) !important;
+}
+.crm-soft-button,
+.crm-export-actions button,
+.crm-filter-grid button,
+.link-button {
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border: 1px solid rgba(37,99,235,.16) !important;
+  border-radius: 13px !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+
+/* ===== Forms ===== */
+input, select, textarea {
+  max-width: 100% !important;
+  border-radius: 12px !important;
+}
+.crm-filter-grid input,
+.crm-filter-grid select,
+.admin-filters input,
+.admin-filters select,
+.admin-form input,
+.admin-form select,
+.admin-form textarea,
+.modal-form input,
+.modal-form select,
+.modal-form textarea {
+  min-height: 42px !important;
+  border: 1px solid rgba(148,163,184,.35) !important;
+  background: #fff !important;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1180px) {
+  .app-shell,
+  .crm-app-mode .app-shell { grid-template-columns: 250px minmax(0, 1fr) !important; }
+  .sidebar,
+  .crm-app-mode .sidebar { width: 250px !important; min-width: 250px !important; max-width: 250px !important; }
+  .crm-dashboard-grid,
+  .dashboard-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 860px) {
+  .app-shell,
+  .crm-app-mode .app-shell { display: block !important; }
+  .sidebar,
+  .crm-app-mode .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: translateX(-105%) !important;
+    transition: transform .22s ease !important;
+  }
+  body.menu-open .sidebar { transform: translateX(0) !important; }
+  .mobile-menu { display: inline-grid !important; }
+  .topbar { padding: 10px 14px !important; }
+  .center-name { display: none !important; }
+  .search-box { min-width: 0 !important; flex: 1 1 auto !important; }
+  .content { padding: 16px !important; }
+  .crm-hero, .crm-list-head { flex-direction: column !important; align-items: flex-start !important; }
+  .crm-stat-grid,
+  .metric-grid,
+  .admin-kpis { grid-template-columns: 1fr !important; }
+}
