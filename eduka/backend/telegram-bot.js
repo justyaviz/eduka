@@ -123,7 +123,7 @@ async function openAppForLinkedStudent(token, chatId, telegramUserId, deps) {
     return;
   }
   const payload = await deps.createLinkedStudentAppSession(student, String(telegramUserId), String(chatId));
-  await sendMessage(token, chatId, "Quyidagi tugma orqali Student App'ni ochishingiz mumkin.", webAppKeyboard(payload.webAppUrl));
+  await sendMessage(token, chatId, "Quyidagi tugmani bosing — Student App login sahifasiz to'g'ridan-to'g'ri Bosh sahifada ochiladi.", webAppKeyboard(payload.webAppUrl));
 }
 
 async function handlePhone(token, chatId, message, deps) {
@@ -148,7 +148,7 @@ async function handlePhone(token, chatId, message, deps) {
     return;
   }
   loginFlows.set(String(chatId), { step: "password", phone, organizationId: students[0].organization_id, attempts: 0 });
-  await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());
+  await sendMessage(token, chatId, "Student App kodingiz/parolingizni kiriting.", removeKeyboard());
 }
 
 function studentPreviewMessage(payload) {
@@ -251,7 +251,7 @@ async function handleCallback(update, deps) {
       await sendMessage(
         token,
         chatId,
-        "✅ Telegram profilingiz Eduka Student App bilan bog'landi.\n\nQuyidagi tugmani bosing — Student App avtomatik bosh sahifada ochiladi.",
+        "✅ Telegram profilingiz Eduka Student App bilan bog'landi.\n\nQuyidagi tugmani bosing — Student App login sahifasiz to'g'ridan-to'g'ri Bosh sahifada ochiladi.",
         webAppKeyboard(payload.webAppUrl)
       );
       return;
@@ -271,7 +271,7 @@ async function handleCallback(update, deps) {
       flow.attempts = Number(flow.attempts || 0);
       loginFlows.set(chatKey, flow);
       await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id });
-      await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());
+      await sendMessage(token, chatId, "Student App kodingiz/parolingizni kiriting.", removeKeyboard());
       return;
     }
   }

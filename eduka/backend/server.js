@@ -632,7 +632,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.1.2"
+      "X-Eduka-Version": "22.1.3"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -5105,7 +5105,7 @@ async function handleGlobalSearchRequest(request, response, query) {
 
 
 
-// Eduka 22.1.2 — compatibility layer for old Railway databases
+// Eduka 22.1.3 — compatibility layer for old Railway databases
 async function ensureStudentApp22Compatibility(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS student_app_settings (
@@ -5175,9 +5175,12 @@ async function ensureStudentApp22Compatibility(pool) {
 async function ensureStudentGamificationDefaults(pool, organizationId) {
   if (!organizationId) return;
   await ensureStudentApp22Compatibility(pool);
+  // Eduka 22.1.3: do not target optional columns in INSERT.
+  // Old Railway databases may still miss some feature columns during startup.
+  // Compatibility ALTERs above set defaults; this insert only creates the row safely.
   await pool.query(
-    `INSERT INTO student_app_settings (organization_id, enabled, coins_enabled, rating_enabled, library_enabled, payments_enabled, news_enabled, schedule_enabled, attendance_enabled, rewards_enabled, achievements_enabled, materials_enabled)
-     VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+    `INSERT INTO student_app_settings (organization_id)
+     VALUES ($1)
      ON CONFLICT (organization_id) DO NOTHING`,
     [organizationId]
   );
