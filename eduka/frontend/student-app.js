@@ -1,4 +1,4 @@
-const EDUKA_STUDENT_VERSION = "22.1.0";
+const EDUKA_STUDENT_VERSION = "22.1.1";
 const screen = document.querySelector("[data-student-screen]");
 const logo = "/assets/logo_icon.webp";
 const state = { token: "", data: null, route: "home", loginStep: "phone", phone: "", org: null, toastTimer: null };

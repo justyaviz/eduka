@@ -72,6 +72,15 @@ function webAppKeyboard(url) {
   };
 }
 
+function confirmStudentKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "✅ Ha, bu menman", callback_data: "confirm_student" }],
+      [{ text: "❌ Bekor qilish", callback_data: "cancel_login" }]
+    ]
+  };
+}
+
 function removeKeyboard() {
   return { remove_keyboard: true };
 }
@@ -142,6 +151,23 @@ async function handlePhone(token, chatId, message, deps) {
   await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());
 }
 
+function studentPreviewMessage(payload) {
+  const student = payload.student || {};
+  const org = payload.organization || {};
+  return [
+    "✅ Parol to'g'ri.",
+    "",
+    "Quyidagi ma'lumotlar sizniki bo'lsa tasdiqlang:",
+    "",
+    `<b>O'quvchi:</b> ${student.fullName || student.full_name || "-"}`,
+    `<b>Telefon:</b> ${student.phone || "-"}`,
+    `<b>Markaz:</b> ${org.name || student.organization_name || "-"}`,
+    `<b>Guruh:</b> ${student.groupName || student.group_name || "-"}`,
+    "",
+    "Tasdiqlasangiz Telegram ID profilingizga ulanadi va Student App ochiladi."
+  ].join("\n");
+}
+
 async function handlePassword(token, chatId, message, flow, deps) {
   if (flow.delayUntil && Date.now() < flow.delayUntil) {
     const seconds = Math.ceil((flow.delayUntil - Date.now()) / 1000);
@@ -150,18 +176,30 @@ async function handlePassword(token, chatId, message, flow, deps) {
   }
 
   try {
-    const payload = await deps.studentAppPasswordLogin(
-      {
-        phone: flow.phone,
-        password: message.text,
-        organization_id: flow.organizationId,
-        telegram_user_id: String(message.from?.id || ""),
-        telegram_chat_id: String(chatId)
-      },
-      { userAgent: "telegram-bot", ipAddress: "telegram" }
-    );
-    loginFlows.delete(String(chatId));
-    await sendMessage(token, chatId, "Muvaffaqiyatli kirdingiz.\n\nQuyidagi tugma orqali Student App'ni ochishingiz mumkin.", webAppKeyboard(payload.webAppUrl));
+    const preview = deps.studentAppPasswordPreview
+      ? await deps.studentAppPasswordPreview({ phone: flow.phone, password: message.text, organization_id: flow.organizationId })
+      : await deps.studentAppPasswordLogin(
+          {
+            phone: flow.phone,
+            password: message.text,
+            organization_id: flow.organizationId,
+            telegram_user_id: String(message.from?.id || ""),
+            telegram_chat_id: String(chatId)
+          },
+          { userAgent: "telegram-bot", ipAddress: "telegram" }
+        );
+
+    loginFlows.set(String(chatId), {
+      step: "confirm",
+      phone: flow.phone,
+      password: message.text,
+      organizationId: flow.organizationId,
+      telegramUserId: String(message.from?.id || ""),
+      telegramChatId: String(chatId),
+      studentId: preview.student?.id,
+      preview
+    });
+    await sendMessage(token, chatId, studentPreviewMessage(preview), confirmStudentKeyboard());
   } catch {
     flow.attempts = Number(flow.attempts || 0) + 1;
     if (flow.attempts >= 5) {
@@ -181,13 +219,57 @@ async function handleCallback(update, deps) {
   const chatId = callback?.message?.chat?.id;
   if (!token || !chatId) return;
   const data = String(callback.data || "");
+  const chatKey = String(chatId);
+
+  if (data === "cancel_login") {
+    loginFlows.delete(chatKey);
+    if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id, text: "Bekor qilindi" });
+    await sendMessage(token, chatId, "Ro'yxatdan o'tish bekor qilindi. Qayta boshlash uchun /start yuboring.", removeKeyboard());
+    return;
+  }
+
+  if (data === "confirm_student") {
+    const flow = loginFlows.get(chatKey);
+    if (!flow || flow.step !== "confirm") {
+      if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id, text: "Sessiya topilmadi" });
+      await askForContact(token, chatId);
+      return;
+    }
+    try {
+      const payload = await deps.studentAppPasswordLogin(
+        {
+          phone: flow.phone,
+          password: flow.password,
+          organization_id: flow.organizationId,
+          telegram_user_id: flow.telegramUserId,
+          telegram_chat_id: flow.telegramChatId
+        },
+        { userAgent: "telegram-bot", ipAddress: "telegram" }
+      );
+      loginFlows.delete(chatKey);
+      if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id, text: "Tasdiqlandi" });
+      await sendMessage(
+        token,
+        chatId,
+        "✅ Telegram profilingiz Eduka Student App bilan bog'landi.\n\nQuyidagi tugmani bosing — Student App avtomatik bosh sahifada ochiladi.",
+        webAppKeyboard(payload.webAppUrl)
+      );
+      return;
+    } catch (error) {
+      console.error(`Telegram confirm failed: ${error.message}`);
+      if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id, text: "Xatolik" });
+      await sendMessage(token, chatId, "Tasdiqlashda xatolik yuz berdi. Iltimos, /start orqali qayta urinib ko'ring.");
+      return;
+    }
+  }
+
   if (data.startsWith("org:")) {
-    const flow = loginFlows.get(String(chatId));
+    const flow = loginFlows.get(chatKey);
     if (flow?.phone) {
       flow.step = "password";
       flow.organizationId = Number(data.slice(4));
       flow.attempts = Number(flow.attempts || 0);
-      loginFlows.set(String(chatId), flow);
+      loginFlows.set(chatKey, flow);
       await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id });
       await sendMessage(token, chatId, "Parolingizni kiriting.", removeKeyboard());
       return;
@@ -365,6 +447,10 @@ async function handleUpdate(update, deps) {
   }
   if (flow.step === "password") {
     await handlePassword(token, chatId, message, flow, deps);
+    return;
+  }
+  if (flow.step === "confirm") {
+    await sendMessage(token, chatId, "Ma'lumotlaringizni tasdiqlash uchun xabardagi ✅ tugmani bosing yoki /start orqali qayta boshlang.");
     return;
   }
   await sendMessage(token, chatId, "Kerakli amalni tanlang. /app komandasi orqali Student App'ni ochishingiz mumkin.");

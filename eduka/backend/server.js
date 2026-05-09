@@ -4291,6 +4291,40 @@ async function handleStudentAppAuthPhone(request, response) {
   }
 }
 
+async function studentAppPasswordPreview(payload) {
+  const pool = getDbPool();
+  await ensureSchema(pool);
+  const rows = await findStudentsByPhone(pool, payload.phone, { organizationId: payload.organization_id, subdomain: payload.subdomain });
+  const student = rows[0];
+  if (!student) {
+    const error = new Error("Bu telefon raqam bo'yicha o'quvchi topilmadi");
+    error.statusCode = 404;
+    throw error;
+  }
+  const password = String(payload.password || "");
+  const normalizedStudentPhone = normalizePhone(student.phone);
+  const temporaryPassword = normalizedStudentPhone.slice(-4);
+  const demoPasswordEnabled = process.env.NODE_ENV !== "production" && process.env.STUDENT_APP_DEMO_PASSWORD;
+  const configuredDemoPassword = demoPasswordEnabled ? String(process.env.STUDENT_APP_DEMO_PASSWORD) : "";
+  const valid = student.app_password_hash
+    ? verifyPassword(password, student.app_password_hash)
+    : (password && (password === temporaryPassword || (demoPasswordEnabled && normalizedStudentPhone === "998931949200" && password === configuredDemoPassword)));
+  if (!valid) {
+    const error = new Error("Telefon raqam yoki parol noto'g'ri");
+    error.statusCode = 401;
+    throw error;
+  }
+  return {
+    ok: true,
+    student: studentPublic(student),
+    organization: {
+      id: student.organization_id,
+      name: student.organization_name,
+      subdomain: student.organization_subdomain
+    }
+  };
+}
+
 async function studentAppPasswordLogin(payload, meta = {}) {
   const pool = getDbPool();
   await ensureSchema(pool);
@@ -4853,6 +4887,7 @@ async function handleTelegramWebhook(request, response) {
       ensureSchema,
       normalizePhone,
       studentAppPasswordLogin,
+      studentAppPasswordPreview,
       createLinkedStudentAppSession,
       findStudentsByPhone,
       postTelegramMessage,
@@ -5058,7 +5093,7 @@ async function handleGlobalSearchRequest(request, response, query) {
 
 
 
-// Eduka 22.1.0 — Student App 22 + Gamification overrides
+// Eduka 22.1.1 — Student App 22 + Gamification overrides
 async function ensureStudentGamificationDefaults(pool, organizationId) {
   if (!organizationId) return;
   await pool.query(

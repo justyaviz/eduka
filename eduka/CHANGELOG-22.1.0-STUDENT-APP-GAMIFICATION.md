@@ -1,4 +1,4 @@
-# Eduka 22.1.0 — Student App 22 + Gamification & Telegram Link
+# Eduka 22.1.1 — Student App 22 + Gamification & Telegram Link
 
 ## Student App
 - Student App UI 22.1 qayta yozildi: mobile-first, sodda, ishlaydigan ekranlar.
