@@ -15,11 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-<<<<<<< HEAD
 const EDUKA_VERSION = "20.4.0";
-=======
-const EDUKA_VERSION = "20.3.0";
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -4994,13 +4990,9 @@ async function saveCrmDrawer(form) {
     item = { ...existing, id: editing ? existing.id : nextCrmId("paymentTypes"), name: data.name.trim(), type: data.type || "Markaz", active: data.active === "on" };
   } else if (["extraIncomes", "salaryPayments", "bonuses", "expenses"].includes(resource)) {
     const staff = state.teachers.find((entry) => String(entry.id) === String(data.employee_id));
-<<<<<<< HEAD
     const typeByResource = { extraIncomes: "income", salaryPayments: "salary", bonuses: "bonus", expenses: "expense" };
     const categoryByResource = { extraIncomes: "extra-income", salaryPayments: "salary", bonuses: "bonus", expenses: "expense" };
     item = { ...existing, id: editing ? existing.id : nextCrmId(resource), type: typeByResource[resource], category: data.category || categoryByResource[resource], employee_id: data.employee_id || "", teacher_id: data.employee_id || "", employee_name: staff?.full_name || staff?.fullName || data.employee_name || "", staff_name: staff?.full_name || staff?.fullName || currentUser?.fullName || currentUser?.name || "CEO", customer_name: data.customer_name || "", reason: data.reason || data.note || "", title: data.reason || data.category || data.note || "", amount: Number(data.amount || 0), payment_type_id: data.payment_type_id || null, payment_type: data.payment_type || "Naqd pul", source: data.source || "kassa", transaction_date: data.date || data.transaction_date || new Date().toISOString().slice(0, 10), date: data.date || new Date().toISOString().slice(0, 10), created_at: existing.created_at || new Date().toISOString(), note: data.note };
-=======
-    item = { ...existing, id: editing ? existing.id : nextCrmId(resource), employee_id: data.employee_id || "", teacher_id: data.employee_id || "", employee_name: staff?.full_name || staff?.fullName || data.employee_name || "", staff_name: staff?.full_name || staff?.fullName || currentUser.name || "CEO", customer_name: data.customer_name || "", reason: data.reason || data.note || "", title: data.reason || data.category || data.note || "", category: data.category || "default", amount: Number(data.amount || 0), payment_type: data.payment_type || "Naqd pul", source: data.source || "kassa", date: data.date || new Date().toISOString().slice(0, 10), created_at: existing.created_at || new Date().toISOString(), note: data.note };
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
   } else if (resource === "payments") {
     const student = state.students.find((entry) => String(entry.id) === String(data.student_id));
     const group = state.groups.find((entry) => String(entry.id) === String(data.group_id || student?.group_id));

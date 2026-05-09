@@ -1149,7 +1149,6 @@ CROSS JOIN (VALUES
 ) AS p(permission_key)
 WHERE ar.name='platform_owner'
 ON CONFLICT (role_id, permission_key) DO UPDATE SET enabled=EXCLUDED.enabled;
-<<<<<<< HEAD
 
 
 -- Eduka 21.0 stabilization schema hardening
@@ -1182,5 +1181,3 @@ CREATE INDEX IF NOT EXISTS leads_org_status_idx ON leads(organization_id, status
 CREATE INDEX IF NOT EXISTS payments_org_student_idx ON payments(organization_id, student_id);
 CREATE INDEX IF NOT EXISTS groups_org_teacher_idx ON groups(organization_id, teacher_id);
 CREATE INDEX IF NOT EXISTS attendance_org_student_date_idx ON attendance_records(organization_id, student_id, lesson_date);
-=======
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c

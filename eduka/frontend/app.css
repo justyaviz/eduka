@@ -6150,7 +6150,6 @@ body {
   .finance-filter-bar select,
   .finance-filter-bar button { width: 100%; }
 }
-<<<<<<< HEAD
 
 
 /* ===== Eduka v20.4: Settings / Reports / Archive / Market Polish ===== */
@@ -6279,5 +6278,3 @@ body {
   .crm-204-report-grid, .market-204-layout, .settings-204-grid { grid-template-columns: 1fr; }
   .permission-row { grid-template-columns: 1fr; }
 }
-=======
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c

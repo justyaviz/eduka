@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-const EDUKA_STUDENT_VERSION = "20.4.0";
-=======
-const EDUKA_STUDENT_VERSION = "20.3.0";
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
+const EDUKA_STUDENT_VERSION = "21.0.0";
 function finishStudentBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -1417,5 +1413,441 @@ screen.addEventListener("input", (event) => {
 
 window.addEventListener("popstate", renderCurrent);
 telegramReady();
+// Eduka 21.0 student UI starts after the upgrade block below.
+
+
+
+/* ============================
+   EDUKA STUDENT APP 21.0
+   Cambridge glass UI + coin system
+   ============================ */
+
+Object.assign(routeAliases, {
+  services: "services",
+  progress: "progress",
+  today: "today",
+  chat: "chat",
+  "chat-room": "chat-room",
+  products: "products",
+  translator: "translator",
+  support: "support",
+  "mock-club": "mock-club",
+  "idp-exam": "idp-exam",
+  "university-support": "university-support",
+  "letter-request": "letter-request",
+  "mid-final": "mid-final",
+  "events": "events"
+});
+
+Object.assign(resourceByRoute, {
+  services: "dashboard",
+  progress: "dashboard",
+  today: "study",
+  chat: "dashboard",
+  "chat-room": "dashboard",
+  products: "dashboard",
+  translator: "dictionary",
+  support: "group",
+  "mock-club": "exams",
+  "idp-exam": "exams",
+  "university-support": "dashboard",
+  "letter-request": "dashboard",
+  "mid-final": "exams",
+  events: "events"
+});
+
+navItems.splice(0, navItems.length,
+  { key: "home", label: "Main", icon: "home", route: "home" },
+  { key: "progress", label: "Progress", icon: "rating", route: "progress" },
+  { key: "today", label: "Today", icon: "calendar", route: "today" },
+  { key: "chat", label: "Chat", icon: "message", route: "chat" },
+  { key: "profile", label: "Profile", icon: "profile", route: "profile-settings" }
+);
+
+function student21Local() {
+  const key = "eduka_student_21_state";
+  const saved = JSON.parse(localStorage.getItem(key) || "{}");
+  return {
+    key,
+    coins: Number(saved.coins || 0),
+    points: Number(saved.points || 0),
+    claimed: saved.claimed || {}
+  };
+}
+
+function saveStudent21Local(next) {
+  localStorage.setItem(next.key || "eduka_student_21_state", JSON.stringify({
+    coins: Number(next.coins || 0),
+    points: Number(next.points || 0),
+    claimed: next.claimed || {}
+  }));
+}
+
+function student21Profile(data = {}) {
+  const student = data.student || referenceData.student;
+  const local = student21Local();
+  const baseCoins = Number(student.coins || 0);
+  const basePoints = Number(student.crystals || student.points || 0);
+  return {
+    ...student,
+    fullName: student.fullName || student.full_name || "Harvey Specter",
+    groupName: student.groupName || student.group_name || "Elementary 10:30",
+    courseName: student.courseName || student.course_name || "Pre-Intermediate",
+    coins21: baseCoins + local.coins,
+    points21: basePoints + local.points,
+    rank21: Number(student.rank || 12),
+    streak21: Number(student.streak || 17),
+    average21: Number(student.average || student.attendancePercent || 97),
+    local
+  };
+}
+
+function stat21(iconText, value, label, tone) {
+  return `<article class="glass-stat">
+    <span class="glass-icon ${tone}">${iconText}</span>
+    <div><strong>${escapeHtml(String(value))}</strong><small>${escapeHtml(label)}</small></div>
+  </article>`;
+}
+
+function glassIcon(label, tone = "blue") {
+  const letter = String(label || "E").trim()[0] || "E";
+  return `<span class="glass-icon ${tone}">${escapeHtml(letter)}</span>`;
+}
+
+function sectionTitle21(title, route = "") {
+  return `<div class="glass-section-title"><h2>${escapeHtml(title)}</h2>${route ? `<button type="button" data-route="${escapeHtml(route)}">Show all</button>` : ""}</div>`;
+}
+
+const serviceCards21 = [
+  ["Explore Library", "library", "📚"],
+  ["Support Teacher", "support", "👩‍🏫"],
+  ["Cambridge Translator", "translator", "🔁"],
+  ["IELTS Mock Club", "mock-club", "🗓"],
+  ["IDP IELTS Exam", "idp-exam", "📝"],
+  ["University Support", "university-support", "🏛"],
+  ["Letter Request", "letter-request", "📄"],
+  ["Mid & Final Exams", "mid-final", "📅"],
+  ["Cambridge Events", "events", "📍"]
+];
+
+const products21 = [
+  ["Branded T-shirt", "70 coins", "👕"],
+  ["Branded Notebook", "25 coins", "📓"],
+  ["Branded Cap", "40 coins", "🧢"],
+  ["Speaking Club Pass", "120 coins", "🎟"]
+];
+
+const tasks21 = [
+  ["Homework", "Done 0 of 2 parts", 55, 100, "orange", "📚"],
+  ["Extra Tasks", "Done 0 of 4 parts", 43, 50, "blue", "📝"],
+  ["Fun Box", "Done 1 of 4 parts", 25, 50, "green", "🎨"]
+];
+
+function story21(title, subtitle, tone = "blue") {
+  return `<button class="story21 ${tone}" type="button" data-action="soft-toast" data-message="${escapeHtml(title)} ochildi">
+    <span>${escapeHtml(title.split(/\s+/).map(w => w[0]).join("").slice(0,2))}</span>
+    <strong>${escapeHtml(title)}</strong>
+    <small>${escapeHtml(subtitle)}</small>
+  </button>`;
+}
+
+function renderHome(data) {
+  const s = student21Profile(data);
+  mount(`
+    <header class="glass-user-head">
+      <div>${avatar(s)}<strong>${escapeHtml(s.fullName)}</strong></div>
+      ${iconButton("bell", "Notifications", 'data-route="notifications"')}
+    </header>
+
+    <section class="story-row21">
+      ${story21("Word of the Day", "new", "blue")}
+      ${story21("IELTS Results", "score", "green")}
+      ${story21("Kelajak Kasblari", "grant", "orange")}
+      ${story21("Trip Nest", "event", "violet")}
+    </section>
+
+    <section class="course-card21">
+      <div><strong>${escapeHtml(s.courseName || "Pre-Intermediate")}</strong><span>→ Intermediate</span></div>
+      <div><b>Unit 3.2</b><b>Week 12</b><b>${escapeHtml(String(s.average21))}% Completed</b></div>
+    </section>
+
+    <article class="alert-card21">
+      <div><strong>January 27, 2024</strong><span>Classes for 29/01/2024 are canceled for several reasons</span></div>
+      <b>×</b>
+    </article>
+
+    <section class="glass-stats">
+      ${stat21("💼", number(s.coins21), "Coins", "blue")}
+      ${stat21("★", number(s.points21), "Points", "gold")}
+      ${stat21("♟", `#${s.rank21}`, "Leaderboard", "green")}
+      ${stat21("🔥", `${s.streak21} days`, "Streak", "red")}
+    </section>
+
+    ${sectionTitle21("Services", "services")}
+    <section class="service-scroll21">${serviceCards21.slice(0, 6).map(([label, route, ico]) => `
+      <button class="service-card21" type="button" data-route="${route}">
+        <span>${ico}</span><strong>${escapeHtml(label)}</strong>
+      </button>`).join("")}</section>
+
+    ${sectionTitle21("Popular Products", "products")}
+    <section class="product-scroll21">${products21.map(([title, price, emoji]) => `
+      <article class="product21"><div class="product-art21">${emoji}</div><strong>${escapeHtml(title)}</strong><button type="button" data-action="buy-product" data-price="${parseInt(price)}">${escapeHtml(price)}</button></article>
+    `).join("")}</section>
+  `, { active: "home", pageClass: "glass-page21" });
+}
+
+function renderServices(data) {
+  mount(`
+    ${simpleHeader("Services", "", "home")}
+    <section class="services-grid21">
+      ${serviceCards21.map(([label, route, ico], index) => `
+        <button class="service-card21 big" type="button" data-route="${route}">
+          <span>${ico}</span><strong>${escapeHtml(label)}</strong>
+        </button>`).join("")}
+    </section>
+  `, { active: "home", pageClass: "glass-page21" });
+}
+
+function renderLibrary(data) {
+  const levels = [
+    ["Beginner", "Resources", "green", "C"],
+    ["Elementary", "Resources", "orange", "C"],
+    ["Pre-Intermediate", "Resources", "blue", "C"],
+    ["Intermediate", "Resources", "red", "C"],
+    ["Upper-Intermediate", "Resources", "orange-red", "6"],
+    ["Advanced", "Resources", "black", "9"]
+  ];
+  mount(`
+    ${simpleHeader("Library", "", "services")}
+    <section class="library-levels21">
+      ${levels.map(([name, sub, tone, mark]) => `<button type="button" class="level-card21 ${tone}" data-action="library-level" data-title="${escapeHtml(name)}">
+        <span>${escapeHtml(mark)}</span>
+      </button><div class="level-caption21"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(sub)}</small></div>`).join("")}
+    </section>
+  `, { active: "home", pageClass: "glass-page21 library-page21" });
+}
+
+function progressMetric21(iconEmoji, title, value, total = 25) {
+  const pct = Math.max(0, Math.min(100, (Number(value) / Number(total || 25)) * 100));
+  return `<div class="metric-line21"><span>${iconEmoji}</span><div><strong>${value}%</strong><small>${escapeHtml(title)}</small><i><b style="width:${pct}%"></b></i></div><em>out of ${total}%</em></div>`;
+}
+
+function renderProgress(data) {
+  const s = student21Profile(data);
+  const score = s.average21;
+  mount(`
+    <header class="progress-title21"><h1>My Progress</h1></header>
+    <section class="progress-hero21 ${score < 60 ? "fail" : score < 90 ? "mid" : "pass"}">
+      <h2>Total Average Score: ${score}%</h2>
+      <div><span>&gt; 90% - Pass with no exam</span><span>&lt; 60% - Fail</span></div>
+      ${progressMetric21("🎓", "Homework", 25)}
+      ${progressMetric21("🧾", "Attendance", 20)}
+      ${progressMetric21("📋", "Weekly Tests", 20)}
+      ${progressMetric21("💬", "CLT Speaking", 20)}
+    </section>
+    <section class="points-chart21">
+      <div class="chart-head21"><span class="glass-icon gold">★</span><div><strong>${number(s.points21)}</strong><small>Points earned</small></div></div>
+      <div class="fake-chart21"><i></i><b>72 points</b></div>
+    </section>
+    <section class="lesson-stats21">
+      ${stat21("👍", "72", "Attended lessons", "blue")}
+      ${stat21("👎", "18", "Missed lessons", "blue")}
+      ${stat21("💎", number(s.coins21), "Coins earned", "blue")}
+      ${stat21("🏆", `#${s.rank21}`, "Position", "gold")}
+    </section>
+  `, { active: "progress", pageClass: "glass-page21 progress-page21" });
+}
+
+function renderChat(data) {
+  const rooms = [
+    ["Elementary 10:30", "Typing...", "Just now", 3, "blue", "chat-room"],
+    ["Support Teacher", "Yeah, you right", "8:25 pm", 2, "violet", "support"],
+    ["AI Friend", "Hey, how it’s going?", "5:10 pm", 0, "green", "chat-room"],
+    ["AI Assistant", "Could you please help me with essay s...", "10:51 am", 0, "red", "chat-room"],
+    ["Cambridge Support", "Hey, how can I help you?", "7:24 pm", 0, "gold", "chat-room"]
+  ];
+  mount(`
+    <header class="chat-head21"><h1>Chat</h1></header>
+    <label class="chat-search21">${icon("search")}<input placeholder="Search" /></label>
+    <section class="chat-list21">${rooms.map(([name,last,time,count,tone,route]) => `
+      <button class="chat-row21" type="button" data-route="${route}">
+        <span class="glass-icon ${tone}">💬</span>
+        <div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(last)}</small></div>
+        <em>${escapeHtml(time)}</em>
+        ${count ? `<b>${count}</b>` : ""}
+      </button>`).join("")}</section>
+  `, { active: "chat", pageClass: "glass-page21 chat-page21" });
+}
+
+function renderChatRoom(data) {
+  mount(`
+    ${simpleHeader("Elementary 10:30", `<button class="round-chat21" type="button">💬</button>`, "chat")}
+    <section class="pinned21"><div><strong>Pinned Message</strong><small>12:00 pm, at Yunusabad</small></div><button type="button">×</button></section>
+    <section class="messages21">
+      <div class="msg21 me">Hey, everybody, I'm gonna be a little late today 🥲<small>09:25 am</small></div>
+      <div class="msg-user21"><span>MR</span><div><strong>Mike Rose</strong><p>Hey Harvey, be on time please, we have an important test today</p></div></div>
+      <div class="msg-user21"><span>DP</span><div><strong>Donna Paulsen</strong><p>Yes Harvey, try to be on time please, we will wait you 10-15 minutes</p></div></div>
+    </section>
+    <form class="composer21"><button type="button">📎</button><input placeholder="Type here..." /><button type="button">➤</button></form>
+  `, { active: "chat", pageClass: "glass-page21 chat-room-page21" });
+}
+
+function renderToday(data) {
+  const local = student21Local();
+  mount(`
+    <header class="today-head21"><h1>Today</h1><div><span class="glass-icon gold">★</span><b>${Object.keys(local.claimed).length * 50}/200</b></div></header>
+    <section class="week-strip21">${["15","16","17","18","19","20","21"].map((day, i) => `<button class="${i===4 ? "active" : i<4 ? "done" : ""}" type="button"><small>${["M","T","W","T","F","S","S"][i]}</small><b>${day}</b></button>`).join("")}</section>
+    ${sectionTitle21("Today’s Tasks", "")}
+    <section class="tasks21">${tasks21.map(([title, sub, pct, reward, tone, emoji], i) => {
+      const claimed = local.claimed[`task-${i}`];
+      return `<article class="task-card21">
+        <span class="task-art21 ${tone}">${emoji}</span>
+        <div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(sub)}</small><i><b style="width:${pct}%"></b></i></div>
+        <button type="button" data-action="claim-task" data-task="task-${i}" data-coins="${reward}" ${claimed ? "disabled" : ""}>★ ${claimed ? "done" : reward}</button>
+        <em>${pct}%</em>
+      </article>`;
+    }).join("")}</section>
+  `, { active: "today", pageClass: "glass-page21 today-page21" });
+}
+
+function renderProducts(data) {
+  const s = student21Profile(data);
+  mount(`
+    ${simpleHeader("Popular Products", "", "home")}
+    <section class="shop-balance21">${stat21("💼", number(s.coins21), "Available coins", "blue")}</section>
+    <section class="products-grid21">${products21.concat([
+      ["Branded Hoodie", "150 coins", "🧥"],
+      ["Exam Voucher", "300 coins", "🎫"]
+    ]).map(([title, price, emoji]) => `<article class="product21 big"><div class="product-art21">${emoji}</div><strong>${escapeHtml(title)}</strong><button type="button" data-action="buy-product" data-price="${parseInt(price)}">${escapeHtml(price)}</button></article>`).join("")}</section>
+  `, { active: "home", pageClass: "glass-page21" });
+}
+
+function renderGenericService21(title, subtitle, emoji) {
+  mount(`${simpleHeader(title, "", "services")}<section class="service-detail21"><span>${emoji}</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(subtitle)}</p><button class="sa-primary-button" type="button" data-action="soft-toast" data-message="So'rov qabul qilindi">Request</button></section>`, { active: "home", pageClass: "glass-page21" });
+}
+
+function renderCurrent() {
+  const route = currentRoute();
+  appState.loadingRoute = route;
+  showLoading();
+  try {
+    const renderMap = {
+      home: renderHome,
+      services: renderServices,
+      library: renderLibrary,
+      progress: renderProgress,
+      today: renderToday,
+      chat: renderChat,
+      "chat-room": renderChatRoom,
+      products: renderProducts,
+      rating: renderProgress,
+      study: renderToday,
+      "profile-settings": renderProfileSettings,
+      referral: renderReferral,
+      "extra-lesson": renderExtraLesson,
+      dictionary: renderDictionary,
+      "exam-results": renderExamResults,
+      "my-group": renderMyGroup,
+      schedule: renderSchedule,
+      notifications: renderNotifications,
+      payments: renderPayments
+    };
+    loadData(route).then((data) => {
+      if (appState.loadingRoute !== route) return;
+      if (renderMap[route]) return renderMap[route](data);
+      const generic = {
+        translator: ["Cambridge Translator", "So'z, gap va dars matnlarini tez tarjima qilish bo'limi.", "🔁"],
+        support: ["Support Teacher", "Qo'shimcha savol va maslahat uchun support teacher bilan bog'laning.", "👩‍🏫"],
+        "mock-club": ["IELTS Mock Club", "Mock imtihonlar, natijalar va ro'yxatdan o'tish jarayoni.", "🗓"],
+        "idp-exam": ["IDP IELTS Exam", "IDP IELTS exam bo'yicha ro'yxatdan o'tish va eslatmalar.", "📝"],
+        "university-support": ["University Support", "Universitet tanlash, application va hujjatlar bo'yicha yordam.", "🏛"],
+        "letter-request": ["Letter Request", "Recommendation, enrollment va boshqa letter so'rovlari.", "📄"],
+        "mid-final": ["Mid & Final Exams", "Midterm va final imtihonlari jadvali va natijalari.", "📅"],
+        events: ["Cambridge Events", "Speaking club, workshop va maxsus eventlar.", "📍"]
+      }[route];
+      if (generic) return renderGenericService21(...generic);
+      return renderHome(data);
+    }).catch(renderError);
+  } catch (error) {
+    renderError(error);
+  }
+}
+
+function renderLoginRequired(expired = false) {
+  screen.innerHTML = `
+    <section class="sa-login login21">
+      <div class="login-orb21">🎓</div>
+      <h1>${expired ? "Sessiya muddati tugagan" : "Student App 21.0"}</h1>
+      <p>Test uchun: <b>+998931949200</b> / parol: <b>8888</b></p>
+      <form class="student-login21" data-student-login21>
+        <label>Telefon<input name="phone" value="+998931949200" placeholder="+998 __ ___ __ __" /></label>
+        <label>Parol<input name="password" value="8888" type="password" placeholder="8888" /></label>
+        <button type="submit">Kirish</button>
+      </form>
+      <a class="login-bot21" href="${BOT_URL}">Telegram bot orqali kirish</a>
+    </section>
+  `;
+}
+
+screen.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-student-login21]");
+  if (!form) return;
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(form).entries());
+  const btn = form.querySelector("button");
+  btn.disabled = true;
+  btn.textContent = "Tekshirilmoqda...";
+  try {
+    const payload = await api("/api/student-app/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ phone: data.phone, password: data.password, subdomain: "aloo-academy" })
+    });
+    saveToken(payload.token);
+    appState.base = payload;
+    toast("Student App ochildi", "success");
+    navigate("home");
+  } catch (error) {
+    toast(error.message || "Kirishda xatolik", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Kirish";
+  }
+});
+
+phone.addEventListener("click", (event) => {
+  const buy = event.target.closest('[data-action="buy-product"]');
+  if (buy) {
+    const price = Number(buy.dataset.price || 0);
+    const local = student21Local();
+    const base = appState.base?.student ? Number(appState.base.student.coins || 0) : 0;
+    if (base + local.coins < price) return toast("Coin yetarli emas", "error");
+    local.coins -= price;
+    saveStudent21Local(local);
+    toast("Mahsulot savatga qo'shildi", "success");
+    renderCurrent();
+  }
+  const claim = event.target.closest('[data-action="claim-task"]');
+  if (claim && !claim.disabled) {
+    const local = student21Local();
+    const task = claim.dataset.task;
+    if (local.claimed[task]) return;
+    const reward = Number(claim.dataset.coins || 0);
+    local.claimed[task] = true;
+    local.coins += reward;
+    local.points += reward * 10;
+    saveStudent21Local(local);
+    toast(`+${reward} coin qo'shildi`, "success");
+    renderCurrent();
+  }
+  const level = event.target.closest('[data-action="library-level"]');
+  if (level) {
+    openStudentModal({
+      title: level.dataset.title || "Resources",
+      body: `<p>${escapeHtml(level.dataset.title || "Level")} uchun reading, listening, grammar va vocabulary materiallari shu yerda ko'rinadi.</p><div class="sa-card-list"><article class="sa-small-card"><span class="sa-small-icon">📘</span><div class="sa-list-main"><strong>Starter Pack</strong><span>PDF + Video lesson</span></div></article><article class="sa-small-card"><span class="sa-small-icon">🎧</span><div class="sa-list-main"><strong>Listening Practice</strong><span>Audio resources</span></div></article></div>`,
+      action: `<button class="sa-primary-button" type="button" data-action="modal-save">Open Resources</button>`
+    });
+  }
+});
+
 renderCurrent();
 finishStudentBoot();

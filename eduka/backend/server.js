@@ -614,11 +614,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-<<<<<<< HEAD
       "X-Eduka-Version": "21.0.0"
-=======
-      "X-Eduka-Version": "20.3.0"
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
     };
     if (noCache) {
       headers.Pragma = "no-cache";
