@@ -1053,3 +1053,131 @@ SELECT * FROM (VALUES
   ('Enterprise', 0::numeric, 100000, 5000, 1000, 10000, 100000, '{"students":true,"groups":true,"teachers":true,"finance":true,"attendance":true,"leads":true,"student_app":true,"parent_app":true,"telegram":true,"sms":true,"import_export":true,"custom_domain":true,"advanced_reports":true,"api_access":true,"role_permission":true,"white_label":true}'::jsonb, 'dedicated')
 ) AS seed(name, monthly_price, student_limit, teacher_limit, branch_limit, group_limit, sms_limit, feature_flags, support_level)
 WHERE NOT EXISTS (SELECT 1 FROM tariffs t WHERE LOWER(t.name)=LOWER(seed.name));
+
+
+-- Eduka 19.6 stabilization: safe constraints, indexes, admin users and no-demo production foundations
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS temporary_password BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subdomain TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS custom_domain TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT '#0A84FF';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS billing_email TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS read_only_until TIMESTAMPTZ;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS storage_limit_mb INTEGER NOT NULL DEFAULT 1024;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS sms_limit INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS student_limit INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS teacher_limit INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS branch_limit INTEGER NOT NULL DEFAULT 1;
+
+-- Deduplicate rows before adding production unique indexes. Keeps the newest row by id.
+DELETE FROM organization_domains a USING organization_domains b
+WHERE a.id < b.id AND lower(a.domain)=lower(b.domain);
+
+DELETE FROM organization_feature_flags a USING organization_feature_flags b
+WHERE a.ctid < b.ctid AND a.organization_id=b.organization_id AND a.feature_key=b.feature_key;
+
+DELETE FROM subscriptions a USING subscriptions b
+WHERE a.id < b.id AND a.organization_id=b.organization_id;
+
+DELETE FROM organization_roles a USING organization_roles b
+WHERE a.id < b.id AND a.organization_id=b.organization_id AND lower(a.name)=lower(b.name);
+
+DELETE FROM organization_permissions a USING organization_permissions b
+WHERE a.id < b.id AND a.role_id=b.role_id AND a.permission_key=b.permission_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS organizations_subdomain_unique_196
+ON organizations (lower(subdomain)) WHERE subdomain IS NOT NULL AND subdomain <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS organizations_custom_domain_unique_196
+ON organizations (lower(custom_domain)) WHERE custom_domain IS NOT NULL AND custom_domain <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_196
+ON users (lower(email)) WHERE email IS NOT NULL AND email <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_normalized_phone_unique_196
+ON users (normalized_phone) WHERE normalized_phone IS NOT NULL AND normalized_phone <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_domains_domain_unique_196
+ON organization_domains (lower(domain));
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_domains_org_domain_type_unique_196
+ON organization_domains (organization_id, lower(domain), type);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_feature_flags_org_key_unique_196
+ON organization_feature_flags (organization_id, feature_key);
+
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_org_unique_196
+ON subscriptions (organization_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_settings_org_unique_196
+ON organization_settings (organization_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_branding_org_unique_196
+ON organization_branding (organization_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_roles_org_name_unique_196
+ON organization_roles (organization_id, lower(name));
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_permissions_role_key_unique_196
+ON organization_permissions (role_id, permission_key);
+
+CREATE INDEX IF NOT EXISTS audit_logs_org_created_idx_196 ON audit_logs(organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS users_role_idx_196 ON users(role);
+
+-- Platform owner roles/permissions seed.
+INSERT INTO admin_roles (name, description)
+VALUES
+  ('platform_owner','Eduka platformasi egasi'),
+  ('support_manager','Support manager'),
+  ('sales_manager','Sales manager'),
+  ('finance_manager','Finance manager'),
+  ('technical_manager','Technical manager')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO admin_permissions (role_id, permission_key, enabled)
+SELECT ar.id, p.permission_key, TRUE
+FROM admin_roles ar
+CROSS JOIN (VALUES
+  ('centers.view'),('centers.create'),('centers.block'),('centers.delete'),
+  ('billing.view'),('billing.manage'),('domains.manage'),('support.manage'),
+  ('plans.manage'),('admins.manage'),('audit.view'),('settings.manage')
+) AS p(permission_key)
+WHERE ar.name='platform_owner'
+ON CONFLICT (role_id, permission_key) DO UPDATE SET enabled=EXCLUDED.enabled;
+
+
+-- Eduka 21.0 stabilization schema hardening
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS father_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS mother_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS crystals INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_salary NUMERIC(14,2) NOT NULL DEFAULT 0;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS salary_type TEXT NOT NULL DEFAULT 'fixed';
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS chat_id TEXT;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS delivery_mode TEXT NOT NULL DEFAULT 'offline';
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE salaries ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS students_org_group_idx ON students(organization_id, group_id);
+CREATE INDEX IF NOT EXISTS students_org_status_idx ON students(organization_id, status);
+CREATE INDEX IF NOT EXISTS leads_org_status_idx ON leads(organization_id, status);
+CREATE INDEX IF NOT EXISTS payments_org_student_idx ON payments(organization_id, student_id);
+CREATE INDEX IF NOT EXISTS groups_org_teacher_idx ON groups(organization_id, teacher_id);
+CREATE INDEX IF NOT EXISTS attendance_org_student_date_idx ON attendance_records(organization_id, student_id, lesson_date);

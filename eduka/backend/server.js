@@ -195,6 +195,7 @@ function publicUser(row) {
     email: row.email,
     phone: row.phone,
     role: row.role,
+    permissions: row.permissions || [],
     organization: row.organization_id
       ? {
           id: row.organization_id,
@@ -609,7 +610,17 @@ function sendFile(response, filePath) {
       return;
     }
 
-    response.writeHead(200, { "Content-Type": contentType });
+    const noCache = [".html", ".js", ".css"].includes(extension);
+    const headers = {
+      "Content-Type": contentType,
+      "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
+      "X-Eduka-Version": "21.0.0"
+    };
+    if (noCache) {
+      headers.Pragma = "no-cache";
+      headers.Expires = "0";
+    }
+    response.writeHead(200, headers);
     response.end(content);
   });
 }
@@ -669,6 +680,7 @@ async function findSessionUser(request) {
        u.phone,
        u.role,
        u.organization_id,
+       u.permissions,
        o.name AS organization_name,
        o.slug AS organization_slug,
        COALESCE(o.subdomain, o.slug) AS organization_subdomain,
@@ -701,6 +713,7 @@ async function loadUserById(pool, userId) {
        u.phone,
        u.role,
        u.organization_id,
+       u.permissions,
        o.name AS organization_name,
        o.slug AS organization_slug,
        COALESCE(o.subdomain, o.slug) AS organization_subdomain,
@@ -1145,27 +1158,7 @@ async function seedDemoData(pool, organizationId, userId) {
 }
 
 async function handleDemoLoginRequest(request, response) {
-  try {
-    const pool = getDbPool();
-    await ensureSchema(pool);
-    const org = await pool.query(
-      `INSERT INTO organizations (name, slug, phone, address, status, subscription_status, trial_ends_at, license_expires_at, setup_completed_at)
-       VALUES ('Eduka Demo Center','eduka-demo','+998 99 893 90 00','Toshkent','active','trial',NOW() + interval '7 days',NOW() + interval '7 days',NOW())
-       ON CONFLICT (slug) DO UPDATE SET updated_at=NOW()
-       RETURNING id`,
-    );
-    const user = await pool.query(
-      `INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash)
-       VALUES ($1,'Demo Admin','demo@eduka.uz','+998 90 123 45 67','998901234567','center_admin',$2)
-       ON CONFLICT (normalized_phone) DO UPDATE SET organization_id=$1, email='demo@eduka.uz', role='center_admin', is_active=TRUE
-       RETURNING id`,
-      [org.rows[0].id, hashPassword("demo12345")]
-    );
-    await seedDemoData(pool, org.rows[0].id, user.rows[0].id);
-    await sendSession(response, pool, user.rows[0].id);
-  } catch (error) {
-    withError(response, "Demo login", error);
-  }
+  sendJson(response, 410, { ok: false, message: "Demo login Eduka 19.7 da butunlay o'chirilgan. Super Admin orqali haqiqiy markaz va admin yarating." });
 }
 
 async function handleOnboardingRequest(request, response) {
@@ -1251,12 +1244,96 @@ async function requireSuperUser(request, response) {
     sendJson(response, 401, { ok: false, message: "Unauthorized" });
     return null;
   }
-  if (!["super_admin", "owner"].includes(role)) {
+  if (!["super_admin", "owner", "platform_owner", "support_manager", "sales_manager", "finance_manager", "technical_manager"].includes(role)) {
     sendJson(response, 403, { ok: false, message: "Bu sahifa faqat platforma egasi uchun" });
     return null;
   }
   return user;
 }
+
+function superAdminPermissionsForRole(role) {
+  const map = {
+    super_admin: ["*"],
+    owner: ["*"],
+    platform_owner: ["*"],
+    support_manager: ["centers.view", "support.manage", "audit.view"],
+    sales_manager: ["centers.view", "centers.create", "plans.manage"],
+    finance_manager: ["centers.view", "billing.view", "billing.manage", "audit.view"],
+    technical_manager: ["centers.view", "domains.manage", "support.manage", "audit.view"]
+  };
+  return map[String(role || "").toLowerCase()] || [];
+}
+
+function hasSuperPermission(user, permission) {
+  const base = superAdminPermissionsForRole(user?.role);
+  const extra = Array.isArray(user?.permissions) ? user.permissions : [];
+  const permissions = [...base, ...extra];
+  return permissions.includes("*") || permissions.includes(permission);
+}
+
+async function requireSuperPermission(request, response, permission) {
+  const user = await requireSuperUser(request, response);
+  if (!user) return null;
+  if (!hasSuperPermission(user, permission)) {
+    sendJson(response, 403, { ok: false, message: "Bu platforma amali uchun ruxsat yo'q" });
+    return null;
+  }
+  return user;
+}
+
+function generateTemporaryPassword(prefix = "Eduka") {
+  return `${prefix}-${crypto.randomInt(10000, 99999)}`;
+}
+
+async function seedOrganizationRolesAndPermissions(client, organizationId) {
+  const roleMap = {
+    Owner: ["*"],
+    Admin: ["students.view","students.create","students.update","groups.view","groups.create","teachers.view","teachers.create","payments.view","payments.create","attendance.view","attendance.manage","reports.view","settings.manage","users.manage","leads.view","leads.manage"],
+    Manager: ["students.view","students.create","students.update","groups.view","teachers.view","payments.view","attendance.view","leads.view","leads.manage","reports.view"],
+    Operator: ["students.view","students.create","leads.view","leads.manage"],
+    Teacher: ["students.view","groups.view","attendance.view","attendance.manage","homeworks.manage"],
+    Accountant: ["students.view","payments.view","payments.create","reports.view"],
+    Student: ["student.app"],
+    Parent: ["parent.app"]
+  };
+  for (const [roleName, permissions] of Object.entries(roleMap)) {
+    const roleResult = await client.query(
+      `INSERT INTO organization_roles (organization_id, name, is_system)
+       VALUES ($1,$2,TRUE)
+       ON CONFLICT (organization_id, name) DO UPDATE SET is_system=TRUE
+       RETURNING id`,
+      [organizationId, roleName]
+    );
+    const roleId = roleResult.rows[0].id;
+    for (const permission of permissions) {
+      await client.query(
+        `INSERT INTO organization_permissions (organization_id, role_id, permission_key, enabled)
+         VALUES ($1,$2,$3,TRUE)
+         ON CONFLICT (role_id, permission_key) DO UPDATE SET enabled=TRUE`,
+        [organizationId, roleId, permission]
+      );
+    }
+  }
+}
+
+async function checkPlanLimit(pool, organizationId, limitName, tableName) {
+  const limitColumn = `${limitName}_limit`;
+  const org = (await pool.query(`SELECT ${limitColumn} AS max_count FROM organizations WHERE id=$1`, [organizationId])).rows[0];
+  const maxCount = Number(org?.max_count || 0);
+  if (!maxCount) return { ok: true };
+  const count = Number((await pool.query(`SELECT COUNT(*)::int AS count FROM ${tableName} WHERE organization_id=$1`, [organizationId])).rows[0]?.count || 0);
+  return count < maxCount ? { ok: true } : { ok: false, count, maxCount };
+}
+
+async function ensureFeature(pool, organizationId, featureKey) {
+  const result = await pool.query(
+    `SELECT enabled FROM organization_feature_flags WHERE organization_id=$1 AND feature_key=$2 LIMIT 1`,
+    [organizationId, featureKey]
+  );
+  if (!result.rows.length) return true;
+  return result.rows[0].enabled !== false;
+}
+
 
 async function handleDebtsRequest(request, response) {
   try {
@@ -1606,7 +1683,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '19.5', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '19.7', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
@@ -1637,7 +1714,7 @@ async function handleSuperPlansRequest(request, response, planId = null) {
 async function handleSuperCenterWizardRequest(request, response) {
   let client;
   try {
-    const user = await requireSuperUser(request, response); if (!user) return;
+    const user = await requireSuperPermission(request, response, 'centers.create'); if (!user) return;
     const body = await readJsonBody(request);
     const name = asText(body.name || body.center_name);
     const officialName = asText(body.official_name || body.officialName || name);
@@ -1647,25 +1724,26 @@ async function handleSuperCenterWizardRequest(request, response) {
     const adminPhone = asText(body.admin_phone || body.adminPhone || body.phone);
     const planName = asText(body.plan || body.tariff || "Start");
     const trialDays = Math.max(0, asNumber(body.trial_days || body.trialDays, 14));
-    const password = asText(body.password || body.temporary_password, `Eduka-${crypto.randomInt(10000,99999)}`);
+    const password = body.auto_generate_password !== false ? generateTemporaryPassword() : asText(body.password || body.temporary_password, generateTemporaryPassword());
     const err = validateTenantSubdomain(subdomain);
-    if (!name || !adminName || !adminEmail || !adminPhone || err) { sendJson(response, 400, { ok:false, message: err || "Markaz, admin email/telefon va subdomain kerak" }); return; }
+    if (!name || !adminName || !isValidEmail(adminEmail) || !adminPhone || err) { sendJson(response, 400, { ok:false, message: err || "Markaz, admin email/telefon va subdomain kerak" }); return; }
     const pool = getDbPool(); await ensureSchema(pool); client = await pool.connect(); await client.query("BEGIN");
     const tariff = (await client.query("SELECT * FROM tariffs WHERE LOWER(name)=LOWER($1) LIMIT 1", [planName])).rows[0] || (await client.query("SELECT * FROM tariffs WHERE name='Start' LIMIT 1")).rows[0];
-    const duplicate = await client.query("SELECT id FROM organizations WHERE lower(COALESCE(subdomain, slug))=lower($1) OR lower(COALESCE(custom_domain,''))=lower($2) LIMIT 1", [subdomain, asText(body.custom_domain)]);
+    const duplicate = await client.query("SELECT id FROM organizations WHERE lower(COALESCE(subdomain, slug))=lower($1) OR ($2<>'' AND lower(COALESCE(custom_domain,''))=lower($2)) LIMIT 1", [subdomain, asText(body.custom_domain).toLowerCase()]);
     if (duplicate.rows.length) { await client.query("ROLLBACK"); sendJson(response, 409, { ok:false, message:"Subdomain yoki domain band" }); return; }
     const trialEnds = new Date(Date.now() + trialDays*86400000);
     const org = (await client.query(`INSERT INTO organizations (name, slug, subdomain, owner_name, email, phone, address, logo_url, brand_color, custom_domain, billing_email, plan, monthly_payment, status, subscription_status, trial_ends_at, license_expires_at, student_limit, teacher_limit, branch_limit, sms_limit, storage_limit_mb)
       VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,$9,$4,$10,$11,'active','trial',$12,$12,$13,$14,$15,$16,$17) RETURNING *`,
       [name, subdomain, adminName, adminEmail, adminPhone, asText(body.address), asText(body.logo_url), asText(body.brand_color, "#0A84FF"), asText(body.custom_domain), tariff?.name || planName, asNumber(tariff?.monthly_price), trialEnds, asNumber(tariff?.student_limit,100), asNumber(tariff?.teacher_limit,5), asNumber(tariff?.branch_limit,1), asNumber(tariff?.sms_limit), asNumber(tariff?.storage_limit_mb,1024)])).rows[0];
-    await client.query(`INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active) VALUES ($1,$2,$3,$4,$5,'center_admin',$6,TRUE) RETURNING id`, [org.id, adminName, adminEmail, adminPhone, `tenant-${subdomain}-${Date.now()}`, hashPassword(password)]);
+    await client.query(`INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active) VALUES ($1,$2,$3,$4,$5,'center_admin',$6,TRUE) RETURNING id`, [org.id, adminName, adminEmail, adminPhone, `tenant-${subdomain}-${crypto.randomInt(100000,999999)}`, hashPassword(password)]);
     const sub = (await client.query(`INSERT INTO subscriptions (organization_id, tariff_id, status, starts_at, ends_at, current_period_start, current_period_end, monthly_price, auto_renew, payment_status, next_payment_date) VALUES ($1,$2,'trial',NOW(),$3,NOW(),$3,$4,TRUE,'pending',$3) RETURNING *`, [org.id, tariff?.id || null, trialEnds, asNumber(tariff?.monthly_price)])).rows[0];
     await client.query(`INSERT INTO organization_domains (organization_id, domain, type, verification_status, ssl_status, is_primary) VALUES ($1,$2,'subdomain','verified','active',TRUE)`, [org.id, `${subdomain}.eduka.uz`]);
     if (asText(body.custom_domain)) await client.query(`INSERT INTO organization_domains (organization_id, domain, type, verification_status, ssl_status, is_primary) VALUES ($1,$2,'custom','pending_dns','pending',FALSE)`, [org.id, asText(body.custom_domain)]);
     await client.query(`INSERT INTO organization_branding (organization_id, logo_url, primary_color, student_app_name, white_label_enabled) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id) DO UPDATE SET logo_url=EXCLUDED.logo_url, primary_color=EXCLUDED.primary_color, student_app_name=EXCLUDED.student_app_name, white_label_enabled=EXCLUDED.white_label_enabled, updated_at=NOW()`, [org.id, asText(body.logo_url), asText(body.brand_color, "#0A84FF"), `${name} Student App`, Boolean(body.white_label_enabled)]);
+    await client.query(`INSERT INTO organization_settings (organization_id, settings, updated_at) VALUES ($1,$2::jsonb,NOW()) ON CONFLICT (organization_id) DO UPDATE SET settings=EXCLUDED.settings, updated_at=NOW()`, [org.id, JSON.stringify({ language: 'uz', timezone: 'Asia/Tashkent', student_app_enabled: true, telegram_enabled: Boolean(body.telegram_enabled), sms_enabled: Boolean(body.sms_enabled) })]);
     await applyPlanFeatures(client, org.id, tariff);
-    const roles = ['Owner','Admin','Manager','Operator','Teacher','Accountant','Student','Parent'];
-    for (const role of roles) await client.query(`INSERT INTO organization_roles (organization_id, name, is_system) VALUES ($1,$2,TRUE) ON CONFLICT (organization_id, name) DO NOTHING`, [org.id, role]);
+    await seedOrganizationRolesAndPermissions(client, org.id);
+    if (asNumber(tariff?.monthly_price) > 0) await client.query(`INSERT INTO subscription_invoices (organization_id, subscription_id, invoice_number, amount, status, due_date, note) VALUES ($1,$2,$3,$4,'unpaid',$5,'Auto-created during center wizard')`, [org.id, sub.id, `INV-${org.id}-${Date.now()}`, asNumber(tariff?.monthly_price), trialEnds]);
     await client.query(`INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1,$2,'create_center_wizard','organization',$1,$3)`, [org.id, user.id, JSON.stringify({ plan: tariff?.name || planName, subdomain, custom_domain: body.custom_domain || null })]);
     await client.query("COMMIT");
     sendJson(response, 201, { ok: true, center: org, subscription: sub, login: { url: `https://${subdomain}.eduka.uz`, email: adminEmail, password }, dns: { type: 'CNAME', name: subdomain, value: 'cname.eduka.uz' } });
@@ -1676,7 +1754,7 @@ async function handleSuperCenterAdminResetRequest(request, response, centerId) {
   try {
     const user = await requireSuperUser(request, response); if (!user) return;
     const body = await readJsonBody(request);
-    const password = asText(body.password, `Eduka-${crypto.randomInt(10000,99999)}`);
+    const password = asText(body.password, generateTemporaryPassword());
     const pool = getDbPool();
     const adminRow = await pool.query(`SELECT id FROM users WHERE organization_id=$1 AND role IN ('center_admin','admin','owner') ORDER BY CASE WHEN role='center_admin' THEN 0 WHEN role='owner' THEN 1 ELSE 2 END, id LIMIT 1`, [centerId]);
     const result = adminRow.rows[0]
@@ -1759,6 +1837,98 @@ async function handleSuperSupportTicketsRequest(request, response, ticketId = nu
   } catch (error) { withError(response, "Super support tickets", error); }
 }
 
+
+async function handleSuperAdminUsersRequest(request, response, adminUserId = null) {
+  try {
+    const user = await requireSuperPermission(request, response, "admins.manage");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+
+    if (request.method === "POST") {
+      const body = await readJsonBody(request);
+      const email = asText(body.email).toLowerCase();
+      const fullName = asText(body.full_name || body.fullName || body.name);
+      const phone = asText(body.phone);
+      const role = asText(body.role, "support_manager");
+      const password = body.auto_generate_password !== false ? generateTemporaryPassword() : asText(body.password, generateTemporaryPassword());
+      if (!fullName || !isValidEmail(email)) {
+        sendJson(response, 400, { ok: false, message: "Admin ismi va email kerak" });
+        return;
+      }
+      const permissions = superAdminPermissionsForRole(role);
+      const result = await pool.query(
+        `INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active, temporary_password, permissions, metadata)
+         VALUES (NULL,$1,$2,$3,$4,$5,$6,TRUE,TRUE,$7::jsonb,$8::jsonb)
+         ON CONFLICT (email) DO UPDATE SET full_name=EXCLUDED.full_name, phone=EXCLUDED.phone, role=EXCLUDED.role, password_hash=EXCLUDED.password_hash, is_active=TRUE, temporary_password=TRUE, permissions=EXCLUDED.permissions, metadata=EXCLUDED.metadata, updated_at=NOW()
+         RETURNING id, full_name, email, phone, role, is_active, temporary_password, permissions, created_at, updated_at`,
+        [fullName, email, phone || `admin-${Date.now()}`, normalizePhone(phone) || `admin-${Date.now()}-${crypto.randomInt(1000,9999)}`, role, hashPassword(password), JSON.stringify(permissions), JSON.stringify({ created_by: user.id, scope: 'platform' })]
+      );
+      await writeAudit(pool, user, "create_admin_user", "user", result.rows[0].id, { email, role });
+      sendJson(response, 201, { ok: true, item: result.rows[0], temporaryPassword: password });
+      return;
+    }
+
+    if (request.method === "PUT" && adminUserId) {
+      const body = await readJsonBody(request);
+      const permissions = body.permissions || superAdminPermissionsForRole(body.role);
+      const result = await pool.query(
+        `UPDATE users SET full_name=COALESCE(NULLIF($2,''), full_name), phone=COALESCE(NULLIF($3,''), phone), role=COALESCE(NULLIF($4,''), role), is_active=COALESCE($5, is_active), permissions=COALESCE($6::jsonb, permissions), updated_at=NOW()
+         WHERE id=$1 AND organization_id IS NULL RETURNING id, full_name, email, phone, role, is_active, temporary_password, permissions, created_at, updated_at`,
+        [adminUserId, asText(body.full_name || body.fullName || body.name), asText(body.phone), asText(body.role), typeof body.is_active === 'boolean' ? body.is_active : null, JSON.stringify(permissions || [])]
+      );
+      await writeAudit(pool, user, "update_admin_user", "user", adminUserId, body);
+      sendJson(response, 200, { ok: true, item: result.rows[0] || null });
+      return;
+    }
+
+    if (request.method === "DELETE" && adminUserId) {
+      if (Number(adminUserId) === Number(user.id)) {
+        sendJson(response, 400, { ok: false, message: "O'zingizni bloklay olmaysiz" });
+        return;
+      }
+      const result = await pool.query(
+        `UPDATE users SET is_active=FALSE, updated_at=NOW() WHERE id=$1 AND organization_id IS NULL RETURNING id, email, role, is_active`,
+        [adminUserId]
+      );
+      await writeAudit(pool, user, "block_admin_user", "user", adminUserId, {});
+      sendJson(response, 200, { ok: true, item: result.rows[0] || null });
+      return;
+    }
+
+    const result = await pool.query(
+      `SELECT id, full_name, email, phone, role, is_active, temporary_password, permissions, last_login_at, created_at, updated_at
+       FROM users
+       WHERE organization_id IS NULL AND role IN ('super_admin','owner','platform_owner','support_manager','sales_manager','finance_manager','technical_manager')
+       ORDER BY id ASC`
+    );
+    sendJson(response, 200, { ok: true, items: result.rows });
+  } catch (error) {
+    withError(response, "Super admin users", error);
+  }
+}
+
+async function handleSuperAdminUserResetRequest(request, response, adminUserId) {
+  try {
+    const user = await requireSuperPermission(request, response, "admins.manage");
+    if (!user) return;
+    const body = await readJsonBody(request);
+    const password = asText(body.password, generateTemporaryPassword());
+    const pool = getDbPool();
+    const result = await pool.query(
+      `UPDATE users SET password_hash=$2, temporary_password=TRUE, updated_at=NOW()
+       WHERE id=$1 AND organization_id IS NULL
+       RETURNING id, full_name, email, phone, role, is_active, temporary_password`,
+      [adminUserId, hashPassword(password)]
+    );
+    await writeAudit(pool, user, "reset_admin_user_password", "user", adminUserId, { email: result.rows[0]?.email });
+    sendJson(response, 200, { ok: true, item: result.rows[0] || null, temporaryPassword: password });
+  } catch (error) {
+    withError(response, "Super admin reset", error);
+  }
+}
+
+
 async function handleOrgDashboardRequest(request, response) {
   try {
     const user = await requireUser(request, response, "read"); if (!user) return;
@@ -1800,7 +1970,7 @@ async function handleOrgUsersRequest(request, response) {
     const pool = getDbPool();
     if (request.method === "POST") {
       const body = await readJsonBody(request);
-      const password = asText(body.password, `Eduka-${crypto.randomInt(10000,99999)}`);
+      const password = asText(body.password, generateTemporaryPassword());
       const result = await pool.query(`INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE) RETURNING id, full_name, email, phone, role, is_active`, [user.organization_id, asText(body.full_name || body.name), asText(body.email).toLowerCase(), asText(body.phone), `org-${user.organization_id}-${Date.now()}-${Math.random()}`, asText(body.role, 'manager'), hashPassword(password)]);
       sendJson(response, 201, { ok:true, item: result.rows[0], temporaryPassword: password }); return;
     }
@@ -2282,15 +2452,15 @@ const crudConfigs = {
     filterColumns: { status: "status", course_name: "course_name" },
     sortColumns: ["id", "full_name", "phone", "status", "balance", "created_at"],
     defaultSort: "id",
-    insertSql: `INSERT INTO students (organization_id, full_name, phone, parent_phone, birth_date, address, course_name, group_id, payment_type, discount, status, balance, note)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-    updateSql: `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, birth_date=$6, address=$7, course_name=$8, group_id=$9, payment_type=$10, discount=$11, status=$12, balance=$13, note=$14
+    insertSql: `INSERT INTO students (organization_id, full_name, phone, parent_phone, birth_date, address, course_name, group_id, payment_type, discount, status, balance, note, gender, father_name, mother_name, tags)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+    updateSql: `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, birth_date=$6, address=$7, course_name=$8, group_id=$9, payment_type=$10, discount=$11, status=$12, balance=$13, note=$14, gender=$15, father_name=$16, mother_name=$17, tags=$18
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
     deleteSql: "UPDATE students SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
-        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.parent_phone), asDate(body.birth_date), asText(body.address), asText(body.course_name), body.group_id || null, asText(body.payment_type), asNumber(body.discount), asText(body.status, "active"), asNumber(body.balance), asText(body.note)]
-        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.parent_phone), asDate(body.birth_date), asText(body.address), asText(body.course_name), body.group_id || null, asText(body.payment_type), asNumber(body.discount), asText(body.status, "active"), asNumber(body.balance), asText(body.note)]
+        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.parent_phone), asDate(body.birth_date), asText(body.address), asText(body.course_name), body.group_id || null, asText(body.payment_type), asNumber(body.discount), asText(body.status, "active"), asNumber(body.balance), asText(body.note), asText(body.gender), asText(body.father_name || body.fatherName), asText(body.mother_name || body.motherName), JSON.stringify(Array.isArray(body.tags) ? body.tags : String(body.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean))]
+        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.parent_phone), asDate(body.birth_date), asText(body.address), asText(body.course_name), body.group_id || null, asText(body.payment_type), asNumber(body.discount), asText(body.status, "active"), asNumber(body.balance), asText(body.note), asText(body.gender), asText(body.father_name || body.fatherName), asText(body.mother_name || body.motherName), JSON.stringify(Array.isArray(body.tags) ? body.tags : String(body.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean))]
     })
   },
   leads: {
@@ -2326,15 +2496,15 @@ const crudConfigs = {
     filterColumns: { status: "status", course_name: "course_name", teacher: "teacher_full_name", days: "days" },
     sortColumns: ["id", "name", "course_name", "status", "student_count"],
     defaultSort: "id",
-    insertSql: `INSERT INTO groups (organization_id, name, course_name, status, teacher_id, teacher_name, days, start_time, end_time, monthly_price, starts_at, ends_at, room)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-    updateSql: `UPDATE groups SET name=$3, course_name=$4, status=$5, teacher_id=$6, teacher_name=$7, days=$8, start_time=$9, end_time=$10, monthly_price=$11, starts_at=$12, ends_at=$13, room=$14
+    insertSql: `INSERT INTO groups (organization_id, name, course_name, status, teacher_id, teacher_name, days, start_time, end_time, monthly_price, starts_at, ends_at, room, teacher_salary, salary_type, chat_id, delivery_mode)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+    updateSql: `UPDATE groups SET name=$3, course_name=$4, status=$5, teacher_id=$6, teacher_name=$7, days=$8, start_time=$9, end_time=$10, monthly_price=$11, starts_at=$12, ends_at=$13, room=$14, teacher_salary=$15, salary_type=$16, chat_id=$17, delivery_mode=$18
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
     deleteSql: "UPDATE groups SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
-        ? [id, user.organization_id, asText(body.name), asText(body.course_name), asText(body.status, "active"), body.teacher_id || null, asText(body.teacher_name), asText(body.days), asText(body.start_time), asText(body.end_time), asNumber(body.monthly_price), asDate(body.starts_at), asDate(body.ends_at), asText(body.room)]
-        : [user.organization_id, asText(body.name), asText(body.course_name), asText(body.status, "active"), body.teacher_id || null, asText(body.teacher_name), asText(body.days), asText(body.start_time), asText(body.end_time), asNumber(body.monthly_price), asDate(body.starts_at), asDate(body.ends_at), asText(body.room)]
+        ? [id, user.organization_id, asText(body.name), asText(body.course_name), asText(body.status, "active"), body.teacher_id || null, asText(body.teacher_name), asText(body.days), asText(body.start_time), asText(body.end_time), asNumber(body.monthly_price), asDate(body.starts_at), asDate(body.ends_at), asText(body.room), asNumber(body.teacher_salary || body.salary_rate), asText(body.salary_type, "fixed"), asText(body.chat_id), asText(body.delivery_mode, "offline")]
+        : [user.organization_id, asText(body.name), asText(body.course_name), asText(body.status, "active"), body.teacher_id || null, asText(body.teacher_name), asText(body.days), asText(body.start_time), asText(body.end_time), asNumber(body.monthly_price), asDate(body.starts_at), asDate(body.ends_at), asText(body.room), asNumber(body.teacher_salary || body.salary_rate), asText(body.salary_type, "fixed"), asText(body.chat_id), asText(body.delivery_mode, "offline")]
     })
   },
   teachers: {
@@ -2345,15 +2515,15 @@ const crudConfigs = {
     filterColumns: { status: "status", course_name: "course_name" },
     sortColumns: ["id", "full_name", "status", "created_at"],
     defaultSort: "id",
-    insertSql: `INSERT INTO teachers (organization_id, full_name, phone, email, course_name, subjects, groups, login_enabled, status, salary_type, salary_rate)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-    updateSql: `UPDATE teachers SET full_name=$3, phone=$4, email=$5, course_name=$6, subjects=$7, groups=$8, login_enabled=$9, status=$10, salary_type=$11, salary_rate=$12
+    insertSql: `INSERT INTO teachers (organization_id, full_name, phone, email, course_name, subjects, groups, login_enabled, status, salary_type, salary_rate, birth_date, gender, address, note)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+    updateSql: `UPDATE teachers SET full_name=$3, phone=$4, email=$5, course_name=$6, subjects=$7, groups=$8, login_enabled=$9, status=$10, salary_type=$11, salary_rate=$12, birth_date=$13, gender=$14, address=$15, note=$16
       WHERE id=$1 AND organization_id=$2 RETURNING *`,
     deleteSql: "UPDATE teachers SET status='archived', archived_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id",
     prepare: (body, user, id) => ({
       values: id
-        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate)]
-        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate)]
+        ? [id, user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate), asDate(body.birth_date), asText(body.gender), asText(body.address), asText(body.note)]
+        : [user.organization_id, asText(body.full_name), asText(body.phone), asText(body.email), asText(body.course_name), asText(body.subjects), asText(body.groups), Boolean(body.login_enabled), asText(body.status, "active"), asText(body.salary_type, "fixed"), asNumber(body.salary_rate), asDate(body.birth_date), asText(body.gender), asText(body.address), asText(body.note)]
     })
   }
 };
@@ -3118,12 +3288,29 @@ async function handleSimpleCrudRequest(request, response, config, id = null) {
 
     if (request.method === "GET" && !id) {
       const result = await pool.query(config.listSql, [user.organization_id]);
-      sendJson(response, 200, { ok: true, items: result.rows });
+      let items = result.rows;
+      if (config.table === "finance_transactions" && request.edukaFinanceAlias && request.edukaFinanceAlias !== "transactions") {
+        const aliasMap = {
+          "extra-incomes": ["income", "extra-income", "extra_income"],
+          salary: ["salary", "ish-haqi", "ish_haqi"],
+          bonuses: ["bonus", "bonuses"],
+          expenses: ["expense", "expenses", "xarajat"]
+        };
+        const allowed = aliasMap[request.edukaFinanceAlias] || [];
+        items = items.filter((item) => allowed.includes(String(item.type || "").toLowerCase()) || allowed.includes(String(item.category || "").toLowerCase()));
+      }
+      sendJson(response, 200, { ok: true, items });
       return;
     }
 
     if (request.method === "POST" && !id) {
       const body = await readJsonBody(request);
+      if (config.table === "finance_transactions" && request.edukaFinanceAlias && request.edukaFinanceAlias !== "transactions") {
+        const aliasType = { "extra-incomes": "income", salary: "salary", bonuses: "bonus", expenses: "expense" }[request.edukaFinanceAlias];
+        const aliasCategory = { "extra-incomes": "extra-income", salary: "salary", bonuses: "bonus", expenses: "expense" }[request.edukaFinanceAlias];
+        body.type = body.type || aliasType;
+        body.category = body.category || aliasCategory;
+      }
       const values = [user.organization_id, ...config.fields.map(([name, mapper]) => mapper(body[name]))];
       const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
       const result = await pool.query(
@@ -3511,63 +3698,7 @@ async function requireStudentAppSession(request, response) {
 }
 
 function fallbackStudentAppPayload() {
-  const student = {
-    id: 1,
-    fullName: "Ali Abdullayev",
-    phone: "+998 90 123 45 67",
-    groupName: "KURS - A1",
-    courseName: "IELTS Foundation",
-    balance: -192308,
-    crystals: 120,
-    coins: 2450,
-    referralCode: "ALI120"
-  };
-  return {
-    student,
-    organization: { id: 1, name: "Eduka", subdomain: "app" },
-    settings: {
-      enabled: true,
-      app_name: "Eduka Student App",
-      theme_primary: "#0A84FF",
-      crystals_enabled: true,
-      coins_enabled: true,
-      rating_enabled: true,
-      referral_enabled: true,
-      library_enabled: true,
-      dictionary_enabled: true,
-      extra_lessons_enabled: true,
-      exams_enabled: true,
-      news_enabled: true,
-      payments_enabled: true,
-      complaints_enabled: true
-    },
-    modules: studentAppDefaultModules.map(([key, title, description, icon, sort_order]) => ({ key, title, description, icon, enabled: true, sort_order })),
-    events: [{ id: 1, title: "Speaking Club", description: "Suhbat mashqi", event_date: "2026-05-24", event_time: "15:00", status: "active" }],
-    news: [{ id: 1, title: "Speaking Club ochildi", description: "Har shanba suhbat mashqlari", publish_date: "2026-05-20", status: "published" }],
-    lessons: [
-      { id: 1, title: "Grammar: Present Simple", time: "10:00 - 10:45", status: "completed" },
-      { id: 2, title: "Listening Practice", time: "11:00 - 11:45", status: "in_progress" }
-    ],
-    library: [
-      { id: 1, title: "English Grammar in Use", type: "book", level: "A2-B1", status: "published" },
-      { id: 2, title: "IELTS Listening Recent Tests", type: "audio", level: "B2", status: "published" }
-    ],
-    dictionary: [
-      { id: 1, word: "Achieve", pronunciation: "/əˈtʃiːv/", translation: "erishmoq", example: "I want to achieve my goals.", level: "A2" },
-      { id: 2, word: "Benefit", pronunciation: "/ˈbenɪfɪt/", translation: "foyda", example: "Regular practice has many benefits.", level: "B1" }
-    ],
-    exams: [{ id: 1, title: "Grammar Quiz", score: 92, max_score: 100, grade: "A+", exam_date: "2026-05-15" }],
-    mockExams: [{ id: 1, title: "IELTS Mock", description: "Listening, Reading, Writing, Speaking", exam_date: "2026-05-25", price: 100000, status: "active" }],
-    referrals: [],
-    extraLessons: [],
-    feedback: [],
-    payments: [{ id: 1, payment_month: "2026-05", due_amount: 700000, amount: 507692, status: "partial", paid_at: "2026-05-05", payment_type: "click" }],
-    ranking: [
-      { student_id: 2, full_name: "Akbar", score: 320 },
-      { student_id: 1, full_name: "Ali", score: 280 },
-      { student_id: 3, full_name: "Yahyobek", score: 210 }
-    ]
-  };
+  throw new Error("Student App demo payload Eduka 19.7 da o'chirilgan. Real student session talab qilinadi.");
 }
 
 async function studentAppBasePayload(pool, row) {
@@ -4340,6 +4471,17 @@ const server = http.createServer((request, response) => {
   const urlPath = decodeURIComponent(rawUrlPath);
   const query = new URLSearchParams(rawQuery);
 
+  if (request.method === "GET" && ["/api/health", "/healthz", "/health"].includes(urlPath)) {
+    sendJson(response, 200, {
+      ok: true,
+      status: "healthy",
+      version: "21.0.0",
+      time: new Date().toISOString(),
+      database: Boolean(process.env.DATABASE_URL)
+    });
+    return;
+  }
+
   if (request.method === "POST" && ["/api/demo", "/api/demo-request", "/api/contact", "/api/lead", "/api/register-demo"].includes(urlPath)) {
     handleDemoRequest(request, response);
     return;
@@ -4483,6 +4625,18 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/api/super/audit") {
     handleSuperAuditRequest(request, response);
+    return;
+  }
+
+  const superAdminUserResetMatch = urlPath.match(/^\/api\/super\/admin-users\/(\d+)\/reset-password$/);
+  if (superAdminUserResetMatch && request.method === "POST") {
+    handleSuperAdminUserResetRequest(request, response, Number(superAdminUserResetMatch[1]));
+    return;
+  }
+
+  const superAdminUsersMatch = urlPath.match(/^\/api\/super\/admin-users(?:\/(\d+))?$/);
+  if (superAdminUsersMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
+    handleSuperAdminUsersRequest(request, response, superAdminUsersMatch[1] ? Number(superAdminUsersMatch[1]) : null);
     return;
   }
 
@@ -4643,6 +4797,13 @@ const server = http.createServer((request, response) => {
   if (simpleCrudMatch) {
     const [, resource, id] = simpleCrudMatch;
     handleSimpleCrudRequest(request, response, simpleCrudConfigs[resource], id ? Number(id) : null);
+    return;
+  }
+
+  const financeAliasMatch = urlPath.match(/^\/api(?:\/app)?\/finance\/(extra-incomes|salary|bonuses|expenses|transactions)(?:\/(\d+))?$/);
+  if (financeAliasMatch) {
+    request.edukaFinanceAlias = financeAliasMatch[1];
+    handleSimpleCrudRequest(request, response, simpleCrudConfigs["finance-transactions"], financeAliasMatch[2] ? Number(financeAliasMatch[2]) : null);
     return;
   }
 

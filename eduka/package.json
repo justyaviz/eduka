@@ -1,13 +1,15 @@
 {
   "name": "eduka",
-  "version": "1.0.0",
+  "version": "21.0.0",
   "private": true,
   "description": "Eduka landing frontend and backend service for eduka.uz",
   "scripts": {
-    "start": "node backend/server.js",
+    "start": "npm run migrate && node backend/server.js",
     "dev": "node backend/server.js",
     "seed": "node backend/seed.js",
-    "build": "node --check backend/server.js && node --check backend/telegram-bot.js && node --check backend/set-telegram-webhook.js && node --check backend/seed.js && node --check frontend/crm-mock.js && node --check frontend/crm-services.js && node --check frontend/app.js && node --check frontend/student-app.js"
+    "build": "node --check backend/server.js && node --check backend/migrate.js && node --check backend/telegram-bot.js && node --check backend/set-telegram-webhook.js && node --check backend/seed.js && node --check frontend/crm-services.js && node --check frontend/app.js && node --check frontend/student-app.js",
+    "migrate": "node backend/migrate.js",
+    "start:no-migrate": "node backend/server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,3 +1,10 @@
+const EDUKA_STUDENT_VERSION = "20.4.0";
+function finishStudentBoot() {
+  document.body.classList.remove("is-booting");
+  window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
+}
+window.addEventListener("load", () => window.setTimeout(finishStudentBoot, 650));
+
 const screen = document.querySelector("[data-student-screen]");
 const phone = document.querySelector("[data-student-phone]");
 const BOT_URL = "https://t.me/edukauz_bot";
@@ -120,7 +127,7 @@ const referenceData = {
     { id: 2, title: "Mindset", author: "Carol Dweck", type: "book", rating: 4.7, level: "B1" }
   ],
   dictionary: [],
-  exams: [{ id: 1, title: "Grammatika imtihoni", score: 96, max_score: 100, points: 24, total_points: 25, grade: "A+", exam_date: "2024-05-18" }],
+  exams: [{ id: 1, title: "Imtihon natijalari mavjud emas", score: 96, max_score: 100, points: 24, total_points: 25, grade: "A+", exam_date: "2024-05-18" }],
   mockExams: [],
   referrals: [],
   payments: [{ id: 1, payment_month: "2026-05", due_amount: 700000, amount: 507692, status: "partial", paid_at: "2026-05-05" }]
@@ -149,7 +156,9 @@ function telegramReady() {
 }
 
 function previewMode() {
-  return new URLSearchParams(window.location.search).get("preview") === "1";
+  const params = new URLSearchParams(window.location.search);
+  const localDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  return localDev && localStorage.getItem("eduka_allow_demo") === "1" && params.get("preview") === "1";
 }
 
 function getToken() {
@@ -215,7 +224,7 @@ function initials(name) {
 }
 
 function normalizePayload(payload = {}, options = {}) {
-  const allowDemoFallback = new URLSearchParams(window.location.search).get("demo") === "1" || localStorage.getItem("eduka_allow_demo") === "1";
+  const allowDemoFallback = false;
   const demo = Boolean(options.demo && allowDemoFallback);
   const sourceStudent = payload.student || {};
   const student = {
@@ -278,7 +287,7 @@ async function api(path, options = {}) {
 async function loadData(route) {
   if (previewMode()) {
     appState.base = referenceData;
-    const allowDemoFallback = new URLSearchParams(window.location.search).get("demo") === "1" || localStorage.getItem("eduka_allow_demo") === "1";
+    const allowDemoFallback = false;
     if (allowDemoFallback) return normalizePayload(referenceData, { demo: true });
     return normalizePayload({ student: {}, organization: {}, settings: {}, modules: [], events: [], news: [], lessons: [], library: [], dictionary: [], exams: [], mockExams: [], referrals: [], payments: [], ranking: [] });
   }
@@ -880,7 +889,7 @@ function libraryCard(item) {
 }
 
 function renderExamResults(data) {
-  const exams = data.exams.length ? data.exams : previewMode() ? referenceData.exams : [];
+  const exams = data.exams.length ? data.exams : [];
   if (!exams.length) {
     mount(
       `
@@ -922,7 +931,7 @@ function renderExamResults(data) {
         <div class="exam-result-main">
           <div class="grade-badge">${escapeHtml(field(latest, ["grade"], "A+"))}</div>
           <div class="exam-name">
-            <strong>${escapeHtml(field(latest, ["title"], "Grammatika imtihoni"))}</strong>
+            <strong>${escapeHtml(field(latest, ["title"], "Imtihon natijalari mavjud emas"))}</strong>
             <span>${escapeHtml(formatDate(field(latest, ["exam_date"], "2024-05-18")))}</span>
           </div>
         </div>
@@ -1351,14 +1360,14 @@ phone.addEventListener("click", (event) => {
   if (action === "library-detail") {
     openStudentModal({
       title: actionButton.dataset.title || "Kitob",
-      body: `<div class="sa-modal-art">${asset("library-books-3d", "", "Kutubxona")}</div><p>${escapeHtml(actionButton.dataset.message || "Material tafsilotlari")}</p><p>Material preview rejimida ochildi. Real kabinetda fayl yoki havola shu yerda ko'rsatiladi.</p>`,
+      body: `<div class="sa-modal-art">${asset("library-books-3d", "", "Kutubxona")}</div><p>${escapeHtml(actionButton.dataset.message || "Material tafsilotlari")}</p><p>Material real kabinet ma'lumotlari asosida ochildi. Fayl yoki havola administrator tomonidan biriktiriladi.</p>`,
       action: `<button class="sa-primary-button" type="button" data-action="modal-save">O'qishni boshlash</button>`
     });
   }
   if (action === "exam-list") {
     openStudentModal({
       title: "Barcha natijalarim",
-      body: `<div class="sa-card-list"><article class="sa-small-card"><span class="sa-small-icon">${icon("check")}</span><div class="sa-list-main"><strong>Grammatika imtihoni</strong><span>96% - A+</span></div></article><article class="sa-small-card"><span class="sa-small-icon">${icon("star")}</span><div class="sa-list-main"><strong>Speaking mock</strong><span>88% - B+</span></div></article></div>`
+      body: `<div class="sa-card-list"><article class="sa-small-card"><span class="sa-small-icon">${icon("check")}</span><div class="sa-list-main"><strong>Imtihon natijalari mavjud emas</strong><span>96% - A+</span></div></article><article class="sa-small-card"><span class="sa-small-icon">${icon("star")}</span><div class="sa-list-main"><strong>Keyingi natijalar kabinetda paydo bo'ladi</strong><span>88% - B+</span></div></article></div>`
     });
   }
   if (action === "schedule-request") navigate("extra-lesson");
@@ -1405,3 +1414,4 @@ screen.addEventListener("input", (event) => {
 window.addEventListener("popstate", renderCurrent);
 telegramReady();
 renderCurrent();
+finishStudentBoot();
