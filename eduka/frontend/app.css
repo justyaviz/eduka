@@ -6278,3 +6278,169 @@ body {
   .crm-204-report-grid, .market-204-layout, .settings-204-grid { grid-template-columns: 1fr; }
   .permission-row { grid-template-columns: 1fr; }
 }
+
+
+/* Eduka 21.0.2 dashboard UI hotfix: compact colored notifications and safer drawers */
+.crm-topbar-popovers {
+  position: fixed;
+  top: 78px;
+  right: 28px;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.crm-popover {
+  pointer-events: auto;
+  width: min(390px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 110px));
+  overflow: auto;
+  padding: 14px;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(31, 143, 255, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,250,255,0.96));
+  border: 1px solid rgba(60, 100, 180, 0.14);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.crm-notification-panel,
+.crm-task-panel,
+.crm-quick-panel,
+.crm-avatar-menu {
+  display: grid;
+  gap: 10px;
+}
+
+.crm-notification-panel header,
+.crm-task-panel header,
+.crm-quick-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 10px;
+  color: #0f172a;
+}
+
+.crm-notification-panel header strong,
+.crm-task-panel header strong,
+.crm-quick-panel header strong {
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+}
+
+.crm-notification-panel header button {
+  min-height: 32px;
+  padding: 7px 10px;
+  color: #1d4ed8;
+  background: #eaf3ff;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 999px;
+  font-weight: 750;
+}
+
+.crm-notification-panel article,
+.crm-task-panel article {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid rgba(37, 99, 235, 0.10);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff, #f4f8ff);
+  box-shadow: 0 12px 28px rgba(31, 41, 55, 0.08);
+}
+
+.crm-notification-panel article svg,
+.crm-task-panel article svg {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #13a8ff);
+  border-radius: 14px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+.crm-notification-panel article b,
+.crm-task-panel article b {
+  margin-bottom: 3px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.crm-notification-panel article span,
+.crm-task-panel article span {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.crm-drawer {
+  width: min(520px, calc(100vw - 18px));
+  max-width: 520px;
+  color: #0f172a;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  border-left: 1px solid rgba(37, 99, 235, 0.14);
+  box-shadow: -24px 0 70px rgba(15, 23, 42, 0.20);
+}
+
+.crm-drawer-head {
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(19, 168, 255, 0.18), transparent 30%),
+    linear-gradient(135deg, #ffffff, #f2f7ff);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.10);
+}
+
+.crm-drawer-body {
+  background: transparent;
+}
+
+.crm-app-mode .content {
+  background:
+    radial-gradient(circle at 88% 8%, rgba(19, 168, 255, 0.18), transparent 24%),
+    radial-gradient(circle at 18% 22%, rgba(37, 99, 235, 0.11), transparent 30%),
+    linear-gradient(180deg, #f7fbff 0%, #edf6fb 100%);
+}
+
+.crm-app-mode .stat-card,
+.crm-app-mode .section-card,
+.crm-app-mode .crm-card {
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 95% 0%, rgba(65, 105, 255, 0.12), transparent 28%),
+    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,251,255,0.94));
+  border: 1px solid rgba(37, 99, 235, 0.10);
+  box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+}
+
+.crm-app-mode .hero-card,
+.crm-app-mode .dashboard-hero {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #0f4f86 100%);
+}
+
+@media (max-width: 760px) {
+  .crm-topbar-popovers {
+    top: 72px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .crm-popover {
+    width: 100%;
+    max-height: min(560px, calc(100vh - 92px));
+    border-radius: 18px;
+  }
+
+  .crm-drawer {
+    width: min(100vw, 460px);
+  }
+}

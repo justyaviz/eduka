@@ -2120,18 +2120,18 @@ async function handleAnalyticsRequest(request, response) {
     const organizationId = user.organization_id;
     const [payments, leads, students, lessons, topGroups, smart] = await Promise.all([
       pool.query(
-        `SELECT to_char(month, 'YYYY-MM') AS month, COALESCE(SUM(p.amount), 0)::numeric AS amount
-         FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') month
-         LEFT JOIN payments p ON p.organization_id=$1 AND date_trunc('month', p.paid_at)=month
-         GROUP BY month ORDER BY month`,
+        `SELECT to_char(m.month_start, 'YYYY-MM') AS month, COALESCE(SUM(p.amount), 0)::numeric AS amount
+         FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') AS m(month_start)
+         LEFT JOIN payments p ON p.organization_id=$1 AND date_trunc('month', p.paid_at)=m.month_start
+         GROUP BY m.month_start ORDER BY m.month_start`,
         [organizationId]
       ),
       pool.query("SELECT status, COUNT(*)::int AS count FROM leads WHERE organization_id=$1 GROUP BY status", [organizationId]),
       pool.query(
-        `SELECT to_char(month, 'YYYY-MM') AS month, COUNT(s.id)::int AS count
-         FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') month
-         LEFT JOIN students s ON s.organization_id=$1 AND date_trunc('month', s.created_at)=month
-         GROUP BY month ORDER BY month`,
+        `SELECT to_char(m.month_start, 'YYYY-MM') AS month, COUNT(s.id)::int AS count
+         FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') AS m(month_start)
+         LEFT JOIN students s ON s.organization_id=$1 AND date_trunc('month', s.created_at)=m.month_start
+         GROUP BY m.month_start ORDER BY m.month_start`,
         [organizationId]
       ),
       pool.query(
