@@ -1,0 +1,94 @@
+
+/* Eduka 21.4.4 Global Three-Dot Action Menu */
+.eduka-overflow-safe {
+  overflow: visible !important;
+}
+
+.eduka-action-card {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  width: 220px;
+  background-color: rgba(36, 40, 50, 0.98);
+  background-image: linear-gradient(139deg, rgba(36, 40, 50, 1) 0%, rgba(37, 28, 40, 1) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28), 0 10px 30px rgba(0,0,0,0.18);
+  backdrop-filter: blur(14px);
+  animation: edukaActionMenuIn .16s ease-out;
+}
+
+.eduka-action-card .separator {
+  border-top: 1.5px solid #42434a;
+  margin: 2px 0;
+}
+
+.eduka-action-card .list {
+  list-style-type: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 10px;
+  margin: 0;
+}
+
+.eduka-action-card .element {
+  display: flex;
+  align-items: center;
+  color: #c9d1dc;
+  gap: 10px;
+  transition: all .2s ease-out;
+  padding: 9px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.eduka-action-card .element svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  transition: all .2s ease-out;
+}
+
+.eduka-action-card .element .label {
+  font-weight: 700;
+}
+
+.eduka-action-card .element:hover {
+  background-color: #5353ff;
+  color: #ffffff;
+  transform: translate(1px, -1px);
+}
+
+.eduka-action-card .element:hover svg {
+  stroke: #ffffff;
+}
+
+.eduka-action-card .delete {
+  color: #ffb4b4;
+}
+
+.eduka-action-card .delete:hover {
+  background-color: #8e2a2a;
+  color: #fff;
+}
+
+.eduka-action-card .element:active {
+  transform: scale(.99);
+}
+
+.eduka-menu-open {
+  background: #eef6ff !important;
+  border-color: #93c5fd !important;
+  color: #2563eb !important;
+}
+
+@keyframes edukaActionMenuIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
