@@ -322,6 +322,7 @@ routeByView["admin-login"] = "/super/login";
 routeByView["admin-dashboard"] = "/super/dashboard";
 routeByView["admin-centers-new"] = "/super/centers/new";
 routeByView["admin-center-profile"] = "/super/centers";
+routeByView["super-center-profile"] = "/super/centers";
 routeByView["admin-demo-requests"] = "/super/demo-requests";
 routeByView["admin-admin-users"] = "/super/admin-users";
 routeByView["admin-audit-log"] = "/super/audit-log";
@@ -337,7 +338,7 @@ function viewFromPath(pathname = window.location.pathname) {
   if (normalized === "/super/login") return "admin-login";
   if (normalized === "/super" || normalized === "/super/dashboard") return "admin-dashboard";
   if (normalized === "/super/centers/new") return "admin-centers-new";
-  if (/^\/super\/centers\/\d+$/.test(normalized)) return "admin-center-profile";
+  if (/^\/super\/centers\/\d+$/.test(normalized)) return "super-center-profile";
   if (normalized.startsWith("/super/")) {
     const slug = normalized.replace("/super/", "");
     const view = `admin-${slug}`;
@@ -535,6 +536,7 @@ function defaultViewForRole(role = currentUser?.role) {
 
 function navViewFor(viewName) {
   if (viewName === "admin-center-profile") return "admin-centers";
+  if (viewName === "super-center-profile") return "super-centers";
   if (viewName === "student-profile") return "students";
   if (viewName === "group-profile") return "groups";
   if (viewName === "teacher-profile") return "teachers";
@@ -580,7 +582,7 @@ function createGeneratedViews() {
     const section = document.createElement("section");
     section.className = "view generated-view";
     section.id = id;
-    section.innerHTML = generatedViewHtml(title, description, type);
+    section.innerHTML = generatedViewHtml(id, title, description, type);
     content.append(section);
   });
   refreshIcons();
@@ -623,24 +625,24 @@ function ensureStudentAppViews() {
   });
 }
 
-function generatedViewHtml(title, description, type) {
+function generatedViewHtml(viewId, title, description, type) {
   if (type === "form") {
-    return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-form"><label>Administrator telegram username<input placeholder="https://t.me/" /></label><label>Telegram kanal<input placeholder="https://t.me/" /></label><label>YouTube<input placeholder="https://www.youtube.com/" /></label><label>Instagram<input placeholder="https://www.instagram.com/" /></label><label>Operator raqami<input placeholder="+998 __ ___ __ __" /></label><label>Viloyat<select><option>Farg'ona viloyati</option><option>Toshkent shahri</option></select></label></div><div class="modal-actions"><button type="button">Saqlash</button></div></section>`;
+    return `<section class="settings-panel" data-generated-settings="${viewId}"><h1>${title}</h1><p>${description}</p><div class="settings-form"><label>Administrator telegram username<input name="telegram_admin" placeholder="https://t.me/" /></label><label>Telegram kanal<input name="telegram_channel" placeholder="https://t.me/" /></label><label>YouTube<input name="youtube" placeholder="https://www.youtube.com/" /></label><label>Instagram<input name="instagram" placeholder="https://www.instagram.com/" /></label><label>Operator raqami<input name="operator_phone" placeholder="+998 __ ___ __ __" /></label><label>Viloyat<select name="region"><option>Farg\'ona viloyati</option><option>Toshkent shahri</option></select></label></div><div class="modal-actions"><button type="button" data-crm-action="save-generated-settings" data-generated-resource="${viewId}">Saqlash</button></div></section>`;
   }
   if (type === "toggles") {
     const rows = ["Chegirma o'qituvchilarga ta'sir qilsin", "To'lov qilingandan so'ng chek chiqarish", "To'lov yaratishda sana tanlansin", "Qarzdor talabani bloklash", "Yangi lid nomerini SMS orqali tasdiqlash", "Davomatdan keyin ota-onaga xabar yuborish"];
-    return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="toggle-list">${rows.map((row, index) => `<label><input type="checkbox" ${index === 1 ? "checked" : ""}/><span>${row}</span></label>`).join("")}</div></section>`;
+    return `<section class="settings-panel" data-generated-settings="${viewId}"><h1>${title}</h1><p>${description}</p><div class="toggle-list">${rows.map((row, index) => `<label><input name="toggle_${index}" type="checkbox" ${index === 1 ? "checked" : ""}/><span>${row}</span></label>`).join("")}</div><div class="modal-actions"><button type="button" data-crm-action="save-generated-settings" data-generated-resource="${viewId}">Saqlash</button></div></section>`;
   }
   if (type === "roles") {
-    return `<section class="settings-panel"><div class="page-head"><h1>${title}</h1><button class="section-action" type="button">Lavozim qo'shish</button></div><p>${description}</p><div class="role-list">${["Exerciser", "Developer", "Kassir", "Chop etuvchi", "Marketolog", "Adminstrator", "Buxgalter", "Teacher"].map((role) => `<article><b>${role[0]}</b><span>${role}</span><small>global</small></article>`).join("")}</div></section>`;
+    return `<section class="settings-panel generated-entity-page" data-generated-resource="${viewId}"><div class="page-head"><h1>${title}</h1><button class="section-action" type="button" data-crm-action="generated-add" data-generated-resource="${viewId}">Lavozim qo\'shish</button></div><p>${description}</p><div class="role-list" data-generated-list="${viewId}">${["Exerciser", "Developer", "Kassir", "Chop etuvchi", "Marketolog", "Adminstrator", "Buxgalter", "Teacher"].map((role) => `<article><b>${role[0]}</b><span>${role}</span><small>global</small></article>`).join("")}</div></section>`;
   }
   if (type === "receipt") {
     return `<section class="split-panels receipt-settings-page"><article><div class="page-head"><h1>${title}</h1><button class="section-action" type="submit" form="receipt-settings-form">Saqlash</button></div><p>${description}</p><form id="receipt-settings-form" data-receipt-settings-form class="settings-form receipt-settings-form"><label>Chek prefiksi<input name="prefix" value="CHK" /></label><label>Markaz nomi<input name="center_name" value="EDUKA" /></label><label>Telegram bot username<input name="bot_username" value="edukauz_bot" placeholder="edukauz_bot" /></label><label>Telefon<input name="phone" placeholder="+998" /></label><label>Manzil<input name="address" placeholder="Markaz manzili" /></label><label>Pastki matn<input name="footer" value="TO'LOVINGIZ UCHUN RAHMAT" /></label><label>Qog'oz<select name="paper"><option value="80mm">80mm</option><option value="58mm">58mm</option><option value="a4">A4</option></select></label><label class="check-field"><input name="enabled" type="checkbox" checked /><span>Chek chiqarish yoqilsin</span></label><label class="check-field"><input name="auto_print" type="checkbox" checked /><span>To'lovdan keyin avtomatik chek chiqarish</span></label></form></article><article><h1>Chek ko'rinishi</h1><div class="receipt-preview receipt-preview-pro"><b>EDUKA</b><span>Thermal printer uchun 80mm chek</span><hr/><p>Chek: CHK-2026-0512-00586</p><p>Talaba: Muhammadali Rashidov</p><p>QR: https://t.me/edukauz_bot?start=receipt_...</p><small>Logo markaz sozlamasidagi Logo URL orqali chiqadi.</small></div></article></section>`;
   }
   if (type === "market") {
-    return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-grid"><article><h2>Telegram bot</h2><p>Davomat va qarzdorlik xabarlari.</p></article><article><h2>Excel import/export</h2><p>Talabalar va moliya fayllari.</p></article><article><h2>SMS gateway</h2><p>Auto SMS va shablonlar.</p></article></div></section>`;
+    return `<section class="settings-panel" data-generated-settings="${viewId}"><h1>${title}</h1><p>${description}</p><div class="settings-grid"><article><h2>Telegram bot</h2><p>Davomat va qarzdorlik xabarlari.</p><button type="button" data-crm-action="save-generated-settings" data-generated-resource="${viewId}">Ulash</button></article><article><h2>Excel import/export</h2><p>Talabalar va moliya fayllari.</p><button type="button" data-crm-action="export-excel" data-resource="reports">Export</button></article><article><h2>SMS gateway</h2><p>Auto SMS va shablonlar.</p><button type="button" data-crm-action="save-generated-settings" data-generated-resource="${viewId}">Sozlash</button></article></div></section>`;
   }
-  return `<section class="settings-panel"><div class="page-head list-head"><h1>${title}</h1><label><span>15</span><input value="15" /></label><button class="section-action" type="button">Qo'shish</button></div><p>${description}</p><div class="filters"><input placeholder="Qidirish" /><button>Tozalash</button><button>Excelga eksport qilish</button></div><div class="table simple-table"><div><b>T/R</b><b>Nomi</b><b>Holat</b><b>Yaratilgan vaqt</b><b>Amallar</b></div><div class="table-empty">Ma'lumot topilmadi</div></div></section>`;
+  return `<section class="settings-panel generated-entity-page" data-generated-resource="${viewId}"><div class="page-head list-head"><h1>${title}</h1><label><span>15</span><input data-generated-limit="${viewId}" value="15" /></label><button class="section-action" type="button" data-crm-action="generated-add" data-generated-resource="${viewId}">Qo\'shish</button></div><p>${description}</p><div class="filters"><input placeholder="Qidirish" data-generated-search="${viewId}" /><button type="button" data-crm-action="generated-clear" data-generated-resource="${viewId}">Tozalash</button><button type="button" data-crm-action="generated-export" data-generated-resource="${viewId}">Excelga eksport qilish</button></div><div class="table simple-table" data-generated-table="${viewId}"><div><b>T/R</b><b>Nomi</b><b>Holat</b><b>Yaratilgan vaqt</b><b>Amallar</b></div><div class="table-empty">Ma\'lumot topilmadi</div></div></section>`;
 }
 
 ensureStudentAppNavigation();
@@ -2106,7 +2108,7 @@ function renderProfiles() {
         <article><span>Oxirgi aktivlik</span><strong>${formatDate(center.last_activity_at)}</strong></article>
         <article><span>Status</span><strong>${statusLabels[center.status] || center.status}</strong></article>
       </div>
-      <div class="export-actions"><button type="button">Bloklash</button><button type="button">Tarif o'zgartirish</button><button type="button">Trial berish</button><button type="button">Login qilib kirish</button><button type="button">Support izoh</button></div>` : `<div class="empty-state">Markaz topilmadi.</div>`;
+      <div class="export-actions"><button type="button" data-crm-action="super-center-block" data-id="${center.id}">Bloklash</button><button type="button" data-crm-action="super-center-tariff" data-id="${center.id}">Tarif o'zgartirish</button><button type="button" data-crm-action="super-center-trial" data-id="${center.id}">Trial berish</button><button type="button" data-crm-action="super-center-login" data-id="${center.id}">Login qilib kirish</button><button type="button" data-crm-action="super-center-support" data-id="${center.id}">Support izoh</button></div>` : `<div class="empty-state">Markaz topilmadi.</div>`;
   }
 }
 
@@ -2164,6 +2166,8 @@ function renderAll() {
   renderCrmTopbar(viewFromPath());
   renderProfiles();
   renderCrmProfiles();
+  renderGeneratedEntities();
+  renderGeneratedReports();
   refreshIcons();
 }
 
@@ -5604,12 +5608,134 @@ function crmActiveStudentsReport() {
   crmPrintHtml("Aktiv talabalar hisoboti", html);
 }
 
+
+function generatedStorageKey() {
+  return `${tenantDataStorageKey()}:generated-modules`;
+}
+
+function loadGeneratedStore() {
+  try { return JSON.parse(localStorage.getItem(generatedStorageKey()) || "{}"); } catch { return {}; }
+}
+
+function saveGeneratedStore(store) {
+  localStorage.setItem(generatedStorageKey(), JSON.stringify(store || {}));
+}
+
+function generatedResourceTitle(resource) {
+  return generatedViews[resource]?.[0] || resource || "Modul";
+}
+
+function generatedRows(resource) {
+  const store = loadGeneratedStore();
+  return Array.isArray(store[resource]) ? store[resource] : [];
+}
+
+function setGeneratedRows(resource, rows) {
+  const store = loadGeneratedStore();
+  store[resource] = rows;
+  saveGeneratedStore(store);
+}
+
+function renderGeneratedEntities(resource = null) {
+  const tables = resource ? [...document.querySelectorAll(`[data-generated-table="${resource}"]`)] : [...document.querySelectorAll("[data-generated-table]")];
+  tables.forEach((table) => {
+    const key = table.dataset.generatedTable;
+    const query = document.querySelector(`[data-generated-search="${key}"]`)?.value?.toLowerCase() || "";
+    const rows = generatedRows(key).filter((item) => String(item.name || "").toLowerCase().includes(query));
+    table.querySelectorAll("div:not(:first-child)").forEach((node) => node.remove());
+    if (!rows.length) {
+      const empty = document.createElement("div");
+      empty.className = "table-empty";
+      empty.textContent = "Ma'lumot topilmadi. Qo'shish tugmasi orqali birinchi yozuvni yarating.";
+      table.append(empty);
+      return;
+    }
+    rows.forEach((item, index) => {
+      const line = document.createElement("div");
+      line.innerHTML = `<span>${index + 1}</span><span>${escapeHtml(item.name)}</span><span>${renderBadge(item.status || "active")}</span><span>${formatDate(item.created_at || item.createdAt)}</span><span class="row-actions"><button type="button" data-crm-action="generated-edit" data-generated-resource="${key}" data-id="${item.id}">Tahrirlash</button><button type="button" data-crm-action="generated-delete" data-generated-resource="${key}" data-id="${item.id}">O'chirish</button></span>`;
+      table.append(line);
+    });
+  });
+
+  const lists = resource ? [...document.querySelectorAll(`[data-generated-list="${resource}"]`)] : [...document.querySelectorAll("[data-generated-list]")];
+  lists.forEach((list) => {
+    const key = list.dataset.generatedList;
+    const defaults = key === "positions" ? ["Exerciser", "Developer", "Kassir", "Chop etuvchi", "Marketolog", "Administrator", "Buxgalter", "Teacher"] : [];
+    const rows = generatedRows(key);
+    const data = rows.length ? rows.map((row) => row.name) : defaults;
+    list.innerHTML = data.map((name) => `<article><b>${escapeHtml(String(name)[0] || "E")}</b><span>${escapeHtml(name)}</span><small>${rows.length ? "local" : "global"}</small></article>`).join("");
+  });
+}
+
+function renderGeneratedReports() {
+  document.querySelectorAll(".generated-view").forEach((section) => {
+    const meta = generatedViews[section.id];
+    if (!meta || meta[2] !== "report") return;
+    const panel = section.querySelector(".settings-panel");
+    if (!panel || panel.dataset.reportReady === "1") return;
+    const totalPaid = (state.payments || []).reduce((sum, p) => sum + Number(p.amount || p.paid_amount || 0), 0);
+    const totalDebt = debtItems().reduce((sum, d) => sum + Number(d.balance || d.remaining_debt || 0), 0);
+    panel.dataset.reportReady = "1";
+    panel.insertAdjacentHTML("beforeend", `<div class="generated-report-grid"><article><span>Talabalar</span><b>${(state.students || []).length}</b></article><article><span>Guruhlar</span><b>${(state.groups || []).length}</b></article><article><span>Tushum</span><b>${escapeHtml(formatMoney(totalPaid))}</b></article><article><span>Qarzdorlik</span><b>${escapeHtml(formatMoney(totalDebt))}</b></article></div><div class="modal-actions"><button type="button" data-crm-action="export-excel" data-resource="reports">Excel export</button><button type="button" data-crm-action="export-pdf" data-resource="reports">PDF/Print</button></div>`);
+  });
+}
+
+function handleGeneratedAdd(resource, id = null) {
+  const rows = generatedRows(resource);
+  const current = rows.find((item) => String(item.id) === String(id));
+  const label = generatedResourceTitle(resource);
+  const name = window.prompt(`${label} uchun nom kiriting:`, current?.name || "");
+  if (name === null) return;
+  const cleanName = name.trim();
+  if (!cleanName) return showToast("Nom bo'sh bo'lmasligi kerak.", "warning");
+  if (current) {
+    current.name = cleanName;
+    current.updated_at = new Date().toISOString();
+  } else {
+    rows.unshift({ id: Date.now(), name: cleanName, status: "active", created_at: new Date().toISOString() });
+  }
+  setGeneratedRows(resource, rows);
+  renderGeneratedEntities(resource);
+  showToast(current ? "Yozuv yangilandi." : "Yozuv qo'shildi.");
+}
+
+function handleGeneratedDelete(resource, id) {
+  if (!window.confirm("Yozuvni o'chirishni tasdiqlaysizmi?")) return;
+  setGeneratedRows(resource, generatedRows(resource).filter((item) => String(item.id) !== String(id)));
+  renderGeneratedEntities(resource);
+  showToast("Yozuv o'chirildi.");
+}
+
+function exportGeneratedResource(resource) {
+  const rows = generatedRows(resource);
+  const csv = ["id;name;status;created_at", ...rows.map((row) => [row.id, crmCsvEscape(row.name), row.status || "active", row.created_at || ""].join(";"))].join("\n");
+  crmDownloadFile(`eduka-${resource}-${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csv, "text/csv;charset=utf-8");
+  showToast(`${generatedResourceTitle(resource)} eksport qilindi.`);
+}
+
+function clearGeneratedSearch(resource) {
+  document.querySelectorAll(`[data-generated-search="${resource}"]`).forEach((field) => { field.value = ""; });
+  renderGeneratedEntities(resource);
+  showToast("Qidiruv tozalandi.");
+}
+
+function unsupportedAction(label = "Bu tugma") {
+  showToast(`${label} hali real workflow'ga ulanmagan. Tugma endi soxta muvaffaqiyat ko'rsatmaydi.`, "warning");
+}
+
 async function handleCrmAction(action, button) {
   const resource = button.dataset.resource;
   const id = button.dataset.id;
   ensureEditableCrmCollection(resource);
   const collection = crmCollectionFor(resource);
   const item = collection.find((entry) => String(entry.id) === String(id));
+
+  const generatedResource = button.dataset.generatedResource;
+  if (action === "generated-add") return handleGeneratedAdd(generatedResource || viewFromPath());
+  if (action === "generated-edit") return handleGeneratedAdd(generatedResource || viewFromPath(), button.dataset.id);
+  if (action === "generated-delete") return handleGeneratedDelete(generatedResource || viewFromPath(), button.dataset.id);
+  if (action === "generated-export") return exportGeneratedResource(generatedResource || viewFromPath());
+  if (action === "generated-clear") return clearGeneratedSearch(generatedResource || viewFromPath());
 
   if (action === "avatar-menu") return toggleCrmPanel("avatar");
   if (action === "quick-tools") return toggleCrmPanel("quick");
@@ -5825,12 +5951,59 @@ async function handleCrmAction(action, button) {
   }
 
   if (action === "save-generated-settings") {
-    const fields = Object.fromEntries([...document.querySelectorAll(".settings-panel input, .settings-panel select, .settings-panel textarea")].map((field) => [field.previousElementSibling?.textContent || field.name || field.placeholder || "field", field.type === "checkbox" ? field.checked : field.value]));
+    const key = button.dataset.generatedResource || viewFromPath();
+    const scope = button.closest("[data-generated-settings]") || document.getElementById(key) || document;
+    const fields = Object.fromEntries([...scope.querySelectorAll("input, select, textarea")].map((field) => [field.name || field.previousElementSibling?.textContent || field.placeholder || "field", field.type === "checkbox" ? field.checked : field.value]));
     const saved = loadCrmLocalState();
-    saved.generatedSettings = { ...(saved.generatedSettings || {}), [viewFromPath()]: fields };
+    saved.generatedSettings = { ...(saved.generatedSettings || {}), [key]: fields };
     if (allowDevelopmentFallback()) localStorage.setItem(tenantDataStorageKey(), JSON.stringify({ ...loadCrmLocalState(), ...saved }));
-    showToast("Sozlamalar saqlandi.");
+    showToast("Sozlamalar real saqlandi.");
     return;
+  }
+
+  if (action?.startsWith("super-center-")) {
+    const center = (state.superCenters || []).find((entry) => String(entry.id) === String(id));
+    if (!center) return showToast("Markaz topilmadi.", "warning");
+    if (action === "super-center-block") {
+      center.status = center.status === "blocked" ? "active" : "blocked";
+      try { await api(`/api/super/centers/${id}`, { method: "PUT", body: JSON.stringify({ status: center.status }) }); } catch {}
+      renderAll();
+      showToast(center.status === "blocked" ? "Markaz bloklandi." : "Markaz aktivlashtirildi.");
+      return;
+    }
+    if (action === "super-center-tariff") {
+      const plan = window.prompt("Yangi tarif nomi:", center.plan || center.tariff_name || "Pro");
+      if (plan === null) return;
+      center.plan = plan.trim() || center.plan;
+      renderAll();
+      showToast("Tarif yangilandi.");
+      return;
+    }
+    if (action === "super-center-trial") {
+      const days = Number(window.prompt("Necha kun trial qo'shiladi?", "7") || 0);
+      if (!days) return;
+      const base = new Date(center.license_expires_at || Date.now());
+      base.setDate(base.getDate() + days);
+      center.license_expires_at = base.toISOString();
+      center.subscription_status = "trial";
+      renderAll();
+      showToast(`${days} kun trial qo'shildi.`);
+      return;
+    }
+    if (action === "super-center-login") {
+      const subdomain = center.subdomain || center.slug || "demo";
+      window.open(`https://${subdomain}.eduka.uz/admin/login`, "_blank", "noopener,noreferrer");
+      showToast("Markaz login oynasi ochildi.");
+      return;
+    }
+    if (action === "super-center-support") {
+      const note = window.prompt("Support izohini kiriting:", center.support_note || "");
+      if (note === null) return;
+      center.support_note = note;
+      renderAll();
+      showToast("Support izohi saqlandi.");
+      return;
+    }
   }
 
   if (action === "upgrade-plan" || action === "extend-subscription") {
@@ -5886,7 +6059,7 @@ async function handleCrmAction(action, button) {
     return;
   }
 
-  showToast("Amal bajarildi.");
+  unsupportedAction(button.textContent.trim() || action || "Bu tugma");
 }
 async function deleteItem(resource, id) {
   try {
@@ -6003,9 +6176,9 @@ document.addEventListener("click", async (event) => {
     if (action === "go") setView(adminAction.dataset.target);
     else if (action === "profile") {
       closeModal();
-      setView("admin-center-profile", { route: `/admin/centers/${adminAction.dataset.id}` });
+      setView("super-center-profile", { route: `/super/centers/${adminAction.dataset.id}` });
     }
-    else if (action === "toast") showToast(adminAction.dataset.message || "Amal bajarildi.");
+    else if (action === "toast") showToast(adminAction.dataset.message || "Amal tayyor.");
     else if (action === "reset-filters") {
       document.querySelectorAll(".admin-filters input, .admin-filters select").forEach((field) => {
         field.value = "";
@@ -6165,8 +6338,8 @@ document.addEventListener("click", async (event) => {
 
   const genericUiButton = event.target.closest(".generated-view button, .settings-panel button, .export-actions button, .segmented button");
   if (genericUiButton && !genericUiButton.dataset.view && !genericUiButton.dataset.crmAction && !genericUiButton.dataset.studentAppAction && !genericUiButton.dataset.openModal) {
-    const label = genericUiButton.textContent.trim() || "Amal";
-    showToast(`${label} bajarildi.`, "info");
+    const label = genericUiButton.textContent.trim() || "Tugma";
+    unsupportedAction(label);
     return;
   }
 
@@ -6299,6 +6472,11 @@ document.querySelector("[data-global-search]")?.addEventListener("input", (event
 
 document.addEventListener("input", (event) => {
   if (event.target.closest("[data-crm-drawer]")) crmDrawerState.dirty = true;
+  const generatedSearch = event.target.closest("[data-generated-search]");
+  if (generatedSearch) {
+    renderGeneratedEntities(generatedSearch.dataset.generatedSearch);
+    return;
+  }
   const uiField = event.target.closest("[data-filter]");
   if (uiField) {
     const scope = uiField.closest("[data-filter-scope]");
