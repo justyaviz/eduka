@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "21.4.1";
+const EDUKA_VERSION = "21.4.2";
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -544,7 +544,7 @@ function navViewFor(viewName) {
 
 function routeForView(viewName, options = {}) {
   if (options.route) return options.route;
-  if (viewName === "admin-center-profile") return `/admin/centers/${adminProfileIdFromPath() || adminState.centers[0]?.id || ""}`;
+  if (viewName === "admin-center-profile") return `/super/centers/${adminProfileIdFromPath() || adminState.centers[0]?.id || ""}`;
   if (viewName === "student-profile") return `/admin/students/${profileIdFromPath("students") || state.students[0]?.id || ""}`;
   if (viewName === "group-profile") return `/admin/groups/${profileIdFromPath("groups") || state.groups[0]?.id || ""}`;
   if (viewName === "teacher-profile") return `/admin/teachers/${profileIdFromPath("teachers") || state.teachers[0]?.id || ""}`;
@@ -2898,20 +2898,26 @@ function ensureAdminShell() {
     nav.innerHTML = adminMenu.map(([view, label]) => `<button type="button" data-view="${view}">${label}</button>`).join("");
     sidebar.insertBefore(nav, document.querySelector(".sidebar-footer"));
   }
-  const inAdmin = window.location.pathname.startsWith("/admin");
-  if (inAdmin && !isAdminAuthenticated() && window.location.pathname !== "/admin/login") {
+
+  // 21.4.2 hard route isolation:
+  // /admin is the learning-center CRM. /super is the Eduka platform owner panel.
+  // Never use platform-owner auth guard on /admin/* pages.
+  const inSuper = window.location.pathname.startsWith("/super");
+  if (inSuper && !isAdminAuthenticated() && window.location.pathname !== "/super/login") {
     showAdminLogin();
     return;
   }
   hideAdminLogin();
-  document.querySelector(".create-student").hidden = inAdmin;
+
+  const createStudent = document.querySelector(".create-student");
+  if (createStudent) createStudent.hidden = inSuper;
   document.querySelectorAll(".side-nav:not([data-admin-nav]), .side-subnav").forEach((node) => {
-    node.hidden = inAdmin;
+    node.hidden = inSuper;
   });
-  nav.hidden = !inAdmin;
-  document.querySelector(".license-banner")?.classList.toggle("admin-hidden", inAdmin);
-  document.body.classList.toggle("admin-mode", inAdmin);
-  centerName.textContent = inAdmin ? "Platform Control Center" : (currentUser?.organization?.name || "ilm academy uz");
+  nav.hidden = !inSuper;
+  document.querySelector(".license-banner")?.classList.toggle("admin-hidden", inSuper);
+  document.body.classList.toggle("admin-mode", inSuper);
+  if (centerName) centerName.textContent = inSuper ? "Platform Control Center" : (currentUser?.organization?.name || currentTenant?.centerName || "Eduka CRM");
   const topbar = document.querySelector(".topbar");
   let adminHeader = document.querySelector("[data-admin-header]");
   if (!adminHeader) {
@@ -2920,8 +2926,8 @@ function ensureAdminShell() {
     adminHeader.dataset.adminHeader = "";
     topbar?.append(adminHeader);
   }
-  adminHeader.hidden = !inAdmin;
-  if (inAdmin) {
+  adminHeader.hidden = !inSuper;
+  if (inSuper) {
     const admin = currentAdmin();
     adminHeader.innerHTML = `<button type="button" data-admin-action="toast" data-message="Bildirishnomalar markazi ochildi.">Bildirishnomalar</button><button type="button" data-admin-action="profile-menu">${admin.fullName}</button><button type="button" data-admin-logout>Chiqish</button>`;
   }
@@ -3551,7 +3557,7 @@ function ensureCrmShell() {
 
 function renderCrmTopbar(viewName = viewFromPath()) {
   ensureCrmShell();
-  const inApp = isAppCrmRoute(viewName) && !window.location.pathname.startsWith("/admin");
+  const inApp = isAppCrmRoute(viewName) && !window.location.pathname.startsWith("/super");
   document.body.classList.toggle("crm-app-mode", inApp);
   const tools = document.querySelector("[data-crm-topbar-tools]");
   if (tools) tools.hidden = !inApp;
