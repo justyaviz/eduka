@@ -1441,10 +1441,11 @@ function receiptSettingsDefaults(settings = {}) {
     center_name: receipt.center_name || settings.center_name || "EDUKA",
     address: receipt.address || "",
     phone: receipt.phone || "",
-    prefix: receipt.prefix || "EDU",
-    footer: receipt.footer || "To'lovingiz uchun rahmat!",
+    prefix: receipt.prefix || "CHK",
+    footer: receipt.footer || "TO'LOVINGIZ UCHUN RAHMAT",
     paper: receipt.paper || "80mm",
-    show_qr: receipt.show_qr !== false
+    show_qr: receipt.show_qr !== false,
+    bot_username: receipt.bot_username || process.env.STUDENT_BOT_USERNAME || "edukauz_bot"
   };
 }
 
@@ -1593,13 +1594,20 @@ async function handlePaymentReceiptRequest(request, response, paymentId) {
       await pool.query("UPDATE payments SET receipt_printed_at=NOW(), receipt_status='printed' WHERE id=$1 AND organization_id=$2", [paymentId, user.organization_id]);
     }
     const result = await pool.query(
-      `SELECT p.*, s.full_name AS student_name, s.phone AS student_phone, g.name AS group_name, g.course_name,
-              u.full_name AS cashier_name, o.name AS organization_name, o.phone AS organization_phone, o.address AS organization_address
+      `SELECT p.*, s.full_name AS student_name, s.phone AS student_phone, s.balance AS student_balance,
+              g.name AS group_name, g.course_name, g.monthly_price AS group_monthly_price, g.room AS group_room,
+              u.full_name AS cashier_name,
+              o.name AS organization_name, o.phone AS organization_phone, o.address AS organization_address, o.logo_url AS organization_logo_url,
+              ob.logo_url AS branding_logo_url,
+              COALESCE(b.name, o.name) AS branch_name,
+              GREATEST(COALESCE(p.due_amount, 0) - COALESCE(p.amount, 0) - COALESCE(p.discount, 0), 0)::numeric AS current_balance
        FROM payments p
        LEFT JOIN students s ON s.id=p.student_id
        LEFT JOIN groups g ON g.id=p.group_id
        LEFT JOIN users u ON u.id=p.created_by
        LEFT JOIN organizations o ON o.id=p.organization_id
+       LEFT JOIN organization_branding ob ON ob.organization_id=o.id
+       LEFT JOIN branches b ON b.id=s.branch_id
        WHERE p.id=$1 AND p.organization_id=$2`,
       [paymentId, user.organization_id]
     );
@@ -1611,6 +1619,11 @@ async function handlePaymentReceiptRequest(request, response, paymentId) {
       const upd = await pool.query("UPDATE payments SET receipt_no=$3 WHERE id=$1 AND organization_id=$2 RETURNING receipt_no", [paymentId, user.organization_id, receiptNo]);
       payment.receipt_no = upd.rows[0]?.receipt_no || receiptNo;
     }
+    const botUsername = settings.bot_username || "edukauz_bot";
+    payment.telegram_deep_link = `https://t.me/${botUsername}?start=receipt_${encodeURIComponent(payment.receipt_no)}`;
+    payment.qr_code_value = payment.telegram_deep_link;
+    payment.course_amount = payment.due_amount || payment.group_monthly_price || payment.amount || 0;
+    payment.current_balance = payment.current_balance ?? Math.max(Number(payment.due_amount || 0) - Number(payment.amount || 0) - Number(payment.discount || 0), 0);
     sendJson(response, 200, { ok: true, receipt: { settings, payment, printed_at: markPrinted ? new Date().toISOString() : payment.receipt_printed_at } });
   } catch (error) {
     withError(response, "Payment receipt", error);
@@ -4488,6 +4501,39 @@ async function sendStudentTelegramMessage(pool, student, message) {
   return { ok: true, message: "Xabar yuborildi" };
 }
 
+
+async function findPaymentReceiptByNumber(receiptNumber) {
+  const clean = asText(receiptNumber).replace(/^receipt_/i, "");
+  if (!clean) return null;
+  const pool = getDbPool();
+  await ensureSchema(pool);
+  const result = await pool.query(
+    `SELECT p.*, s.full_name AS student_name, s.phone AS student_phone, s.balance AS student_balance,
+            g.name AS group_name, g.course_name, g.monthly_price AS group_monthly_price, g.room AS group_room,
+            u.full_name AS cashier_name,
+            o.name AS organization_name, o.phone AS organization_phone, o.address AS organization_address, o.logo_url AS organization_logo_url,
+            COALESCE(b.name, o.name) AS branch_name,
+            GREATEST(COALESCE(p.due_amount, 0) - COALESCE(p.amount, 0) - COALESCE(p.discount, 0), 0)::numeric AS current_balance
+     FROM payments p
+     LEFT JOIN students s ON s.id=p.student_id
+     LEFT JOIN groups g ON g.id=p.group_id
+     LEFT JOIN users u ON u.id=p.created_by
+     LEFT JOIN organizations o ON o.id=p.organization_id
+     LEFT JOIN branches b ON b.id=s.branch_id
+     WHERE p.receipt_no=$1
+     ORDER BY p.id DESC
+     LIMIT 1`,
+    [clean]
+  );
+  const payment = result.rows[0];
+  if (!payment) return null;
+  const settings = receiptSettingsDefaults(await getOrganizationSettings(pool, payment.organization_id));
+  payment.telegram_deep_link = `https://t.me/${settings.bot_username || "edukauz_bot"}?start=receipt_${encodeURIComponent(payment.receipt_no)}`;
+  payment.qr_code_value = payment.telegram_deep_link;
+  payment.course_amount = payment.due_amount || payment.group_monthly_price || payment.amount || 0;
+  return { settings, payment };
+}
+
 async function handleTelegramWebhook(request, response) {
   const expectedSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
   if (expectedSecret) {
@@ -4518,6 +4564,7 @@ async function handleTelegramWebhook(request, response) {
       postTelegramMessage,
       getStudentTelegramConfig,
       studentAppWebUrl,
+      findPaymentReceiptByNumber,
       hashPassword
     });
     sendJson(response, 200, { ok: true });
@@ -5076,6 +5123,13 @@ const server = http.createServer((request, response) => {
     handlePaymentReceiptRequest(request, response, Number(paymentReceiptMatch[1]));
     return;
   }
+  const publicReceiptMatch = urlPath.match(/^\/api\/public\/receipts\/([^/]+)$/);
+  if (publicReceiptMatch && request.method === "GET") {
+    findPaymentReceiptByNumber(decodeURIComponent(publicReceiptMatch[1]))
+      .then((receipt) => receipt ? sendJson(response, 200, { ok: true, receipt }) : sendJson(response, 404, { ok: false, message: "Chek topilmadi" }))
+      .catch((error) => withError(response, "Public receipt", error));
+    return;
+  }
 
   const paymentMatch = urlPath.match(/^\/api(?:\/app)?\/payments(?:\/(\d+))?$/);
   if (paymentMatch) {
@@ -5343,6 +5397,7 @@ server.listen(port, () => {
     postTelegramMessage,
     getStudentTelegramConfig,
     studentAppWebUrl,
+    findPaymentReceiptByNumber,
     hashPassword
   });
 });

@@ -196,12 +196,86 @@ async function handleCallback(update, deps) {
   if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id });
 }
 
+
+function money(value) {
+  return `${Number(value || 0).toLocaleString("uz-UZ")} so'm`;
+}
+
+function shortDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 16);
+  return date.toLocaleString("uz-UZ", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/,/g, "");
+}
+
+function paymentStatusUz(status, balance) {
+  const raw = String(status || "").toLowerCase();
+  if (["cancelled", "canceled"].includes(raw)) return "BEKOR QILINGAN";
+  if (["covered", "closed", "debt_closed"].includes(raw)) return "QARZ QOPLANGAN";
+  if (["debt", "debtor"].includes(raw)) return "QARZDOR";
+  if (["partial", "partially_paid"].includes(raw) || Number(balance || 0) > 0) return "QISMAN TO'LANGAN";
+  return "TO'LANGAN";
+}
+
+function receiptMessage(receipt) {
+  const p = receipt?.payment || {};
+  const s = receipt?.settings || {};
+  const paid = Number(p.amount || p.paid_amount || 0);
+  const due = Number(p.due_amount || p.course_amount || p.group_monthly_price || paid || 0);
+  const discount = Number(p.discount || 0);
+  const balance = Math.max(due - paid - discount, 0);
+  const status = paymentStatusUz(p.status, balance);
+  return [
+    "✅ <b>To'lov tasdiqlandi!</b>",
+    "",
+    `🧾 <b>Chek raqami:</b> ${p.receipt_no || "-"}`,
+    `🏫 <b>Markaz:</b> ${p.organization_name || s.center_name || "Eduka"}`,
+    `📍 <b>Filial:</b> ${p.branch_name || p.organization_address || s.address || "Asosiy markaz"}`,
+    `👤 <b>O'quvchi:</b> ${p.student_name || "-"}`,
+    `📚 <b>Kurs:</b> ${p.course_name || "-"}`,
+    `👥 <b>Guruh:</b> ${p.group_name || "-"}`,
+    "",
+    `💳 <b>To'lov turi:</b> ${p.payment_type || "-"}`,
+    `💰 <b>Kurs / guruh summasi:</b> ${money(due)}`,
+    `📌 <b>To'lanishi kerak:</b> ${money(due)}`,
+    `✅ <b>To'langan summa:</b> ${money(paid)}`,
+    `📊 <b>Hozirgi balans:</b> ${money(balance)}`,
+    "",
+    `👨‍💼 <b>Administrator:</b> ${p.cashier_name || "-"}`,
+    `📅 <b>Sana:</b> ${shortDateTime(p.paid_at || p.payment_date || p.created_at)}`,
+    `📌 <b>Holati:</b> ${status}`,
+    balance > 0 ? `📊 <b>Qolgan balans:</b> ${money(balance)}` : "",
+    "",
+    "Rahmat! To'lovingiz tizimda saqlandi."
+  ].filter(Boolean).join("\n");
+}
+
+async function sendReceiptByStartParam(token, chatId, startParam, deps) {
+  const receiptKey = String(startParam || "").replace(/^receipt_/i, "");
+  if (!receiptKey || !deps.findPaymentReceiptByNumber) return false;
+  const receipt = await deps.findPaymentReceiptByNumber(receiptKey);
+  if (!receipt) {
+    await sendMessage(token, chatId, "Chek topilmadi. Iltimos, chek raqamini tekshiring yoki administratorga murojaat qiling.");
+    return true;
+  }
+  await sendMessage(token, chatId, receiptMessage(receipt));
+  return true;
+}
+
 async function handleCommand(token, message, deps) {
   const chatId = message.chat.id;
   const rawText = String(message.text || "").trim();
-  const commandWord = rawText.split(/\s+/)[0].split("@")[0].toLowerCase();
+  const parts = rawText.split(/\s+/).filter(Boolean);
+  const commandWord = (parts[0] || "").split("@")[0].toLowerCase();
   const command = commandWord.startsWith("/") ? commandWord : `/${commandWord}`;
-  if (command === "/start") return askForContact(token, chatId);
+  const startParam = parts.slice(1).join(" ");
+  if (command === "/start") {
+    if (startParam && startParam.startsWith("receipt_")) {
+      const handled = await sendReceiptByStartParam(token, chatId, startParam, deps);
+      if (handled) return;
+    }
+    return askForContact(token, chatId);
+  }
   if (command === "/help") {
     await sendMessage(token, chatId, "Yordam kerak bo'lsa o'quv markazingiz administratoriga murojaat qiling yoki Student App ichidagi 'Mas'ullarga yozish' bo'limidan foydalaning.");
     return;

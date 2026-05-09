@@ -627,7 +627,7 @@ function generatedViewHtml(title, description, type) {
     return `<section class="settings-panel"><div class="page-head"><h1>${title}</h1><button class="section-action" type="button">Lavozim qo'shish</button></div><p>${description}</p><div class="role-list">${["Exerciser", "Developer", "Kassir", "Chop etuvchi", "Marketolog", "Adminstrator", "Buxgalter", "Teacher"].map((role) => `<article><b>${role[0]}</b><span>${role}</span><small>global</small></article>`).join("")}</div></section>`;
   }
   if (type === "receipt") {
-    return `<section class="split-panels receipt-settings-page"><article><div class="page-head"><h1>${title}</h1><button class="section-action" type="submit" form="receipt-settings-form">Saqlash</button></div><p>${description}</p><form id="receipt-settings-form" data-receipt-settings-form class="settings-form receipt-settings-form"><label>Chek prefiksi<input name="prefix" value="EDU" /></label><label>Markaz nomi<input name="center_name" value="EDUKA" /></label><label>Telefon<input name="phone" placeholder="+998" /></label><label>Manzil<input name="address" placeholder="Markaz manzili" /></label><label>Pastki matn<input name="footer" value="To'lovingiz uchun rahmat!" /></label><label>Qog'oz<select name="paper"><option value="80mm">80mm</option><option value="58mm">58mm</option><option value="a4">A4</option></select></label><label class="check-field"><input name="enabled" type="checkbox" checked /><span>Chek chiqarish yoqilsin</span></label><label class="check-field"><input name="auto_print" type="checkbox" checked /><span>To'lovdan keyin avtomatik chek chiqarish</span></label></form></article><article><h1>Chek ko'rinishi</h1><div class="receipt-preview receipt-preview-pro"><b>EDUKA</b><span>O'quv markazi cheki</span><hr/><p>Chek: EDU-000001</p><p>Talaba: YAHYOBEK</p><p>Summa: 250 000 so'm</p><small>To'lovingiz uchun rahmat!</small></div></article></section>`;
+    return `<section class="split-panels receipt-settings-page"><article><div class="page-head"><h1>${title}</h1><button class="section-action" type="submit" form="receipt-settings-form">Saqlash</button></div><p>${description}</p><form id="receipt-settings-form" data-receipt-settings-form class="settings-form receipt-settings-form"><label>Chek prefiksi<input name="prefix" value="CHK" /></label><label>Markaz nomi<input name="center_name" value="EDUKA" /></label><label>Telegram bot username<input name="bot_username" value="edukauz_bot" placeholder="edukauz_bot" /></label><label>Telefon<input name="phone" placeholder="+998" /></label><label>Manzil<input name="address" placeholder="Markaz manzili" /></label><label>Pastki matn<input name="footer" value="TO'LOVINGIZ UCHUN RAHMAT" /></label><label>Qog'oz<select name="paper"><option value="80mm">80mm</option><option value="58mm">58mm</option><option value="a4">A4</option></select></label><label class="check-field"><input name="enabled" type="checkbox" checked /><span>Chek chiqarish yoqilsin</span></label><label class="check-field"><input name="auto_print" type="checkbox" checked /><span>To'lovdan keyin avtomatik chek chiqarish</span></label></form></article><article><h1>Chek ko'rinishi</h1><div class="receipt-preview receipt-preview-pro"><b>EDUKA</b><span>Thermal printer uchun 80mm chek</span><hr/><p>Chek: CHK-2026-0512-00586</p><p>Talaba: Muhammadali Rashidov</p><p>QR: https://t.me/edukauz_bot?start=receipt_...</p><small>Logo markaz sozlamasidagi Logo URL orqali chiqadi.</small></div></article></section>`;
   }
   if (type === "market") {
     return `<section class="settings-panel"><h1>${title}</h1><p>${description}</p><div class="settings-grid"><article><h2>Telegram bot</h2><p>Davomat va qarzdorlik xabarlari.</p></article><article><h2>Excel import/export</h2><p>Talabalar va moliya fayllari.</p></article><article><h2>SMS gateway</h2><p>Auto SMS va shablonlar.</p></article></div></section>`;
@@ -1533,13 +1533,148 @@ function renderResource(resource, emptyText, renderer) {
 }
 
 
+function receiptStatusUz(status, debt) {
+  const raw = String(status || "").toLowerCase();
+  if (["cancelled", "canceled", "bekor"].includes(raw)) return "BEKOR QILINGAN";
+  if (["debt", "qarzdor"].includes(raw)) return "QARZDOR";
+  if (["covered", "closed", "debt_closed"].includes(raw)) return "QARZ QOPLANGAN";
+  if (["partial", "partially_paid"].includes(raw) || Number(debt || 0) > 0) return "QISMAN TO'LANGAN";
+  return "TO'LANGAN";
+}
+
+function receiptDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 16);
+  return date.toLocaleString("uz-UZ", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).replace(/,/g, "");
+}
+
+function receiptLogoHtml(data) {
+  const logo = data.logoUrl || data.logo_url || data.organization_logo_url || data.branding_logo_url || "";
+  if (logo) {
+    return `<img class="receipt-logo-img" src="${escapeHtml(logo)}" alt="${escapeHtml(data.centerName || data.center_name || "Logo")}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" /><div class="receipt-logo-fallback" style="display:none">🎓</div>`;
+  }
+  return `<div class="receipt-logo-fallback">🎓</div>`;
+}
+
 function paymentReceiptHtml(receipt) {
   const p = receipt.payment || {};
   const s = receipt.settings || {};
   const total = Number(p.amount || p.paid_amount || 0);
-  const due = Number(p.due_amount || total || 0);
-  const debt = Math.max(due - total - Number(p.discount || 0), 0);
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Chek ${escapeHtml(p.receipt_no || "")}</title><style>body{font-family:Inter,Arial,sans-serif;margin:0;background:#f3f6fb;color:#111827}.receipt{width:320px;margin:20px auto;background:white;border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(15,23,42,.18)}.head{text-align:center}.brand{font-size:22px;font-weight:900}.muted{color:#64748b;font-size:12px}.row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed #dbe3ef;padding:8px 0;font-size:13px}.total{font-size:18px;font-weight:900}.ok{color:#059669}.footer{text-align:center;margin-top:14px;font-size:12px}.actions{display:flex;gap:8px;justify-content:center;margin:16px}@media print{body{background:white}.receipt{box-shadow:none;margin:0 auto}.actions{display:none}}</style></head><body><div class="receipt"><div class="head"><div class="brand">${escapeHtml(s.center_name || p.organization_name || "EDUKA")}</div><div class="muted">${escapeHtml(s.address || p.organization_address || "")}</div><div class="muted">${escapeHtml(s.phone || p.organization_phone || "")}</div></div><div class="row"><span>Chek</span><b>${escapeHtml(p.receipt_no || "-")}</b></div><div class="row"><span>Sana</span><b>${formatDate(p.paid_at || p.payment_date)}</b></div><div class="row"><span>Talaba</span><b>${escapeHtml(p.student_name || "-")}</b></div><div class="row"><span>Telefon</span><b>${escapeHtml(p.student_phone || "-")}</b></div><div class="row"><span>Guruh</span><b>${escapeHtml(p.group_name || "-")}</b></div><div class="row"><span>Oy</span><b>${escapeHtml(p.payment_month || "-")}</b></div><div class="row"><span>To'lov usuli</span><b>${escapeHtml(p.payment_type || "-")}</b></div><div class="row"><span>To'lanishi kerak</span><b>${formatMoney(due)}</b></div><div class="row"><span>Chegirma</span><b>${formatMoney(p.discount || 0)}</b></div><div class="row total"><span>To'landi</span><b class="ok">${formatMoney(total)}</b></div><div class="row"><span>Qoldiq</span><b>${formatMoney(debt)}</b></div><div class="row"><span>Kassir</span><b>${escapeHtml(p.cashier_name || currentUser?.fullName || currentUser?.name || "-")}</b></div><div class="footer">${escapeHtml(s.footer || "To'lovingiz uchun rahmat!")}</div></div><div class="actions"><button onclick="window.print()">Chop etish</button><button onclick="window.close()">Yopish</button></div><script>setTimeout(()=>window.print(),350)</script></body></html>`;
+  const due = Number(p.due_amount || p.course_amount || total || 0);
+  const discount = Number(p.discount || 0);
+  const debt = Math.max(due - total - discount, 0);
+  const receiptNumber = p.receipt_no || p.receiptNumber || p.receipt_number || "EDU-000001";
+  const centerName = s.center_name || p.organization_name || p.center_name || "EDUKA";
+  const branchName = p.branch_name || p.organization_branch_name || p.organization_address || s.address || "Asosiy markaz";
+  const courseName = p.course_name || p.payment_month || "-";
+  const groupName = p.group_name || "-";
+  const paymentType = p.payment_type || p.method || "-";
+  const administratorName = p.cashier_name || p.created_by_name || currentUser?.fullName || currentUser?.name || "-";
+  const statusText = receiptStatusUz(p.status, debt);
+  const botUsername = s.bot_username || p.bot_username || "edukauz_bot";
+  const qrValue = p.qr_code_value || p.qrCodeValue || p.telegram_deep_link || `https://t.me/${botUsername}?start=receipt_${encodeURIComponent(receiptNumber)}`;
+  const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=1&data=${encodeURIComponent(qrValue)}`;
+  const dataForLogo = { ...p, ...s, centerName };
+  const leader = (label, value, extraClass = "") => `<div class="leader ${extraClass}"><span>${escapeHtml(label)}</span><i></i><b>${escapeHtml(value || "-")}</b></div>`;
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chek ${escapeHtml(receiptNumber)}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #eef3f8; color: #111; font-family: Arial, Helvetica, sans-serif; }
+  body { display: flex; justify-content: center; padding: 18px 0 28px; }
+  .receipt-shell { width: 80mm; max-width: 80mm; background: #fff; border-radius: 10px; box-shadow: 0 18px 60px rgba(15,23,42,.22); overflow: hidden; }
+  .receipt { width: 80mm; min-height: 100mm; padding: 12px 12px 18px; background: #fff; }
+  .head { text-align: center; }
+  .receipt-logo-img { display: block; max-width: 46px; max-height: 46px; object-fit: contain; margin: 0 auto 6px; filter: grayscale(1) contrast(1.18); }
+  .receipt-logo-fallback { width: 48px; height: 48px; line-height: 46px; margin: 0 auto 6px; font-size: 28px; text-align: center; border: 2px solid #111; border-radius: 50%; }
+  .brand { font-size: 26px; line-height: 1.05; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+  .decor { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 12px 0 10px; }
+  .decor:before, .decor:after { content:""; width: 54px; border-top: 1px solid #111; }
+  .decor span { width: 5px; height: 5px; background: #111; border-radius: 50%; }
+  .title { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+  .dash { border: 0; border-top: 2px dashed #111; margin: 13px 0 13px; }
+  .leader { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; font-size: 13.5px; line-height: 1.25; }
+  .leader span { white-space: nowrap; color: #222; }
+  .leader i { flex: 1; border-bottom: 2px dotted #aaa; transform: translateY(-3px); }
+  .leader b { max-width: 48%; text-align: right; font-size: 14px; font-weight: 900; color: #111; overflow-wrap: anywhere; }
+  .amount-box { margin: 14px 0 13px; border: 1.5px solid #111; border-radius: 6px; overflow: hidden; }
+  .amount-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 9px; padding: 10px; border-bottom: 1px dotted #999; }
+  .amount-row:last-child { border-bottom: 0; }
+  .amount-icon { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1.4px solid #111; border-radius: 50%; font-size: 15px; }
+  .amount-label { font-size: 14px; font-weight: 800; }
+  .amount-value { font-size: 15px; font-weight: 900; white-space: nowrap; }
+  .status b { text-transform: uppercase; letter-spacing: .02em; }
+  .center-note { text-align: center; font-size: 13px; margin: 11px 0 8px; }
+  .thin-line { border: 0; border-top: 1px solid #111; margin: 7px 14px 12px; }
+  .qr { text-align: center; }
+  .qr img { width: 136px; height: 136px; object-fit: contain; image-rendering: pixelated; }
+  .qr p { margin: 5px 0 0; font-size: 12.5px; line-height: 1.34; }
+  .thanks { margin: 12px 0 0; text-align: center; font-size: 20px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
+  .actions { display: flex; gap: 10px; justify-content: center; padding: 14px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+  .actions button { border: 0; border-radius: 999px; padding: 10px 14px; color: #fff; background: #2563eb; font-weight: 800; cursor: pointer; }
+  .actions button:last-child { color: #111827; background: #e5e7eb; }
+  @media print {
+    html, body { width: 80mm; margin: 0 !important; padding: 0 !important; background: #fff !important; display: block; }
+    .receipt-shell { width: 80mm; max-width: 80mm; box-shadow: none; border-radius: 0; }
+    .receipt { width: 80mm; padding: 10px 10px 14px; }
+    .actions { display: none !important; }
+    .leader { page-break-inside: avoid; }
+    .amount-box, .qr { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <main class="receipt-shell">
+    <section class="receipt">
+      <header class="head">
+        ${receiptLogoHtml(dataForLogo)}
+        <div class="brand">${escapeHtml(centerName)}</div>
+        <div class="decor"><span></span></div>
+        <h1 class="title">TO'LOV CHEKI</h1>
+      </header>
+      <hr class="dash" />
+      ${leader("To'lov chek nomeri", receiptNumber)}
+      ${leader("Filial / markaz", branchName)}
+      ${leader("Sana va vaqt", receiptDateTime(p.paid_at || p.payment_date || p.created_at))}
+      ${leader("O'quvchi ism", p.student_name || "-")}
+      ${leader("Kurs nomi", courseName)}
+      ${leader("Guruh", groupName)}
+      ${leader("To'lov turi", paymentType)}
+      ${leader("Kurs / guruh summasi", formatMoney(due))}
+      <section class="amount-box">
+        <div class="amount-row"><span class="amount-icon">▤</span><span class="amount-label">To'lanishi kerak</span><b class="amount-value">${formatMoney(due)}</b></div>
+        <div class="amount-row"><span class="amount-icon">✓</span><span class="amount-label">To'langan summa</span><b class="amount-value">${formatMoney(total)}</b></div>
+        <div class="amount-row"><span class="amount-icon">▣</span><span class="amount-label">Hozirgi balans</span><b class="amount-value">${formatMoney(debt)}</b></div>
+      </section>
+      ${leader("Administrator", administratorName)}
+      ${leader("Status / holati", statusText, "status")}
+      <hr class="dash" />
+      <div class="center-note">To'lov holatini istalgan vaqtda tekshiring</div>
+      <hr class="thin-line" />
+      <section class="qr">
+        <img src="${qrImage}" alt="QR: ${escapeHtml(qrValue)}" />
+        <p>To'lovlarni onlayn kuzatib boring<br/>Hoziroq balansni tekshiring</p>
+      </section>
+      <hr class="dash" />
+      <div class="thanks">TO'LOVINGIZ UCHUN RAHMAT</div>
+    </section>
+    <div class="actions"><button onclick="window.print()">Chekni chop etish</button><button onclick="window.close()">Yopish</button></div>
+  </main>
+  <script>setTimeout(function(){ window.print(); }, 450);</script>
+</body>
+</html>`;
 }
 
 async function printPaymentReceipt(paymentId) {
