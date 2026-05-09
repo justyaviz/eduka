@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 180" role="img" aria-label="Group 3D">
+  <defs>
+    <linearGradient id="skin" x1="70" x2="145" y1="35" y2="122" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD7BD"/>
+      <stop offset="1" stop-color="#F59E75"/>
+    </linearGradient>
+    <linearGradient id="shirtA" x1="42" x2="96" y1="100" y2="162" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="shirtB" x1="96" x2="162" y1="88" y2="166" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB923C"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="plus" x1="127" x2="190" y1="92" y2="158" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="110" cy="157" rx="78" ry="14" fill="#DCE7F8"/>
+  <circle cx="66" cy="74" r="30" fill="url(#skin)"/>
+  <circle cx="129" cy="66" r="34" fill="url(#skin)"/>
+  <path d="M32 146c4-35 21-52 44-52s40 17 44 52H32Z" fill="url(#shirtA)"/>
+  <path d="M84 148c6-41 25-61 52-61s47 20 53 61H84Z" fill="url(#shirtB)"/>
+  <path d="M39 62c10-30 42-34 57-10-9-6-31-4-57 10Z" fill="#101828"/>
+  <path d="M95 52c13-31 51-32 70-4-16-5-43-5-70 4Z" fill="#101828"/>
+  <circle cx="163" cy="125" r="35" fill="url(#plus)"/>
+  <path d="M163 108v34M146 125h34" stroke="#fff" stroke-linecap="round" stroke-width="10"/>
+</svg>

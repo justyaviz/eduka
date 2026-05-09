@@ -1149,38 +1149,3 @@ CROSS JOIN (VALUES
 ) AS p(permission_key)
 WHERE ar.name='platform_owner'
 ON CONFLICT (role_id, permission_key) DO UPDATE SET enabled=EXCLUDED.enabled;
-<<<<<<< HEAD
-
-
--- Eduka 21.0 stabilization schema hardening
-ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS father_name TEXT;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS mother_name TEXT;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS crystals INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE groups ADD COLUMN IF NOT EXISTS teacher_salary NUMERIC(14,2) NOT NULL DEFAULT 0;
-ALTER TABLE groups ADD COLUMN IF NOT EXISTS salary_type TEXT NOT NULL DEFAULT 'fixed';
-ALTER TABLE groups ADD COLUMN IF NOT EXISTS chat_id TEXT;
-ALTER TABLE groups ADD COLUMN IF NOT EXISTS delivery_mode TEXT NOT NULL DEFAULT 'offline';
-ALTER TABLE groups ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE teachers ADD COLUMN IF NOT EXISTS birth_date DATE;
-ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender TEXT;
-ALTER TABLE teachers ADD COLUMN IF NOT EXISTS address TEXT;
-ALTER TABLE teachers ADD COLUMN IF NOT EXISTS note TEXT;
-ALTER TABLE teachers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE courses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-ALTER TABLE salaries ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
-
-CREATE INDEX IF NOT EXISTS students_org_group_idx ON students(organization_id, group_id);
-CREATE INDEX IF NOT EXISTS students_org_status_idx ON students(organization_id, status);
-CREATE INDEX IF NOT EXISTS leads_org_status_idx ON leads(organization_id, status);
-CREATE INDEX IF NOT EXISTS payments_org_student_idx ON payments(organization_id, student_id);
-CREATE INDEX IF NOT EXISTS groups_org_teacher_idx ON groups(organization_id, teacher_id);
-CREATE INDEX IF NOT EXISTS attendance_org_student_date_idx ON attendance_records(organization_id, student_id, lesson_date);
-=======
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c

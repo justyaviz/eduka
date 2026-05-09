@@ -3,32 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<<<<<<< HEAD
-    <title>Eduka CRM 20.4 - Kabinet</title>
-=======
-    <title>Eduka CRM 20.0 - Kabinet</title>
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+    <title>Eduka CRM - Kabinet</title>
     <meta name="description" content="Eduka CRM ichki kabineti: lidlar, o'qituvchilar, guruhlar, talabalar, davomat, moliya va sozlamalar." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-<<<<<<< HEAD
-    <link rel="stylesheet" href="/app.css?v=21.0.0" />
-=======
-    <link rel="stylesheet" href="/app.css?v=20.3.0" />
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
+    <link rel="stylesheet" href="/app.css" />
   </head>
-  <body class="is-booting">
-    <div class="eduka-boot-loader" data-boot-loader>
-      <div class="boot-orb"><span></span><span></span><span></span></div>
-      <div class="boot-logo"><img src="/assets/logo_icon.png" alt="" /><strong>EDUKA</strong></div>
-      <p>Platforma yuklanmoqda...</p>
-      <div class="boot-progress"><i></i></div>
-    </div>
+  <body>
     <main class="auth-screen" data-auth-screen>
       <section class="login-panel" aria-labelledby="login-title">
         <a class="brand" href="/">
@@ -45,6 +28,7 @@
           <label><span>Parol</span><input name="password" type="password" placeholder="Parolingiz" autocomplete="current-password" required /></label>
           <button type="submit">Kirish</button>
         </form>
+        <button class="demo-login" type="button" data-demo-login>Tezkor kirish</button>
         <button class="forgot-link" type="button" data-forgot>Parol esdan chiqdimi?</button>
         <p class="login-note" data-login-note>O'quv markaz kabinetiga kirish uchun ma'lumotlaringizni kiriting.</p>
       </section>
@@ -283,10 +267,6 @@
           <section class="view" id="bonuses"><div class="finance-tabs"><button data-view="finance">To'lovlar</button><button data-view="extra-income">Qo'shimcha daromadlar</button><button data-view="salary">Ish haqi</button><button class="active" data-view="bonuses">Bonuslar</button><button data-view="expenses">Xarajatlar</button></div><div class="page-head list-head"><h1>Bonuslar ro'yhati</h1><label><span>15</span><input value="15" /></label><button class="section-action" data-ui-icon="plus">Bonus qo'shish</button></div><div class="empty-state">Ma'lumot topilmadi</div></section>
           <section class="view" id="debtors"><div class="page-head"><h1>Qarzdorlar</h1><span data-count="debts">Miqdor - 0</span></div><div class="metric-grid compact" data-debt-summary></div><div class="filters" data-filter-scope="debts"><input data-filter="search" placeholder="Ism yoki telefon orqali qidirish" /></div><p class="notice-line" data-debt-template></p><div class="table" data-table="debts"><div><b>O'quvchi</b><b>Telefon</b><b>Ota-ona telefoni</b><b>Guruh</b><b>Qarzdorlik</b><b>Necha kundan beri</b><b>Oxirgi to'lov</b><b>Amallar</b></div></div></section>
           <section class="view" id="reports"><div class="page-head"><h1>Hisobotlar</h1><div class="export-actions"><button type="button">Excel export</button><button type="button">PDF export</button></div></div><div class="filters"><input type="date" value="2026-05-01" /><input type="date" value="2026-05-31" /></div><div class="metric-grid compact" data-report-summary></div><section class="dashboard-grid"><article class="chart-card"><div class="page-head"><h2>Kunlik tushum</h2></div><div class="bar-chart" data-report-chart="daily"></div></article><article class="chart-card"><div class="page-head"><h2>Lead konversiya</h2></div><div class="funnel-chart" data-report-chart="conversion"></div></article><article class="chart-card wide-chart"><div class="page-head"><h2>O'qituvchi samaradorligi</h2></div><div class="rank-list" data-report-chart="teachers"></div></article></section><div class="table" data-table="audit"><div><b>Vaqt</b><b>Xodim</b><b>Amal</b><b>Bo'lim</b><b>ID</b></div></div></section>
-
-          <section class="view" id="archive"><div data-crm-archive-page></div></section>
-          <section class="view" id="market"><div data-crm-market-page></div></section>
-
           <section class="view" id="super-dashboard">
             <div class="page-head"><h1>Platforma egasi paneli</h1><span>Super Admin</span></div>
             <div class="metric-grid super-kpis">
@@ -337,14 +317,9 @@
     </div>
 
     <div class="toast" data-toast></div>
-<<<<<<< HEAD
-    <script src="/crm-services.js?v=21.0.0"></script>
+    <script src="/crm-mock.js"></script>
+    <script src="/crm-services.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="/app.js?v=21.0.0"></script>
-=======
-    <script src="/crm-services.js?v=20.3.0"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="/app.js?v=20.3.0"></script>
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
+    <script src="/app.js"></script>
   </body>
 </html>

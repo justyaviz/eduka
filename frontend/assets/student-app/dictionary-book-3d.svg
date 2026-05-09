@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" role="img" aria-label="Dictionary book">
+  <defs>
+    <linearGradient id="leather" x1="72" y1="37" x2="206" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B95C34"/>
+      <stop offset=".48" stop-color="#7C2F22"/>
+      <stop offset="1" stop-color="#4B1C18"/>
+    </linearGradient>
+    <linearGradient id="pages" x1="91" y1="148" x2="238" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#EADFCB"/>
+    </linearGradient>
+    <filter id="drop" x="-25%" y="-25%" width="150%" height="165%">
+      <feDropShadow dx="0" dy="24" stdDeviation="17" flood-color="#2E1A16" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <ellipse cx="150" cy="229" rx="96" ry="18" fill="#1D2939" opacity=".12"/>
+  <g filter="url(#drop)">
+    <path d="M95 48h86c19 0 34 15 34 34v112c0 12-10 22-22 22H95c-17 0-31-14-31-31V79c0-17 14-31 31-31Z" fill="#E7D4C5"/>
+    <path d="M82 45h91c21 0 38 17 38 38v106c0 12-10 22-22 22H82c-18 0-32-14-32-32V77c0-18 14-32 32-32Z" fill="url(#leather)"/>
+    <path d="M194 61c11 8 17 20 17 35v91c0 13-10 23-23 23h-19V82c0-13 10-22 25-21Z" fill="#431713" opacity=".52"/>
+    <path d="M82 72h82M82 187h86" stroke="#FFF2DD" stroke-width="5" stroke-linecap="round" opacity=".22"/>
+    <text x="83" y="139" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" fill="#FFFFFF">Aa</text>
+    <rect x="190" y="76" width="20" height="35" rx="6" fill="#FFB74A"/>
+    <path d="M65 187c28-12 61-10 94 8 35-19 68-21 103-5v29c-31-16-66-13-103 6-33-18-67-21-103-6v-21c0-5 3-9 9-11Z" fill="url(#pages)"/>
+    <path d="M159 195v28M83 200c24-5 48-2 72 8M174 207c24-9 47-11 70-4" stroke="#D3C4AD" stroke-width="4" stroke-linecap="round"/>
+    <path d="M54 151c-12-30-3-54 25-72" stroke="#4FAE60" stroke-width="8" stroke-linecap="round"/>
+    <path d="M39 117c20-8 38-3 51 15-21 8-38 3-51-15Z" fill="#64D47B"/>
+    <path d="M37 165c19-11 37-9 52 7-20 10-37 8-52-7Z" fill="#7EE08A"/>
+    <path d="M220 151c11-25 28-39 51-43-6 23-22 39-51 43Z" fill="#68D781"/>
+  </g>
+</svg>

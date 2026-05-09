@@ -69,6 +69,7 @@ async function applyProductionHardening(pool) {
   `);
 }
 
+<<<<<<< HEAD
 
 async function applyEduka21Stability(pool) {
   console.log("Applying Eduka 21.0 stability schema...");
@@ -106,6 +107,8 @@ async function applyEduka21Stability(pool) {
   `);
 }
 
+=======
+>>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
 async function run() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured");
   const pool = new Pool({
@@ -124,7 +127,10 @@ async function run() {
     await pool.query(sql);
 
     await applyProductionHardening(pool);
+<<<<<<< HEAD
     await applyEduka21Stability(pool);
+=======
+>>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
 
     // Make sure the platform owner phone does not conflict with an existing non-owner account.
     // Email is the authoritative login for the platform owner; phone can be reassigned safely.
@@ -138,7 +144,11 @@ async function run() {
     console.log("Seeding platform owner...");
     await pool.query(
       `INSERT INTO users (organization_id, full_name, email, phone, normalized_phone, role, password_hash, is_active, temporary_password, permissions, metadata)
+<<<<<<< HEAD
        VALUES (NULL, 'Eduka Platform Owner', $1, $2, $3, 'super_admin', $4, TRUE, FALSE, '["*"]'::jsonb, '{"seed":"migrate-21.0"}'::jsonb)
+=======
+       VALUES (NULL, 'Eduka Platform Owner', $1, $2, $3, 'super_admin', $4, TRUE, FALSE, '["*"]'::jsonb, '{"seed":"migrate-19.6"}'::jsonb)
+>>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
        ON CONFLICT (email) DO UPDATE SET
          full_name=EXCLUDED.full_name,
          phone=EXCLUDED.phone,
@@ -152,7 +162,11 @@ async function run() {
       [superEmail, superPhone, normalizedPhone, hashPassword(superPassword)]
     );
 
+<<<<<<< HEAD
     console.log("Eduka 21.0 migration completed.");
+=======
+    console.log("Eduka 20.0.2 migration completed.");
+>>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
     console.log(`Super Admin: ${superEmail}`);
     console.log(`Temporary password: ${superPassword}`);
   } finally {

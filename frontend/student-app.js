@@ -1,14 +1,3 @@
-<<<<<<< HEAD
-const EDUKA_STUDENT_VERSION = "20.4.0";
-=======
-const EDUKA_STUDENT_VERSION = "20.3.0";
->>>>>>> 8a05c79b8f593bbb7d02835afb8335c7957e303c
-function finishStudentBoot() {
-  document.body.classList.remove("is-booting");
-  window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
-}
-window.addEventListener("load", () => window.setTimeout(finishStudentBoot, 650));
-
 const screen = document.querySelector("[data-student-screen]");
 const phone = document.querySelector("[data-student-phone]");
 const BOT_URL = "https://t.me/edukauz_bot";
@@ -160,9 +149,7 @@ function telegramReady() {
 }
 
 function previewMode() {
-  const params = new URLSearchParams(window.location.search);
-  const localDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-  return localDev && localStorage.getItem("eduka_allow_demo") === "1" && params.get("preview") === "1";
+  return new URLSearchParams(window.location.search).get("preview") === "1";
 }
 
 function getToken() {
@@ -893,7 +880,7 @@ function libraryCard(item) {
 }
 
 function renderExamResults(data) {
-  const exams = data.exams.length ? data.exams : [];
+  const exams = data.exams.length ? data.exams : previewMode() ? referenceData.exams : [];
   if (!exams.length) {
     mount(
       `
@@ -1364,14 +1351,14 @@ phone.addEventListener("click", (event) => {
   if (action === "library-detail") {
     openStudentModal({
       title: actionButton.dataset.title || "Kitob",
-      body: `<div class="sa-modal-art">${asset("library-books-3d", "", "Kutubxona")}</div><p>${escapeHtml(actionButton.dataset.message || "Material tafsilotlari")}</p><p>Material real kabinet ma'lumotlari asosida ochildi. Fayl yoki havola administrator tomonidan biriktiriladi.</p>`,
+      body: `<div class="sa-modal-art">${asset("library-books-3d", "", "Kutubxona")}</div><p>${escapeHtml(actionButton.dataset.message || "Material tafsilotlari")}</p><p>Material preview rejimida ochildi. Real kabinetda fayl yoki havola shu yerda ko'rsatiladi.</p>`,
       action: `<button class="sa-primary-button" type="button" data-action="modal-save">O'qishni boshlash</button>`
     });
   }
   if (action === "exam-list") {
     openStudentModal({
       title: "Barcha natijalarim",
-      body: `<div class="sa-card-list"><article class="sa-small-card"><span class="sa-small-icon">${icon("check")}</span><div class="sa-list-main"><strong>Imtihon natijalari mavjud emas</strong><span>96% - A+</span></div></article><article class="sa-small-card"><span class="sa-small-icon">${icon("star")}</span><div class="sa-list-main"><strong>Keyingi natijalar kabinetda paydo bo'ladi</strong><span>88% - B+</span></div></article></div>`
+      body: `<div class="sa-card-list"><article class="sa-small-card"><span class="sa-small-icon">${icon("check")}</span><div class="sa-list-main"><strong>Imtihon natijalari mavjud emas</strong><span>96% - A+</span></div></article><article class="sa-small-card"><span class="sa-small-icon">${icon("star")}</span><div class="sa-list-main"><strong>Real natijalar API orqali yuklanadi</strong><span>88% - B+</span></div></article></div>`
     });
   }
   if (action === "schedule-request") navigate("extra-lesson");
@@ -1418,4 +1405,3 @@ screen.addEventListener("input", (event) => {
 window.addEventListener("popstate", renderCurrent);
 telegramReady();
 renderCurrent();
-finishStudentBoot();
