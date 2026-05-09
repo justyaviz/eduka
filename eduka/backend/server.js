@@ -650,6 +650,10 @@ function sendCeoLoginShell(response) {
   sendFile(response, path.join(root, "ceo-login.html"));
 }
 
+function sendCeoConsoleShell(response) {
+  sendFile(response, path.join(root, "ceo-console.html"));
+}
+
 function sendStudentAppShell(response) {
   sendFile(response, path.join(root, "student-app.html"));
 }
@@ -2046,6 +2050,59 @@ async function handleSuperSupportTicketsRequest(request, response, ticketId = nu
   } catch (error) { withError(response, "Super support tickets", error); }
 }
 
+
+
+async function handleSuperCenterPlanRequest(request, response, centerId) {
+  try {
+    const user = await requireSuperPermission(request, response, "centers.manage");
+    if (!user) return;
+    const body = await readJsonBody(request);
+    const planName = asText(body.plan || body.tariff || body.name, "Start");
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const tariff = (await pool.query("SELECT * FROM tariffs WHERE LOWER(name)=LOWER($1) LIMIT 1", [planName])).rows[0]
+      || (await pool.query("SELECT * FROM tariffs ORDER BY monthly_price ASC, id ASC LIMIT 1")).rows[0];
+    if (!tariff) {
+      sendJson(response, 404, { ok: false, message: "Tarif topilmadi" });
+      return;
+    }
+    await applyPlanFeatures(pool, centerId, tariff);
+    await pool.query(
+      `UPDATE subscriptions SET tariff_id=$2, monthly_price=$3, status=COALESCE(NULLIF($4,''), status), updated_at=NOW()
+       WHERE organization_id=$1`,
+      [centerId, tariff.id, asNumber(tariff.monthly_price), asText(body.subscription_status)]
+    );
+    await writeAudit(pool, user, "change_center_plan", "organization", centerId, { plan: tariff.name });
+    const updated = await pool.query("SELECT * FROM organizations WHERE id=$1", [centerId]);
+    sendJson(response, 200, { ok: true, item: updated.rows[0], tariff });
+  } catch (error) {
+    withError(response, "Super center plan", error);
+  }
+}
+
+async function handleSuperCenterFeaturesRequest(request, response, centerId) {
+  try {
+    const user = await requireSuperPermission(request, response, "centers.manage");
+    if (!user) return;
+    const body = await readJsonBody(request);
+    const features = body.features || body.feature_flags || {};
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    for (const [featureKey, enabled] of Object.entries(features)) {
+      await pool.query(
+        `INSERT INTO organization_feature_flags (organization_id, feature_key, enabled, source, updated_at)
+         VALUES ($1,$2,$3,'manual',NOW())
+         ON CONFLICT (organization_id, feature_key)
+         DO UPDATE SET enabled=EXCLUDED.enabled, source='manual', updated_at=NOW()`,
+        [centerId, featureKey, Boolean(enabled)]
+      );
+    }
+    await writeAudit(pool, user, "update_center_features", "organization", centerId, features);
+    sendJson(response, 200, { ok: true, features });
+  } catch (error) {
+    withError(response, "Super center features", error);
+  }
+}
 
 async function handleSuperAdminUsersRequest(request, response, adminUserId = null) {
   try {
@@ -4893,7 +4950,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "21.8.3",
+      version: "21.8.4",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -4907,6 +4964,11 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && (urlPath === "/ceo-login.html" || urlPath === "/admin-login.html")) {
     sendCeoLoginShell(response);
+    return;
+  }
+
+  if (request.method === "GET" && (urlPath === "/ceo-console.html" || (urlPath.startsWith("/ceo/") && urlPath !== "/ceo/login") || urlPath === "/ceo")) {
+    sendCeoConsoleShell(response);
     return;
   }
 
@@ -5125,6 +5187,18 @@ const server = http.createServer((request, response) => {
   const studentProfessionalMatch = urlPath.match(/^\/api\/student\/(dashboard|payments|attendance|homeworks|exams|feedback|library|dictionary|news|events|referrals|group|study|rating)$/);
   if (studentProfessionalMatch && ["GET", "POST"].includes(request.method)) {
     handleStudentProfessionalRequest(request, response, studentProfessionalMatch[1]);
+    return;
+  }
+
+  const superCenterPlanMatch = urlPath.match(/^\/api\/super\/centers\/(\d+)\/plan$/);
+  if (superCenterPlanMatch && request.method === "PUT") {
+    handleSuperCenterPlanRequest(request, response, Number(superCenterPlanMatch[1]));
+    return;
+  }
+
+  const superCenterFeaturesMatch = urlPath.match(/^\/api\/super\/centers\/(\d+)\/features$/);
+  if (superCenterFeaturesMatch && request.method === "PUT") {
+    handleSuperCenterFeaturesRequest(request, response, Number(superCenterFeaturesMatch[1]));
     return;
   }
 
@@ -5568,7 +5642,7 @@ const server = http.createServer((request, response) => {
 
   if (
     request.method === "GET" &&
-    (adminRoutes.has(urlPath) || urlPath.startsWith("/admin/") || urlPath.startsWith("/super/") || urlPath === "/ceo" || urlPath.startsWith("/ceo/") || urlPath === "/crm" || urlPath === "/panel")
+    (adminRoutes.has(urlPath) || urlPath.startsWith("/admin/") || urlPath.startsWith("/super/") || urlPath === "/crm" || urlPath === "/panel")
   ) {
     sendAppShell(response);
     return;

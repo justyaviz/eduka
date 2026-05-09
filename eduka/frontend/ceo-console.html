@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eduka CEO Console 21.8.4</title>
+  <link rel="stylesheet" href="/ceo-console.css?v=21.8.4" />
+</head>
+<body>
+  <div class="ceo-shell">
+    <aside class="ceo-side">
+      <div class="brand"><div class="brand-mark">↗</div><span>EDUKA CEO</span></div>
+      <nav class="ceo-nav" id="ceoNav">
+        <button data-page="dashboard" class="active">Dashboard</button>
+        <button data-page="centers">O‘quv markazlar</button>
+        <button data-page="plans">Tariflar va ruxsatlar</button>
+        <button data-page="subscriptions">Obunalar</button>
+        <button data-page="payments">Platforma to‘lovlari</button>
+        <button data-page="support">Support</button>
+        <button data-page="admins">CEO adminlar</button>
+        <button data-page="audit">Audit log</button>
+        <button data-page="settings">Sozlamalar</button>
+      </nav>
+      <div class="side-foot">CEO qism alohida. O‘quv markaz CRM menyusi bu yerda chiqmaydi.<br/>v21.8.4 Simple Functional</div>
+    </aside>
+    <main class="ceo-main">
+      <header class="topbar">
+        <div><h1 id="pageTitle">CEO Dashboard</h1><small id="userLine">Tekshirilmoqda...</small></div>
+        <div class="top-actions">
+          <button class="btn ghost" id="refreshBtn">Yangilash</button>
+          <a class="btn ghost" href="/admin">Markaz CRM</a>
+          <button class="btn danger" id="logoutBtn">Chiqish</button>
+        </div>
+      </header>
+      <section class="content" id="appRoot"><div class="notice">Yuklanmoqda...</div></section>
+    </main>
+  </div>
+  <div class="modal" id="modal"><div class="dialog"><div class="dialog-head"><h3 id="modalTitle">Modal</h3><button class="btn ghost" id="modalClose">✕</button></div><div class="dialog-body" id="modalBody"></div></div></div>
+  <div class="toast" id="toast"></div>
+  <script src="/ceo-console.js?v=21.8.4"></script>
+</body>
+</html>
