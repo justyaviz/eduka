@@ -406,19 +406,48 @@ function githubJsonRequest(method, endpoint, token, payload) {
   });
 }
 
+function dbStoredAsset({ organizationName, entity, entityId, fileName, mimeType, dataUrl, actor, reason }) {
+  const parsed = parseDataUrlImage(dataUrl, mimeType);
+  const extension = assetExtensionFromMime(parsed.mimeType, fileName);
+  const orgFolder = assetSlug(organizationName, "markaz");
+  const entityFolder = assetSlug(entity, "asset");
+  const idFolder = assetSlug(entityId || "general", "general");
+  const original = assetSlug(path.basename(String(fileName || `image.${extension}`), path.extname(String(fileName || ""))) || entity, "image");
+  const virtualPath = `database-assets/${orgFolder}/${entityFolder}/${idFolder}/${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${original}.${extension}`;
+  return {
+    url: `data:${parsed.mimeType};base64,${parsed.base64}`,
+    githubPath: virtualPath,
+    size: parsed.size,
+    mimeType: parsed.mimeType,
+    sha: "",
+    storage: "database",
+    warning: reason || "GitHub sozlanmagani uchun rasm vaqtincha database ichida saqlandi",
+    actor: actor?.email || actor?.full_name || "system"
+  };
+}
+
 async function uploadImageToGithub({ organizationName, entity, entityId, fileName, mimeType, dataUrl, actor }) {
   const config = githubAssetConfig();
+  const allowDbFallback = String(process.env.ASSET_UPLOAD_FALLBACK || "database").toLowerCase() !== "off";
+  const parsed = parseDataUrlImage(dataUrl, mimeType);
+
   if (!config.repo || !config.token) {
+    if (allowDbFallback) {
+      return dbStoredAsset({ organizationName, entity, entityId, fileName, mimeType: parsed.mimeType, dataUrl: `data:${parsed.mimeType};base64,${parsed.base64}`, actor, reason: "GitHub token/repo sozlanmagan" });
+    }
     const error = new Error("GitHub rasm saqlash sozlanmagan. Railway Variables ichiga GITHUB_ASSETS_TOKEN va GITHUB_ASSETS_REPO kiriting.");
     error.statusCode = 503;
     throw error;
   }
   if (!/^[-_.A-Za-z0-9]+\/[-_.A-Za-z0-9]+$/.test(config.repo)) {
+    if (allowDbFallback) {
+      return dbStoredAsset({ organizationName, entity, entityId, fileName, mimeType: parsed.mimeType, dataUrl: `data:${parsed.mimeType};base64,${parsed.base64}`, actor, reason: "GITHUB_ASSETS_REPO noto'g'ri formatda" });
+    }
     const error = new Error("GITHUB_ASSETS_REPO formati owner/repo bo'lishi kerak, masalan justyaviz/eduka-assets");
     error.statusCode = 503;
     throw error;
   }
-  const parsed = parseDataUrlImage(dataUrl, mimeType);
+
   const extension = assetExtensionFromMime(parsed.mimeType, fileName);
   const original = assetSlug(path.basename(String(fileName || `image.${extension}`), path.extname(String(fileName || ""))) || entity, "image");
   const orgFolder = assetSlug(organizationName, "markaz");
@@ -428,25 +457,41 @@ async function uploadImageToGithub({ organizationName, entity, entityId, fileNam
   const assetPath = `${config.baseDir}/${orgFolder}/${entityFolder}/${idFolder}/${finalName}`;
   const endpoint = `/repos/${config.repo}/contents/${assetPath.split("/").map(encodeURIComponent).join("/")}`;
   const message = `Eduka asset: ${orgFolder}/${entityFolder}/${idFolder}/${finalName}`;
-  const result = await githubJsonRequest("PUT", endpoint, config.token, {
-    message,
-    content: parsed.base64,
-    branch: config.branch,
-    committer: {
-      name: "Eduka Asset Bot",
-      email: "assets@eduka.uz"
+  try {
+    const result = await githubJsonRequest("PUT", endpoint, config.token, {
+      message,
+      content: parsed.base64,
+      branch: config.branch,
+      committer: {
+        name: "Eduka Asset Bot",
+        email: "assets@eduka.uz"
+      }
+    });
+    const rawUrl = `https://raw.githubusercontent.com/${config.repo}/${encodeURIComponent(config.branch)}/${assetPath.split("/").map(encodeURIComponent).join("/")}`;
+    return {
+      url: rawUrl,
+      githubPath: assetPath,
+      size: parsed.size,
+      mimeType: parsed.mimeType,
+      sha: result.content?.sha || "",
+      storage: "github",
+      actor: actor?.email || actor?.full_name || "system"
+    };
+  } catch (error) {
+    const isNotFound = /not found/i.test(error.message || "");
+    const reason = isNotFound
+      ? "GitHub repo/topilmagan yoki token ruxsati yetarli emas"
+      : `GitHub upload xatosi: ${error.message}`;
+    if (allowDbFallback) {
+      console.warn("GitHub asset upload failed, falling back to database:", reason);
+      return dbStoredAsset({ organizationName, entity, entityId, fileName, mimeType: parsed.mimeType, dataUrl: `data:${parsed.mimeType};base64,${parsed.base64}`, actor, reason });
     }
-  });
-  const rawUrl = `https://raw.githubusercontent.com/${config.repo}/${encodeURIComponent(config.branch)}/${assetPath.split("/").map(encodeURIComponent).join("/")}`;
-  return {
-    url: rawUrl,
-    githubPath: assetPath,
-    size: parsed.size,
-    mimeType: parsed.mimeType,
-    sha: result.content?.sha || "",
-    storage: "github",
-    actor: actor?.email || actor?.full_name || "system"
-  };
+    error.message = isNotFound
+      ? "GitHub repo topilmadi yoki token ruxsati yetarli emas. GITHUB_ASSETS_REPO va GITHUB_ASSETS_TOKEN ni tekshiring."
+      : error.message;
+    error.statusCode = 503;
+    throw error;
+  }
 }
 
 async function ensureAssetStorageSchema(pool) {
@@ -520,7 +565,7 @@ async function handleAssetUploadRequest(request, response) {
       await updateEntityImage(pool, user.organization_id, entity, entityId || user.id, uploaded.url);
     }
     await pool.query(`INSERT INTO uploaded_assets (organization_id, entity, entity_id, url, github_path, storage, mime_type, size_bytes, uploaded_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [user.organization_id, entity, entityId, uploaded.url, uploaded.githubPath, uploaded.storage, uploaded.mimeType, uploaded.size, user.id]);
-    sendJson(response, 200, { ok: true, asset: uploaded, url: uploaded.url, message: "Rasm GitHub'ga saqlandi" });
+    sendJson(response, 200, { ok: true, asset: uploaded, url: uploaded.url, storage: uploaded.storage, warning: uploaded.warning || "", message: uploaded.storage === "github" ? "Rasm GitHub'ga saqlandi" : "Rasm saqlandi. GitHub sozlamasini keyin ulashing." });
   } catch (error) {
     console.error("Asset upload failed", error);
     sendJson(response, error.statusCode || 500, { ok: false, message: error.message });
@@ -545,7 +590,7 @@ async function handleStudentAppAvatarUploadRequest(request, response) {
     });
     await pool.query(`UPDATE students SET avatar_url=$3, updated_at=NOW() WHERE id=$1 AND organization_id=$2`, [session.row.id, session.row.organization_id, uploaded.url]);
     await pool.query(`INSERT INTO uploaded_assets (organization_id, entity, entity_id, url, github_path, storage, mime_type, size_bytes, uploaded_student_id) VALUES ($1,'student',$2,$3,$4,$5,$6,$7,$2)`, [session.row.organization_id, session.row.id, uploaded.url, uploaded.githubPath, uploaded.storage, uploaded.mimeType, uploaded.size]);
-    sendJson(response, 200, { ok: true, asset: uploaded, url: uploaded.url, message: "Profil rasmi saqlandi" });
+    sendJson(response, 200, { ok: true, asset: uploaded, url: uploaded.url, storage: uploaded.storage, warning: uploaded.warning || "", message: uploaded.storage === "github" ? "Profil rasmi GitHub'ga saqlandi" : "Profil rasmi saqlandi. GitHub sozlamasini keyin ulashing." });
   } catch (error) {
     console.error("Student avatar upload failed", error);
     sendJson(response, error.statusCode || 500, { ok: false, message: error.message });
@@ -6040,7 +6085,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "22.8.1",
+      version: "22.8.2",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
