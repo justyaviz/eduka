@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "23.0.0";
+  const VERSION = "23.0.1";
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
   const TOKEN_KEY = "eduka_student_token";
@@ -99,9 +99,13 @@
   function skeleton(count = 4) { return `<div class="list">${Array.from({ length: count }, () => `<div class="skeleton"></div>`).join("")}</div>`; }
   function nav(active = "home") {
     const items = [
-      ["home", "⌂", "Bosh"], ["schedule", "▣", "Jadval"], ["payments", "▤", "To‘lov"], ["coins", "◉", "Coin"], ["profile", "♙", "Profil"]
+      ["home", "🏠", "Bosh"],
+      ["schedule", "📅", "Jadval"],
+      ["payments", "💳", "To‘lov"],
+      ["coins", "🪙", "Coin"],
+      ["profile", "👤", "Profil"]
     ];
-    return `<nav class="bottom-nav">${items.filter(([k]) => enabled(k) || ["home","profile"].includes(k)).map(([k, icon, label]) => `<button class="${active === k ? "active" : ""}" data-go="${k}"><span>${icon}</span>${label}</button>`).join("")}</nav>`;
+    return `<nav class="bottom-nav premium-dock" aria-label="Student App menu">${items.filter(([k]) => enabled(k) || ["home","profile"].includes(k)).map(([k, icon, label]) => `<button class="${active === k ? "active" : ""}" data-go="${k}"><span>${icon}</span><b>${label}</b></button>`).join("")}</nav>`;
   }
   function bindNav() {
     $$('[data-go]').forEach(btn => btn.onclick = () => setRoute(btn.dataset.go));
@@ -117,7 +121,7 @@
   }
   function renderAuthHub(message = "") {
     screen.innerHTML = `<section class="auth-wrap">
-      <div class="auth-card"><div class="auth-logo"><img src="${logo}"/><b>EDUKA</b></div><div class="access-hero"><div class="telegram-bubble">➤</div><h2>Student App Pro</h2><p class="muted">2 xil kirish usuli: Telegram bot orqali tezkor kirish yoki student.eduka.uz domenida login/parol.</p>${message ? `<p class="pill red">${esc(message)}</p>` : ""}</div></div>
+      <div class="auth-card"><div class="auth-logo"><img src="${logo}"/><b>EDUKA</b></div><div class="access-hero"><div class="telegram-bubble">➤</div><h2>Student App Pro</h2><p class="muted">Premium mobil kabinet: Telegram orqali tezkor kirish yoki student.eduka.uz domenida login/parol.</p>${message ? `<p class="pill red">${esc(message)}</p>` : ""}</div></div>
       <div class="auth-grid">
         <button class="auth-method" data-telegram><div class="big-ico">➤</div><h3>Telegram Access</h3><p>Botda telefon va kodni tasdiqlaysiz, ilova dashboarddan ochiladi.</p><span class="pill">Tavsiya qilinadi</span></button>
         <button class="auth-method" data-domain><div class="big-ico">⌁</div><h3>Domain Login</h3><p>student.eduka.uz orqali login/telefon va parol bilan kirish.</p><span class="pill purple">Web login</span></button>
