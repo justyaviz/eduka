@@ -974,6 +974,59 @@ async function api(path, options = {}) {
   }
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Rasm o'qilmadi"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadCrmAsset({ entity, entityId, file }) {
+  if (!file) return "";
+  if (!file.type.startsWith("image/")) throw new Error("Faqat rasm fayllari qabul qilinadi");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Rasm 8MB dan katta bo'lmasin");
+  const dataUrl = await fileToDataUrl(file);
+  const result = await api("/api/assets/upload", {
+    method: "POST",
+    body: JSON.stringify({ entity, entity_id: entityId, file_name: file.name, mime_type: file.type, data_url: dataUrl }),
+    timeoutMs: 45000
+  });
+  return result.url || result.asset?.url || "";
+}
+
+function profileImageBlock({ entity, entityId, imageUrl, title, hint }) {
+  return `<section class="settings-panel asset-upload-card"><div class="asset-upload-head"><div class="profile-photo-preview">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt=""/>` : `<span>${escapeHtml(String(title || 'ED').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span>`}</div><div><h3>${escapeHtml(title || 'Profil rasmi')}</h3><p>${escapeHtml(hint || 'Rasm GitHub’da markaz/filial papkasida doimiy saqlanadi.')}</p></div></div><label class="asset-upload-button">Rasm yuklash<input type="file" accept="image/*" data-asset-entity="${escapeHtml(entity)}" data-asset-id="${escapeHtml(entityId)}" hidden></label></section>`;
+}
+
+function bindAssetUploads(root = document) {
+  root.querySelectorAll("input[data-asset-entity]").forEach((input) => {
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const entity = input.dataset.assetEntity;
+      const entityId = input.dataset.assetId;
+      const card = input.closest('.asset-upload-card');
+      const button = input.closest('label') || input;
+      const oldText = button.childNodes[0]?.textContent || 'Rasm yuklash';
+      try {
+        if (button.childNodes[0]) button.childNodes[0].textContent = 'Yuklanmoqda...';
+        const url = await uploadCrmAsset({ entity, entityId, file });
+        const preview = card?.querySelector('.profile-photo-preview');
+        if (preview) preview.innerHTML = `<img src="${escapeHtml(url)}" alt=""/>`;
+        showToast('Rasm GitHub’da saqlandi');
+        await refreshAll?.();
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        if (button.childNodes[0]) button.childNodes[0].textContent = oldText;
+        input.value = '';
+      }
+    };
+  });
+}
+
 function serviceFor(resource) {
   const services = window.crmServices || {};
   return {
@@ -2183,6 +2236,7 @@ function renderProfiles() {
     const student = findByPathOrFirst(state.students, "students");
     studentNode.innerHTML = student ? `
       <div class="page-head"><div><h1>${student.full_name}</h1><p>${student.course_name || "-"} · ${student.group_name || "-"}</p></div><button type="button" data-view="students">Ro'yxatga qaytish</button></div>
+      ${profileImageBlock({ entity: 'student', entityId: student.id, imageUrl: student.avatar_url, title: student.full_name || 'Talaba rasmi', hint: 'Student App profil rasmi. GitHub’da filial nomi bilan saqlanadi.' })}
       <div class="profile-tabs"><button class="active">Asosiy ma'lumotlar</button><button>Guruhlar</button><button>To'lov tarixi</button><button>Davomat tarixi</button><button>Izohlar</button><button>Hujjatlar</button></div>
       <div class="profile-grid">
         <article><span>Telefon</span><strong>${student.phone || "-"}</strong></article>
@@ -2217,6 +2271,7 @@ function renderProfiles() {
     const center = findByPathOrFirst(state.superCenters, "centers");
     centerNode.innerHTML = center ? `
       <div class="page-head"><div><h1>${center.name}</h1><p>${center.owner || center.owner_name || "-"} · ${center.phone || "-"}</p></div><button type="button" data-view="super-centers">Markazlarga qaytish</button></div>
+      ${profileImageBlock({ entity: 'organization', entityId: center.id, imageUrl: center.logo_url || center.logoUrl, title: center.name || 'Markaz logosi', hint: 'Markaz/filial logosi GitHub’da doimiy saqlanadi.' })}
       <div class="profile-grid">
         <article><span>Tarif</span><strong>${center.plan || center.tariff_name || "Pro"}</strong></article>
         <article><span>Obuna muddati</span><strong>${formatDate(center.license_expires_at || center.licenseExpiresAt)}</strong></article>
@@ -2227,6 +2282,21 @@ function renderProfiles() {
       </div>
       <div class="export-actions"><button type="button" data-crm-action="super-center-block" data-id="${center.id}">Bloklash</button><button type="button" data-crm-action="super-center-tariff" data-id="${center.id}">Tarif o'zgartirish</button><button type="button" data-crm-action="super-center-trial" data-id="${center.id}">Trial berish</button><button type="button" data-crm-action="super-center-login" data-id="${center.id}">Login qilib kirish</button><button type="button" data-crm-action="super-center-support" data-id="${center.id}">Support izoh</button></div>` : `<div class="empty-state">Markaz topilmadi.</div>`;
   }
+
+  const teacherNode = document.querySelector("[data-teacher-profile]");
+  if (teacherNode) {
+    const teacher = findByPathOrFirst(state.teachers, "teachers");
+    teacherNode.innerHTML = teacher ? `
+      <div class="page-head"><div><h1>${teacher.full_name}</h1><p>${teacher.course_name || teacher.subjects || "-"} · ${teacher.phone || "-"}</p></div><button type="button" data-view="teachers">Ro'yxatga qaytish</button></div>
+      ${profileImageBlock({ entity: 'teacher', entityId: teacher.id, imageUrl: teacher.avatar_url, title: teacher.full_name || 'O‘qituvchi rasmi', hint: 'O‘qituvchi profil rasmi GitHub’da filial papkasida saqlanadi.' })}
+      <div class="profile-grid">
+        <article><span>Telefon</span><strong>${teacher.phone || "-"}</strong></article>
+        <article><span>Email</span><strong>${teacher.email || "-"}</strong></article>
+        <article><span>Kurs</span><strong>${teacher.course_name || "-"}</strong></article>
+        <article><span>Status</span><strong>${statusLabels[teacher.status] || teacher.status || "active"}</strong></article>
+      </div>` : `<div class="empty-state">O'qituvchi topilmadi.</div>`;
+  }
+  bindAssetUploads(document);
 }
 
 function renderAll() {

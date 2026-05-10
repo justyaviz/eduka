@@ -52,7 +52,7 @@ function readJsonBody(request) {
 
     request.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 1_000_000) {
+      if (body.length > 12_000_000) {
         request.destroy();
         reject(new Error("Payload too large"));
       }
@@ -321,6 +321,235 @@ function pageOptions(query) {
   const page = Math.max(1, Number(query.get("page") || 1));
   const limit = Math.min(100, Math.max(1, Number(query.get("limit") || 20)));
   return { page, limit, offset: (page - 1) * limit };
+}
+
+
+function assetSlug(value, fallback = "file") {
+  const text = String(value || fallback)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['`’ʻ‘]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return text || fallback;
+}
+
+function assetExtensionFromMime(mimeType, fileName = "") {
+  const byName = path.extname(String(fileName || "")).toLowerCase().replace(/^\./, "");
+  if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(byName)) return byName === "jpeg" ? "jpg" : byName;
+  const mime = String(mimeType || "").toLowerCase();
+  if (mime.includes("png")) return "png";
+  if (mime.includes("webp")) return "webp";
+  if (mime.includes("gif")) return "gif";
+  if (mime.includes("svg")) return "svg";
+  return "jpg";
+}
+
+function parseDataUrlImage(dataUrl, mimeType = "") {
+  const raw = String(dataUrl || "");
+  const match = raw.match(/^data:([^;]+);base64,(.+)$/);
+  const detectedMime = match ? match[1] : mimeType;
+  const base64 = match ? match[2] : raw;
+  const cleanMime = String(detectedMime || mimeType || "image/jpeg").toLowerCase();
+  if (!cleanMime.startsWith("image/")) {
+    const error = new Error("Faqat rasm fayllari qabul qilinadi");
+    error.statusCode = 400;
+    throw error;
+  }
+  const buffer = Buffer.from(base64, "base64");
+  if (!buffer.length || buffer.length > 8 * 1024 * 1024) {
+    const error = new Error("Rasm hajmi 8MB dan oshmasligi kerak");
+    error.statusCode = 400;
+    throw error;
+  }
+  return { base64: buffer.toString("base64"), mimeType: cleanMime, size: buffer.length };
+}
+
+function githubAssetConfig() {
+  const repo = String(process.env.GITHUB_ASSETS_REPO || process.env.GITHUB_REPOSITORY || "").trim();
+  const token = String(process.env.GITHUB_ASSETS_TOKEN || process.env.GITHUB_TOKEN || "").trim();
+  const branch = String(process.env.GITHUB_ASSETS_BRANCH || "main").trim();
+  const baseDir = assetSlug(process.env.GITHUB_ASSETS_DIR || "eduka-assets", "eduka-assets");
+  return { repo, token, branch, baseDir };
+}
+
+function githubJsonRequest(method, endpoint, token, payload) {
+  return new Promise((resolve, reject) => {
+    const body = payload ? JSON.stringify(payload) : "";
+    const req = https.request({
+      hostname: "api.github.com",
+      path: endpoint,
+      method,
+      headers: {
+        "User-Agent": "Eduka-CRM-Asset-Uploader",
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body)
+      }
+    }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        let parsed = {};
+        try { parsed = data ? JSON.parse(data) : {}; } catch { parsed = { raw: data }; }
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(parsed);
+        else reject(new Error(parsed.message || `GitHub API error ${res.statusCode}`));
+      });
+    });
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function uploadImageToGithub({ organizationName, entity, entityId, fileName, mimeType, dataUrl, actor }) {
+  const config = githubAssetConfig();
+  if (!config.repo || !config.token) {
+    const error = new Error("GitHub rasm saqlash sozlanmagan. Railway Variables ichiga GITHUB_ASSETS_TOKEN va GITHUB_ASSETS_REPO kiriting.");
+    error.statusCode = 503;
+    throw error;
+  }
+  if (!/^[-_.A-Za-z0-9]+\/[-_.A-Za-z0-9]+$/.test(config.repo)) {
+    const error = new Error("GITHUB_ASSETS_REPO formati owner/repo bo'lishi kerak, masalan justyaviz/eduka-assets");
+    error.statusCode = 503;
+    throw error;
+  }
+  const parsed = parseDataUrlImage(dataUrl, mimeType);
+  const extension = assetExtensionFromMime(parsed.mimeType, fileName);
+  const original = assetSlug(path.basename(String(fileName || `image.${extension}`), path.extname(String(fileName || ""))) || entity, "image");
+  const orgFolder = assetSlug(organizationName, "markaz");
+  const entityFolder = assetSlug(entity, "asset");
+  const idFolder = assetSlug(entityId || "general", "general");
+  const finalName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${original}.${extension}`;
+  const assetPath = `${config.baseDir}/${orgFolder}/${entityFolder}/${idFolder}/${finalName}`;
+  const endpoint = `/repos/${config.repo}/contents/${assetPath.split("/").map(encodeURIComponent).join("/")}`;
+  const message = `Eduka asset: ${orgFolder}/${entityFolder}/${idFolder}/${finalName}`;
+  const result = await githubJsonRequest("PUT", endpoint, config.token, {
+    message,
+    content: parsed.base64,
+    branch: config.branch,
+    committer: {
+      name: "Eduka Asset Bot",
+      email: "assets@eduka.uz"
+    }
+  });
+  const rawUrl = `https://raw.githubusercontent.com/${config.repo}/${encodeURIComponent(config.branch)}/${assetPath.split("/").map(encodeURIComponent).join("/")}`;
+  return {
+    url: rawUrl,
+    githubPath: assetPath,
+    size: parsed.size,
+    mimeType: parsed.mimeType,
+    sha: result.content?.sha || "",
+    storage: "github",
+    actor: actor?.email || actor?.full_name || "system"
+  };
+}
+
+async function ensureAssetStorageSchema(pool) {
+  await pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+  await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS uploaded_assets (
+    id SERIAL PRIMARY KEY,
+    organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+    entity TEXT NOT NULL,
+    entity_id INTEGER,
+    url TEXT NOT NULL,
+    github_path TEXT,
+    storage TEXT DEFAULT 'github',
+    mime_type TEXT,
+    size_bytes INTEGER DEFAULT 0,
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    uploaded_student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`);
+}
+
+async function updateEntityImage(pool, organizationId, entity, entityId, url) {
+  const id = Number(entityId || 0);
+  if (entity === "student") {
+    const result = await pool.query(`UPDATE students SET avatar_url=$3, updated_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id, avatar_url`, [id, organizationId, url]);
+    if (!result.rows[0]) throw new Error("Talaba topilmadi");
+    return result.rows[0];
+  }
+  if (entity === "teacher") {
+    const result = await pool.query(`UPDATE teachers SET avatar_url=$3, updated_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id, avatar_url`, [id, organizationId, url]);
+    if (!result.rows[0]) throw new Error("O'qituvchi topilmadi");
+    return result.rows[0];
+  }
+  if (entity === "organization" || entity === "center" || entity === "logo") {
+    const result = await pool.query(`UPDATE organizations SET logo_url=$2, updated_at=NOW() WHERE id=$1 RETURNING id, logo_url`, [organizationId, url]);
+    if (!result.rows[0]) throw new Error("Markaz topilmadi");
+    await pool.query(`INSERT INTO organization_branding (organization_id, logo_url, updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (organization_id) DO UPDATE SET logo_url=EXCLUDED.logo_url, updated_at=NOW()`, [organizationId, url]).catch(() => null);
+    return result.rows[0];
+  }
+  if (entity === "user" || entity === "admin") {
+    const result = await pool.query(`UPDATE users SET avatar_url=$3, updated_at=NOW() WHERE id=$1 AND organization_id=$2 RETURNING id, avatar_url`, [id, organizationId, url]);
+    if (!result.rows[0]) throw new Error("Foydalanuvchi topilmadi");
+    return result.rows[0];
+  }
+  return { id, url };
+}
+
+async function handleAssetUploadRequest(request, response) {
+  try {
+    const user = await requireUser(request, response, "students:write");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureAssetStorageSchema(pool);
+    const body = await readJsonBody(request);
+    const entity = assetSlug(body.entity || "student", "student").replace(/-/g, "_");
+    const entityId = Number(body.entity_id || body.entityId || 0) || null;
+    const organizationName = user.organization_name || user.organization?.name || user.organizationName || `organization-${user.organization_id}`;
+    const uploaded = await uploadImageToGithub({
+      organizationName,
+      entity,
+      entityId: entityId || user.organization_id,
+      fileName: body.file_name || body.fileName || "image.jpg",
+      mimeType: body.mime_type || body.mimeType || "image/jpeg",
+      dataUrl: body.data_url || body.dataUrl || body.base64,
+      actor: user
+    });
+    if (["student", "teacher", "organization", "center", "logo", "user", "admin"].includes(entity)) {
+      await updateEntityImage(pool, user.organization_id, entity, entityId || user.id, uploaded.url);
+    }
+    await pool.query(`INSERT INTO uploaded_assets (organization_id, entity, entity_id, url, github_path, storage, mime_type, size_bytes, uploaded_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [user.organization_id, entity, entityId, uploaded.url, uploaded.githubPath, uploaded.storage, uploaded.mimeType, uploaded.size, user.id]);
+    sendJson(response, 200, { ok: true, asset: uploaded, url: uploaded.url, message: "Rasm GitHub'ga saqlandi" });
+  } catch (error) {
+    console.error("Asset upload failed", error);
+    sendJson(response, error.statusCode || 500, { ok: false, message: error.message });
+  }
+}
+
+async function handleStudentAppAvatarUploadRequest(request, response) {
+  try {
+    const session = await requireStudentAppSession(request, response);
+    if (!session) return;
+    const pool = session.pool;
+    await ensureAssetStorageSchema(pool);
+    const body = await readJsonBody(request);
+    const uploaded = await uploadImageToGithub({
+      organizationName: session.row.organization_name || `organization-${session.row.organization_id}`,
+      entity: "student",
+      entityId: session.row.id,
+      fileName: body.file_name || body.fileName || "student-avatar.jpg",
+      mimeType: body.mime_type || body.mimeType || "image/jpeg",
+      dataUrl: body.data_url || body.dataUrl || body.base64,
+      actor: session.row
+    });
+    await pool.query(`UPDATE students SET avatar_url=$3, updated_at=NOW() WHERE id=$1 AND organization_id=$2`, [session.row.id, session.row.organization_id, uploaded.url]);
+    await pool.query(`INSERT INTO uploaded_assets (organization_id, entity, entity_id, url, github_path, storage, mime_type, size_bytes, uploaded_student_id) VALUES ($1,'student',$2,$3,$4,$5,$6,$7,$2)`, [session.row.organization_id, session.row.id, uploaded.url, uploaded.githubPath, uploaded.storage, uploaded.mimeType, uploaded.size]);
+    sendJson(response, 200, { ok: true, asset: uploaded, url: uploaded.url, message: "Profil rasmi saqlandi" });
+  } catch (error) {
+    console.error("Student avatar upload failed", error);
+    sendJson(response, error.statusCode || 500, { ok: false, message: error.message });
+  }
 }
 
 function withError(response, label, error) {
@@ -5700,9 +5929,9 @@ async function handleStudentAppProfileUpdate(request, response) {
   if (!session) return;
   const body = await readJsonBody(request);
   const result = await session.pool.query(
-    `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, address=$6, email=$7, updated_at=NOW()
+    `UPDATE students SET full_name=$3, phone=$4, parent_phone=$5, address=$6, email=$7, avatar_url=COALESCE(NULLIF($8,''), avatar_url), updated_at=NOW()
      WHERE id=$1 AND organization_id=$2 RETURNING *`,
-    [session.row.id, session.row.organization_id, asText(body.full_name || body.fullName, session.row.full_name), asText(body.phone, session.row.phone), asText(body.parent_phone || body.parentPhone, session.row.parent_phone), asText(body.address, session.row.address), asText(body.email, session.row.email)]
+    [session.row.id, session.row.organization_id, asText(body.full_name || body.fullName, session.row.full_name), asText(body.phone, session.row.phone), asText(body.parent_phone || body.parentPhone, session.row.parent_phone), asText(body.address, session.row.address), asText(body.email, session.row.email), asText(body.avatar_url || body.avatarUrl)]
   );
   sendJson(response, 200, { ok: true, student: studentPublic(result.rows[0]), message: "Profil saqlandi" });
 }
@@ -5811,7 +6040,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "22.8.0",
+      version: "22.8.1",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -5959,6 +6188,17 @@ const server = http.createServer((request, response) => {
 
   if (urlPath === "/api/app/settings" && ["GET", "PUT"].includes(request.method)) {
     handleSettingsRequest(request, response);
+    return;
+  }
+
+
+  if (request.method === "POST" && urlPath === "/api/assets/upload") {
+    handleAssetUploadRequest(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/avatar") {
+    handleStudentAppAvatarUploadRequest(request, response);
     return;
   }
 
