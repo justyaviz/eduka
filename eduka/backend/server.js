@@ -197,6 +197,17 @@ async function ensureSchema(pool) {
     });
   }
   await studentAppCompatReadyPromise;
+
+  if (!studentAppPlatformReadyPromise) {
+    studentAppPlatformReadyPromise = (async () => {
+      await ensureStudentGamificationTables(pool);
+      await ensureStudentEcosystemTables(pool);
+    })().catch((error) => {
+      studentAppPlatformReadyPromise = null;
+      throw error;
+    });
+  }
+  await studentAppPlatformReadyPromise;
 }
 
 function publicUser(row) {
@@ -1917,7 +1928,7 @@ async function handleSuperDashboardRequest(request, response) {
       (SELECT COUNT(*)::int FROM students WHERE organization_id=o.id) AS students_count,
       (SELECT COUNT(*)::int FROM audit_logs WHERE organization_id=o.id AND created_at > NOW() - interval '7 days') AS activity_count
       FROM organizations o WHERE archived_at IS NULL ORDER BY activity_count DESC, students_count DESC LIMIT 10`);
-    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.0.4', demoMode: false } });
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], charts: charts.rows, activeCenters: active.rows, api: { status: 'healthy', version: '22.7.0', demoMode: false } });
   } catch (error) { withError(response, "Super dashboard", error); }
 }
 
@@ -4643,6 +4654,36 @@ const studentAppAdminTables = {
     fields: ["student_id", "type", "subject", "message", "status", "admin_reply"],
     defaults: { status: "new" },
     search: ["type", "subject", "message", "status"]
+  },
+  notifications: {
+    table: "student_notifications",
+    fields: ["student_id", "title", "description", "type", "status", "is_read"],
+    defaults: { type: "system", status: "published", is_read: false },
+    search: ["title", "description", "type", "status"]
+  },
+  homework: {
+    table: "student_homework_tasks",
+    fields: ["group_id", "teacher_id", "title", "description", "subject", "attachment_url", "due_date", "status"],
+    defaults: { status: "active" },
+    search: ["title", "description", "subject", "status"]
+  },
+  tests: {
+    table: "student_tests",
+    fields: ["title", "description", "course_id", "group_id", "status", "available_from", "available_until"],
+    defaults: { status: "draft" },
+    search: ["title", "description", "status"]
+  },
+  "parent-access": {
+    table: "parent_access_links",
+    fields: ["student_id", "parent_name", "parent_phone", "telegram_user_id", "telegram_chat_id", "access_token", "status"],
+    defaults: { status: "active" },
+    search: ["parent_name", "parent_phone", "status"]
+  },
+  "teacher-coin-limits": {
+    table: "teacher_coin_limits",
+    fields: ["teacher_id", "daily_limit", "monthly_limit", "status"],
+    defaults: { daily_limit: 100, monthly_limit: 1000, status: "active" },
+    search: ["status"]
   }
 };
 
@@ -5315,6 +5356,103 @@ async function ensureStudentGamificationTables(pool) {
 }
 
 // Eduka 22.1.1 — Student App 22 + Gamification overrides
+
+async function ensureStudentEcosystemTables(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_notifications (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      student_id BIGINT REFERENCES students(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      type TEXT NOT NULL DEFAULT 'system',
+      status TEXT NOT NULL DEFAULT 'published',
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS student_notifications_org_student_idx
+      ON student_notifications(organization_id, student_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS student_homework_tasks (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      group_id BIGINT REFERENCES groups(id) ON DELETE SET NULL,
+      teacher_id BIGINT REFERENCES teachers(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      subject TEXT,
+      attachment_url TEXT,
+      due_date DATE,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS student_homework_tasks_org_group_idx
+      ON student_homework_tasks(organization_id, group_id, status, due_date);
+
+    CREATE TABLE IF NOT EXISTS student_homework_submissions (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      homework_id BIGINT REFERENCES student_homework_tasks(id) ON DELETE CASCADE,
+      student_id BIGINT REFERENCES students(id) ON DELETE CASCADE,
+      file_url TEXT,
+      comment TEXT,
+      score NUMERIC,
+      status TEXT NOT NULL DEFAULT 'submitted',
+      teacher_note TEXT,
+      submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      checked_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS student_homework_submissions_org_student_idx
+      ON student_homework_submissions(organization_id, student_id, status, submitted_at DESC);
+
+    CREATE TABLE IF NOT EXISTS student_tests (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      course_id BIGINT REFERENCES courses(id) ON DELETE SET NULL,
+      group_id BIGINT REFERENCES groups(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'draft',
+      available_from TIMESTAMPTZ,
+      available_until TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS parent_access_links (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      parent_name TEXT,
+      parent_phone TEXT,
+      telegram_user_id TEXT,
+      telegram_chat_id TEXT,
+      access_token TEXT UNIQUE,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_login_at TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS teacher_coin_limits (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      teacher_id BIGINT REFERENCES teachers(id) ON DELETE CASCADE,
+      daily_limit INTEGER NOT NULL DEFAULT 100,
+      monthly_limit INTEGER NOT NULL DEFAULT 1000,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(organization_id, teacher_id)
+    );
+
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS parent_access_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS homework_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS tests_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS reward_shop_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE student_app_settings ADD COLUMN IF NOT EXISTS telegram_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+  `);
+}
+
 async function ensureStudentGamificationDefaults(pool, organizationId) {
   if (!organizationId) return;
   await ensureStudentApp22Compatibility(pool);
@@ -5359,6 +5497,8 @@ function studentAppModuleEnabled(payload, key) {
     achievements: settings.achievements_enabled,
     materials: settings.materials_enabled ?? settings.library_enabled,
     notifications: settings.news_enabled,
+    homework: settings.homework_enabled,
+    tests: settings.tests_enabled,
     profile: settings.profile_enabled
   };
   if (map[key] === false) return false;
@@ -5387,9 +5527,16 @@ async function studentAppBasePayload(pool, row) {
     pool.query("SELECT * FROM attendance_records WHERE organization_id=$1 AND student_id=$2 ORDER BY lesson_date DESC LIMIT 120", [row.organization_id, row.id]),
     pool.query("SELECT c.*, t.full_name AS teacher_name FROM student_coin_transactions c LEFT JOIN teachers t ON t.id=c.teacher_id WHERE c.organization_id=$1 AND c.student_id=$2 ORDER BY c.created_at DESC LIMIT 100", [row.organization_id, row.id]),
     pool.query("SELECT * FROM student_reward_products WHERE organization_id=$1 AND status='active' ORDER BY coin_price ASC, id DESC LIMIT 100", [row.organization_id]),
-    pool.query("SELECT * FROM student_reward_redemptions WHERE organization_id=$1 AND student_id=$2 ORDER BY created_at DESC LIMIT 50", [row.organization_id, row.id])
+    pool.query("SELECT * FROM student_reward_redemptions WHERE organization_id=$1 AND student_id=$2 ORDER BY created_at DESC LIMIT 50", [row.organization_id, row.id]),
+    pool.query("SELECT * FROM student_notifications WHERE organization_id=$1 AND (student_id IS NULL OR student_id=$2) AND status='published' ORDER BY created_at DESC LIMIT 80", [row.organization_id, row.id]),
+    pool.query(`SELECT h.*, sub.status AS submission_status, sub.score AS submission_score, sub.submitted_at
+                FROM student_homework_tasks h
+                LEFT JOIN student_homework_submissions sub ON sub.homework_id=h.id AND sub.student_id=$2
+                WHERE h.organization_id=$1 AND h.status='active' AND (h.group_id IS NULL OR h.group_id=$3 OR h.group_id IN (SELECT group_id FROM group_students WHERE organization_id=$1 AND student_id=$2))
+                ORDER BY h.due_date NULLS LAST, h.id DESC LIMIT 100`, [row.organization_id, row.id, row.group_id]),
+    pool.query("SELECT * FROM student_tests WHERE organization_id=$1 AND status IN ('published','active') ORDER BY available_from NULLS LAST, id DESC LIMIT 100", [row.organization_id])
   ]);
-  const [settings, modules, library, payments, groups, attendance, coins, rewards, redemptions] = queries.map((q) => q.rows || []);
+  const [settings, modules, library, payments, groups, attendance, coins, rewards, redemptions, directNotifications, homework, tests] = queries.map((q) => q.rows || []);
   const paid = payments.reduce((sum, item) => sum + Number(item.amount || 0) + Number(item.discount || 0), 0);
   const due = payments.reduce((sum, item) => sum + Number(item.due_amount || 0), 0);
   const balance = Math.max(Number(row.balance || 0), Math.max(due - paid, 0));
@@ -5410,6 +5557,7 @@ async function studentAppBasePayload(pool, row) {
     status: "active"
   }));
   const notifications = [
+    ...directNotifications.map((item) => ({ id: `notice-${item.id}`, type: item.type || "system", title: item.title, description: item.description, time: item.created_at, unread: !item.is_read })),
     ...coins.slice(0, 8).map((item) => ({ id: `coin-${item.id}`, type: "coin", title: `${item.teacher_name || "Ustoz"} sizga ${item.amount} coin berdi`, description: item.reason || "Faol ishtirok uchun", time: item.created_at, unread: false })),
     ...payments.slice(0, 5).map((item) => ({ id: `payment-${item.id}`, type: "payment", title: "To'lov qabul qilindi", description: `${Number(item.amount || 0).toLocaleString("uz-UZ")} so'm to'lov tizimga kiritildi`, time: item.paid_at, unread: false }))
   ];
@@ -5434,12 +5582,14 @@ async function studentAppBasePayload(pool, row) {
     achievements: buildStudentAchievements(student, attendance, coins),
     library,
     materials: library,
+    homework,
+    tests,
     notifications,
     ranking: ranking.rows,
     paymentSummary: { due, paid, balance },
     enabled: {}
   };
-  for (const key of ["schedule", "attendance", "payments", "coins", "rewards", "rating", "achievements", "materials", "notifications", "profile"]) {
+  for (const key of ["schedule", "attendance", "payments", "coins", "rewards", "rating", "achievements", "materials", "notifications", "profile", "homework", "tests"]) {
     payload.enabled[key] = studentAppModuleEnabled(payload, key);
   }
   return payload;
@@ -5468,6 +5618,8 @@ async function handleStudentAppData(request, response, resource) {
     library: { items: payload.library, enabled: payload.enabled },
     materials: { items: payload.materials, enabled: payload.enabled },
     notifications: { notifications: payload.notifications, enabled: payload.enabled },
+    homework: { homework: payload.homework, enabled: payload.enabled },
+    tests: { tests: payload.tests, enabled: payload.enabled },
     news: { news: payload.notifications, events: [] },
     payments: { payments: payload.payments, student: payload.student, paymentSummary: payload.paymentSummary, enabled: payload.enabled },
     "payment-history": { payments: payload.payments, student: payload.student, paymentSummary: payload.paymentSummary, enabled: payload.enabled },
@@ -5510,6 +5662,11 @@ async function handleStudentRewardRedeem(request, response, productId) {
        VALUES ($1,$2,$3,'spend',$4,'reward_store')`,
       [session.row.organization_id, session.row.id, -price, `Sovg'a olindi: ${product.title}`]
     );
+    await pool.query(
+      `INSERT INTO student_notifications (organization_id, student_id, title, description, type, status)
+       VALUES ($1,$2,'Sovg'a so'rovi yuborildi',$3,'reward','published')`,
+      [session.row.organization_id, session.row.id, `${product.title} sovg'asi uchun so'rov qabul qilindi`]
+    );
     await pool.query("COMMIT");
     sendJson(response, 200, { ok: true, redemption: redemption.rows[0], message: "Sovg'a so'rovi qabul qilindi" });
   } catch (error) {
@@ -5548,6 +5705,29 @@ async function handleStudentAppPasswordChange(request, response) {
   sendJson(response, 200, { ok: true, message: "Parol yangilandi" });
 }
 
+
+async function handleAdminGamificationOverview(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const [summary, topStudents, redemptions, products] = await Promise.all([
+      pool.query(`SELECT
+        (SELECT COALESCE(SUM(coins),0)::int FROM students WHERE organization_id=$1) AS total_coins,
+        (SELECT COUNT(*)::int FROM student_reward_products WHERE organization_id=$1 AND status='active') AS active_products,
+        (SELECT COUNT(*)::int FROM student_reward_redemptions WHERE organization_id=$1 AND status='pending') AS pending_redemptions,
+        (SELECT COUNT(*)::int FROM student_coin_transactions WHERE organization_id=$1 AND created_at::date=CURRENT_DATE) AS today_coin_events`, [user.organization_id]),
+      pool.query(`SELECT id, full_name, phone, coins FROM students WHERE organization_id=$1 ORDER BY coins DESC, id ASC LIMIT 10`, [user.organization_id]),
+      pool.query(`SELECT r.*, s.full_name AS student_name FROM student_reward_redemptions r LEFT JOIN students s ON s.id=r.student_id WHERE r.organization_id=$1 ORDER BY r.created_at DESC LIMIT 12`, [user.organization_id]),
+      pool.query(`SELECT * FROM student_reward_products WHERE organization_id=$1 ORDER BY id DESC LIMIT 12`, [user.organization_id])
+    ]);
+    sendJson(response, 200, { ok: true, summary: summary.rows[0], topStudents: topStudents.rows, redemptions: redemptions.rows, products: products.rows });
+  } catch (error) {
+    withError(response, "Gamification overview", error);
+  }
+}
+
 async function handleAdminAwardStudentCoins(request, response, studentId) {
   try {
     const user = await requireUser(request, response, "students:write");
@@ -5567,6 +5747,11 @@ async function handleAdminAwardStudentCoins(request, response, studentId) {
       `INSERT INTO student_coin_transactions (organization_id, student_id, teacher_id, amount, type, reason, source, created_by)
        VALUES ($1,$2,$3,$4,'award',$5,'admin_panel',$6) RETURNING *`,
       [user.organization_id, studentId, body.teacher_id || null, amount, reason, user.id]
+    );
+    await pool.query(
+      `INSERT INTO student_notifications (organization_id, student_id, title, description, type, status)
+       VALUES ($1,$2,$3,$4,'coin','published')`,
+      [user.organization_id, studentId, `${amount} coin berildi`, reason]
     );
     const linked = student.rows[0];
     if (linked.telegram_chat_id) {
@@ -5606,7 +5791,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "21.8.4",
+      version: "22.7.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -6214,7 +6399,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const studentDataMatch = urlPath.match(/^\/api\/student-app\/(home|dashboard|profile|group|study|schedule|attendance|rating|library|materials|dictionary|exams|achievements|coins|rewards|referrals|news|notifications|payments|payment-history|settings)$/);
+  const studentDataMatch = urlPath.match(/^\/api\/student-app\/(home|dashboard|profile|group|study|schedule|attendance|rating|library|materials|dictionary|exams|achievements|coins|rewards|referrals|news|notifications|payments|payment-history|settings|homework|tests)$/);
   if (studentDataMatch && request.method === "GET") {
     handleStudentAppData(request, response, studentDataMatch[1]);
     return;
@@ -6282,6 +6467,12 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+
+  if (request.method === "GET" && urlPath === "/api/app/gamification/overview") {
+    handleAdminGamificationOverview(request, response);
+    return;
+  }
+
   const gamificationAwardMatch = urlPath.match(/^\/api\/app\/gamification\/students\/(\d+)\/coins$/);
   if (gamificationAwardMatch && request.method === "POST") {
     handleAdminAwardStudentCoins(request, response, Number(gamificationAwardMatch[1]));
@@ -6294,7 +6485,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|materials|news|events|rewards|coin-transactions|reward-redemptions|achievements|referrals|extra-lessons|mock-exams|exams|feedback)(?:\/(\d+))?$/);
+  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|materials|news|events|rewards|coin-transactions|reward-redemptions|achievements|referrals|extra-lessons|mock-exams|exams|feedback|notifications|homework|tests|parent-access|teacher-coin-limits)(?:\/(\d+))?$/);
   if (studentAdminTableMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
     handleAdminStudentAppTable(request, response, studentAdminTableMatch[1], studentAdminTableMatch[2] ? Number(studentAdminTableMatch[2]) : null);
     return;
