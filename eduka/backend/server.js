@@ -918,7 +918,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.1.6"
+      "X-Eduka-Version": "23.0.0"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -973,6 +973,7 @@ function hostKind(request) {
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
   if (!host || host === "localhost" || host === "127.0.0.1" || host === "eduka.uz" || host === "www.eduka.uz") return "landing";
   if (host === "admin.eduka.uz" || host.startsWith("admin.")) return "admin";
+  if (host === "student.eduka.uz" || host.startsWith("student.")) return "student";
   if (host === "app.eduka.uz" || ["app.", "crm.", "dashboard.", "panel."].some((prefix) => host.startsWith(prefix))) return "app";
   if (tenantSubdomainFromRequest(request)) return "tenant";
   return "landing";
@@ -4397,13 +4398,13 @@ function studentAppWebUrl(organization, token = "") {
   // Tokenni query emas, path ichida beramiz: Telegram iOS/WebView ba'zida queryni cache qiladi yoki yo'qotadi.
   if (token) {
     url.pathname = `${cleanPath || "/app"}/open/${encodeURIComponent(token)}`;
-    url.searchParams.set("v", "2216");
+    url.searchParams.set("v", "2300");
     return url.toString();
   }
   if (cleanPath === "" || cleanPath.endsWith("/student-app") || cleanPath.endsWith("/app")) {
     url.pathname = `${cleanPath || "/app"}/home`;
   }
-  url.searchParams.set("v", "2216");
+  url.searchParams.set("v", "2300");
   return url.toString();
 }
 
@@ -7141,7 +7142,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (request.method === "GET" && urlPath === "/" && hostKind(request) === "app") {
+  if (request.method === "GET" && urlPath === "/" && ["app", "student"].includes(hostKind(request))) {
     sendStudentAppShell(response);
     return;
   }
