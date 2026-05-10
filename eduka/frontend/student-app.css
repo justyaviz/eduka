@@ -1,4 +1,4 @@
-/* Eduka Student App Pro 23.0.0 — premium 16-screen mobile UI system */
+/* Eduka Student App Pro 23.5.0 — premium 16-screen mobile UI system */
 :root{
   --blue:#145cff; --blue2:#073bd2; --blue3:#0d6cff; --navy:#07142f; --ink:#0b1736;
   --muted:#64728c; --soft:#f3f7ff; --soft2:#eef5ff; --line:#dce7f7; --card:#fff;
@@ -35,7 +35,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}a{color:inherit}
 @media (max-width:460px){.student-shell{padding:0;background:#fff}.student-phone{width:100%;height:100vh;min-height:100vh;border-radius:0;border:0;box-shadow:none}.student-screen{padding:14px 14px 92px}.drawer{width:100%;left:0;transform:none}.quick-grid{grid-template-columns:repeat(4,1fr)}.auth-grid{grid-template-columns:1fr}.splash{border-radius:0;min-height:100%}.profile-head{border-radius:0 0 28px 28px}}
 
 
-/* Eduka Student App Pro 23.0.1 — Premium navigation and visual polish */
+/* Eduka Student App Pro 23.5.0 — Premium navigation and visual polish */
 :root{
   --premium-blue:#075CFF;
   --premium-blue-2:#0037C9;
@@ -238,3 +238,15 @@ body.student-app-pro{
   .quick-grid{grid-template-columns:repeat(4,1fr);gap:8px}.quick-grid button{min-height:78px;font-size:10px}
   .bottom-nav.premium-dock{left:10px;right:10px;bottom:10px;border-radius:25px}
 }
+
+
+/* Eduka Student App 23.5.0 — Final polish, safe areas, empty/error states, PWA feel */
+.student-screen{scroll-behavior:smooth;overscroll-behavior:contain;}
+@supports (padding: max(0px)){.student-screen{padding-bottom:max(102px,calc(94px + env(safe-area-inset-bottom)));}.bottom-nav.premium-dock{bottom:max(10px,env(safe-area-inset-bottom));}}
+.card,.row,.quick-grid button,.reward,.bottom-nav.premium-dock{will-change:transform;}
+.card:hover,.row:hover{transform:translateY(-1px);}
+.empty:before{content:"✨";display:block;font-size:28px;margin-bottom:8px;}
+.toast{animation:toastIn .22s ease both;}@keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.pwa-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef6ff;color:#075cff;padding:8px 11px;font-weight:1000;font-size:12px;}
+.login-form .hint{border-radius:16px;background:#f4f8ff;border:1px solid #dce9fb;padding:12px;color:#50617b;font-weight:800;font-size:12px;line-height:1.45;}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

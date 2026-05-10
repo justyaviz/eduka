@@ -1,12 +1,12 @@
 (() => {
   "use strict";
-  const VERSION = "23.0.1";
+  const VERSION = "23.5.0";
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
   const TOKEN_KEY = "eduka_student_token";
   const qs = new URLSearchParams(location.search);
   const state = { token: "", data: null, loading: false, botUrl: "https://t.me/eduka_student_bot" };
-  const moduleRoutes = new Set(["home","schedule","payments","attendance","coins","rewards","my-rewards","ranking","achievements","notifications","materials","homework-tests","profile"]);
+  const moduleRoutes = new Set(["home","schedule","payments","attendance","coins","rewards","my-rewards","ranking","achievements","notifications","materials","homework-tests","homework","tests","profile","security","payment-history"]);
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -84,12 +84,30 @@
   function enabled(key) {
     if (!state.data) return true;
     const e = state.data.enabled || {};
+    const aliases = {
+      ranking: "rating",
+      homework: "homework",
+      tests: "tests",
+      "homework-tests": "homework"
+    };
+    const realKey = aliases[key] || key;
+    if (Object.prototype.hasOwnProperty.call(e, realKey)) return Boolean(e[realKey]);
     if (Object.prototype.hasOwnProperty.call(e, key)) return Boolean(e[key]);
     return true;
   }
+  function safeArray(value) { return Array.isArray(value) ? value : []; }
+  function statusPill(status) {
+    const s = String(status || "").toLowerCase();
+    const cls = s.includes("paid") || s.includes("active") || s.includes("approved") || s.includes("delivered") || s.includes("keldi") || s.includes("present") ? "green" : s.includes("reject") || s.includes("debt") || s.includes("absent") || s.includes("kelmadi") ? "red" : s.includes("pending") || s.includes("late") || s.includes("kech") ? "orange" : "";
+    return `<span class="pill ${cls}">${esc(status || "—")}</span>`;
+  }
+  function moduleDisabled(key) {
+    screen.innerHTML = `${header(titleOf(key), "Bu modul markazingizda yoqilmagan")}${empty("Bu modul markazingiz tarifida yoki CEO sozlamalarida o‘chirilgan.")}${nav("home")}`;
+    bindNav();
+  }
   function titleOf(key) {
     return ({
-      home: "Bosh sahifa", schedule: "Jadval", payments: "To‘lovlar", attendance: "Davomat", coins: "Coinlar", rewards: "Sovg‘alar", "my-rewards": "Mening sovg‘alarim", ranking: "Reyting", achievements: "Yutuqlar", notifications: "Xabarlar", materials: "Materiallar", "homework-tests": "Vazifa/Test", profile: "Profil"
+      home: "Bosh sahifa", schedule: "Jadval", payments: "To‘lovlar", attendance: "Davomat", coins: "Coinlar", rewards: "Sovg‘alar", "my-rewards": "Mening sovg‘alarim", ranking: "Reyting", achievements: "Yutuqlar", notifications: "Xabarlar", materials: "Materiallar", "homework-tests": "Vazifa/Test", homework: "Vazifalar", tests: "Testlar", security: "Xavfsizlik", "payment-history": "To‘lov tarixi", profile: "Profil"
     })[key] || key;
   }
   function row(title, sub = "", right = "", icon = "") {
@@ -221,9 +239,17 @@
     const hw = state.data?.homework || [], tests = state.data?.tests || [];
     screen.innerHTML = `${header('Homework / Tests','Vazifa topshirish va test ishlash')}<div class="tabs"><button class="active">Assigned</button><button>Submitted</button><button>Tests</button></div><div class="section-title"><h2>Homework</h2></div><div class="list">${hw.map(x=>row(x.title || 'Vazifa', `${x.subject||'Fan'} • Due: ${date(x.due_date)}`, x.submission_status || 'Pending')).join('') || empty('Uyga vazifa yo‘q')}</div><div class="section-title"><h2>Tests</h2></div><div class="list">${tests.map(x=>row(x.title || 'Test', x.description || '10 questions • 15 min', x.status || 'Start')).join('') || empty('Testlar hali yo‘q')}</div>${nav('home')}`; bindNav();
   }
+  function security() {
+    const s = state.data?.student || {};
+    screen.innerHTML = `${header('Security', 'Sessiya, parol va Telegram bog‘lanishi')}<div class="grid-2"><article class="card green-card"><h3>Telegram</h3><strong>${s.telegramUserId || s.telegram_user_id ? 'Ulangan' : 'Ulanmagan'}</strong></article><article class="card blue-card"><h3>Session</h3><strong>Active</strong></article></div><div class="section-title"><h2>Parolni almashtirish</h2></div><form class="login-form" data-password><label>Joriy parol<input type="password" name="current_password" placeholder="Joriy parol" /></label><label>Yangi parol<input type="password" name="new_password" placeholder="Kamida 6 belgi" required /></label><button class="primary full">Parolni yangilash</button></form><button class="danger full" style="margin-top:12px" data-revoke>Hamma qurilmalardan chiqish</button>${nav('profile')}`;
+    bindNav();
+    $('[data-password]').onsubmit = async (e) => { e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); try { await api('/api/student-app/password', { method:'POST', body:JSON.stringify(body) }); toast('Parol yangilandi'); e.target.reset(); } catch(err) { toast(err.message); } };
+    $('[data-revoke]').onclick = async () => { try { await api('/api/student-app/auth/logout', { method:'POST', body:'{}' }); } catch {} localStorage.removeItem(TOKEN_KEY); state.token=''; state.data=null; renderAuthHub('Sessiya yakunlandi. Qayta kirish uchun Telegram bot yoki student.eduka.uz dan foydalaning.'); };
+  }
+
   function profile() {
     const d = state.data || {}, s = d.student || {}, o = d.organization || {}, g = (d.groups || [])[0] || {};
-    screen.innerHTML = `<section class="profile-head"><div class="avatar">${s.avatarUrl?`<img src="${esc(s.avatarUrl)}"/>`:esc(initials(s.fullName))}</div><h2>${esc(s.fullName || 'O‘quvchi')}</h2><p>${esc(s.email || s.phone || '')}</p></section><div class="info-list">${row('Group', g.name || s.groupName || '—', '›', '👥')}${row('Center', o.name || 'Eduka', '›', '🏫')}${row('Telefon', s.phone || '—', '', '☎')}${row('Ota-ona telefoni', s.parentPhone || '—', '', '👨‍👩‍👧')}${row('Account Settings', 'Profil va kontakt ma’lumotlari', '›', '⚙')}${row('Security', 'Token, Telegram va parol', '›', '🔒')}${row('Help & Support', 'Markaz adminiga murojaat', '›', '❔')}</div><button class="primary full" style="margin-top:14px" data-edit>Profilni tahrirlash</button><button class="danger full" style="margin-top:10px" data-logout>Log Out</button>${nav('profile')}`;
+    screen.innerHTML = `<section class="profile-head"><div class="avatar">${s.avatarUrl?`<img src="${esc(s.avatarUrl)}"/>`:esc(initials(s.fullName))}</div><h2>${esc(s.fullName || 'O‘quvchi')}</h2><p>${esc(s.email || s.phone || '')}</p></section><div class="info-list">${row('Group', g.name || s.groupName || '—', '›', '👥')}${row('Center', o.name || 'Eduka', '›', '🏫')}${row('Telefon', s.phone || '—', '', '☎')}${row('Ota-ona telefoni', s.parentPhone || '—', '', '👨‍👩‍👧')}${row('Account Settings', 'Profil va kontakt ma’lumotlari', '›', '⚙')}${row('Security', 'Token, Telegram va parol', '›', '🔒')}${row('Help & Support', 'Markaz adminiga murojaat', '›', '❔')}</div><button class="primary full" style="margin-top:14px" data-edit>Profilni tahrirlash</button><button class="secondary full" style="margin-top:10px" data-go="security">Xavfsizlik va parol</button><button class="danger full" style="margin-top:10px" data-logout>Log Out</button>${nav('profile')}`;
     bindNav();
     $('[data-edit]').onclick = editProfile;
     $('[data-logout]').onclick = async () => { try { await api('/api/student-app/auth/logout', { method:'POST', body:'{}' }); } catch {} localStorage.removeItem(TOKEN_KEY); state.token=''; state.data=null; renderAuthHub('Siz ilovadan chiqdingiz. Qayta kirish uchun Telegram bot yoki student.eduka.uz dan foydalaning.'); };
@@ -248,7 +274,7 @@
     if (!state.data && !['welcome','auth'].includes(r)) {
       try { screen.innerHTML = skeleton(6); await load(); } catch { renderAuthHub('Sessiya topilmadi yoki muddati tugagan.'); return; }
     }
-    const map = { welcome: renderWelcome, home, schedule, payments, attendance, coins, rewards, 'my-rewards': myRewards, ranking, achievements, notifications, materials, 'homework-tests': homeworkTests, homework: homeworkTests, tests: homeworkTests, profile };
+    const map = { welcome: renderWelcome, home, schedule, payments, attendance, coins, rewards, 'my-rewards': myRewards, ranking, achievements, notifications, materials, 'homework-tests': homeworkTests, homework: homeworkTests, tests: homeworkTests, security, 'payment-history': payments, profile };
     (map[r] || home)();
   }
   async function boot() {
