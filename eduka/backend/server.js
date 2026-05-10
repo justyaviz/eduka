@@ -3267,6 +3267,17 @@ async function handlePaymentCreate(request, response) {
 
     if (body.student_id) {
       await recalculateStudentBalance(pool, user.organization_id, body.student_id);
+      const student = await getStudentForNotification(pool, user.organization_id, body.student_id);
+      if (student) {
+        await sendStudentTelegramNotification(
+          pool,
+          student,
+          "payment",
+          "To'lov qabul qilindi",
+          paymentTelegramMessage(student, item, student.balance),
+          { payment_id: item.id, receipt_no: item.receipt_no }
+        ).catch(() => null);
+      }
     }
 
     await createNotification(pool, user, "To'lov qabul qilindi", `${amount.toLocaleString("uz-UZ")} so'm to'lov amalga oshirildi. Chek: ${item.receipt_no}`, "success");
@@ -3776,6 +3787,20 @@ async function handleAttendance(request, response) {
       [user.organization_id, record.group_id, record.student_id, asDate(record.lesson_date), asText(record.status, "present"), asText(record.note), user.id]
     );
       saved.push(result.rows[0]);
+    }
+
+    for (const record of saved) {
+      const student = await getStudentForNotification(pool, user.organization_id, record.student_id).catch(() => null);
+      if (student) {
+        await sendStudentTelegramNotification(
+          pool,
+          student,
+          "attendance",
+          "Davomat belgilandi",
+          attendanceTelegramMessage(student, record),
+          { attendance_id: record.id, group_id: record.group_id, status: record.status }
+        ).catch(() => null);
+      }
     }
 
     await writeAudit(pool, user, "upsert", "attendance_records", saved[0]?.id, { count: saved.length, records });
@@ -5211,7 +5236,38 @@ async function handleAdminStudentAppTable(request, response, key, id = null) {
         `INSERT INTO ${config.table} (${columns.join(",")}) VALUES (${placeholders}) RETURNING *`,
         [user.organization_id, ...values]
       );
-      sendJson(response, 201, { ok: true, item: result.rows[0] });
+      const createdItem = result.rows[0];
+      if (key === "homework" && createdItem) {
+        await notifyStudentsByGroup(
+          pool,
+          user.organization_id,
+          createdItem.group_id,
+          "homework",
+          "Yangi uyga vazifa",
+          (student) => `📝 <b>Yangi uyga vazifa</b>\n\nO'quvchi: <b>${student.full_name}</b>\nMavzu: <b>${createdItem.title}</b>\n${createdItem.subject ? `Fan: <b>${createdItem.subject}</b>\n` : ""}${createdItem.due_date ? `Muddat: <b>${String(createdItem.due_date).slice(0,10)}</b>\n` : ""}\nStudent App ichida vazifani ko'ring.`,
+          { homework_id: createdItem.id }
+        ).catch(() => null);
+      }
+      if ((key === "materials" || key === "library") && createdItem && String(createdItem.status || "published") === "published") {
+        const students = await pool.query("SELECT * FROM students WHERE organization_id=$1 AND status <> 'archived' LIMIT 500", [user.organization_id]);
+        for (const student of students.rows) {
+          await sendStudentTelegramNotification(
+            pool,
+            student,
+            "material",
+            "Yangi material yuklandi",
+            `📚 <b>Yangi material yuklandi</b>\n\nNomi: <b>${createdItem.title}</b>\nTuri: <b>${createdItem.type || "material"}</b>\n\nStudent App → Materiallar bo'limida ko'rishingiz mumkin.`,
+            { material_id: createdItem.id }
+          ).catch(() => null);
+        }
+      }
+      if (key === "notifications" && createdItem && createdItem.student_id) {
+        const student = await getStudentForNotification(pool, user.organization_id, createdItem.student_id).catch(() => null);
+        if (student) {
+          await sendStudentTelegramNotification(pool, student, createdItem.type || "system", createdItem.title || "Bildirishnoma", createdItem.description || createdItem.title || "Yangi bildirishnoma", { notification_id: createdItem.id }).catch(() => null);
+        }
+      }
+      sendJson(response, 201, { ok: true, item: createdItem });
       return;
     }
     if (request.method === "PUT" && id) {
@@ -5235,6 +5291,247 @@ async function sendStudentTelegramMessage(pool, student, message) {
   if (!config.tokenPresent) return { ok: false, message: "STUDENT_BOT_TOKEN sozlanmagan" };
   await postTelegramMessage(config.token, student.telegram_chat_id, message);
   return { ok: true, message: "Xabar yuborildi" };
+}
+
+// Eduka 22.9.0 — Telegram Notification Pro
+async function ensureTelegramNotificationTables(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS telegram_notification_logs (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE,
+      student_id BIGINT REFERENCES students(id) ON DELETE SET NULL,
+      notification_type TEXT NOT NULL DEFAULT 'system',
+      chat_id TEXT,
+      title TEXT,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_message TEXT,
+      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+      sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS telegram_notification_logs_org_student_idx
+      ON telegram_notification_logs(organization_id, student_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS telegram_notification_logs_org_type_idx
+      ON telegram_notification_logs(organization_id, notification_type, status, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS telegram_notification_settings (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
+      payment_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      coin_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      reward_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      attendance_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      debt_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      lesson_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      homework_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      material_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+}
+
+async function telegramNotificationAllowed(pool, organizationId, type) {
+  await ensureTelegramNotificationTables(pool);
+  await pool.query(
+    `INSERT INTO telegram_notification_settings (organization_id) VALUES ($1)
+     ON CONFLICT (organization_id) DO NOTHING`,
+    [organizationId]
+  );
+  const result = await pool.query("SELECT * FROM telegram_notification_settings WHERE organization_id=$1 LIMIT 1", [organizationId]);
+  const settings = result.rows[0] || {};
+  const keyMap = {
+    payment: "payment_enabled",
+    coin: "coin_enabled",
+    reward: "reward_enabled",
+    attendance: "attendance_enabled",
+    debt: "debt_enabled",
+    lesson: "lesson_enabled",
+    homework: "homework_enabled",
+    material: "material_enabled"
+  };
+  const key = keyMap[type] || `${type}_enabled`;
+  return settings[key] !== false;
+}
+
+async function createStudentInAppNotification(pool, student, title, description, type = "system") {
+  if (!student?.id || !student?.organization_id) return null;
+  await ensureStudentEcosystemTables(pool).catch(() => null);
+  try {
+    const result = await pool.query(
+      `INSERT INTO student_notifications (organization_id, student_id, title, description, type, status)
+       VALUES ($1,$2,$3,$4,$5,'published') RETURNING *`,
+      [student.organization_id, student.id, title, description, type]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error(`Student notification create failed: ${error.message}`);
+    return null;
+  }
+}
+
+async function sendStudentTelegramNotification(pool, student, type, title, message, meta = {}) {
+  if (!student?.organization_id || !student?.id) return { ok: false, message: "Student topilmadi" };
+  await ensureTelegramNotificationTables(pool);
+  await createStudentInAppNotification(pool, student, title, message.replace(/<[^>]*>/g, ""), type).catch(() => null);
+
+  const log = await pool.query(
+    `INSERT INTO telegram_notification_logs (organization_id, student_id, notification_type, chat_id, title, message, status, meta)
+     VALUES ($1,$2,$3,$4,$5,$6,'pending',$7::jsonb) RETURNING *`,
+    [student.organization_id, student.id, type, student.telegram_chat_id || null, title, message, JSON.stringify(meta || {})]
+  );
+  const logId = log.rows[0]?.id;
+
+  try {
+    const allowed = await telegramNotificationAllowed(pool, student.organization_id, type);
+    if (!allowed) {
+      await pool.query("UPDATE telegram_notification_logs SET status='disabled' WHERE id=$1", [logId]);
+      return { ok: false, message: "Telegram xabar turi o'chirilgan" };
+    }
+    if (!student.telegram_chat_id) {
+      await pool.query("UPDATE telegram_notification_logs SET status='skipped', error_message='telegram_chat_id missing' WHERE id=$1", [logId]);
+      return { ok: false, message: "O'quvchi Telegram botga ulanmagan" };
+    }
+    await sendStudentTelegramMessage(pool, student, message);
+    await pool.query("UPDATE telegram_notification_logs SET status='sent', sent_at=NOW() WHERE id=$1", [logId]);
+    return { ok: true, message: "Telegram xabar yuborildi" };
+  } catch (error) {
+    const safe = safeTelegramErrorMessage(error);
+    await pool.query("UPDATE telegram_notification_logs SET status='failed', error_message=$2 WHERE id=$1", [logId, safe]).catch(() => null);
+    console.error(`Telegram notification failed: ${safe}`);
+    return { ok: false, message: safe };
+  }
+}
+
+function paymentTelegramMessage(student, payment, balance = 0) {
+  const amount = Number(payment.amount || payment.paid_amount || 0).toLocaleString("uz-UZ");
+  const debt = Number(balance || 0).toLocaleString("uz-UZ");
+  return `✅ <b>To'lov qabul qilindi</b>
+
+O'quvchi: <b>${student.full_name || '-'}</b>
+Summa: <b>${amount} so'm</b>
+Chek: <b>${payment.receipt_no || '-'}</b>
+Qolgan qarzdorlik: <b>${debt} so'm</b>
+
+Eduka Student App orqali to'lov tarixini ko'rishingiz mumkin.`;
+}
+
+function attendanceTelegramMessage(student, record) {
+  const statusLabels = { present: "Keldi", online: "Online", late: "Kech qoldi", absent: "Kelmadi", excused: "Sababli" };
+  const status = statusLabels[String(record.status || "")] || record.status || "Belgilandi";
+  const date = String(record.lesson_date || "").slice(0, 10);
+  return `📌 <b>Davomat belgilandi</b>
+
+O'quvchi: <b>${student.full_name || '-'}</b>
+Sana: <b>${date}</b>
+Holat: <b>${status}</b>
+${record.note ? `Izoh: ${record.note}
+` : ""}
+Student App ichida davomat tarixini ko'rishingiz mumkin.`;
+}
+
+async function getStudentForNotification(pool, organizationId, studentId) {
+  if (!studentId) return null;
+  const result = await pool.query("SELECT * FROM students WHERE id=$1 AND organization_id=$2 LIMIT 1", [studentId, organizationId]);
+  return result.rows[0] || null;
+}
+
+async function notifyStudentsByGroup(pool, organizationId, groupId, type, title, messageBuilder, meta = {}) {
+  if (!groupId) return [];
+  await ensureTelegramNotificationTables(pool);
+  const result = await pool.query(
+    `SELECT DISTINCT s.*
+     FROM students s
+     LEFT JOIN group_students gs ON gs.student_id=s.id AND gs.organization_id=s.organization_id
+     WHERE s.organization_id=$1 AND (s.group_id=$2 OR gs.group_id=$2) AND s.status <> 'archived'`,
+    [organizationId, groupId]
+  );
+  const sent = [];
+  for (const student of result.rows) {
+    const message = typeof messageBuilder === "function" ? messageBuilder(student) : String(messageBuilder || "");
+    sent.push(await sendStudentTelegramNotification(pool, student, type, title, message, meta));
+  }
+  return sent;
+}
+
+async function handleTelegramNotificationSettings(request, response) {
+  try {
+    const user = await requireUser(request, response, request.method === "GET" ? "read" : "settings:write");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureTelegramNotificationTables(pool);
+    await pool.query("INSERT INTO telegram_notification_settings (organization_id) VALUES ($1) ON CONFLICT (organization_id) DO NOTHING", [user.organization_id]);
+    if (request.method === "GET") {
+      const settings = await pool.query("SELECT * FROM telegram_notification_settings WHERE organization_id=$1 LIMIT 1", [user.organization_id]);
+      const logs = await pool.query("SELECT l.*, s.full_name AS student_name FROM telegram_notification_logs l LEFT JOIN students s ON s.id=l.student_id WHERE l.organization_id=$1 ORDER BY l.created_at DESC LIMIT 80", [user.organization_id]);
+      sendJson(response, 200, { ok: true, settings: settings.rows[0], logs: logs.rows });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const result = await pool.query(
+      `UPDATE telegram_notification_settings SET
+        payment_enabled=$2, coin_enabled=$3, reward_enabled=$4, attendance_enabled=$5,
+        debt_enabled=$6, lesson_enabled=$7, homework_enabled=$8, material_enabled=$9, updated_at=NOW()
+       WHERE organization_id=$1 RETURNING *`,
+      [user.organization_id, body.payment_enabled !== false, body.coin_enabled !== false, body.reward_enabled !== false, body.attendance_enabled !== false, body.debt_enabled !== false, body.lesson_enabled !== false, body.homework_enabled !== false, body.material_enabled !== false]
+    );
+    sendJson(response, 200, { ok: true, settings: result.rows[0] });
+  } catch (error) {
+    withError(response, "Telegram notification settings", error);
+  }
+}
+
+async function handleTelegramDebtReminders(request, response) {
+  try {
+    const user = await requireUser(request, response, "payments:write");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const result = await pool.query("SELECT * FROM students WHERE organization_id=$1 AND COALESCE(balance,0) > 0 AND status <> 'archived' ORDER BY balance DESC LIMIT 500", [user.organization_id]);
+    let sent = 0;
+    for (const student of result.rows) {
+      const balance = Number(student.balance || 0).toLocaleString("uz-UZ");
+      const out = await sendStudentTelegramNotification(pool, student, "debt", "Qarzdorlik eslatmasi", `⚠️ <b>Qarzdorlik eslatmasi</b>
+
+O'quvchi: <b>${student.full_name}</b>
+Qarzdorlik: <b>${balance} so'm</b>
+
+Iltimos, to'lov holatini Eduka Student App orqali tekshiring.`, { source: "manual_admin" });
+      if (out.ok) sent += 1;
+    }
+    sendJson(response, 200, { ok: true, total: result.rows.length, sent });
+  } catch (error) {
+    withError(response, "Debt reminders", error);
+  }
+}
+
+async function handleTelegramLessonReminders(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const body = request.method === "POST" ? await readJsonBody(request) : {};
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const groupId = body.group_id || body.groupId;
+    const group = groupId ? (await pool.query("SELECT * FROM groups WHERE id=$1 AND organization_id=$2", [groupId, user.organization_id])).rows[0] : null;
+    if (!group) {
+      sendJson(response, 400, { ok: false, message: "Guruh tanlang" });
+      return;
+    }
+    const lessonTime = `${String(group.start_time || "09:00").slice(0,5)} - ${String(group.end_time || "10:30").slice(0,5)}`;
+    const result = await notifyStudentsByGroup(pool, user.organization_id, group.id, "lesson", "Dars eslatmasi", (student) => `⏰ <b>Dars eslatmasi</b>
+
+O'quvchi: <b>${student.full_name}</b>
+Guruh: <b>${group.name}</b>
+Fan/kurs: <b>${group.course_name || group.name}</b>
+Vaqt: <b>${lessonTime}</b>
+Xona: <b>${group.room || '-'}</b>`, { group_id: group.id });
+    sendJson(response, 200, { ok: true, total: result.length, sent: result.filter((x) => x.ok).length });
+  } catch (error) {
+    withError(response, "Lesson reminders", error);
+  }
 }
 
 
@@ -6070,7 +6367,22 @@ async function handleAdminRewardRedemptionAction(request, response, redemptionId
        WHERE id=$1 AND organization_id=$2 RETURNING *`,
       [redemptionId, user.organization_id, status]
     );
-    sendJson(response, result.rows[0] ? 200 : 404, result.rows[0] ? { ok: true, item: result.rows[0] } : { ok: false, message: "So'rov topilmadi" });
+    const redemption = result.rows[0];
+    if (redemption) {
+      const student = await getStudentForNotification(pool, user.organization_id, redemption.student_id).catch(() => null);
+      if (student) {
+        const labels = { approved: "tasdiqlandi", rejected: "rad etildi", completed: "topshirildi" };
+        await sendStudentTelegramNotification(
+          pool,
+          student,
+          "reward",
+          "Sovg'a holati yangilandi",
+          `🎁 <b>Sovg'a so'rovi ${labels[status] || status}</b>\n\nSovg'a: <b>${redemption.product_title}</b>\nStatus: <b>${labels[status] || status}</b>`,
+          { redemption_id: redemption.id, status }
+        ).catch(() => null);
+      }
+    }
+    sendJson(response, redemption ? 200 : 404, redemption ? { ok: true, item: redemption } : { ok: false, message: "So'rov topilmadi" });
   } catch (error) {
     withError(response, "Reward redemption action", error);
   }
@@ -6085,7 +6397,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "22.8.2",
+      version: "22.9.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -6793,6 +7105,21 @@ const server = http.createServer((request, response) => {
   const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|materials|news|events|rewards|coin-transactions|reward-redemptions|achievements|referrals|extra-lessons|mock-exams|exams|feedback|notifications|homework|tests|parent-access|teacher-coin-limits|gamification-rules)(?:\/(\d+))?$/);
   if (studentAdminTableMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
     handleAdminStudentAppTable(request, response, studentAdminTableMatch[1], studentAdminTableMatch[2] ? Number(studentAdminTableMatch[2]) : null);
+    return;
+  }
+
+  if (urlPath === "/api/app/telegram-notifications" && ["GET", "PUT"].includes(request.method)) {
+    handleTelegramNotificationSettings(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/app/telegram-notifications/debt-reminders" && request.method === "POST") {
+    handleTelegramDebtReminders(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/app/telegram-notifications/lesson-reminders" && request.method === "POST") {
+    handleTelegramLessonReminders(request, response);
     return;
   }
 
