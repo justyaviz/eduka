@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "21.8.0";
+const EDUKA_VERSION = "22.8.0";
 function finishBoot() {
   document.body.classList.remove("is-booting");
   window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
@@ -222,6 +222,18 @@ const studentAppAdminViews = [
   "student-app-settings"
 ];
 
+const gamificationAdminViews = [
+  "gamification-dashboard",
+  "gamification-award",
+  "gamification-products",
+  "gamification-redemptions",
+  "gamification-ranking",
+  "gamification-achievements",
+  "gamification-rules",
+  "gamification-limits",
+  "gamification-telegram"
+];
+
 const studentAppRouteByView = {
   "student-app-dashboard": "/admin/settings/student-app/dashboard",
   "student-app-access": "/admin/settings/student-app/access",
@@ -322,7 +334,20 @@ const routeByView = {
   "super-invoices": "/ceo/invoices",
   "super-settings": "/ceo/settings"
 };
+
+const gamificationRouteByView = {
+  "gamification-dashboard": "/admin/gamification",
+  "gamification-award": "/admin/gamification/award",
+  "gamification-products": "/admin/gamification/products",
+  "gamification-redemptions": "/admin/gamification/redemptions",
+  "gamification-ranking": "/admin/gamification/ranking",
+  "gamification-achievements": "/admin/gamification/achievements",
+  "gamification-rules": "/admin/gamification/rules",
+  "gamification-limits": "/admin/gamification/limits",
+  "gamification-telegram": "/admin/gamification/telegram"
+};
 Object.assign(routeByView, studentAppRouteByView);
+Object.assign(routeByView, gamificationRouteByView);
 adminRouteKeys.forEach((key) => {
   routeByView[`admin-${key}`] = `/ceo/${key}`;
 });
@@ -375,6 +400,12 @@ function viewFromPath(pathname = window.location.pathname) {
   }
 
   if (normalized === "/admin" || normalized === "/admin/login" || normalized === "/admin/dashboard") return "dashboard";
+  if (normalized === "/admin/gamification") return "gamification-dashboard";
+  if (normalized.startsWith("/admin/gamification/")) {
+    const slug = normalized.replace("/admin/gamification/", "");
+    const view = `gamification-${slug}`;
+    return gamificationAdminViews.includes(view) ? view : "gamification-dashboard";
+  }
   if (normalized === "/admin/settings/student-app") return "student-app-dashboard";
   if (normalized.startsWith("/admin/settings/student-app/")) {
     const slug = normalized.replace("/admin/settings/student-app/", "");
@@ -534,6 +565,7 @@ const centerAdminViews = new Set([
   "payment-types",
   "accounting",
   ...studentAppAdminViews,
+  ...gamificationAdminViews,
   "course-report",
   "teacher-efficiency",
   "cashflow-report",
@@ -591,6 +623,7 @@ function navViewFor(viewName) {
   if (viewName === "student-profile") return "students";
   if (viewName === "group-profile") return "groups";
   if (viewName === "teacher-profile") return "teachers";
+  if (gamificationAdminViews?.includes?.(viewName)) return "gamification-dashboard";
   if (viewName === "super-center-profile") return "super-centers";
   return viewName;
 }

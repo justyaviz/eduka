@@ -4680,6 +4680,13 @@ const studentAppAdminTables = {
     defaults: { status: "active" },
     search: ["parent_name", "parent_phone", "status"]
   },
+
+  "gamification-rules": {
+    table: "student_gamification_rules",
+    fields: ["title", "description", "reason_key", "amount", "status"],
+    defaults: { amount: 10, status: "active" },
+    search: ["title", "description", "reason_key", "status"]
+  },
   "teacher-coin-limits": {
     table: "teacher_coin_limits",
     fields: ["teacher_id", "daily_limit", "monthly_limit", "status"],
@@ -5434,6 +5441,18 @@ async function ensureStudentEcosystemTables(pool) {
       last_login_at TIMESTAMPTZ
     );
 
+    CREATE TABLE IF NOT EXISTS student_gamification_rules (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      reason_key TEXT,
+      amount INTEGER NOT NULL DEFAULT 10,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS teacher_coin_limits (
       id BIGSERIAL PRIMARY KEY,
       organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -5792,7 +5811,7 @@ const server = http.createServer((request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "22.7.1",
+      version: "22.8.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -6486,7 +6505,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|materials|news|events|rewards|coin-transactions|reward-redemptions|achievements|referrals|extra-lessons|mock-exams|exams|feedback|notifications|homework|tests|parent-access|teacher-coin-limits)(?:\/(\d+))?$/);
+  const studentAdminTableMatch = urlPath.match(/^\/api\/app\/student-app\/(dictionary|library|materials|news|events|rewards|coin-transactions|reward-redemptions|achievements|referrals|extra-lessons|mock-exams|exams|feedback|notifications|homework|tests|parent-access|teacher-coin-limits|gamification-rules)(?:\/(\d+))?$/);
   if (studentAdminTableMatch && ["GET", "POST", "PUT", "DELETE"].includes(request.method)) {
     handleAdminStudentAppTable(request, response, studentAdminTableMatch[1], studentAdminTableMatch[2] ? Number(studentAdminTableMatch[2]) : null);
     return;
