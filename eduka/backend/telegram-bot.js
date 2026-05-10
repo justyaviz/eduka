@@ -72,6 +72,22 @@ function webAppKeyboard(url) {
   };
 }
 
+async function setStudentMenuButton(token, chatId, url) {
+  if (!chatId || !url) return;
+  try {
+    await apiRequest(token, "setChatMenuButton", {
+      chat_id: chatId,
+      menu_button: {
+        type: "web_app",
+        text: "Student APP",
+        web_app: { url }
+      }
+    });
+  } catch (error) {
+    console.warn(`Student bot menu button setup skipped: ${error.message}`);
+  }
+}
+
 function confirmStudentKeyboard() {
   return {
     inline_keyboard: [
@@ -123,6 +139,7 @@ async function openAppForLinkedStudent(token, chatId, telegramUserId, deps) {
     return;
   }
   const payload = await deps.createLinkedStudentAppSession(student, String(telegramUserId), String(chatId));
+  await setStudentMenuButton(token, chatId, payload.webAppUrl);
   await sendMessage(token, chatId, "Quyidagi tugmani bosing — Student App login sahifasiz to'g'ridan-to'g'ri Bosh sahifada ochiladi.", webAppKeyboard(payload.webAppUrl));
 }
 
@@ -247,6 +264,7 @@ async function handleCallback(update, deps) {
         { userAgent: "telegram-bot", ipAddress: "telegram" }
       );
       loginFlows.delete(chatKey);
+      await setStudentMenuButton(token, chatId, payload.webAppUrl);
       if (callback?.id) await apiRequest(token, "answerCallbackQuery", { callback_query_id: callback.id, text: "Tasdiqlandi" });
       await sendMessage(
         token,
@@ -382,6 +400,7 @@ async function handleCommand(token, message, deps) {
     const linkedStudent = await findStudentByTelegram(deps, message.from?.id);
     if (linkedStudent) {
       const payload = await deps.createLinkedStudentAppSession(linkedStudent, String(message.from?.id || ""), String(chatId));
+      await setStudentMenuButton(token, chatId, payload.webAppUrl);
       await sendMessage(token, chatId, "Siz allaqachon ro'yxatdan o'tgansiz. Qayta ro'yxatdan o'tish shart emas.\n\nStudent App'ni ochish uchun quyidagi tugmani bosing.", webAppKeyboard(payload.webAppUrl));
       return;
     }

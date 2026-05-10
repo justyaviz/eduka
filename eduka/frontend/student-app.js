@@ -1,4 +1,4 @@
-const EDUKA_STUDENT_VERSION = "22.1.4";
+const EDUKA_STUDENT_VERSION = "22.1.6";
 const screen = document.querySelector("[data-student-screen]");
 const logo = "/assets/logo_icon.webp";
 const state = { token: "", data: null, route: "home", loginStep: "phone", phone: "", org: null, toastTimer: null };
@@ -11,8 +11,14 @@ function date(v) { if (!v) return "-"; const d = new Date(v); return Number.isNa
 function firstName(name) { return String(name || "O'quvchi").trim().split(/\s+/)[0] || "O'quvchi"; }
 function initials(name) { return String(name || "O").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase(); }
 function setToken(t) { state.token = t || ""; if (t) localStorage.setItem("eduka_student_token", t); }
-function getToken() { const p = new URLSearchParams(location.search); return p.get("token") || localStorage.getItem("eduka_student_token") || ""; }
-function route() { const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean); return parts[1] || "home"; }
+function getToken() {
+  const p = new URLSearchParams(location.search);
+  const h = new URLSearchParams(String(location.hash || "").replace(/^#/, ""));
+  const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+  const pathToken = (parts[0] === "app" && ["open", "session", "token"].includes(parts[1]) && parts[2]) ? parts[2] : "";
+  return p.get("token") || p.get("t") || p.get("session") || h.get("token") || h.get("t") || pathToken || localStorage.getItem("eduka_student_token") || "";
+}
+function route() { const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean); if (["open", "session", "token"].includes(parts[1])) return "home"; return parts[1] || "home"; }
 function go(r) { history.pushState({}, "", `/app/${r}`); renderRoute(r); }
 function toast(msg) { clearTimeout(state.toastTimer); const old = $(".toast"); old?.remove(); const el = document.createElement("div"); el.className = "toast"; el.textContent = msg; document.body.append(el); state.toastTimer = setTimeout(()=>el.remove(), 3200); }
 async function api(path, opts = {}) { const headers = { "Content-Type":"application/json", ...(opts.headers || {}) }; if (state.token) headers.Authorization = `Bearer ${state.token}`; const res = await fetch(path, { ...opts, headers }); const text = await res.text(); let data={}; try { data=JSON.parse(text); } catch { data={ ok:false, message:text || "Server javob bermadi" }; } if (!res.ok || data.ok === false) throw new Error(data.message || "Xatolik yuz berdi"); return data; }
@@ -24,30 +30,45 @@ async function boot() {
   setToken(getToken());
   document.body.classList.remove("is-booting");
   document.querySelector("[data-boot-loader]")?.remove();
-  if (window.Telegram?.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
 
-  // 1) Bot inline tugmasi token bilan ochsa — darhol dashboard.
+  // Telegram script ba'zi telefonlarda kech yuklanadi. WebApp initData kelishini ko'proq kutamiz.
+  for (let i = 0; i < 14 && !window.Telegram?.WebApp; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch {}
+  }
+
+  // 1) Bot inline tugmasi token bilan ochsa — login sahifasiz darhol dashboard.
   if (state.token) {
     try {
       await load();
-      if (["login", ""].includes(route())) history.replaceState({}, "", "/app/home");
-      renderRoute(route() || "home");
+      history.replaceState({}, "", "/app/home");
+      renderRoute("home");
       return;
     } catch (error) {
       localStorage.removeItem("eduka_student_token");
       state.token = "";
+      if (location.search.includes("token=") || location.pathname.includes("/app/open/")) {
+        renderBotAccess("Token muddati tugagan yoki topilmadi. Botda /start bosing va yangi Student App tugmasini oching.");
+        return;
+      }
     }
   }
 
   // 2) Telegram WebApp menyu tugmasidan token yo'q ochilsa — initData orqali avtomatik sessiya yaratamiz.
-  const tg = window.Telegram?.WebApp;
   const tgUserId = tg?.initDataUnsafe?.user?.id || "";
   if (tg?.initData || tgUserId) {
     try {
       const payload = await fetch("/api/student-app/auth/telegram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ init_data: tg.initData || "", telegram_user_id: String(tgUserId || "") })
+        body: JSON.stringify({
+          init_data: tg.initData || "",
+          telegram_user_id: String(tgUserId || ""),
+          start_param: tg.initDataUnsafe?.start_param || ""
+        })
       }).then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data.ok === false) throw new Error(data.message || "Telegram orqali kirib bo'lmadi");
@@ -70,7 +91,7 @@ async function load() { state.data = await api("/api/student-app/me"); return st
 
 function renderBotAccess(message="") {
   const botUrl = "https://t.me/edukauz_bot?start=app";
-  screen.innerHTML = `<section class="app-splash bot-access"><img class="logo-main" src="${logo}" alt="Eduka"/><h1>EDUKA</h1><p>Student Appga kirish uchun Telegram botda telefon raqam va kodingizni tasdiqlang.</p>${message?`<div class="pill red">${esc(message)}</div>`:""}<a class="secondary full" href="${botUrl}" target="_blank" rel="noopener">Telegram bot orqali kirish →</a><small>Bot tasdiqlagandan keyin ilova avtomatik Bosh sahifadan ochiladi.</small></section>`;
+  screen.innerHTML = `<section class="app-splash bot-access"><img class="logo-main" src="${logo}" alt="Eduka"/><h1>EDUKA</h1><p>Student App faqat Telegram bot tasdiqlagan maxsus tugma orqali ochiladi.</p>${message?`<div class="pill red">${esc(message)}</div>`:""}<a class="secondary full" href="${botUrl}" target="_blank" rel="noopener">Telegram botga qaytish →</a><small>Botda /start bosing. Tasdiqlangandan keyin "Student App'ni ochish" tugmasini bosing — dashboard avtomatik ochiladi.</small></section>`;
 }
 function renderSplash() { renderBotAccess(); }
 function renderLogin(message="") { renderBotAccess(message || "Login ilova ichida o‘chirildi. Kirish Telegram bot orqali amalga oshiriladi."); }

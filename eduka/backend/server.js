@@ -632,7 +632,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "22.1.4"
+      "X-Eduka-Version": "22.1.6"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -4083,10 +4083,16 @@ function studentAppWebUrl(organization, token = "") {
   const base = getStudentWebAppUrlBase();
   const url = new URL(base);
   const cleanPath = url.pathname.replace(/\/+$/, "");
+  // Tokenni query emas, path ichida beramiz: Telegram iOS/WebView ba'zida queryni cache qiladi yoki yo'qotadi.
+  if (token) {
+    url.pathname = `${cleanPath || "/app"}/open/${encodeURIComponent(token)}`;
+    url.searchParams.set("v", "2216");
+    return url.toString();
+  }
   if (cleanPath === "" || cleanPath.endsWith("/student-app") || cleanPath.endsWith("/app")) {
     url.pathname = `${cleanPath || "/app"}/home`;
   }
-  if (token) url.searchParams.set("token", token);
+  url.searchParams.set("v", "2216");
   return url.toString();
 }
 
@@ -5173,7 +5179,7 @@ async function handleGlobalSearchRequest(request, response, query) {
 
 
 
-// Eduka 22.1.4 — compatibility layer for old Railway databases
+// Eduka 22.1.6 — compatibility layer for old Railway databases
 async function ensureStudentApp22Compatibility(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS student_app_settings (
@@ -5243,7 +5249,7 @@ async function ensureStudentApp22Compatibility(pool) {
 async function ensureStudentGamificationDefaults(pool, organizationId) {
   if (!organizationId) return;
   await ensureStudentApp22Compatibility(pool);
-  // Eduka 22.1.4: do not target optional columns in INSERT.
+  // Eduka 22.1.6: do not target optional columns in INSERT.
   // Old Railway databases may still miss some feature columns during startup.
   // Compatibility ALTERs above set defaults; this insert only creates the row safely.
   await pool.query(
