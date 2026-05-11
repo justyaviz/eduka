@@ -6585,6 +6585,105 @@ async function handleParent253(request, response, urlPath) {
   } catch (error) { sendJson(response, 500, { ok:false, message:error.message }); }
 }
 
+async function ensureStableProduction26Schema(pool) {
+  await pool.query(`CREATE TABLE IF NOT EXISTS production_qa_checks (id BIGSERIAL PRIMARY KEY, area TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'ready', note TEXT, checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), metadata JSONB NOT NULL DEFAULT '{}'::jsonb)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS report_snapshots (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, report_type TEXT NOT NULL, period TEXT, payload JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS payment_integration_settings (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, provider TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'setup', public_key TEXT, secret_ref TEXT, settings JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(organization_id, provider))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS payment_provider_events (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, provider TEXT NOT NULL, external_id TEXT, status TEXT NOT NULL DEFAULT 'received', amount NUMERIC(14,2) NOT NULL DEFAULT 0, payload JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS pwa_install_events (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, app TEXT NOT NULL DEFAULT 'student', user_agent TEXT, metadata JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+}
+
+async function handleProduction26Request(request, response, urlPath) {
+  try {
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStableProduction26Schema(pool);
+    if (request.method === "GET" && urlPath === "/api/production/overview") {
+      const checks = [
+        { name: "CEO Console", state: "ready", note: "Tariff, billing, center control" },
+        { name: "Admin CRM", state: "ready", note: "Students, payments, attendance, finance" },
+        { name: "Student App", state: "ready", note: "Telegram + student.eduka.uz + PWA" },
+        { name: "Parent App", state: "ready", note: "Parent dashboard foundation" },
+        { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
+        { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
+      ];
+      sendJson(response, 200, { ok: true, data: { version: "26.4.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      return;
+    }
+    if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
+      const body = await readJsonBody(request).catch(() => ({}));
+      await pool.query("INSERT INTO pwa_install_events (organization_id, app, user_agent, metadata) VALUES ($1,$2,$3,$4)", [body.organization_id || null, body.app || "student", request.headers["user-agent"] || "", body]);
+      sendJson(response, 200, { ok: true, message: "PWA install event saqlandi" });
+      return;
+    }
+    sendJson(response, 404, { ok: false, message: "Production endpoint topilmadi" });
+  } catch (error) {
+    withError(response, "Production 26", error);
+  }
+}
+
+async function handleReports26Request(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStableProduction26Schema(pool);
+    const [month, debt, attendance, students, teachers] = await Promise.all([
+      pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS s FROM payments WHERE organization_id=$1 AND date_trunc('month', COALESCE(paid_at,created_at))=date_trunc('month', now()) AND canceled_at IS NULL", [user.organization_id]).catch(() => ({ rows: [{ s: 0 }] })),
+      pool.query("SELECT COALESCE(SUM(COALESCE(debt_amount,balance,0)),0)::numeric AS s FROM students WHERE organization_id=$1", [user.organization_id]).catch(() => ({ rows: [{ s: 0 }] })),
+      pool.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status IN ('present','online'))::int AS present FROM attendance_records WHERE organization_id=$1 AND lesson_date >= CURRENT_DATE - INTERVAL '30 days'", [user.organization_id]).catch(() => ({ rows: [{ total: 0, present: 0 }] })),
+      pool.query("SELECT COUNT(*)::int AS c FROM students WHERE organization_id=$1", [user.organization_id]).catch(() => ({ rows: [{ c: 0 }] })),
+      pool.query("SELECT COUNT(*)::int AS c FROM teachers WHERE organization_id=$1", [user.organization_id]).catch(() => ({ rows: [{ c: 0 }] }))
+    ]);
+    const total = Number(attendance.rows[0]?.total || 0);
+    const present = Number(attendance.rows[0]?.present || 0);
+    const rate = total ? `${Math.round((present / total) * 100)}%` : "0%";
+    sendJson(response, 200, { ok: true, data: { month_revenue: month.rows[0].s, total_debt: debt.rows[0].s, attendance_rate: rate, students: students.rows[0].c, teachers: teachers.rows[0].c } });
+  } catch (error) { withError(response, "Reports 26", error); }
+}
+
+async function handleSaasBilling26Request(request, response) {
+  try {
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStableProduction26Schema(pool);
+    const centers = await pool.query("SELECT COUNT(*)::int AS c FROM organizations").catch(() => ({ rows: [{ c: 0 }] }));
+    const plans = [
+      { code: "Start", price: 99000, students: 80, student_app: true, gamification: false, parent_access: false },
+      { code: "Pro", price: 249000, students: 300, student_app: true, gamification: true, parent_access: true },
+      { code: "Business", price: 499000, students: 1000, student_app: true, gamification: true, parent_access: true, telegram: true },
+      { code: "Enterprise", price: 0, students: "custom", all: true }
+    ];
+    sendJson(response, 200, { ok: true, data: { centers: centers.rows[0].c, plans, mrr_estimate: 0 } });
+  } catch (error) { withError(response, "SaaS Billing 26", error); }
+}
+
+async function handlePaymentIntegrations26Request(request, response) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureStableProduction26Schema(pool);
+    if (request.method === "GET") {
+      const result = await pool.query("SELECT provider,status,updated_at FROM payment_integration_settings WHERE organization_id=$1", [user.organization_id]).catch(() => ({ rows: [] }));
+      const map = { click: "setup", payme: "setup", uzum: "setup", alif: "setup", paynet: "setup" };
+      for (const row of result.rows) map[row.provider] = row.status;
+      sendJson(response, 200, { ok: true, data: map });
+      return;
+    }
+    if (request.method === "PUT") {
+      const body = await readJsonBody(request);
+      const provider = String(body.provider || "").toLowerCase();
+      if (!provider) return sendJson(response, 400, { ok: false, message: "Provider kerak" });
+      await pool.query("INSERT INTO payment_integration_settings (organization_id,provider,status,public_key,secret_ref,settings,updated_at) VALUES ($1,$2,$3,$4,$5,$6,NOW()) ON CONFLICT (organization_id,provider) DO UPDATE SET status=EXCLUDED.status, public_key=EXCLUDED.public_key, secret_ref=EXCLUDED.secret_ref, settings=EXCLUDED.settings, updated_at=NOW()", [user.organization_id, provider, body.status || "setup", body.public_key || "", body.secret_ref || "", body.settings || {}]);
+      sendJson(response, 200, { ok: true, message: "Integratsiya saqlandi" });
+      return;
+    }
+  } catch (error) { withError(response, "Payment integrations 26", error); }
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -6594,10 +6693,30 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "22.9.0",
+      version: "26.4.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
+    return;
+  }
+
+  if (urlPath.startsWith("/api/production/") || urlPath === "/api/pwa/install-event") {
+    handleProduction26Request(request, response, urlPath);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/app/reports-pro/summary") {
+    handleReports26Request(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/super/saas-billing-pro") {
+    handleSaasBilling26Request(request, response);
+    return;
+  }
+
+  if (urlPath === "/api/app/payment-integrations" && ["GET", "PUT"].includes(request.method)) {
+    handlePaymentIntegrations26Request(request, response);
     return;
   }
 
