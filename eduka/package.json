@@ -1,6 +1,6 @@
 {
   "name": "eduka",
-  "version": "29.0.0",
+  "version": "29.1.1",
   "private": true,
   "description": "Eduka landing frontend and backend service for eduka.uz",
   "scripts": {

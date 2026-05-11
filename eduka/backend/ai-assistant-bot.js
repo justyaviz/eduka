@@ -177,7 +177,24 @@ async function ensureAiAssistantSchema(pool) {
       payload JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS ai_assistant_business_connections (
+      id SERIAL PRIMARY KEY,
+      business_connection_id TEXT UNIQUE NOT NULL,
+      user_id TEXT,
+      user_first_name TEXT,
+      user_username TEXT,
+      is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS business_connection_id TEXT;
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS is_business_chat BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS business_connection_id TEXT;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS business_message_id TEXT;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS is_business_message BOOLEAN NOT NULL DEFAULT FALSE;
     CREATE INDEX IF NOT EXISTS idx_ai_assistant_messages_chat ON ai_assistant_messages(chat_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ai_assistant_messages_business ON ai_assistant_messages(business_connection_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ai_assistant_leads_status ON ai_assistant_leads(status, created_at DESC);
   `);
 
@@ -193,22 +210,40 @@ async function ensureAiAssistantSchema(pool) {
 
 async function logMessage(pool, data) {
   await pool.query(
-    `INSERT INTO ai_assistant_messages (chat_id, telegram_user_id, direction, message_type, text, payload) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
-    [String(data.chat_id || ''), String(data.telegram_user_id || ''), data.direction, data.message_type || 'text', data.text || '', JSON.stringify(data.payload || {})]
+    `INSERT INTO ai_assistant_messages (chat_id, telegram_user_id, direction, message_type, text, payload, business_connection_id, business_message_id, is_business_message)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
+    [
+      String(data.chat_id || ''),
+      String(data.telegram_user_id || ''),
+      data.direction,
+      data.message_type || 'text',
+      data.text || '',
+      JSON.stringify(data.payload || {}),
+      data.business_connection_id || null,
+      data.business_message_id || null,
+      Boolean(data.is_business_message)
+    ]
   );
 }
 
-async function getConversation(pool, from, chat) {
+async function getConversation(pool, from, chat, options = {}) {
   const userId = String(from && from.id ? from.id : chat.id);
   const chatId = String(chat.id);
   const username = from && from.username ? String(from.username) : null;
   const firstName = from && from.first_name ? String(from.first_name) : null;
+  const businessConnectionId = options.business_connection_id || null;
   const result = await pool.query(
-    `INSERT INTO ai_assistant_conversations (telegram_user_id, chat_id, username, first_name)
-     VALUES ($1,$2,$3,$4)
-     ON CONFLICT (telegram_user_id) DO UPDATE SET chat_id=EXCLUDED.chat_id, username=EXCLUDED.username, first_name=EXCLUDED.first_name, updated_at=NOW()
+    `INSERT INTO ai_assistant_conversations (telegram_user_id, chat_id, username, first_name, business_connection_id, is_business_chat)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (telegram_user_id) DO UPDATE SET
+       chat_id=EXCLUDED.chat_id,
+       username=EXCLUDED.username,
+       first_name=EXCLUDED.first_name,
+       business_connection_id=COALESCE(EXCLUDED.business_connection_id, ai_assistant_conversations.business_connection_id),
+       is_business_chat=ai_assistant_conversations.is_business_chat OR EXCLUDED.is_business_chat,
+       updated_at=NOW()
      RETURNING *`,
-    [userId, chatId, username, firstName]
+    [userId, chatId, username, firstName, businessConnectionId, Boolean(businessConnectionId)]
   );
   return result.rows[0];
 }
@@ -220,12 +255,21 @@ async function setConversationState(pool, telegramUserId, state, draft = {}) {
   );
 }
 
-async function sendBotMessage(pool, config, chatId, text, replyMarkup) {
+async function sendBotMessage(pool, config, chatId, text, replyMarkup, options = {}) {
   if (!config.enabled) return { ok: false, skipped: true };
   const payload = { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true };
+  if (options.business_connection_id) payload.business_connection_id = options.business_connection_id;
   if (replyMarkup) payload.reply_markup = replyMarkup;
   const result = await telegramRequest(config.token, 'sendMessage', payload);
-  await logMessage(pool, { chat_id: chatId, direction: 'out', message_type: 'text', text, payload: { reply_markup: replyMarkup || null } });
+  await logMessage(pool, {
+    chat_id: chatId,
+    direction: 'out',
+    message_type: options.business_connection_id ? 'business_text' : 'text',
+    text,
+    payload: { reply_markup: replyMarkup || null, telegram_result: result || null },
+    business_connection_id: options.business_connection_id || null,
+    is_business_message: Boolean(options.business_connection_id)
+  });
   return result;
 }
 
@@ -278,45 +322,73 @@ async function notifyAdmin(pool, config, lead) {
 
 function getMessageText(update) {
   if (update.message && typeof update.message.text === 'string') return update.message.text;
+  if (update.business_message && typeof update.business_message.text === 'string') return update.business_message.text;
+  if (update.edited_business_message && typeof update.edited_business_message.text === 'string') return update.edited_business_message.text;
   if (update.callback_query && update.callback_query.data) return update.callback_query.data;
   return '';
 }
 
-async function handleLeadStep(pool, config, conv, chatId, from, text) {
+function getBusinessConnectionId(update) {
+  return (update.business_message && update.business_message.business_connection_id)
+    || (update.edited_business_message && update.edited_business_message.business_connection_id)
+    || null;
+}
+
+async function upsertBusinessConnection(pool, update) {
+  const bc = update && update.business_connection;
+  if (!bc || !bc.id) return null;
+  const user = bc.user || {};
+  const result = await pool.query(
+    `INSERT INTO ai_assistant_business_connections (business_connection_id, user_id, user_first_name, user_username, is_enabled, payload)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+     ON CONFLICT (business_connection_id) DO UPDATE SET
+       user_id=EXCLUDED.user_id,
+       user_first_name=EXCLUDED.user_first_name,
+       user_username=EXCLUDED.user_username,
+       is_enabled=EXCLUDED.is_enabled,
+       payload=EXCLUDED.payload,
+       updated_at=NOW()
+     RETURNING *`,
+    [String(bc.id), user.id ? String(user.id) : null, user.first_name || null, user.username || null, bc.is_enabled !== false, JSON.stringify(bc)]
+  );
+  return result.rows[0];
+}
+
+async function handleLeadStep(pool, config, conv, chatId, from, text, sendOptions = {}) {
   const draft = conv.draft || {};
   const clean = String(text || '').trim();
 
   if (clean === '/cancel') {
     await setConversationState(pool, conv.telegram_user_id, 'idle', {});
-    await sendBotMessage(pool, config, chatId, 'Bekor qilindi. Asosiy menyuga qaytdik.', mainMenuKeyboard());
+    await sendBotMessage(pool, config, chatId, 'Bekor qilindi. Asosiy menyuga qaytdik.' , mainMenuKeyboard());
     return;
   }
 
   if (conv.state === 'lead_name') {
     draft.full_name = clean;
     await setConversationState(pool, conv.telegram_user_id, 'lead_phone', draft);
-    await sendBotMessage(pool, config, chatId, 'Telefon raqamingizni yuboring. Masalan: +998901234567', demoCancelKeyboard());
+    await sendBotMessage(pool, config, chatId, 'Telefon raqamingizni yuboring. Masalan: +998901234567', demoCancelKeyboard(), sendOptions);
     return;
   }
 
   if (conv.state === 'lead_phone') {
     draft.phone = clean;
     await setConversationState(pool, conv.telegram_user_id, 'lead_center', draft);
-    await sendBotMessage(pool, config, chatId, 'O‘quv markazingiz nomini yozing.', demoCancelKeyboard());
+    await sendBotMessage(pool, config, chatId, 'O‘quv markazingiz nomini yozing.', demoCancelKeyboard(), sendOptions);
     return;
   }
 
   if (conv.state === 'lead_center') {
     draft.center_name = clean;
     await setConversationState(pool, conv.telegram_user_id, 'lead_city', draft);
-    await sendBotMessage(pool, config, chatId, 'Qaysi shahardasiz?', demoCancelKeyboard());
+    await sendBotMessage(pool, config, chatId, 'Qaysi shahardasiz?', demoCancelKeyboard(), sendOptions);
     return;
   }
 
   if (conv.state === 'lead_city') {
     draft.city = clean;
     await setConversationState(pool, conv.telegram_user_id, 'lead_students', draft);
-    await sendBotMessage(pool, config, chatId, 'Taxminan nechta o‘quvchingiz bor?', demoCancelKeyboard());
+    await sendBotMessage(pool, config, chatId, 'Taxminan nechta o‘quvchingiz bor?', demoCancelKeyboard(), sendOptions);
     return;
   }
 
@@ -329,28 +401,28 @@ async function handleLeadStep(pool, config, conv, chatId, from, text) {
     );
     await setConversationState(pool, conv.telegram_user_id, 'idle', {});
     await notifyAdmin(pool, config, leadResult.rows[0]);
-    await sendBotMessage(pool, config, chatId, '✅ Demo so‘rovingiz qabul qilindi. Tez orada operator siz bilan bog‘lanadi.', finalLeadKeyboard());
+    await sendBotMessage(pool, config, chatId, '✅ Demo so‘rovingiz qabul qilindi. Tez orada operator siz bilan bog‘lanadi.', finalLeadKeyboard(), sendOptions);
   }
 }
 
-async function processCommandOrText(pool, config, conv, chat, from, text) {
+async function processCommandOrText(pool, config, conv, chat, from, text, sendOptions = {}) {
   const chatId = chat.id;
   const input = String(text || '').trim();
 
   if (conv.state && conv.state.startsWith('lead_')) {
-    await handleLeadStep(pool, config, conv, chatId, from, input);
+    await handleLeadStep(pool, config, conv, chatId, from, input, sendOptions);
     return;
   }
 
   if (input === '/start' || input === '/menu') {
     await setConversationState(pool, conv.telegram_user_id, 'idle', {});
-    await sendBotMessage(pool, config, chatId, startText(), mainMenuKeyboard());
+    await sendBotMessage(pool, config, chatId, startText(), mainMenuKeyboard(), sendOptions);
     return;
   }
 
   const faq = await findFaq(pool, input);
   if (faq) {
-    await sendBotMessage(pool, config, chatId, `<b>${faq.title}</b>\n\n${faq.answer}`, mainMenuKeyboard());
+    await sendBotMessage(pool, config, chatId, `<b>${faq.title}</b>\n\n${faq.answer}`, mainMenuKeyboard(), sendOptions);
     return;
   }
 
@@ -358,7 +430,7 @@ async function processCommandOrText(pool, config, conv, chat, from, text) {
     'Savolingizni tushundim. Hozircha men Eduka haqida tayyor ma’lumotlar asosida javob beraman.',
     '',
     'Quyidagi bo‘limlardan birini tanlang yoki demo so‘rov qoldiring.'
-  ].join('\n'), mainMenuKeyboard());
+  ].join('\n'), mainMenuKeyboard(), sendOptions);
 }
 
 async function processCallback(pool, config, conv, callback) {
@@ -394,7 +466,7 @@ async function processCallback(pool, config, conv, callback) {
   const result = await pool.query('SELECT * FROM ai_assistant_faqs WHERE key=$1 AND is_active=TRUE LIMIT 1', [key]);
   if (result.rows[0]) {
     const faq = result.rows[0];
-    await sendBotMessage(pool, config, chatId, `<b>${faq.title}</b>\n\n${faq.answer}`, mainMenuKeyboard());
+    await sendBotMessage(pool, config, chatId, `<b>${faq.title}</b>\n\n${faq.answer}` , mainMenuKeyboard());
     return;
   }
   await sendBotMessage(pool, config, chatId, startText(), mainMenuKeyboard());
@@ -416,27 +488,73 @@ async function handleWebhook({ request, response, pool, sendJson, readJsonBody }
 
   await ensureAiAssistantSchema(pool);
   const update = await readJsonBody(request);
-  const message = update.message || (update.callback_query && update.callback_query.message);
-  const from = update.callback_query ? update.callback_query.from : update.message ? update.message.from : null;
-  const chat = message ? message.chat : null;
+
+  if (update.business_connection) {
+    const saved = await upsertBusinessConnection(pool, update);
+    await logMessage(pool, {
+      chat_id: saved && saved.user_id ? saved.user_id : '',
+      telegram_user_id: saved && saved.user_id ? saved.user_id : '',
+      direction: 'in',
+      message_type: 'business_connection',
+      text: update.business_connection.is_enabled === false ? 'Business connection disabled' : 'Business connection enabled',
+      payload: update,
+      business_connection_id: update.business_connection.id,
+      is_business_message: true
+    });
+    sendJson(response, 200, { ok: true, business_connection: true });
+    return;
+  }
+
+  if (update.deleted_business_messages) {
+    await logMessage(pool, {
+      chat_id: update.deleted_business_messages.chat && update.deleted_business_messages.chat.id,
+      telegram_user_id: '',
+      direction: 'in',
+      message_type: 'deleted_business_messages',
+      text: 'Business messages deleted',
+      payload: update,
+      business_connection_id: update.deleted_business_messages.business_connection_id || null,
+      is_business_message: true
+    });
+    sendJson(response, 200, { ok: true, deleted_business_messages: true });
+    return;
+  }
+
+  const businessConnectionId = getBusinessConnectionId(update);
+  const activeMessage = update.message || update.business_message || update.edited_business_message || (update.callback_query && update.callback_query.message);
+  const from = update.callback_query ? update.callback_query.from : activeMessage ? (activeMessage.from || activeMessage.chat) : null;
+  const chat = activeMessage ? activeMessage.chat : null;
   if (!chat || !from) {
+    await logMessage(pool, { chat_id: '', telegram_user_id: '', direction: 'in', message_type: 'ignored', text: '', payload: update, business_connection_id: businessConnectionId, is_business_message: Boolean(businessConnectionId) });
     sendJson(response, 200, { ok: true, ignored: true });
     return;
   }
 
-  const conv = await getConversation(pool, from, chat);
-  await logMessage(pool, { chat_id: chat.id, telegram_user_id: from.id, direction: 'in', message_type: update.callback_query ? 'callback' : 'text', text: getMessageText(update), payload: update });
+  const conv = await getConversation(pool, from, chat, { business_connection_id: businessConnectionId });
+  await logMessage(pool, {
+    chat_id: chat.id,
+    telegram_user_id: from.id || chat.id,
+    direction: 'in',
+    message_type: update.callback_query ? 'callback' : businessConnectionId ? (update.edited_business_message ? 'edited_business_text' : 'business_text') : 'text',
+    text: getMessageText(update),
+    payload: update,
+    business_connection_id: businessConnectionId,
+    business_message_id: activeMessage && activeMessage.message_id ? String(activeMessage.message_id) : null,
+    is_business_message: Boolean(businessConnectionId)
+  });
 
   try {
     if (update.callback_query) {
       await processCallback(pool, config, conv, update.callback_query);
+    } else if (update.edited_business_message) {
+      // Edited business messages are stored for audit. We do not answer again to avoid duplicate replies.
     } else {
-      await processCommandOrText(pool, config, conv, chat, from, update.message.text || '');
+      await processCommandOrText(pool, config, conv, chat, from, getMessageText(update), { business_connection_id: businessConnectionId });
     }
-    sendJson(response, 200, { ok: true });
+    sendJson(response, 200, { ok: true, business: Boolean(businessConnectionId) });
   } catch (error) {
-    try { await sendBotMessage(pool, config, chat.id, 'Kutilmagan xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.', mainMenuKeyboard()); } catch {}
-    sendJson(response, 200, { ok: true, handled_error: error.message });
+    try { await sendBotMessage(pool, config, chat.id, 'Kutilmagan xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.', mainMenuKeyboard(), { business_connection_id: businessConnectionId }); } catch {}
+    sendJson(response, 200, { ok: true, handled_error: error.message, business: Boolean(businessConnectionId) });
   }
 }
 
@@ -447,7 +565,7 @@ async function handleSetWebhook({ response, pool, sendJson }) {
     return;
   }
   await ensureAiAssistantSchema(pool);
-  const payload = { url: config.webhookUrl, allowed_updates: ['message', 'callback_query'] };
+  const payload = { url: config.webhookUrl, allowed_updates: ['message', 'callback_query', 'business_connection', 'business_message', 'edited_business_message', 'deleted_business_messages'] };
   if (config.webhookSecret) payload.secret_token = config.webhookSecret;
   const result = await telegramRequest(config.token, 'setWebhook', payload);
   sendJson(response, 200, { ok: true, webhook_url: config.webhookUrl, result });
@@ -463,6 +581,15 @@ async function handleWebhookInfo({ response, sendJson }) {
   sendJson(response, 200, { ok: true, configured: true, username: config.username, expected_webhook_url: config.webhookUrl, result });
 }
 
+
+async function businessOverview(pool) {
+  const [connections, businessMessages] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_enabled=TRUE)::int AS active FROM ai_assistant_business_connections`).catch(() => ({ rows: [{ total: 0, active: 0 }] })),
+    pool.query(`SELECT COUNT(*)::int AS total FROM ai_assistant_messages WHERE is_business_message=TRUE AND created_at > NOW() - INTERVAL '24 hours'`).catch(() => ({ rows: [{ total: 0 }] }))
+  ]);
+  return { connections: connections.rows[0], business_messages_24h: businessMessages.rows[0].total };
+}
+
 async function handleAdminApi({ request, response, pool, sendJson, readJsonBody, urlPath, query }) {
   await ensureAiAssistantSchema(pool);
 
@@ -472,7 +599,7 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
       pool.query(`SELECT COUNT(*)::int AS total FROM ai_assistant_messages WHERE created_at > NOW() - INTERVAL '24 hours'`),
       pool.query(`SELECT COUNT(*)::int AS total FROM ai_assistant_faqs WHERE is_active=TRUE`)
     ]);
-    sendJson(response, 200, { ok: true, config: { ...aiBotConfig(), token: undefined }, leads: leads.rows[0], messages_24h: messages.rows[0].total, faq_count: faqs.rows[0].total });
+    sendJson(response, 200, { ok: true, config: { ...aiBotConfig(), token: undefined }, leads: leads.rows[0], messages_24h: messages.rows[0].total, faq_count: faqs.rows[0].total, business: await businessOverview(pool) });
     return true;
   }
 
@@ -502,6 +629,19 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
       [body.key || null, body.title, body.keywords || [], body.answer, Number(body.sort_order || 100), body.is_active !== false]
     );
     sendJson(response, 201, { ok: true, faq: result.rows[0] });
+    return true;
+  }
+
+
+  if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/business-connections') {
+    const result = await pool.query(`SELECT * FROM ai_assistant_business_connections ORDER BY updated_at DESC LIMIT 100`);
+    sendJson(response, 200, { ok: true, connections: result.rows });
+    return true;
+  }
+
+  if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/business-messages') {
+    const result = await pool.query(`SELECT * FROM ai_assistant_messages WHERE is_business_message=TRUE ORDER BY created_at DESC LIMIT 200`);
+    sendJson(response, 200, { ok: true, messages: result.rows });
     return true;
   }
 
