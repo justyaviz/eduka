@@ -78,7 +78,14 @@ function aiBotConfig() {
     adminChatId: env('EDUKA_AI_ADMIN_CHAT_ID'),
     webhookSecret: env('EDUKA_AI_WEBHOOK_SECRET'),
     webhookUrl: `https://${baseDomain}/api/ai-bot/webhook`,
-    supportUsername: env('SUPPORT_TELEGRAM', '@eduka_admin')
+    supportUsername: env('SUPPORT_TELEGRAM', '@eduka_admin'),
+    aiEnabled: env('AI_ASSISTANT_LLM_ENABLED', 'true') !== 'false',
+    aiProvider: env('AI_ASSISTANT_PROVIDER', 'openai'),
+    aiApiKey: env('OPENAI_API_KEY') || env('AI_PROVIDER_API_KEY'),
+    aiModel: env('AI_ASSISTANT_MODEL', env('AI_PROVIDER_MODEL', 'gpt-5.5-mini')),
+    aiTemperature: Number(env('AI_ASSISTANT_TEMPERATURE', '0.4')),
+    aiMaxOutputTokens: Number(env('AI_ASSISTANT_MAX_OUTPUT_TOKENS', '650')),
+    aiLanguage: env('AI_ASSISTANT_LANGUAGE', 'uz')
   };
 }
 
@@ -475,6 +482,131 @@ async function updateConversationIntelligence(pool, conv, analysis, input) {
   return { ...conv, memory, lead_score: score, last_intent: analysis.intent, interest_tags: tags, qualified: score >= 75, summary };
 }
 
+function stripTelegramUnsafe(text) {
+  const raw = String(text || '').trim();
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .slice(0, 3900);
+}
+
+function shortJson(value, max = 1200) {
+  try {
+    const text = JSON.stringify(value || {});
+    return text.length > max ? text.slice(0, max) + '…' : text;
+  } catch {
+    return '{}';
+  }
+}
+
+async function getRecentConversationMessages(pool, chatId, limit = 10) {
+  const result = await pool.query(
+    `SELECT direction, text, intent, created_at
+       FROM ai_assistant_messages
+      WHERE chat_id=$1 AND COALESCE(text,'') <> ''
+      ORDER BY created_at DESC
+      LIMIT $2`,
+    [String(chatId), limit]
+  ).catch(() => ({ rows: [] }));
+  return result.rows.reverse();
+}
+
+function buildEdukaKnowledgeBase(faqs = []) {
+  const base = [
+    'Eduka — o‘quv markazlar uchun CRM va SaaS platforma.',
+    'Asosiy modullar: talabalar, guruhlar, o‘qituvchilar, dars jadvali, davomat, to‘lovlar, qarzdorlik, chek/QR, Telegram xabarlar, Student App, Parent App, coin/rewards, reyting, yutuqlar, materiallar, uyga vazifa, testlar, hisobotlar, CEO SaaS billing.',
+    'Student App: o‘quvchi jadval, to‘lov, davomat, coin, sovg‘a, reyting, yutuqlar, material, vazifa va bildirishnomalarni ko‘radi.',
+    'Parent App: ota-ona farzandining to‘lov, qarzdorlik, davomat, jadval va vazifalarini kuzatadi.',
+    'Telegram bot: to‘lov, coin, sovg‘a statusi, davomat, dars eslatmasi, qarzdorlik, homework/material xabarlarini yuboradi.',
+    'Tariflar: Start, Pro, Business, Enterprise. Aniq tavsiya uchun o‘quvchilar soni, kerakli modullar va markaz hajmi kerak.',
+    'Demo olish uchun: ism-familiya, telefon, o‘quv markaz nomi, shahar, o‘quvchilar soni.'
+  ];
+  for (const faq of faqs.slice(0, 12)) base.push(`${faq.title}: ${faq.answer}`);
+  return base.join('\n');
+}
+
+async function getActiveFaqs(pool) {
+  const result = await pool.query(`SELECT title, answer, keywords FROM ai_assistant_faqs WHERE is_active=TRUE ORDER BY sort_order ASC, id ASC LIMIT 30`).catch(() => ({ rows: [] }));
+  return result.rows;
+}
+
+function shouldUseLlm(config) {
+  return Boolean(config.aiEnabled && config.aiProvider === 'openai' && config.aiApiKey);
+}
+
+async function callOpenAiResponse(config, messages, metadata = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 18000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${config.aiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.aiModel,
+        input: messages,
+        temperature: config.aiTemperature,
+        max_output_tokens: config.aiMaxOutputTokens,
+        metadata
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = new Error(data && data.error && data.error.message ? data.error.message : `OpenAI error ${response.status}`);
+      err.response = data;
+      throw err;
+    }
+    if (typeof data.output_text === 'string' && data.output_text.trim()) return data.output_text.trim();
+    const parts = [];
+    for (const item of data.output || []) {
+      for (const content of item.content || []) {
+        if (content.type === 'output_text' && content.text) parts.push(content.text);
+        if (content.text && typeof content.text === 'string') parts.push(content.text);
+      }
+    }
+    return parts.join('\n').trim();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function generateLlmSalesReply(pool, config, conv, analysis, userText, faq) {
+  if (!shouldUseLlm(config)) return null;
+  const faqs = await getActiveFaqs(pool);
+  const history = await getRecentConversationMessages(pool, conv.chat_id, 8);
+  const knowledge = buildEdukaKnowledgeBase(faqs);
+  const memory = conv.memory || {};
+  const systemPrompt = [
+    'Siz Eduka AI Assistant botsiz. Professional, muloyim, qisqa va savdoga yo‘naltirilgan Uzbek tilida javob bering.',
+    'Siz ChatGPTga o‘xshab erkin savollarga javob berasiz, lekin asosiy vazifangiz Eduka CRM, Student App, Parent App va o‘quv markaz avtomatlashtirish bo‘yicha yordam berish.',
+    'Savol Eduka bilan bog‘liq bo‘lmasa ham, foydali javob bering va tabiiy tarzda Eduka bilan bog‘lash mumkin bo‘lsa bog‘lang. Noaniq bo‘lsa 1 ta aniqlashtiruvchi savol bering.',
+    'Javobda yolg‘on narx, kafolat yoki mavjud bo‘lmagan integratsiyani aniq fakt sifatida aytmang. Narx so‘ralsa o‘quvchilar soni va kerakli modullarni so‘rang.',
+    'Mijoz demo xohlasa, ism, telefon, markaz nomi, shahar, o‘quvchilar sonini so‘rang.',
+    'Telegram Business uchun javob text-only bo‘lsin. Markdown jadval ishlatmang. HTML ishlatmang. Emoji juda kam ishlating yoki ishlatmang.',
+    'Javob 2–8 qatordan oshmasin, kerak bo‘lsa punktlar bilan yozing.'
+  ].join('\n');
+  const context = [
+    `Eduka knowledge base:\n${knowledge}`,
+    `Conversation memory: ${shortJson(memory)}`,
+    `Intent analysis: ${shortJson(analysis)}`,
+    faq ? `Matched FAQ: ${faq.title} — ${faq.answer}` : 'Matched FAQ: none',
+    `Lead score: ${conv.lead_score || 0} (${leadTemperature(Number(conv.lead_score || 0))})`,
+    `Recent messages:\n${history.map((m) => `${m.direction}: ${String(m.text || '').slice(0, 300)}`).join('\n')}`
+  ].join('\n\n');
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'developer', content: context },
+    { role: 'user', content: String(userText || '') }
+  ];
+  const text = await callOpenAiResponse(config, messages, { module: 'eduka_ai_assistant', intent: analysis.intent || 'unknown' });
+  return stripTelegramUnsafe(text || '');
+}
+
+
 function smartReplyText(config, conv, analysis, faq) {
   const memory = conv.memory || {};
   const score = Number(conv.lead_score || analysis.score_after || 0);
@@ -749,7 +881,39 @@ async function processCommandOrText(pool, config, conv, chat, from, text, sendOp
   }
 
   const faq = await findFaq(pool, input);
-  const reply = smartReplyText(config, smartConv, analysis, faq);
+  let reply = null;
+  try {
+    reply = await generateLlmSalesReply(pool, config, smartConv, analysis, input, faq);
+    if (reply) {
+      await logMessage(pool, {
+        chat_id: chatId,
+        telegram_user_id: from.id || chat.id,
+        direction: 'ai',
+        message_type: 'llm_reply_generated',
+        text: reply,
+        payload: { provider: config.aiProvider, model: config.aiModel, fallback: false },
+        business_connection_id: sendOptions.business_connection_id || null,
+        is_business_message: Boolean(sendOptions.business_connection_id),
+        intent: analysis.intent,
+        confidence: analysis.confidence,
+        ai_reason: { llm: true, model: config.aiModel }
+      });
+    }
+  } catch (error) {
+    await logMessage(pool, {
+      chat_id: chatId,
+      telegram_user_id: from.id || chat.id,
+      direction: 'ai_error',
+      message_type: 'llm_error',
+      text: String(error && error.message ? error.message : error),
+      payload: { provider: config.aiProvider, model: config.aiModel, error: error && error.response ? error.response : null },
+      business_connection_id: sendOptions.business_connection_id || null,
+      is_business_message: Boolean(sendOptions.business_connection_id),
+      intent: analysis.intent,
+      confidence: analysis.confidence
+    });
+  }
+  if (!reply) reply = smartReplyText(config, smartConv, analysis, faq);
   const createdLead = await maybeCreateSmartLead(pool, smartConv, analysis, from);
   if (createdLead && Number(createdLead.score || 0) >= 75) {
     try { await notifyAdmin(pool, config, createdLead); } catch {}
@@ -988,6 +1152,23 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
   if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/conversations') {
     const result = await pool.query(`SELECT * FROM ai_assistant_conversations ORDER BY lead_score DESC, updated_at DESC LIMIT 150`);
     sendJson(response, 200, { ok: true, conversations: result.rows });
+    return true;
+  }
+
+
+  if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/llm-status') {
+    const config = aiBotConfig();
+    sendJson(response, 200, { ok: true, llm: { enabled: Boolean(config.aiEnabled), provider: config.aiProvider, model: config.aiModel, api_key_configured: Boolean(config.aiApiKey), max_output_tokens: config.aiMaxOutputTokens, language: config.aiLanguage } });
+    return true;
+  }
+
+  if (request.method === 'POST' && urlPath === '/api/app/ai-assistant/llm-test') {
+    const body = await readJsonBody(request).catch(() => ({}));
+    const config = aiBotConfig();
+    const fakeConv = { chat_id: 'admin-test', memory: {}, lead_score: 0, interest_tags: [] };
+    const analysis = analyzeIntent(body.text || 'Eduka nima?', fakeConv);
+    const reply = await generateLlmSalesReply(pool, config, fakeConv, analysis, body.text || 'Eduka nima?', null).catch((error) => null);
+    sendJson(response, 200, { ok: Boolean(reply), reply: reply || smartReplyText(config, fakeConv, analysis, null), llm_used: Boolean(reply), model: config.aiModel });
     return true;
   }
 

@@ -6797,7 +6797,7 @@ async function handleWorkflow274(request, response, urlPath) {
     if (request.method === 'GET' && urlPath === '/api/workflow27/checklist') {
       const checklist = workflow274Checklist();
       const latest = await pool.query(`SELECT * FROM workflow_test_runs WHERE organization_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC LIMIT 5`, [user.organization_id || null]).catch(() => ({ rows: [] }));
-      sendJson(response, 200, { ok: true, version: '29.0.0', checklist, latest: latest.rows });
+      sendJson(response, 200, { ok: true, version: '29.3.0', checklist, latest: latest.rows });
       return;
     }
 
@@ -7008,7 +7008,7 @@ async function handleProduction27Audit(request, response, urlPath) {
       parent: { accessLinks: counts.find((r) => r.table === 'parent_access_links')?.exists === true }
     };
     await safeQuery(pool, `INSERT INTO production_audit_runs (scope,status,summary) VALUES ($1,$2,$3)`, ['stable-27', required.length ? 'needs_attention' : 'completed', checks]);
-    sendJson(response, 200, { ok: true, version: '29.0.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
+    sendJson(response, 200, { ok: true, version: '29.3.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
   } catch (error) {
     withError(response, 'Production 27 audit', error);
   }
@@ -7028,7 +7028,7 @@ async function handleProduction26Request(request, response, urlPath) {
         { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
         { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
       ];
-      sendJson(response, 200, { ok: true, data: { version: "29.2.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      sendJson(response, 200, { ok: true, data: { version: "29.3.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
       return;
     }
     if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
@@ -7153,7 +7153,7 @@ async function handleUi28Request(request, response, urlPath) {
         pool.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status IN ('present','online'))::int AS present FROM attendance_records WHERE organization_id=$1", [user.organization_id]).catch(()=>({rows:[{total:0,present:0}]}))
       ]);
       const total = Number(attendance.rows[0].total || 0); const present = Number(attendance.rows[0].present || 0);
-      sendJson(response, 200, { ok:true, version:'29.0.0', data:{ students:students.rows[0].c, teachers:teachers.rows[0].c, groups:groups.rows[0].c, revenue:payments.rows[0].s, attendance_rate: total ? Math.round(present/total*100) : 0, components:['profile-pages','drawers','search-filter','excel-export','qr-receipt','telegram-status','empty-loading-error'] } });
+      sendJson(response, 200, { ok:true, version:'29.3.0', data:{ students:students.rows[0].c, teachers:teachers.rows[0].c, groups:groups.rows[0].c, revenue:payments.rows[0].s, attendance_rate: total ? Math.round(present/total*100) : 0, components:['profile-pages','drawers','search-filter','excel-export','qr-receipt','telegram-status','empty-loading-error'] } });
       return;
     }
     if (request.method === 'GET' && urlPath === '/api/ui28/finance') {
@@ -7256,7 +7256,7 @@ async function handleProduction29Request(request, response, urlPath) {
         { key:'payments', label:'Payment providers', status:'setup_required' },
         { key:'docs', label:'Launch docs', status: docs.rows.length >= 3 ? 'ready' : 'needs_docs' }
       ];
-      sendJson(response, 200, { ok:true, version:'29.0.0', checks, docs:docs.rows, counts });
+      sendJson(response, 200, { ok:true, version:'29.3.0', checks, docs:docs.rows, counts });
       return;
     }
     if (request.method === 'POST' && urlPath === '/api/production/cleanup29') {
@@ -7286,7 +7286,7 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "29.2.0",
+      version: "29.3.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
