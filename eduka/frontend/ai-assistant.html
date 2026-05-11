@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eduka AI Assistant</title>
+  <link rel="stylesheet" href="/ai-assistant.css?v=2910" />
+</head>
+<body>
+  <main class="ai-page">
+    <aside class="ai-side">
+      <div class="brand"><span class="logo">↗</span><div><b>EDUKA</b><small>AI Assistant</small></div></div>
+      <nav>
+        <a href="/admin/ui-final">Admin CRM</a>
+        <a href="/admin/ai-assistant" class="active">AI Assistant</a>
+        <a href="/admin/launch-check">Launch Check</a>
+        <a href="/ceo/launch">CEO Launch</a>
+      </nav>
+    </aside>
+    <section class="ai-main">
+      <header class="top">
+        <div>
+          <p class="eyebrow">Eduka 29.1.0</p>
+          <h1>AI Assistant Bot</h1>
+          <p class="muted">@eduka_aibot uchun lead, demo so‘rov, FAQ va webhook boshqaruvi.</p>
+        </div>
+        <div class="actions">
+          <button id="setWebhookBtn">Webhook ulash</button>
+          <button id="refreshBtn" class="secondary">Yangilash</button>
+        </div>
+      </header>
+
+      <div class="grid stats" id="statsGrid">
+        <div class="card skeleton"></div><div class="card skeleton"></div><div class="card skeleton"></div><div class="card skeleton"></div>
+      </div>
+
+      <div class="grid two">
+        <section class="card">
+          <div class="card-head"><h2>Demo so‘rovlari</h2><span id="leadCount">0</span></div>
+          <div id="leadsList" class="list"></div>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>Oxirgi xabarlar</h2><span>Live log</span></div>
+          <div id="messagesList" class="list"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card-head"><h2>FAQ bazasi</h2><button id="faqToggle" class="secondary small">Yangi FAQ</button></div>
+        <form id="faqForm" class="faq-form hidden">
+          <input name="title" placeholder="Sarlavha" required />
+          <input name="key" placeholder="Kalit: masalan pricing" />
+          <input name="keywords" placeholder="Kalit so‘zlar: narx, tarif, qancha" />
+          <textarea name="answer" placeholder="Javob matni" required></textarea>
+          <button>Saqlash</button>
+        </form>
+        <div id="faqList" class="faq-list"></div>
+      </section>
+    </section>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/ai-assistant.js?v=2910"></script>
+</body>
+</html>

@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const studentTelegramBot = require("./telegram-bot");
+const aiAssistantBot = require("./ai-assistant-bot");
 let bcrypt = null;
 
 try {
@@ -7289,6 +7290,31 @@ const server = http.createServer(async (request, response) => {
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
+    return;
+  }
+
+  if (urlPath === "/api/ai-bot/webhook" && request.method === "POST") {
+    await aiAssistantBot.handleWebhook({ request, response, pool: getDbPool(), sendJson, readJsonBody });
+    return;
+  }
+
+  if (urlPath === "/api/ai-bot/set-webhook" && ["GET", "POST"].includes(request.method)) {
+    await aiAssistantBot.handleSetWebhook({ response, pool: getDbPool(), sendJson });
+    return;
+  }
+
+  if (urlPath === "/api/ai-bot/webhook-info" && request.method === "GET") {
+    await aiAssistantBot.handleWebhookInfo({ response, sendJson });
+    return;
+  }
+
+  if (urlPath.startsWith("/api/app/ai-assistant")) {
+    await aiAssistantBot.handleAdminApi({ request, response, pool: getDbPool(), sendJson, readJsonBody, urlPath, query });
+    return;
+  }
+
+  if (request.method === "GET" && ["/admin/ai-assistant", "/ceo/ai-assistant"].includes(urlPath)) {
+    sendFile(response, path.join(root, "ai-assistant.html"));
     return;
   }
 
