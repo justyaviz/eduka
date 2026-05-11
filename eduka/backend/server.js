@@ -6729,6 +6729,258 @@ async function production27Counts(pool) {
   return out;
 }
 
+
+
+async function ensureWorkflow274Schema(pool) {
+  await ensureProductionStable27Schema(pool).catch(() => null);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS workflow_test_runs (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL, scope TEXT NOT NULL DEFAULT 'full-workflow', status TEXT NOT NULL DEFAULT 'draft', checklist JSONB NOT NULL DEFAULT '[]'::jsonb, issues JSONB NOT NULL DEFAULT '[]'::jsonb, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), completed_at TIMESTAMPTZ)`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS workflow_issue_fixes (id BIGSERIAL PRIMARY KEY, run_id BIGINT REFERENCES workflow_test_runs(id) ON DELETE CASCADE, area TEXT NOT NULL, issue TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', solution TEXT, metadata JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), resolved_at TIMESTAMPTZ)`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS finance_cashbox_sessions (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, opened_by BIGINT REFERENCES users(id) ON DELETE SET NULL, closed_by BIGINT REFERENCES users(id) ON DELETE SET NULL, opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), closed_at TIMESTAMPTZ, opening_balance NUMERIC(14,2) NOT NULL DEFAULT 0, total_in NUMERIC(14,2) NOT NULL DEFAULT 0, total_out NUMERIC(14,2) NOT NULL DEFAULT 0, closing_balance NUMERIC(14,2) NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', note TEXT, metadata JSONB NOT NULL DEFAULT '{}'::jsonb)`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS finance_cashbox_entries (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, session_id BIGINT REFERENCES finance_cashbox_sessions(id) ON DELETE SET NULL, payment_id BIGINT REFERENCES payments(id) ON DELETE SET NULL, type TEXT NOT NULL DEFAULT 'in', category TEXT NOT NULL DEFAULT 'payment', method TEXT NOT NULL DEFAULT 'cash', amount NUMERIC(14,2) NOT NULL DEFAULT 0, note TEXT, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), canceled_at TIMESTAMPTZ, metadata JSONB NOT NULL DEFAULT '{}'::jsonb)`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS finance_expenses (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, category TEXT NOT NULL DEFAULT 'other', amount NUMERIC(14,2) NOT NULL DEFAULT 0, method TEXT NOT NULL DEFAULT 'cash', note TEXT, spent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, metadata JSONB NOT NULL DEFAULT '{}'::jsonb)`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS finance_teacher_salary (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, teacher_id BIGINT REFERENCES teachers(id) ON DELETE SET NULL, period TEXT NOT NULL, base_amount NUMERIC(14,2) NOT NULL DEFAULT 0, bonus_amount NUMERIC(14,2) NOT NULL DEFAULT 0, penalty_amount NUMERIC(14,2) NOT NULL DEFAULT 0, payable_amount NUMERIC(14,2) NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', paid_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), metadata JSONB NOT NULL DEFAULT '{}'::jsonb)`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS finance_bonuses (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, teacher_id BIGINT REFERENCES teachers(id) ON DELETE SET NULL, amount NUMERIC(14,2) NOT NULL DEFAULT 0, reason TEXT, status TEXT NOT NULL DEFAULT 'approved', created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS platform_plan_catalog (id BIGSERIAL PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, monthly_price NUMERIC(14,2) NOT NULL DEFAULT 0, annual_price NUMERIC(14,2) NOT NULL DEFAULT 0, limits JSONB NOT NULL DEFAULT '{}'::jsonb, features JSONB NOT NULL DEFAULT '{}'::jsonb, status TEXT NOT NULL DEFAULT 'active', sort_order INT NOT NULL DEFAULT 100, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS platform_invoices (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, invoice_no TEXT UNIQUE, plan_code TEXT, amount NUMERIC(14,2) NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'UZS', status TEXT NOT NULL DEFAULT 'pending', due_date DATE, paid_at TIMESTAMPTZ, metadata JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  const alterSql = [
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_code TEXT DEFAULT 'start'`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial'`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{}'::jsonb`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS limits JSONB NOT NULL DEFAULT '{}'::jsonb`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS debt_amount NUMERIC(14,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS canceled_by BIGINT REFERENCES users(id) ON DELETE SET NULL`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS cancel_reason TEXT`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_number TEXT`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_token TEXT`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_sent_at TIMESTAMPTZ`
+  ];
+  for (const sql of alterSql) await safeQuery(pool, sql);
+  await safeQuery(pool, `INSERT INTO platform_plan_catalog (code,name,monthly_price,annual_price,limits,features,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, monthly_price=EXCLUDED.monthly_price, annual_price=EXCLUDED.annual_price, limits=EXCLUDED.limits, features=EXCLUDED.features, sort_order=EXCLUDED.sort_order, updated_at=NOW()`, ['start','Start',199000,1990000,{students:100,teachers:5,branches:1,sms:0},{student_app:true,gamification:false,telegram_bot:false,parent_access:false},10]);
+  await safeQuery(pool, `INSERT INTO platform_plan_catalog (code,name,monthly_price,annual_price,limits,features,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, monthly_price=EXCLUDED.monthly_price, annual_price=EXCLUDED.annual_price, limits=EXCLUDED.limits, features=EXCLUDED.features, sort_order=EXCLUDED.sort_order, updated_at=NOW()`, ['pro','Pro',399000,3990000,{students:500,teachers:25,branches:3,sms:1000},{student_app:true,gamification:true,telegram_bot:true,parent_access:false},20]);
+  await safeQuery(pool, `INSERT INTO platform_plan_catalog (code,name,monthly_price,annual_price,limits,features,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, monthly_price=EXCLUDED.monthly_price, annual_price=EXCLUDED.annual_price, limits=EXCLUDED.limits, features=EXCLUDED.features, sort_order=EXCLUDED.sort_order, updated_at=NOW()`, ['business','Business',799000,7990000,{students:1500,teachers:75,branches:10,sms:5000},{student_app:true,gamification:true,telegram_bot:true,parent_access:true,advanced_reports:true},30]);
+  await safeQuery(pool, `INSERT INTO platform_plan_catalog (code,name,monthly_price,annual_price,limits,features,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, monthly_price=EXCLUDED.monthly_price, annual_price=EXCLUDED.annual_price, limits=EXCLUDED.limits, features=EXCLUDED.features, sort_order=EXCLUDED.sort_order, updated_at=NOW()`, ['enterprise','Enterprise',0,0,{students:'unlimited',teachers:'unlimited',branches:'unlimited',sms:'custom'},{student_app:true,gamification:true,telegram_bot:true,parent_access:true,advanced_reports:true,custom_branding:true},40]);
+}
+
+function workflow274Checklist() {
+  return [
+    { key: 'ceo_login', title: 'CEO login', path: '/ceo/login', status: 'ready' },
+    { key: 'create_center', title: 'Yangi o‘quv markaz yaratish', path: '/ceo/centers', status: 'ready' },
+    { key: 'owner_login', title: 'Markaz owner login', path: '/admin/login', status: 'ready' },
+    { key: 'teacher_create', title: 'O‘qituvchi qo‘shish', path: '/admin/teachers', status: 'ready' },
+    { key: 'student_create', title: 'Talaba qo‘shish', path: '/admin/students', status: 'ready' },
+    { key: 'group_create', title: 'Guruh yaratish', path: '/admin/groups', status: 'ready' },
+    { key: 'assign_student', title: 'Talabani guruhga biriktirish', path: '/admin/groups', status: 'needs_manual_test' },
+    { key: 'schedule_create', title: 'Dars jadvali qo‘shish', path: '/admin/schedule', status: 'needs_manual_test' },
+    { key: 'attendance_mark', title: 'Davomat belgilash', path: '/admin/attendance', status: 'ready' },
+    { key: 'payment_create', title: 'To‘lov qo‘shish', path: '/admin/payments', status: 'ready' },
+    { key: 'receipt_qr', title: 'Chek / QR chiqarish', path: '/admin/payments', status: 'ready' },
+    { key: 'telegram_message', title: 'Telegram xabar test', path: '/api/telegram-health', status: process.env.STUDENT_BOT_TOKEN ? 'ready' : 'needs_token' },
+    { key: 'student_app', title: 'Student App ochilishi', path: '/app/home', status: 'ready' },
+    { key: 'coin_award', title: 'Coin berish', path: '/admin/gamification', status: 'ready' },
+    { key: 'reward_redeem', title: 'Sovg‘a olish', path: '/app/rewards', status: 'ready' },
+    { key: 'parent_app', title: 'Parent App ochilishi', path: '/parent', status: 'foundation' }
+  ];
+}
+
+async function handleWorkflow274(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, 'read');
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureWorkflow274Schema(pool);
+
+    if (request.method === 'GET' && urlPath === '/api/workflow27/checklist') {
+      const checklist = workflow274Checklist();
+      const latest = await pool.query(`SELECT * FROM workflow_test_runs WHERE organization_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC LIMIT 5`, [user.organization_id || null]).catch(() => ({ rows: [] }));
+      sendJson(response, 200, { ok: true, version: '27.4.0', checklist, latest: latest.rows });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/workflow27/run') {
+      const body = await readJsonBody(request).catch(() => ({}));
+      const checklist = Array.isArray(body.checklist) && body.checklist.length ? body.checklist : workflow274Checklist();
+      const status = checklist.every((item) => ['done', 'ready'].includes(String(item.status || ''))) ? 'completed' : 'in_progress';
+      const result = await pool.query(`INSERT INTO workflow_test_runs (organization_id, scope, status, checklist, issues, created_by, completed_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [user.organization_id || null, body.scope || 'full-workflow', status, JSON.stringify(checklist), JSON.stringify(body.issues || []), user.id, status === 'completed' ? new Date() : null]);
+      sendJson(response, 200, { ok: true, run: result.rows[0], message: 'Workflow test run saqlandi' });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/workflow27/issues') {
+      const body = await readJsonBody(request);
+      const result = await pool.query(`INSERT INTO workflow_issue_fixes (run_id, area, issue, status, solution, metadata) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [body.run_id || null, body.area || 'general', body.issue || 'Issue', body.status || 'open', body.solution || '', body.metadata || {}]);
+      sendJson(response, 200, { ok: true, issue: result.rows[0], message: 'Issue log qo‘shildi' });
+      return;
+    }
+
+    sendJson(response, 404, { ok: false, message: 'Workflow 27 endpoint topilmadi' });
+  } catch (error) {
+    withError(response, 'Workflow 27.4', error);
+  }
+}
+
+async function handleAdminCrm274(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, 'read');
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureWorkflow274Schema(pool);
+    const orgId = user.organization_id;
+
+    if (request.method === 'GET' && urlPath === '/api/app/admin-crm27/overview') {
+      const [students, teachers, groups, payments, debt] = await Promise.all([
+        pool.query(`SELECT COUNT(*)::int c FROM students WHERE organization_id=$1 AND COALESCE(status,'active') <> 'archived'`, [orgId]).catch(()=>({rows:[{c:0}]})),
+        pool.query(`SELECT COUNT(*)::int c FROM teachers WHERE organization_id=$1 AND COALESCE(status,'active') <> 'archived'`, [orgId]).catch(()=>({rows:[{c:0}]})),
+        pool.query(`SELECT COUNT(*)::int c FROM groups WHERE organization_id=$1 AND COALESCE(status,'active') <> 'archived'`, [orgId]).catch(()=>({rows:[{c:0}]})),
+        pool.query(`SELECT COALESCE(SUM(amount),0)::numeric s FROM payments WHERE organization_id=$1 AND canceled_at IS NULL`, [orgId]).catch(()=>({rows:[{s:0}]})),
+        pool.query(`SELECT COALESCE(SUM(debt_amount),0)::numeric s FROM students WHERE organization_id=$1`, [orgId]).catch(()=>({rows:[{s:0}]}))
+      ]);
+      sendJson(response, 200, { ok: true, data: { students: students.rows[0].c, teachers: teachers.rows[0].c, groups: groups.rows[0].c, revenue: payments.rows[0].s, debt: debt.rows[0].s, modules: ['students','teachers','groups','schedule','attendance','payments','receipt','telegram','export'] } });
+      return;
+    }
+
+    if (request.method === 'GET' && urlPath === '/api/app/admin-crm27/search') {
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      const q = `%${String(url.searchParams.get('q') || '').trim()}%`;
+      const [st, gr, th] = await Promise.all([
+        pool.query(`SELECT id, full_name AS title, phone AS subtitle, 'student' AS type FROM students WHERE organization_id=$1 AND (full_name ILIKE $2 OR phone ILIKE $2) ORDER BY id DESC LIMIT 10`, [orgId, q]).catch(()=>({rows:[]})),
+        pool.query(`SELECT id, name AS title, status AS subtitle, 'group' AS type FROM groups WHERE organization_id=$1 AND name ILIKE $2 ORDER BY id DESC LIMIT 10`, [orgId, q]).catch(()=>({rows:[]})),
+        pool.query(`SELECT id, full_name AS title, phone AS subtitle, 'teacher' AS type FROM teachers WHERE organization_id=$1 AND (full_name ILIKE $2 OR phone ILIKE $2) ORDER BY id DESC LIMIT 10`, [orgId, q]).catch(()=>({rows:[]}))
+      ]);
+      sendJson(response, 200, { ok: true, results: [...st.rows, ...gr.rows, ...th.rows] });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/app/admin-crm27/debts/recalculate') {
+      await pool.query(`UPDATE students s SET debt_amount = GREATEST(COALESCE((SELECT SUM(COALESCE(g.price,0)) FROM groups g JOIN group_students gs ON gs.group_id=g.id WHERE gs.student_id=s.id),0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.student_id=s.id AND p.canceled_at IS NULL),0), 0) WHERE s.organization_id=$1`, [orgId]).catch(()=>null);
+      sendJson(response, 200, { ok: true, message: 'Qarzdorlik qayta hisoblandi' });
+      return;
+    }
+
+    sendJson(response, 404, { ok: false, message: 'Admin CRM 27 endpoint topilmadi' });
+  } catch (error) {
+    withError(response, 'Admin CRM 27.4', error);
+  }
+}
+
+async function handleFinance274(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, 'finance:write');
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureWorkflow274Schema(pool);
+    const orgId = user.organization_id;
+
+    if (request.method === 'GET' && urlPath === '/api/app/finance27/overview') {
+      const [todayIn, todayOut, monthRevenue, expenses, openSession, tx] = await Promise.all([
+        pool.query(`SELECT COALESCE(SUM(amount),0)::numeric s FROM finance_cashbox_entries WHERE organization_id=$1 AND type='in' AND canceled_at IS NULL AND created_at::date=CURRENT_DATE`, [orgId]).catch(()=>({rows:[{s:0}]})),
+        pool.query(`SELECT COALESCE(SUM(amount),0)::numeric s FROM finance_cashbox_entries WHERE organization_id=$1 AND type='out' AND canceled_at IS NULL AND created_at::date=CURRENT_DATE`, [orgId]).catch(()=>({rows:[{s:0}]})),
+        pool.query(`SELECT COALESCE(SUM(amount),0)::numeric s FROM payments WHERE organization_id=$1 AND canceled_at IS NULL AND date_trunc('month', created_at)=date_trunc('month', now())`, [orgId]).catch(()=>({rows:[{s:0}]})),
+        pool.query(`SELECT COALESCE(SUM(amount),0)::numeric s FROM finance_expenses WHERE organization_id=$1 AND date_trunc('month', spent_at)=date_trunc('month', now())`, [orgId]).catch(()=>({rows:[{s:0}]})),
+        pool.query(`SELECT * FROM finance_cashbox_sessions WHERE organization_id=$1 AND status='open' ORDER BY opened_at DESC LIMIT 1`, [orgId]).catch(()=>({rows:[]})),
+        pool.query(`SELECT * FROM finance_cashbox_entries WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 30`, [orgId]).catch(()=>({rows:[]}))
+      ]);
+      sendJson(response, 200, { ok: true, data: { today_in: todayIn.rows[0].s, today_out: todayOut.rows[0].s, month_revenue: monthRevenue.rows[0].s, month_expenses: expenses.rows[0].s, balance: Number(todayIn.rows[0].s||0)-Number(todayOut.rows[0].s||0), open_session: openSession.rows[0] || null, transactions: tx.rows } });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/app/finance27/cashbox/open') {
+      const body = await readJsonBody(request).catch(() => ({}));
+      const result = await pool.query(`INSERT INTO finance_cashbox_sessions (organization_id, opened_by, opening_balance, note) VALUES ($1,$2,$3,$4) RETURNING *`, [orgId, user.id, asNumber(body.opening_balance, 0), body.note || '']);
+      sendJson(response, 200, { ok: true, session: result.rows[0], message: 'Kassa ochildi' });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/app/finance27/cashbox/entry') {
+      const body = await readJsonBody(request);
+      const session = await pool.query(`SELECT id FROM finance_cashbox_sessions WHERE organization_id=$1 AND status='open' ORDER BY opened_at DESC LIMIT 1`, [orgId]).catch(()=>({rows:[]}));
+      const result = await pool.query(`INSERT INTO finance_cashbox_entries (organization_id, session_id, type, category, method, amount, note, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [orgId, session.rows[0]?.id || null, body.type === 'out' ? 'out' : 'in', body.category || 'manual', body.method || 'cash', asNumber(body.amount,0), body.note || '', user.id]);
+      sendJson(response, 200, { ok: true, entry: result.rows[0], message: 'Kassa amali saqlandi' });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/app/finance27/cashbox/close') {
+      const session = await pool.query(`SELECT * FROM finance_cashbox_sessions WHERE organization_id=$1 AND status='open' ORDER BY opened_at DESC LIMIT 1`, [orgId]).catch(()=>({rows:[]}));
+      if (!session.rows[0]) { sendJson(response, 404, { ok:false, message:'Ochiq kassa topilmadi' }); return; }
+      const totals = await pool.query(`SELECT COALESCE(SUM(CASE WHEN type='in' THEN amount ELSE 0 END),0)::numeric AS total_in, COALESCE(SUM(CASE WHEN type='out' THEN amount ELSE 0 END),0)::numeric AS total_out FROM finance_cashbox_entries WHERE session_id=$1 AND canceled_at IS NULL`, [session.rows[0].id]);
+      const totalIn = Number(totals.rows[0].total_in || 0);
+      const totalOut = Number(totals.rows[0].total_out || 0);
+      const closing = Number(session.rows[0].opening_balance || 0) + totalIn - totalOut;
+      const result = await pool.query(`UPDATE finance_cashbox_sessions SET closed_by=$1, closed_at=NOW(), total_in=$2, total_out=$3, closing_balance=$4, status='closed' WHERE id=$5 RETURNING *`, [user.id, totalIn, totalOut, closing, session.rows[0].id]);
+      sendJson(response, 200, { ok:true, session: result.rows[0], message:'Kassa yopildi' });
+      return;
+    }
+
+    const cancelMatch = urlPath.match(/^\/api\/app\/finance27\/payments\/(\d+)\/cancel$/);
+    if (request.method === 'POST' && cancelMatch) {
+      const body = await readJsonBody(request).catch(() => ({}));
+      const result = await pool.query(`UPDATE payments SET canceled_at=NOW(), canceled_by=$1, cancel_reason=$2 WHERE id=$3 AND organization_id=$4 AND canceled_at IS NULL RETURNING *`, [user.id, body.reason || 'Bekor qilindi', Number(cancelMatch[1]), orgId]);
+      if (result.rows[0]?.student_id) await pool.query(`UPDATE students SET debt_amount = GREATEST(COALESCE(debt_amount,0) + $1,0) WHERE id=$2`, [Number(result.rows[0].amount || 0), result.rows[0].student_id]).catch(()=>null);
+      sendJson(response, result.rows[0] ? 200 : 404, result.rows[0] ? { ok:true, payment: result.rows[0], message:'To‘lov bekor qilindi' } : { ok:false, message:'To‘lov topilmadi yoki avval bekor qilingan' });
+      return;
+    }
+
+    sendJson(response, 404, { ok: false, message: 'Finance 27 endpoint topilmadi' });
+  } catch (error) {
+    withError(response, 'Finance 27.4', error);
+  }
+}
+
+async function handleCeoMonetization274(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, 'read');
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureWorkflow274Schema(pool);
+
+    if (request.method === 'GET' && urlPath === '/api/super/monetization27/overview') {
+      const [plans, centers, invoices] = await Promise.all([
+        pool.query(`SELECT * FROM platform_plan_catalog ORDER BY sort_order ASC`).catch(()=>({rows:[]})),
+        pool.query(`SELECT id, name, plan_code, subscription_status, subscription_expires_at, blocked_at, feature_flags, limits FROM organizations ORDER BY id DESC LIMIT 100`).catch(()=>({rows:[]})),
+        pool.query(`SELECT i.*, o.name AS center_name FROM platform_invoices i LEFT JOIN organizations o ON o.id=i.organization_id ORDER BY i.created_at DESC LIMIT 50`).catch(()=>({rows:[]}))
+      ]);
+      sendJson(response, 200, { ok:true, data:{ plans: plans.rows, centers: centers.rows, invoices: invoices.rows } });
+      return;
+    }
+
+    const planMatch = urlPath.match(/^\/api\/super\/monetization27\/centers\/(\d+)\/plan$/);
+    if (request.method === 'PUT' && planMatch) {
+      const body = await readJsonBody(request);
+      const plan = await pool.query(`SELECT * FROM platform_plan_catalog WHERE code=$1 LIMIT 1`, [body.plan_code || 'start']).catch(()=>({rows:[]}));
+      const p = plan.rows[0] || { code: body.plan_code || 'start', features: {}, limits: {} };
+      const result = await pool.query(`UPDATE organizations SET plan_code=$1, subscription_status=$2, subscription_expires_at=COALESCE($3::timestamptz, subscription_expires_at), feature_flags=$4, limits=$5 WHERE id=$6 RETURNING id,name,plan_code,subscription_status,subscription_expires_at,feature_flags,limits`, [p.code, body.subscription_status || 'active', body.subscription_expires_at || null, body.feature_flags || p.features || {}, body.limits || p.limits || {}, Number(planMatch[1])]);
+      sendJson(response, result.rows[0] ? 200 : 404, result.rows[0] ? { ok:true, center: result.rows[0], message:'Tarif va ruxsatlar yangilandi' } : { ok:false, message:'Markaz topilmadi' });
+      return;
+    }
+
+    const blockMatch = urlPath.match(/^\/api\/super\/monetization27\/centers\/(\d+)\/(block|activate)$/);
+    if (request.method === 'POST' && blockMatch) {
+      const isBlock = blockMatch[2] === 'block';
+      const result = await pool.query(`UPDATE organizations SET blocked_at=${isBlock ? 'NOW()' : 'NULL'}, subscription_status=$1 WHERE id=$2 RETURNING id,name,blocked_at,subscription_status`, [isBlock ? 'blocked' : 'active', Number(blockMatch[1])]);
+      sendJson(response, result.rows[0] ? 200 : 404, result.rows[0] ? { ok:true, center: result.rows[0], message: isBlock ? 'Markaz bloklandi' : 'Markaz aktivlashtirildi' } : { ok:false, message:'Markaz topilmadi' });
+      return;
+    }
+
+    if (request.method === 'POST' && urlPath === '/api/super/monetization27/invoices') {
+      const body = await readJsonBody(request);
+      const invoiceNo = `EDU-${Date.now().toString().slice(-8)}`;
+      const result = await pool.query(`INSERT INTO platform_invoices (organization_id, invoice_no, plan_code, amount, status, due_date, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [body.organization_id || null, invoiceNo, body.plan_code || 'start', asNumber(body.amount,0), body.status || 'pending', body.due_date || null, body.metadata || {}]);
+      sendJson(response, 200, { ok:true, invoice: result.rows[0], message:'Platform invoice yaratildi' });
+      return;
+    }
+
+    sendJson(response, 404, { ok:false, message:'CEO monetization 27 endpoint topilmadi' });
+  } catch (error) {
+    withError(response, 'CEO Monetization 27.4', error);
+  }
+}
+
 async function handleProduction27Audit(request, response, urlPath) {
   try {
     const pool = getDbPool();
@@ -6755,7 +7007,7 @@ async function handleProduction27Audit(request, response, urlPath) {
       parent: { accessLinks: counts.find((r) => r.table === 'parent_access_links')?.exists === true }
     };
     await safeQuery(pool, `INSERT INTO production_audit_runs (scope,status,summary) VALUES ($1,$2,$3)`, ['stable-27', required.length ? 'needs_attention' : 'completed', checks]);
-    sendJson(response, 200, { ok: true, version: '27.0.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
+    sendJson(response, 200, { ok: true, version: '27.4.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
   } catch (error) {
     withError(response, 'Production 27 audit', error);
   }
@@ -6775,7 +7027,7 @@ async function handleProduction26Request(request, response, urlPath) {
         { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
         { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
       ];
-      sendJson(response, 200, { ok: true, data: { version: "27.0.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      sendJson(response, 200, { ok: true, data: { version: "27.4.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
       return;
     }
     if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
@@ -6861,7 +7113,7 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "27.0.0",
+      version: "27.4.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -7669,6 +7921,23 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+
+  if (urlPath.startsWith("/api/workflow27/")) {
+    await handleWorkflow274(request, response, urlPath);
+    return;
+  }
+  if (urlPath.startsWith("/api/app/admin-crm27/")) {
+    await handleAdminCrm274(request, response, urlPath);
+    return;
+  }
+  if (urlPath.startsWith("/api/app/finance27/")) {
+    await handleFinance274(request, response, urlPath);
+    return;
+  }
+  if (urlPath.startsWith("/api/super/monetization27/")) {
+    await handleCeoMonetization274(request, response, urlPath);
+    return;
+  }
 
   if (urlPath.startsWith("/api/app/pro/")) {
     await handleAdminPro253(request, response, urlPath);
