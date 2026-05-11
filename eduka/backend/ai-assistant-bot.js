@@ -257,20 +257,42 @@ async function setConversationState(pool, telegramUserId, state, draft = {}) {
 
 async function sendBotMessage(pool, config, chatId, text, replyMarkup, options = {}) {
   if (!config.enabled) return { ok: false, skipped: true };
+
+  const isBusiness = Boolean(options.business_connection_id);
   const payload = { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true };
-  if (options.business_connection_id) payload.business_connection_id = options.business_connection_id;
-  if (replyMarkup) payload.reply_markup = replyMarkup;
-  const result = await telegramRequest(config.token, 'sendMessage', payload);
-  await logMessage(pool, {
-    chat_id: chatId,
-    direction: 'out',
-    message_type: options.business_connection_id ? 'business_text' : 'text',
-    text,
-    payload: { reply_markup: replyMarkup || null, telegram_result: result || null },
-    business_connection_id: options.business_connection_id || null,
-    is_business_message: Boolean(options.business_connection_id)
-  });
-  return result;
+
+  if (isBusiness) {
+    payload.business_connection_id = options.business_connection_id;
+    // Telegram Business chat automation xabarlarida inline keyboard ba'zi holatlarda
+    // javobni bloklab qo'yadi. Business chat uchun avval text-only yuboramiz.
+  } else if (replyMarkup) {
+    payload.reply_markup = replyMarkup;
+  }
+
+  try {
+    const result = await telegramRequest(config.token, 'sendMessage', payload);
+    await logMessage(pool, {
+      chat_id: chatId,
+      direction: 'out',
+      message_type: isBusiness ? 'business_text' : 'text',
+      text,
+      payload: { reply_markup: isBusiness ? null : (replyMarkup || null), telegram_result: result || null },
+      business_connection_id: options.business_connection_id || null,
+      is_business_message: isBusiness
+    });
+    return result;
+  } catch (error) {
+    await logMessage(pool, {
+      chat_id: chatId,
+      direction: 'out_error',
+      message_type: isBusiness ? 'business_send_error' : 'send_error',
+      text: String(error && error.message ? error.message : error),
+      payload: { request_payload: payload, telegram_error: error && error.response ? error.response : null },
+      business_connection_id: options.business_connection_id || null,
+      is_business_message: isBusiness
+    });
+    throw error;
+  }
 }
 
 async function answerCallback(config, callbackQueryId, text = '') {
@@ -414,9 +436,15 @@ async function processCommandOrText(pool, config, conv, chat, from, text, sendOp
     return;
   }
 
-  if (input === '/start' || input === '/menu') {
+  const normalizedInput = normalizeText(input);
+  const isHello = ['salom', 'assalomu alaykum', 'assalom', 'hello', 'hi'].some((word) => normalizedInput === word || normalizedInput.startsWith(word + ' '));
+
+  if (input === '/start' || input === '/menu' || isHello) {
     await setConversationState(pool, conv.telegram_user_id, 'idle', {});
-    await sendBotMessage(pool, config, chatId, startText(), mainMenuKeyboard(), sendOptions);
+    const text = sendOptions.business_connection_id
+      ? `${startText()}\n\nYozishingiz mumkin: demo, narxlar, imkoniyatlar, student app, parent app, operator.`
+      : startText();
+    await sendBotMessage(pool, config, chatId, text, mainMenuKeyboard(), sendOptions);
     return;
   }
 
@@ -488,6 +516,11 @@ async function handleWebhook({ request, response, pool, sendJson, readJsonBody }
 
   await ensureAiAssistantSchema(pool);
   const update = await readJsonBody(request);
+  try {
+    if (update.business_message) console.log('AI BOT business_message received', { chat_id: update.business_message.chat && update.business_message.chat.id, business_connection_id: update.business_message.business_connection_id, text: update.business_message.text });
+    if (update.message) console.log('AI BOT message received', { chat_id: update.message.chat && update.message.chat.id, text: update.message.text });
+    if (update.business_connection) console.log('AI BOT business_connection update', { id: update.business_connection.id, enabled: update.business_connection.is_enabled });
+  } catch {}
 
   if (update.business_connection) {
     const saved = await upsertBusinessConnection(pool, update);
