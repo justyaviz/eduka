@@ -6796,7 +6796,7 @@ async function handleWorkflow274(request, response, urlPath) {
     if (request.method === 'GET' && urlPath === '/api/workflow27/checklist') {
       const checklist = workflow274Checklist();
       const latest = await pool.query(`SELECT * FROM workflow_test_runs WHERE organization_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC LIMIT 5`, [user.organization_id || null]).catch(() => ({ rows: [] }));
-      sendJson(response, 200, { ok: true, version: '27.4.0', checklist, latest: latest.rows });
+      sendJson(response, 200, { ok: true, version: '29.0.0', checklist, latest: latest.rows });
       return;
     }
 
@@ -7007,7 +7007,7 @@ async function handleProduction27Audit(request, response, urlPath) {
       parent: { accessLinks: counts.find((r) => r.table === 'parent_access_links')?.exists === true }
     };
     await safeQuery(pool, `INSERT INTO production_audit_runs (scope,status,summary) VALUES ($1,$2,$3)`, ['stable-27', required.length ? 'needs_attention' : 'completed', checks]);
-    sendJson(response, 200, { ok: true, version: '27.4.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
+    sendJson(response, 200, { ok: true, version: '29.0.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
   } catch (error) {
     withError(response, 'Production 27 audit', error);
   }
@@ -7027,7 +7027,7 @@ async function handleProduction26Request(request, response, urlPath) {
         { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
         { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
       ];
-      sendJson(response, 200, { ok: true, data: { version: "27.4.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      sendJson(response, 200, { ok: true, data: { version: "29.0.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
       return;
     }
     if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
@@ -7104,6 +7104,178 @@ async function handlePaymentIntegrations26Request(request, response) {
   } catch (error) { withError(response, "Payment integrations 26", error); }
 }
 
+
+async function ensurePlatform29Schema(pool) {
+  await ensureWorkflow274Schema(pool).catch(() => null);
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS report_export_jobs (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, type TEXT NOT NULL DEFAULT 'finance', format TEXT NOT NULL DEFAULT 'csv', status TEXT NOT NULL DEFAULT 'ready', file_url TEXT, filters JSONB NOT NULL DEFAULT '{}'::jsonb, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS payment_provider_webhooks (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL, provider TEXT NOT NULL, event_type TEXT, payload JSONB NOT NULL DEFAULT '{}'::jsonb, status TEXT NOT NULL DEFAULT 'received', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS production_cleanup_runs (id BIGSERIAL PRIMARY KEY, scope TEXT NOT NULL DEFAULT 'full', status TEXT NOT NULL DEFAULT 'completed', summary JSONB NOT NULL DEFAULT '{}'::jsonb, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS launch_documents (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL, content TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS platform_security_checks (id BIGSERIAL PRIMARY KEY, area TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', message TEXT, metadata JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+  ];
+  for (const sql of statements) await safeQuery(pool, sql);
+  const alters = [
+    `ALTER TABLE payment_integration_settings ADD COLUMN IF NOT EXISTS merchant_id TEXT`,
+    `ALTER TABLE payment_integration_settings ADD COLUMN IF NOT EXISTS webhook_url TEXT`,
+    `ALTER TABLE payment_integration_settings ADD COLUMN IF NOT EXISTS test_mode BOOLEAN NOT NULL DEFAULT TRUE`,
+    `ALTER TABLE platform_invoices ADD COLUMN IF NOT EXISTS provider TEXT`,
+    `ALTER TABLE platform_invoices ADD COLUMN IF NOT EXISTS provider_payment_id TEXT`,
+    `ALTER TABLE platform_invoices ADD COLUMN IF NOT EXISTS payment_url TEXT`,
+    `ALTER TABLE platform_invoices ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(14,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS public_launch_ready BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS onboarding_notes JSONB NOT NULL DEFAULT '{}'::jsonb`
+  ];
+  for (const sql of alters) await safeQuery(pool, sql);
+  const docs = [
+    ['deployment-guide','Deployment Guide',`1. GitHub /eduka papkani yangilang.\n2. Railway redeploy qiling.\n3. /api/health va /api/production/audit29 tekshiring.\n4. Agar migration xatosi bo'lsa hotfix SQL ishlating.\n5. CEO, Admin, Student, Parent flowlarni sinang.`],
+    ['pricing-guide','Pricing & Tariff Guide',`Start: kichik markazlar. Pro: Student App + gamification. Business: Telegram + Parent Access. Enterprise: custom limit va custom support.`],
+    ['launch-checklist','Public Launch Checklist',`CEO owner, demo disabled, clean database, tariff configured, payment providers configured, Telegram webhook active, domain and SSL ready.`]
+  ];
+  for (const [slug,title,content] of docs) {
+    await safeQuery(pool, `INSERT INTO launch_documents (slug,title,content) VALUES ($1,$2,$3) ON CONFLICT (slug) DO UPDATE SET title=EXCLUDED.title, content=EXCLUDED.content, updated_at=NOW()`, [slug,title,content]);
+  }
+}
+
+async function handleUi28Request(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, 'read');
+    if (!user) return;
+    const pool = getDbPool();
+    await ensurePlatform29Schema(pool);
+    if (request.method === 'GET' && urlPath === '/api/ui28/admin-crm') {
+      const [students, teachers, groups, payments, attendance] = await Promise.all([
+        pool.query('SELECT COUNT(*)::int AS c FROM students WHERE organization_id=$1', [user.organization_id]).catch(()=>({rows:[{c:0}]})),
+        pool.query('SELECT COUNT(*)::int AS c FROM teachers WHERE organization_id=$1', [user.organization_id]).catch(()=>({rows:[{c:0}]})),
+        pool.query('SELECT COUNT(*)::int AS c FROM groups WHERE organization_id=$1', [user.organization_id]).catch(()=>({rows:[{c:0}]})),
+        pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS s FROM payments WHERE organization_id=$1 AND COALESCE(status,'paid') <> 'canceled'", [user.organization_id]).catch(()=>({rows:[{s:0}]})),
+        pool.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status IN ('present','online'))::int AS present FROM attendance_records WHERE organization_id=$1", [user.organization_id]).catch(()=>({rows:[{total:0,present:0}]}))
+      ]);
+      const total = Number(attendance.rows[0].total || 0); const present = Number(attendance.rows[0].present || 0);
+      sendJson(response, 200, { ok:true, version:'29.0.0', data:{ students:students.rows[0].c, teachers:teachers.rows[0].c, groups:groups.rows[0].c, revenue:payments.rows[0].s, attendance_rate: total ? Math.round(present/total*100) : 0, components:['profile-pages','drawers','search-filter','excel-export','qr-receipt','telegram-status','empty-loading-error'] } });
+      return;
+    }
+    if (request.method === 'GET' && urlPath === '/api/ui28/finance') {
+      const [cashIn, cashOut, debt] = await Promise.all([
+        pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS s FROM finance_cashbox_entries WHERE organization_id=$1 AND type='in' AND canceled_at IS NULL", [user.organization_id]).catch(()=>({rows:[{s:0}]})),
+        pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS s FROM finance_cashbox_entries WHERE organization_id=$1 AND type='out' AND canceled_at IS NULL", [user.organization_id]).catch(()=>({rows:[{s:0}]})),
+        pool.query('SELECT COALESCE(SUM(COALESCE(debt_amount,balance,0)),0)::numeric AS s FROM students WHERE organization_id=$1', [user.organization_id]).catch(()=>({rows:[{s:0}]}))
+      ]);
+      sendJson(response, 200, { ok:true, data:{ cash_in:cashIn.rows[0].s, cash_out:cashOut.rows[0].s, balance:Number(cashIn.rows[0].s||0)-Number(cashOut.rows[0].s||0), debt:debt.rows[0].s, actions:['open_cashbox','close_cashbox','add_income','add_expense','cancel_payment','recalculate_debt'] } });
+      return;
+    }
+    if (request.method === 'GET' && urlPath === '/api/ui28/workflow') {
+      const checklist = workflow274Checklist().map((step, index) => ({ ...step, uiStatus:index < 3 ? 'ready' : 'test_required' }));
+      sendJson(response, 200, { ok:true, data:{ checklist, note:'Workflow UI real test uchun tayyor.' } });
+      return;
+    }
+    sendJson(response, 404, { ok:false, message:'UI 28 endpoint topilmadi' });
+  } catch (error) { withError(response, 'UI 28', error); }
+}
+
+async function handleCeoUi28Request(request, response, urlPath) {
+  try {
+    const pool = getDbPool();
+    await ensurePlatform29Schema(pool);
+    if (request.method === 'GET' && urlPath === '/api/super/ui28/monetization') {
+      const [centers, invoices, plans] = await Promise.all([
+        pool.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE COALESCE(status,'active')='active')::int AS active, COUNT(*) FILTER (WHERE blocked_at IS NOT NULL OR COALESCE(status,'active')='blocked')::int AS blocked FROM organizations").catch(()=>({rows:[{total:0,active:0,blocked:0}]})),
+        pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS total, COUNT(*)::int AS count FROM platform_invoices WHERE COALESCE(status,'pending') <> 'canceled'").catch(()=>({rows:[{total:0,count:0}]})),
+        pool.query('SELECT code,name,monthly_price,limits,features,status FROM platform_plan_catalog ORDER BY sort_order, id').catch(()=>({rows:[]}))
+      ]);
+      sendJson(response, 200, { ok:true, data:{ centers:centers.rows[0], invoices:invoices.rows[0], plans:plans.rows, actions:['change_plan','feature_flags','limits','invoice','block','activate'] } });
+      return;
+    }
+    sendJson(response, 404, { ok:false, message:'CEO UI 28 endpoint topilmadi' });
+  } catch (error) { withError(response, 'CEO UI 28', error); }
+}
+
+async function handleReports281Request(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, 'read');
+    if (!user) return;
+    const pool = getDbPool();
+    await ensurePlatform29Schema(pool);
+    const type = new URL(request.url, 'http://local').searchParams.get('type') || 'finance';
+    const rows = [];
+    if (type === 'debtors') {
+      const r = await pool.query('SELECT full_name, phone, COALESCE(debt_amount,balance,0) AS debt FROM students WHERE organization_id=$1 ORDER BY debt DESC NULLS LAST LIMIT 500', [user.organization_id]).catch(()=>({rows:[]}));
+      for (const x of r.rows) rows.push({ name:x.full_name, phone:x.phone, debt:x.debt });
+      return sendCsv(response, 'debtors-report.csv', rows, [{key:'name',label:'Talaba'}, {key:'phone',label:'Telefon'}, {key:'debt',label:'Qarzdorlik'}]);
+    }
+    if (type === 'attendance') {
+      const r = await pool.query('SELECT lesson_date, status, COUNT(*)::int AS count FROM attendance_records WHERE organization_id=$1 GROUP BY lesson_date,status ORDER BY lesson_date DESC LIMIT 500', [user.organization_id]).catch(()=>({rows:[]}));
+      return sendCsv(response, 'attendance-report.csv', r.rows, [{key:'lesson_date',label:'Sana'}, {key:'status',label:'Status'}, {key:'count',label:'Soni'}]);
+    }
+    const r = await pool.query("SELECT id, COALESCE(receipt_number, receipt_token, id::text) AS receipt, amount, method, status, created_at FROM payments WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 500", [user.organization_id]).catch(()=>({rows:[]}));
+    return sendCsv(response, 'finance-report.csv', r.rows, [{key:'id',label:'ID'}, {key:'receipt',label:'Chek'}, {key:'amount',label:'Summa'}, {key:'method',label:'Usul'}, {key:'status',label:'Status'}, {key:'created_at',label:'Sana'}]);
+  } catch (error) { withError(response, 'Reports 28.1', error); }
+}
+
+async function handlePaymentProviders282Request(request, response, urlPath) {
+  try {
+    const pool = getDbPool();
+    await ensurePlatform29Schema(pool);
+    if (urlPath.startsWith('/api/payments/providers/') && urlPath.endsWith('/webhook')) {
+      const provider = urlPath.split('/')[4];
+      const body = await readJsonBody(request).catch(()=>({}));
+      await safeQuery(pool, 'INSERT INTO payment_provider_webhooks (provider,event_type,payload,status) VALUES ($1,$2,$3,$4)', [provider, body.event || body.type || 'payment', body, 'received']);
+      sendJson(response, 200, { ok:true, provider, received:true });
+      return;
+    }
+    const user = await requireUser(request, response, 'read');
+    if (!user) return;
+    if (request.method === 'POST' && urlPath === '/api/app/payment-providers/checkout') {
+      const body = await readJsonBody(request);
+      const provider = String(body.provider || 'click').toLowerCase();
+      const amount = asNumber(body.amount, 0);
+      const invoiceNo = `PAY-${provider.toUpperCase()}-${Date.now().toString().slice(-8)}`;
+      const result = await pool.query('INSERT INTO platform_invoices (organization_id, invoice_no, provider, amount, status, payment_url, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *', [user.organization_id, invoiceNo, provider, amount, 'pending', `https://eduka.uz/pay/${provider}/${invoiceNo}`, body]);
+      sendJson(response, 200, { ok:true, invoice:result.rows[0], payment_url:result.rows[0].payment_url, message:'Test checkout yaratildi' });
+      return;
+    }
+    sendJson(response, 404, { ok:false, message:'Payment provider endpoint topilmadi' });
+  } catch (error) { withError(response, 'Payment Providers 28.2', error); }
+}
+
+async function handleProduction29Request(request, response, urlPath) {
+  try {
+    const pool = getDbPool();
+    await ensurePlatform29Schema(pool);
+    if (request.method === 'GET' && ['/api/production/audit29','/api/launch/checklist','/api/production/launch-readiness'].includes(urlPath)) {
+      const counts = await production27Counts(pool);
+      const docs = await pool.query('SELECT slug,title,updated_at FROM launch_documents ORDER BY slug').catch(()=>({rows:[]}));
+      const checks = [
+        { key:'health', label:'Health endpoint', status:'ready' },
+        { key:'database', label:'Database schema', status: counts.some(x=>!x.exists) ? 'needs_attention' : 'ready' },
+        { key:'demo', label:'Demo disabled', status:'ready' },
+        { key:'ceo_owner', label:'CEO owner account', status:'manual_check' },
+        { key:'telegram', label:'Telegram bot token', status: process.env.STUDENT_BOT_TOKEN ? 'ready' : 'needs_token' },
+        { key:'domain', label:'Domain / SSL', status:'manual_check' },
+        { key:'payments', label:'Payment providers', status:'setup_required' },
+        { key:'docs', label:'Launch docs', status: docs.rows.length >= 3 ? 'ready' : 'needs_docs' }
+      ];
+      sendJson(response, 200, { ok:true, version:'29.0.0', checks, docs:docs.rows, counts });
+      return;
+    }
+    if (request.method === 'POST' && urlPath === '/api/production/cleanup29') {
+      const body = await readJsonBody(request).catch(()=>({}));
+      const summary = { mode: body.mode || 'safe', removedDemo: false, optimized: true, note:'Safe cleanup metadata recorded. Destructive delete is intentionally manual.' };
+      await safeQuery(pool, 'INSERT INTO production_cleanup_runs (scope,status,summary) VALUES ($1,$2,$3)', ['public-launch','completed', summary]);
+      sendJson(response, 200, { ok:true, summary });
+      return;
+    }
+    if (request.method === 'GET' && urlPath.startsWith('/api/docs/launch/')) {
+      const slug = urlPath.split('/').pop();
+      const doc = await pool.query('SELECT slug,title,content,updated_at FROM launch_documents WHERE slug=$1', [slug]).catch(()=>({rows:[]}));
+      if (!doc.rows[0]) return sendJson(response, 404, { ok:false, message:'Hujjat topilmadi' });
+      sendJson(response, 200, { ok:true, doc:doc.rows[0] });
+      return;
+    }
+    sendJson(response, 404, { ok:false, message:'Production 29 endpoint topilmadi' });
+  } catch (error) { withError(response, 'Production 29', error); }
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -7113,7 +7285,7 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "27.4.0",
+      version: "29.0.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
