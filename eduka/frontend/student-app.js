@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "24.1.0";
+  const VERSION = "24.2.0";
   const TOKEN_KEY = "eduka_student_token";
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
@@ -305,18 +305,58 @@
     bindNav();
   }
 
+  function coinTimeline(items) {
+    return items.map((x, i) => {
+      const amount = Number(x.amount || 0);
+      const positive = amount >= 0;
+      return `<article class="coin-event-242 ${positive ? 'plus' : 'minus'}">
+        <div class="coin-event-art-242">${svg(positive ? 'coin' : 'gift')}</div>
+        <div><b>${esc(x.reason || (positive ? 'Coin berildi' : 'Coin sarflandi'))}</b><small>${esc(x.teacher_name || x.source || date(x.created_at))}</small></div>
+        <strong>${positive ? '+' : ''}${number(amount)}</strong>
+      </article>`;
+    }).join('');
+  }
+
   function coins() {
     const d = state.data || {}, s = d.student || {}, items = d.coinTransactions || [];
-    const week = items.filter((x) => (Date.now() - new Date(x.created_at || Date.now()).getTime()) < 7 * 864e5).reduce((a, b) => a + Number(b.amount || 0), 0);
-    const month = items.filter((x) => (Date.now() - new Date(x.created_at || Date.now()).getTime()) < 30 * 864e5).reduce((a, b) => a + Number(b.amount || 0), 0);
-    screen.innerHTML = `${header('Coin Wallet', 'O‘qituvchilar bergan coinlar tarixi', true, 'coin')}<section class="coin-hero-24"><div>${svg('coin')}<span>Jami coin</span><b>${number(s.coins || 0)}</b></div><div class="coin-stats-24"><article><small>Bugun</small><b>${number(items.filter((x) => new Date(x.created_at).toDateString() === new Date().toDateString()).reduce((a,b)=>a+Number(b.amount||0),0))}</b></article><article><small>Hafta</small><b>${week > 0 ? '+' : ''}${number(week)}</b></article><article><small>Oy</small><b>${month > 0 ? '+' : ''}${number(month)}</b></article></div></section><div class="actions-line-24"><button data-go="rewards">Sovg‘alar</button><button data-go="ranking">Reyting</button><button data-go="achievements">Yutuqlar</button></div><div class="section-title-24"><h2>Coin tarixi</h2></div><div class="list-24">${items.map((x) => row(x.reason || 'Coin', x.teacher_name || date(x.created_at), `${Number(x.amount) > 0 ? '+' : ''}${number(x.amount)}`, 'coin')).join('') || empty('Coin tarixi yo‘q', 'coin')}</div>${nav('coins')}`;
+    const now = Date.now();
+    const todayCoin = items.filter((x) => new Date(x.created_at || now).toDateString() === new Date().toDateString()).reduce((a,b)=>a+Number(b.amount||0),0);
+    const week = items.filter((x) => (now - new Date(x.created_at || now).getTime()) < 7 * 864e5).reduce((a, b) => a + Number(b.amount || 0), 0);
+    const month = items.filter((x) => (now - new Date(x.created_at || now).getTime()) < 30 * 864e5).reduce((a, b) => a + Number(b.amount || 0), 0);
+    screen.innerHTML = `${header('Coin Wallet', 'Coin statistikasi va mukofot tarixi', true, 'coin')}
+      <section class="coin-stage-242">
+        <div class="coin-stack-242">${svg('coin')}<i></i><i></i><i></i></div>
+        <div class="coin-stage-copy-242"><span>Jami coin balans</span><b>${number(s.coins || 0)}</b><p>Coinlarni o‘qituvchilar beradi. Sovg‘alar do‘konida mahsulotlarga almashtiring.</p></div>
+      </section>
+      <section class="coin-metrics-242">
+        <article><span>Bugun</span><b>${todayCoin > 0 ? '+' : ''}${number(todayCoin)}</b></article>
+        <article><span>Hafta</span><b>${week > 0 ? '+' : ''}${number(week)}</b></article>
+        <article><span>Oy</span><b>${month > 0 ? '+' : ''}${number(month)}</b></article>
+      </section>
+      <div class="gamification-shortcuts-242"><button data-go="rewards">${svg('gift')}<b>Sovg‘alar</b></button><button data-go="my-rewards">${svg('gift')}<b>Mening sovg‘alarim</b></button><button data-go="ranking">${svg('trophy')}<b>Reyting</b></button><button data-go="achievements">${svg('trophy')}<b>Yutuqlar</b></button></div>
+      <div class="section-title-24"><h2>Coin tarixi</h2><button data-go="ranking">Reyting</button></div>
+      <div class="coin-timeline-242">${coinTimeline(items) || empty('Coin tarixi yo‘q', 'coin')}</div>${nav('coins')}`;
     bindNav();
+  }
+
+  function rewardVisual(x, i) {
+    const fallbackArt = ["gift", "book", "wallet", "coin", "document", "trophy"];
+    if (x.image_url) return `<img src="${esc(x.image_url)}" alt="${esc(x.title)}"/>`;
+    return svg(fallbackArt[i % fallbackArt.length]);
   }
 
   function rewards() {
     const d = state.data || {}, s = d.student || {}, items = d.rewards || [];
-    const fallbackArt = ["gift", "book", "wallet", "coin", "document", "trophy"];
-    screen.innerHTML = `${header('Sovg‘alar do‘koni', 'Coin evaziga mahsulotlar', true, 'gift')}<div class="tabs-24"><button class="active">Barchasi</button><button>Gadjet</button><button>Kitob</button><button>Voucher</button></div><div class="reward-grid-24">${items.map((x, i) => { const enough = Number(s.coins || 0) >= Number(x.coin_price || 0); return `<article class="reward-24"><div class="product-visual-24">${x.image_url ? `<img src="${esc(x.image_url)}"/>` : svg(fallbackArt[i % fallbackArt.length])}</div><b>${esc(x.title)}</b><small>${esc(x.description || x.category || 'Sovg‘a')}</small><p>${svg('coin')} ${number(x.coin_price)}</p><button class="${enough ? 'primary-24' : 'ghost-24'}" data-redeem="${x.id}" ${enough ? '' : 'disabled'}>${enough ? 'Olish' : 'Coin yetmaydi'}</button></article>`; }).join('') || empty('Sovg‘alar hali qo‘shilmagan', 'gift')}</div>${nav('coins')}`;
+    const categories = [...new Set(items.map((x) => x.category).filter(Boolean))].slice(0, 3);
+    screen.innerHTML = `${header('Sovg‘alar do‘koni', 'Coin evaziga mahsulotlar', true, 'gift')}
+      <section class="shop-hero-242"><div>${svg('gift')}<span>Coin balans</span><b>${number(s.coins || 0)}</b></div><p>Yetarli coin yig‘ing va markazingiz sovg‘alarini oling.</p></section>
+      <div class="tabs-24"><button class="active">Barchasi</button>${categories.map((c)=>`<button>${esc(c)}</button>`).join('')}<button>Voucher</button></div>
+      <div class="reward-grid-242">${items.map((x, i) => { const price = Number(x.coin_price || 0); const stock = Number(x.stock || x.quantity || 0); const enough = Number(s.coins || 0) >= price; const disabled = !enough || stock === 0; return `<article class="reward-card-242 ${!enough ? 'locked' : ''}">
+        <div class="reward-art-242">${rewardVisual(x, i)}</div>
+        <div class="reward-meta-242"><b>${esc(x.title)}</b><small>${esc(x.description || x.category || 'Sovg‘a')}</small></div>
+        <div class="reward-line-242"><span>${svg('coin')} ${number(price)}</span><em>${stock ? `${number(stock)} ta` : 'Tugagan'}</em></div>
+        <button class="${disabled ? 'ghost-24' : 'primary-24'}" data-redeem="${x.id}" ${disabled ? 'disabled' : ''}>${stock === 0 ? 'Tugagan' : enough ? 'Olish' : 'Coin yetmaydi'}</button>
+      </article>`; }).join('') || empty('Sovg‘alar hali qo‘shilmagan', 'gift')}</div>${nav('coins')}`;
     bindNav();
     $$('[data-redeem]').forEach((btn) => btn.onclick = async () => {
       const ok = await confirmSheet({ title: 'Sovg‘ani olasizmi?', message: 'Coinlaringizdan yechiladi va so‘rov admin tasdig‘iga yuboriladi.', ok: 'Ha, olish', icon: 'gift' });
@@ -328,19 +368,41 @@
 
   function myRewards() {
     const items = state.data?.redemptions || [];
-    screen.innerHTML = `${header('Mening sovg‘alarim', 'Sovg‘a so‘rovlari holati', true, 'gift')}<div class="tabs-24"><button class="active">Hammasi</button><button>Kutilmoqda</button><button>Tasdiqlandi</button><button>Berildi</button></div><div class="list-24">${items.map((x) => row(x.product_title || 'Sovg‘a', `${date(x.created_at)} • ${number(x.coin_price)} coin`, x.status || 'pending', 'gift')).join('') || empty('Sizda sovg‘a so‘rovlari yo‘q', 'gift')}</div>${nav('coins')}`;
+    const statusMap = { pending: 'Kutilmoqda', approved: 'Tasdiqlandi', completed: 'Berildi', delivered: 'Berildi', rejected: 'Rad etildi' };
+    screen.innerHTML = `${header('Mening sovg‘alarim', 'Sovg‘a so‘rovlari va status timeline', true, 'gift')}
+      <div class="tabs-24"><button class="active">Hammasi</button><button>Kutilmoqda</button><button>Tasdiqlandi</button><button>Berildi</button></div>
+      <div class="redemption-list-242">${items.map((x) => { const st = String(x.status || 'pending').toLowerCase(); const step = st.includes('reject') ? 0 : st.includes('complete') || st.includes('deliver') ? 3 : st.includes('approve') ? 2 : 1; return `<article class="redemption-242">
+        <div class="redemption-icon-242">${svg(st.includes('reject') ? 'lock' : 'gift')}</div>
+        <div class="redemption-body-242"><b>${esc(x.product_title || 'Sovg‘a')}</b><small>${date(x.created_at)} • ${number(x.coin_price)} coin</small><div class="reward-steps-242" style="--step:${step}"><i></i><i></i><i></i></div></div>
+        <span class="pill ${st.includes('reject') ? 'red' : step >= 2 ? 'green' : 'orange'}">${esc(statusMap[st] || x.status || 'Kutilmoqda')}</span>
+      </article>`; }).join('') || empty('Sizda sovg‘a so‘rovlari yo‘q', 'gift')}</div>${nav('coins')}`;
     bindNav();
   }
 
   function ranking() {
     const list = state.data?.ranking || [];
-    screen.innerHTML = `${header('Reyting', 'Coin va faoliyat bo‘yicha reyting', true, 'trophy')}<div class="tabs-24"><button class="active">Umumiy</button><button>Guruh</button><button>Oy</button></div><section class="podium-24">${list.slice(0, 3).map((x, i) => `<article class="${i === 0 ? 'top' : ''}"><div class="rank-avatar-24">${esc(initials(x.full_name))}</div>${svg('trophy')}<b>${i + 1}. ${esc(x.full_name)}</b><small>${number(x.score)} coin</small></article>`).join('') || empty('Reyting topilmadi', 'trophy')}</section><div class="list-24">${list.map((x, i) => row(`${i + 1}. ${x.full_name}`, 'Coin reyting', `${number(x.score)} coin`, 'trophy')).join('') || ''}</div>${nav('coins')}`;
+    const me = state.data?.student || {};
+    const myIndex = list.findIndex((x) => String(x.id) === String(me.id));
+    screen.innerHTML = `${header('Reyting', 'Coin bo‘yicha podium va guruh reytingi', true, 'trophy')}
+      <div class="tabs-24"><button class="active">Umumiy</button><button>Guruh</button><button>Oy</button><button>Hafta</button></div>
+      <section class="podium-242">${[list[1], list[0], list[2]].map((x, idx) => x ? `<article class="place-${idx === 1 ? 'one' : idx === 0 ? 'two' : 'three'}"><span>${idx === 1 ? '1' : idx === 0 ? '2' : '3'}</span><div class="rank-avatar-24">${esc(initials(x.full_name))}</div>${svg('trophy')}<b>${esc(x.full_name)}</b><small>${number(x.score)} coin</small></article>` : `<article class="empty-place"></article>`).join('')}</section>
+      <section class="my-rank-242">${svg('coin')}<div><small>Mening o‘rnim</small><b>${myIndex >= 0 ? `#${myIndex + 1}` : 'Hali reytingda yo‘q'}</b></div><span>${number(me.coins || 0)} coin</span></section>
+      <div class="leaderboard-242">${list.map((x, i) => `<article class="${String(x.id) === String(me.id) ? 'me' : ''}"><span>${i + 1}</span><div class="rank-avatar-24">${esc(initials(x.full_name))}</div><b>${esc(x.full_name)}</b><em>${number(x.score)} coin</em></article>`).join('') || empty('Reyting topilmadi', 'trophy')}</div>${nav('coins')}`;
     bindNav();
   }
 
   function achievements() {
     const items = state.data?.achievements || [];
-    screen.innerHTML = `${header('Yutuqlar', 'Badge, progress va mukofot coin', true, 'trophy')}<div class="stats-24 two"><article>${svg('trophy')}<small>Olingan</small><b>${items.filter((x) => x.completed || x.completed_at).length}</b></article><article>${svg('coin')}<small>Bonus</small><b>${number(items.reduce((a,x)=>a+Number(x.reward_coin||0),0))}</b></article></div><div class="badge-grid-24">${items.map((x, i) => `<article class="badge-24">${svg(['trophy','check','coin','book'][i % 4])}<b>${esc(x.title)}</b><small>${esc(x.description || 'Yutuq sharti')}</small><div class="progress-24"><i style="width:${Math.min(100, (Number(x.progress||0)/Math.max(1,Number(x.target||1)))*100)}%"></i></div><p>${number(x.progress || 0)}/${number(x.target || 1)}</p></article>`).join('') || empty('Yutuqlar hali yo‘q', 'trophy')}</div>${nav('coins')}`;
+    const completed = items.filter((x) => x.completed || x.completed_at).length;
+    const reward = items.reduce((a,x)=>a+Number(x.reward_coin||0),0);
+    screen.innerHTML = `${header('Yutuqlar', 'Badge progress, shartlar va mukofot coin', true, 'trophy')}
+      <section class="achievement-hero-242"><div>${svg('trophy')}</div><div><span>Olingan badge</span><b>${completed}/${items.length || 0}</b><p>Jami mukofot: ${number(reward)} coin</p></div></section>
+      <div class="badge-grid-242">${items.map((x, i) => { const pct = Math.min(100, (Number(x.progress||0)/Math.max(1,Number(x.target||1)))*100); const done = x.completed || x.completed_at || pct >= 100; return `<article class="badge-pro-242 ${done ? 'done' : ''}">
+        <div class="badge-medal-242">${svg(['trophy','check','coin','book','gift'][i % 5])}</div>
+        <b>${esc(x.title)}</b><small>${esc(x.description || 'Yutuq sharti')}</small>
+        <div class="progress-24"><i style="width:${pct}%"></i></div>
+        <footer><span>${number(x.progress || 0)}/${number(x.target || 1)}</span><em>${number(x.reward_coin || 0)} coin</em></footer>
+      </article>`; }).join('') || empty('Yutuqlar hali yo‘q', 'trophy')}</div>${nav('coins')}`;
     bindNav();
   }
 
