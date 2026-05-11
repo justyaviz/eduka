@@ -82,10 +82,11 @@ function aiBotConfig() {
     aiEnabled: env('AI_ASSISTANT_LLM_ENABLED', 'true') !== 'false',
     aiProvider: env('AI_ASSISTANT_PROVIDER', 'openai'),
     aiApiKey: env('OPENAI_API_KEY') || env('AI_PROVIDER_API_KEY'),
-    aiModel: env('AI_ASSISTANT_MODEL', env('AI_PROVIDER_MODEL', 'gpt-5.5-mini')),
+    aiModel: env('AI_ASSISTANT_MODEL', env('AI_PROVIDER_MODEL', 'gpt-4.1-mini')),
     aiTemperature: Number(env('AI_ASSISTANT_TEMPERATURE', '0.4')),
     aiMaxOutputTokens: Number(env('AI_ASSISTANT_MAX_OUTPUT_TOKENS', '650')),
-    aiLanguage: env('AI_ASSISTANT_LANGUAGE', 'uz')
+    aiLanguage: env('AI_ASSISTANT_LANGUAGE', 'uz'),
+    forceLlmFirst: env('AI_ASSISTANT_FORCE_LLM_FIRST', 'true') !== 'false'
   };
 }
 
@@ -212,6 +213,15 @@ async function ensureAiAssistantSchema(pool) {
       payload JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS ai_assistant_processed_updates (
+      id SERIAL PRIMARY KEY,
+      event_key TEXT UNIQUE NOT NULL,
+      update_id TEXT,
+      chat_id TEXT,
+      message_id TEXT,
+      business_connection_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS business_connection_id TEXT;
     ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS is_business_chat BOOLEAN NOT NULL DEFAULT FALSE;
@@ -418,6 +428,9 @@ function analyzeIntent(input, conversation = {}) {
   if (includesAny(text, ['crm kerak', 'crm qidiryapman', 'avtomatlashtirish', 'tizim kerak', 'platforma kerak', 'oquv markazim bor', 'o‘quv markazim bor'])) {
     intent = 'crm_need'; confidence = 0.86; suggested_action = 'recommend_modules'; score_delta += 30; tags.add('crm_need');
   }
+  if (includesAny(text, ['coin', 'koin', 'sovga', 'sovg‘a', 'reward', 'rewards', 'gamification', 'reyting', 'yutuq', 'ragbat', 'rag‘bat'])) {
+    intent = 'gamification_question'; confidence = 0.9; suggested_action = 'explain_gamification'; score_delta += 12; tags.add('gamification');
+  }
   if (includesAny(text, ['nimalar bor', 'imkoniyat', 'funksiya', 'qanday ishlaydi', 'modul'])) {
     intent = intent === 'unknown' ? 'feature_question' : intent; confidence = Math.max(confidence, 0.78); score_delta += 10;
   }
@@ -533,6 +546,19 @@ async function getActiveFaqs(pool) {
 
 function shouldUseLlm(config) {
   return Boolean(config.aiEnabled && config.aiProvider === 'openai' && config.aiApiKey);
+}
+
+function llmUnavailableText(config, errorMessage = '') {
+  if (!config.aiEnabled) return null;
+  if (!config.aiApiKey) {
+    return 'AI rejim hali to‘liq ulanmagan. OPENAI_API_KEY sozlangandan keyin men har qanday savolga erkin javob bera olaman.';
+  }
+  return [
+    'Hozir AI javob modulida texnik uzilish bo‘ldi.',
+    'Savolingizni oldim, lekin ChatGPT-like javob generatsiya qilinmadi.',
+    errorMessage ? `Texnik sabab: ${String(errorMessage).slice(0, 180)}` : '',
+    'Iltimos, bir necha soniyadan keyin qayta yozing yoki operatorga murojaat qiling.'
+  ].filter(Boolean).join('\n');
 }
 
 async function callOpenAiResponse(config, messages, metadata = {}) {
@@ -678,11 +704,22 @@ function smartReplyText(config, conv, analysis, faq) {
     ].filter(Boolean).join('\n');
   }
 
+  if (analysis.intent === 'gamification_question') {
+    return [
+      'Coin va sovg‘alar tizimi Eduka’dagi gamification modulidir.',
+      '',
+      'O‘qituvchi yoki admin o‘quvchiga faollik, yaxshi davomat, uyga vazifa yoki yuqori natija uchun coin beradi.',
+      'O‘quvchi Student App ichida coin balansini ko‘radi, sovg‘alar do‘konidan mahsulot tanlaydi va so‘rov yuboradi.',
+      '',
+      'Admin so‘rovni tasdiqlaydi, rad etadi yoki “berildi” deb belgilaydi. Bu tizim o‘quvchilar motivatsiyasini oshiradi.'
+    ].join('\n');
+  }
+
   if (analysis.intent === 'support_request') {
     return operatorText(config);
   }
 
-  if (faq) {
+  if (faq && !config.forceLlmFirst) {
     return `<b>${faq.title}</b>\n\n${faq.answer}\n\nAgar markazingiz bo‘yicha aniq tavsiya xohlasangiz, o‘quvchilar soni va asosiy muammoingizni yozing.`;
   }
 
@@ -774,6 +811,42 @@ function getBusinessConnectionId(update) {
   return (update.business_message && update.business_message.business_connection_id)
     || (update.edited_business_message && update.edited_business_message.business_connection_id)
     || null;
+}
+
+
+function buildUpdateEventKey(update, activeMessage, businessConnectionId) {
+  const updateId = update && update.update_id !== undefined ? `u:${update.update_id}` : '';
+  const chatId = activeMessage && activeMessage.chat && activeMessage.chat.id ? `c:${activeMessage.chat.id}` : 'c:unknown';
+  const messageId = activeMessage && activeMessage.message_id ? `m:${activeMessage.message_id}` : '';
+  const type = update.business_message ? 'business_message'
+    : update.edited_business_message ? 'edited_business_message'
+    : update.message ? 'message'
+    : update.callback_query ? 'callback_query'
+    : update.business_connection ? 'business_connection'
+    : 'unknown';
+  const bc = businessConnectionId ? `bc:${businessConnectionId}` : '';
+  return [type, updateId, chatId, messageId, bc].filter(Boolean).join('|');
+}
+
+async function shouldSkipDuplicateUpdate(pool, update, activeMessage, businessConnectionId) {
+  const eventKey = buildUpdateEventKey(update, activeMessage, businessConnectionId);
+  try {
+    await pool.query(
+      `INSERT INTO ai_assistant_processed_updates (event_key, update_id, chat_id, message_id, business_connection_id)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [
+        eventKey,
+        update && update.update_id !== undefined ? String(update.update_id) : null,
+        activeMessage && activeMessage.chat && activeMessage.chat.id ? String(activeMessage.chat.id) : null,
+        activeMessage && activeMessage.message_id ? String(activeMessage.message_id) : null,
+        businessConnectionId || null
+      ]
+    );
+    return false;
+  } catch (error) {
+    if (String(error && error.code) === '23505') return true;
+    return false;
+  }
 }
 
 async function upsertBusinessConnection(pool, update) {
@@ -873,15 +946,12 @@ async function processCommandOrText(pool, config, conv, chat, from, text, sendOp
     ai_reason: analysis
   });
 
-  // Demo niyati juda aniq bo‘lsa, lead formni avtomatik boshlaymiz.
-  if (analysis.intent === 'demo_request') {
-    await setConversationState(pool, smartConv.telegram_user_id, 'lead_name', smartConv.memory || {});
-    await sendBotMessage(pool, config, chatId, smartReplyText(config, smartConv, analysis), demoCancelKeyboard(), sendOptions);
-    return;
-  }
-
   const faq = await findFaq(pool, input);
   let reply = null;
+  let llmError = null;
+
+  // 29.3.1: LLM-FIRST ROUTING. FAQ endi asosiy javob emas, faqat AI uchun context.
+  // Har qanday oddiy savol avval OpenAI/LLM ga yuboriladi.
   try {
     reply = await generateLlmSalesReply(pool, config, smartConv, analysis, input, faq);
     if (reply) {
@@ -891,29 +961,41 @@ async function processCommandOrText(pool, config, conv, chat, from, text, sendOp
         direction: 'ai',
         message_type: 'llm_reply_generated',
         text: reply,
-        payload: { provider: config.aiProvider, model: config.aiModel, fallback: false },
+        payload: { provider: config.aiProvider, model: config.aiModel, fallback: false, llm_first: true },
         business_connection_id: sendOptions.business_connection_id || null,
         is_business_message: Boolean(sendOptions.business_connection_id),
         intent: analysis.intent,
         confidence: analysis.confidence,
-        ai_reason: { llm: true, model: config.aiModel }
+        ai_reason: { llm: true, model: config.aiModel, llm_first: true }
       });
     }
   } catch (error) {
+    llmError = error;
     await logMessage(pool, {
       chat_id: chatId,
       telegram_user_id: from.id || chat.id,
       direction: 'ai_error',
       message_type: 'llm_error',
       text: String(error && error.message ? error.message : error),
-      payload: { provider: config.aiProvider, model: config.aiModel, error: error && error.response ? error.response : null },
+      payload: { provider: config.aiProvider, model: config.aiModel, error: error && error.response ? error.response : null, llm_first: true },
       business_connection_id: sendOptions.business_connection_id || null,
       is_business_message: Boolean(sendOptions.business_connection_id),
       intent: analysis.intent,
       confidence: analysis.confidence
     });
   }
-  if (!reply) reply = smartReplyText(config, smartConv, analysis, faq);
+
+  if (!reply) {
+    // Agar AI yoqilgan va API key bor bo‘lsa-yu xato qilsa, eski FAQ'ni ko‘r-ko‘rona yubormaymiz.
+    // Faqat AI butunlay sozlanmagan bo‘lsa yoki force=false bo‘lsa fallback ishlaydi.
+    const unavailable = config.forceLlmFirst && shouldUseLlm(config) ? llmUnavailableText(config, llmError && llmError.message) : null;
+    reply = unavailable || smartReplyText(config, smartConv, analysis, faq);
+  }
+
+  // Demo niyati aniq bo‘lsa, AI javobidan keyin keyingi xabarni lead formga o‘tkazamiz.
+  if (analysis.intent === 'demo_request') {
+    await setConversationState(pool, smartConv.telegram_user_id, 'lead_name', smartConv.memory || {});
+  }
   const createdLead = await maybeCreateSmartLead(pool, smartConv, analysis, from);
   if (createdLead && Number(createdLead.score || 0) >= 75) {
     try { await notifyAdmin(pool, config, createdLead); } catch {}
@@ -1015,6 +1097,13 @@ async function handleWebhook({ request, response, pool, sendJson, readJsonBody }
 
   const businessConnectionId = getBusinessConnectionId(update);
   const activeMessage = update.message || update.business_message || update.edited_business_message || (update.callback_query && update.callback_query.message);
+  if (activeMessage) {
+    const duplicated = await shouldSkipDuplicateUpdate(pool, update, activeMessage, businessConnectionId);
+    if (duplicated) {
+      sendJson(response, 200, { ok: true, duplicate: true, business: Boolean(businessConnectionId) });
+      return;
+    }
+  }
   const from = update.callback_query ? update.callback_query.from : activeMessage ? (activeMessage.from || activeMessage.chat) : null;
   const chat = activeMessage ? activeMessage.chat : null;
   if (!chat || !from) {
@@ -1158,7 +1247,7 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
 
   if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/llm-status') {
     const config = aiBotConfig();
-    sendJson(response, 200, { ok: true, llm: { enabled: Boolean(config.aiEnabled), provider: config.aiProvider, model: config.aiModel, api_key_configured: Boolean(config.aiApiKey), max_output_tokens: config.aiMaxOutputTokens, language: config.aiLanguage } });
+    sendJson(response, 200, { ok: true, llm: { enabled: Boolean(config.aiEnabled), provider: config.aiProvider, model: config.aiModel, api_key_configured: Boolean(config.aiApiKey), max_output_tokens: config.aiMaxOutputTokens, language: config.aiLanguage, force_llm_first: config.forceLlmFirst } });
     return true;
   }
 
