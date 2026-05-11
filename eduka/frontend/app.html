@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="/platform-26.css?v=27.4.0" />
   <link rel="stylesheet" href="/platform-27-4.css?v=27.4.0" />
   <link rel="stylesheet" href="/platform-29.css?v=29.0.0" />
+  <link rel="stylesheet" href="/crm-core-pro-30.css?v=30.0.0" />
 </head>
   <body class="is-booting">
     <div class="eduka-boot-loader" data-boot-loader>
@@ -302,7 +303,8 @@
           <section class="view" id="group-profile"><div class="profile-page" data-group-profile></div></section>
           <section class="view" id="subscription"><div class="page-head"><h1>Tarif / Obuna</h1><span>7 kun trial va billing</span></div><div class="subscription-grid" data-subscription></div></section>
           <section class="view" id="settings"><div class="page-head"><h1>Sozlamalar</h1></div><div class="settings-tabs"><button class="active" type="button">Markaz</button><button type="button">Filiallar</button><button type="button">Xodimlar va rollar</button><button type="button">To'lov</button><button type="button">Telegram</button><button type="button">Bildirishnomalar</button></div><div class="settings-grid premium-settings"><article><h2>Markaz ma'lumotlari</h2><label>Nomi<input value="" /></label><label>Telefon<input value="" /></label><label>Manzil<input value="" /></label><label>Logo<input aria-label="Logo URL" /></label></article><article><h2>Xodimlar va rollar</h2><p>Admin, menejer, o'qituvchi va buxgalter rollari boshqariladi.</p><div class="role-list"><span>Admin</span><span>Manager</span><span>Teacher</span><span>Buxgalter</span></div></article><article><h2>To'lov sozlamalari</h2><label>Oylik to'lov kuni<input type="number" value="5" /></label><p>Naqd, karta, Click, Payme, Uzum, Bank faol.</p></article><article><h2>Telegram bot</h2><label>Bot token<input aria-label="Bot token" /></label><label class="check-field"><input type="checkbox" checked /><span>Davomat xabarlarini yuborish</span></label><label class="check-field"><input type="checkbox" checked /><span>Qarzdorlik eslatmalari</span></label></article></div></section>
-          <section class="view" id="access-denied"><div class="access-card"><h1>Ruxsat yo'q</h1><p>Bu sahifa sizning rolingiz uchun yopiq. Kerakli dashboardga qayting yoki admin bilan bog'laning.</p><button type="button" data-view="dashboard">Dashboardga qaytish</button></div></section>
+          <section class="view" id="access-denied"><div class="access-card"><h1>Ruxsat yo'q</h1><p>Bu sahifa sizning rolingiz uchun yopiq. Kerakli dashboardga qayting yoki admin bilan bog'laning.</p><button type="button" data-route="/admin/crm-core-pro" data-lucide-icon="rocket">CRM Core Pro</button>
+          <button type="button" data-view="dashboard">Dashboardga qaytish</button></div></section>
           <section class="view" id="super-centers"><div class="page-head"><h1>O'quv markazlar</h1><span>Super Admin</span></div><div class="filters"><input data-super-filter="search" placeholder="Markaz qidirish" /><select data-super-filter="status"><option value="">Status</option><option value="active">Aktiv</option><option value="blocked">Bloklangan</option></select><select data-super-filter="plan"><option value="">Tarif</option><option>Start</option><option>Pro</option><option>Business</option></select></div><div class="table" data-table="superCentersFull"><div><b>Markaz</b><b>Egasi</b><b>Telefon</b><b>Tarif</b><b>Obuna</b><b>Talabalar</b><b>Filial</b><b>Status</b><b>Amallar</b></div></div></section>
           <section class="view" id="super-center-profile"><div class="profile-page" data-super-center-profile></div></section>
           <section class="view" id="super-tariffs"><div class="page-head"><h1>Tariflar</h1><button class="section-action" type="button">Tarif qo'shish</button></div><div class="plans-grid" data-super-tariffs></div></section>
@@ -350,5 +352,6 @@
     <script src="/platform-26.js?v=27.4.0"></script>
   <script src="/platform-27-4.js?v=27.4.0"></script>
   <script src="/platform-29.js?v=29.0.0"></script>
+  <script src="/crm-core-pro-30.js?v=30.0.0"></script>
 </body>
 </html>
