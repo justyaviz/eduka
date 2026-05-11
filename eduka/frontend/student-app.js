@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "24.0.0";
+  const VERSION = "24.1.0";
   const TOKEN_KEY = "eduka_student_token";
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
@@ -29,14 +29,48 @@
     materials: "Materiallar", homework: "Uyga vazifa", tests: "Testlar", profile: "Profil", security: "Xavfsizlik"
   };
 
-  function toast(message) {
+  function toast(message, type = "info") {
     const host = $("[data-toast-host]");
     if (!host) return;
     const el = document.createElement("div");
-    el.className = "toast";
-    el.textContent = String(message || "Xabar");
+    el.className = `toast toast-${type}`;
+    const icon = type === "success" ? "check" : type === "error" ? "lock" : type === "warning" ? "bell" : "book";
+    el.innerHTML = `${svg(icon)}<span>${esc(message || "Xabar")}</span>`;
     host.appendChild(el);
-    setTimeout(() => el.remove(), 3400);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 260); }, 3600);
+  }
+
+  function haptic(type = "light") {
+    try { tg?.HapticFeedback?.impactOccurred?.(type); } catch {}
+  }
+
+  function setBusy(el, busy = true, label = "Kutilmoqda...") {
+    if (!el) return;
+    if (busy) {
+      el.dataset.oldText = el.innerHTML;
+      el.disabled = true;
+      el.classList.add("is-busy");
+      el.innerHTML = `<span class="btn-spinner"></span>${esc(label)}`;
+    } else {
+      el.disabled = false;
+      el.classList.remove("is-busy");
+      if (el.dataset.oldText) el.innerHTML = el.dataset.oldText;
+    }
+  }
+
+  function confirmSheet({ title = "Tasdiqlaysizmi?", message = "Amalni bajarish davom ettirilsinmi?", ok = "Tasdiqlash", cancel = "Bekor qilish", icon = "gift" } = {}) {
+    return new Promise((resolve) => {
+      const root = document.createElement("div");
+      root.className = "modal-backdrop-24";
+      root.innerHTML = `<section class="confirm-sheet-24">${svg(icon)}<h2>${esc(title)}</h2><p>${esc(message)}</p><div class="confirm-actions-24"><button class="ghost-24" data-no>${esc(cancel)}</button><button class="primary-24" data-yes>${esc(ok)}</button></div></section>`;
+      document.body.appendChild(root);
+      requestAnimationFrame(() => root.classList.add("show"));
+      const close = (v) => { root.classList.remove("show"); setTimeout(() => root.remove(), 220); resolve(v); };
+      root.addEventListener("click", (e) => { if (e.target === root) close(false); });
+      root.querySelector("[data-no]").onclick = () => close(false);
+      root.querySelector("[data-yes]").onclick = () => { haptic("medium"); close(true); };
+    });
   }
 
   function initials(name) {
@@ -59,9 +93,13 @@
   function setRoute(name, replace = false) {
     const target = routes.has(name) ? name : "home";
     const path = target === "welcome" ? "/app" : `/app/${target}`;
-    if (replace) history.replaceState({}, "", path);
-    else history.pushState({}, "", path);
-    renderRoute(target);
+    haptic("light");
+    screen.classList.add("route-leave-24");
+    setTimeout(() => {
+      if (replace) history.replaceState({}, "", path);
+      else history.pushState({}, "", path);
+      renderRoute(target);
+    }, 90);
   }
 
   function setToken(token) {
@@ -74,12 +112,21 @@
     const headers = { ...(options.headers || {}) };
     if (!(options.body instanceof FormData)) headers["Content-Type"] = headers["Content-Type"] || "application/json";
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
-    const res = await fetch(path, { ...options, headers, cache: "no-store" });
-    const text = await res.text();
-    let json = {};
-    try { json = text ? JSON.parse(text) : {}; } catch { json = { ok: false, message: text || "Server javobi noto'g'ri" }; }
-    if (!res.ok || json.ok === false) throw new Error(json.message || `Xatolik: ${res.status}`);
-    return json;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeout || 18000);
+    try {
+      const res = await fetch(path, { ...options, headers, cache: "no-store", signal: controller.signal });
+      const text = await res.text();
+      let json = {};
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { ok: false, message: text || "Server javobi noto'g'ri" }; }
+      if (!res.ok || json.ok === false) throw new Error(json.message || `Xatolik: ${res.status}`);
+      return json;
+    } catch (err) {
+      if (err?.name === "AbortError") throw new Error("Server javobi kechikdi. Internetni tekshirib qayta urinib ko‘ring.");
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async function loadBotInfo() {
@@ -162,7 +209,26 @@
     return `<nav class="dock-24" aria-label="Student App menu">${items.filter(([k]) => enabled(k) || ["home", "profile"].includes(k)).map(([k, icon, label]) => `<button class="${active === k ? "active" : ""}" data-go="${k}">${svg(icon)}<b>${label}</b></button>`).join("")}</nav>`;
   }
 
-  function bindNav() { $$('[data-go]').forEach((btn) => btn.onclick = () => setRoute(btn.dataset.go)); }
+  function bindNav() {
+    $$('[data-go]').forEach((btn) => btn.onclick = () => setRoute(btn.dataset.go));
+    bindMicroInteractions();
+  }
+
+  function bindMicroInteractions(root = screen) {
+    $$('button, .primary-24, .ghost-24, .danger-24, .row-24, .reward-24', root).forEach((el) => {
+      if (el.dataset.rippleBound) return;
+      el.dataset.rippleBound = "1";
+      el.addEventListener('pointerdown', (e) => {
+        const r = document.createElement('span');
+        const rect = el.getBoundingClientRect();
+        r.className = 'ripple-24';
+        r.style.left = `${e.clientX - rect.left}px`;
+        r.style.top = `${e.clientY - rect.top}px`;
+        el.appendChild(r);
+        setTimeout(() => r.remove(), 520);
+      }, { passive: true });
+    });
+  }
 
   function header(title, subtitle = "", back = true, icon = "home") {
     return `<header class="head-24">${back ? `<button class="head-action" data-go="home" aria-label="Orqaga">${svg("home")}</button>` : `<img class="head-logo" src="${logo}" alt="Eduka"/>`}<div><h2>${esc(title)}</h2>${subtitle ? `<p>${esc(subtitle)}</p>` : ""}</div><button class="head-action" data-go="notifications" aria-label="Bildirishnomalar">${svg(icon === "bell" ? "bell" : "bell")}</button></header>`;
@@ -253,8 +319,10 @@
     screen.innerHTML = `${header('Sovg‘alar do‘koni', 'Coin evaziga mahsulotlar', true, 'gift')}<div class="tabs-24"><button class="active">Barchasi</button><button>Gadjet</button><button>Kitob</button><button>Voucher</button></div><div class="reward-grid-24">${items.map((x, i) => { const enough = Number(s.coins || 0) >= Number(x.coin_price || 0); return `<article class="reward-24"><div class="product-visual-24">${x.image_url ? `<img src="${esc(x.image_url)}"/>` : svg(fallbackArt[i % fallbackArt.length])}</div><b>${esc(x.title)}</b><small>${esc(x.description || x.category || 'Sovg‘a')}</small><p>${svg('coin')} ${number(x.coin_price)}</p><button class="${enough ? 'primary-24' : 'ghost-24'}" data-redeem="${x.id}" ${enough ? '' : 'disabled'}>${enough ? 'Olish' : 'Coin yetmaydi'}</button></article>`; }).join('') || empty('Sovg‘alar hali qo‘shilmagan', 'gift')}</div>${nav('coins')}`;
     bindNav();
     $$('[data-redeem]').forEach((btn) => btn.onclick = async () => {
-      if (!confirm('Sovg‘a olishni tasdiqlaysizmi?')) return;
-      try { await api(`/api/student-app/rewards/${btn.dataset.redeem}/redeem`, { method: 'POST', body: '{}' }); toast('Sovg‘a so‘rovi yuborildi'); await load(); rewards(); } catch (e) { toast(e.message); }
+      const ok = await confirmSheet({ title: 'Sovg‘ani olasizmi?', message: 'Coinlaringizdan yechiladi va so‘rov admin tasdig‘iga yuboriladi.', ok: 'Ha, olish', icon: 'gift' });
+      if (!ok) return;
+      setBusy(btn, true, 'Yuborilmoqda...');
+      try { await api(`/api/student-app/rewards/${btn.dataset.redeem}/redeem`, { method: 'POST', body: '{}' }); toast('Sovg‘a so‘rovi yuborildi', 'success'); await load(); rewards(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(btn, false); }
     });
   }
 
@@ -340,6 +408,10 @@
   }
 
   async function renderRoute(name = route()) {
+    screen.dataset.route = name;
+    screen.classList.remove('route-leave-24');
+    screen.classList.add('route-enter-24');
+    setTimeout(() => screen.classList.remove('route-enter-24'), 280);
     if (!state.data && !['welcome', 'telegram', 'login'].includes(name)) {
       try { screen.innerHTML = skeleton(6); await load(); } catch { renderAuthHub('Sessiya topilmadi yoki muddati tugagan.'); return; }
     }
@@ -350,8 +422,47 @@
     (map[name] || home)();
   }
 
+  function setupPullToRefresh() {
+    const phone = document.querySelector('[data-student-phone]');
+    if (!phone || phone.dataset.ptrBound) return;
+    phone.dataset.ptrBound = '1';
+    const indicator = document.createElement('div');
+    indicator.className = 'ptr-24';
+    indicator.textContent = 'Yangilash uchun pastga torting';
+    phone.appendChild(indicator);
+    let startY = 0, distance = 0, pulling = false;
+    phone.addEventListener('touchstart', (e) => {
+      if (screen.scrollTop > 0) return;
+      startY = e.touches[0].clientY;
+      distance = 0;
+      pulling = true;
+    }, { passive: true });
+    phone.addEventListener('touchmove', (e) => {
+      if (!pulling) return;
+      distance = Math.max(0, e.touches[0].clientY - startY);
+      if (distance > 10) {
+        indicator.classList.add('show');
+        indicator.style.transform = `translateX(-50%) translateY(${Math.min(70, distance / 2)}px)`;
+        indicator.textContent = distance > 86 ? 'Qo‘yib yuboring — yangilanadi' : 'Yangilash uchun pastga torting';
+      }
+    }, { passive: true });
+    phone.addEventListener('touchend', async () => {
+      if (!pulling) return;
+      pulling = false;
+      if (distance > 86 && state.token) {
+        indicator.textContent = 'Yangilanmoqda...';
+        indicator.classList.add('loading');
+        try { await load(); await renderRoute(route() === 'welcome' ? 'home' : route()); toast('Ma’lumotlar yangilandi', 'success'); }
+        catch (e) { toast(e.message, 'error'); }
+      }
+      setTimeout(() => { indicator.classList.remove('show', 'loading'); indicator.style.transform = ''; }, 360);
+    }, { passive: true });
+  }
+
   async function boot() {
     try { tg?.ready?.(); tg?.expand?.(); } catch {}
+    setupPullToRefresh();
+    bindMicroInteractions(document);
     await loadBotInfo();
     const incoming = qs.get('token') || extractPathToken() || localStorage.getItem(TOKEN_KEY) || '';
     if (incoming) setToken(incoming);
