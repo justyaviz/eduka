@@ -6320,6 +6320,80 @@ async function handleStudentNotificationRead(request, response, notificationId) 
   sendJson(response, 200, { ok: true, message: "Bildirishnoma o'qildi" });
 }
 
+
+async function handleStudentAppRefresh(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  try {
+    const newToken = await createStudentAppSession(session.pool, session.row, {
+      telegramUserId: session.row.telegram_user_id || null,
+      userAgent: request.headers["user-agent"] || "refresh",
+      ipAddress: clientIp(request),
+      sessionDays: 30
+    });
+    await session.pool.query("UPDATE student_app_sessions SET revoked_at=NOW() WHERE token_hash=$1", [hashStudentAppToken(session.token)]);
+    const payload = await studentAppBasePayload(session.pool, session.row);
+    sendJson(response, 200, { ok: true, token: newToken, ...payload });
+  } catch (error) {
+    withError(response, "Student app refresh", error);
+  }
+}
+
+async function handleStudentAppSessions(request, response) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const result = await session.pool.query(
+    `SELECT id, created_at, last_used_at, expires_at, user_agent, ip_address,
+            CASE WHEN token_hash=$3 THEN TRUE ELSE FALSE END AS current
+     FROM student_app_sessions
+     WHERE organization_id=$1 AND student_id=$2 AND revoked_at IS NULL AND expires_at > NOW()
+     ORDER BY COALESCE(last_used_at, created_at) DESC
+     LIMIT 20`,
+    [session.row.organization_id, session.row.id, hashStudentAppToken(session.token)]
+  );
+  sendJson(response, 200, { ok: true, sessions: result.rows });
+}
+
+async function handleStudentAppRevokeSession(request, response, sessionId) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  await session.pool.query(
+    `UPDATE student_app_sessions SET revoked_at=NOW()
+     WHERE id=$1 AND organization_id=$2 AND student_id=$3`,
+    [sessionId, session.row.organization_id, session.row.id]
+  );
+  sendJson(response, 200, { ok: true, message: "Sessiya o'chirildi" });
+}
+
+async function handleStudentAppForgotPassword(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    const login = String(body.login || body.phone || "").trim();
+    if (!login) {
+      sendJson(response, 400, { ok: false, message: "Telefon yoki login kiriting" });
+      return;
+    }
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    const rows = await findStudentsByPhone(pool, login);
+    const student = rows[0];
+    if (!student) {
+      sendJson(response, 200, { ok: true, message: "Agar profil topilsa, administratorga murojaat qilish xabari yuboriladi" });
+      return;
+    }
+    try {
+      await pool.query(
+        `INSERT INTO student_notifications (organization_id, student_id, title, description, type, status)
+         VALUES ($1,$2,'Parol tiklash so\'rovi',$3,'security','published')`,
+        [student.organization_id, student.id, "Student App parolini tiklash uchun markaz administratoriga murojaat qiling"]
+      );
+    } catch {}
+    sendJson(response, 200, { ok: true, message: "Parolni tiklash uchun markaz administratoriga murojaat qiling" });
+  } catch (error) {
+    withError(response, "Student app forgot password", error);
+  }
+}
+
 async function handleStudentAppProfileUpdate(request, response) {
   const session = await requireStudentAppSession(request, response);
   if (!session) return;
@@ -7057,6 +7131,27 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "POST" && urlPath === "/api/student-app/auth/telegram") {
     handleStudentAppTelegramAuth(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/auth/refresh") {
+    handleStudentAppRefresh(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/api/student-app/sessions") {
+    handleStudentAppSessions(request, response);
+    return;
+  }
+
+  const studentSessionRevokeMatch = urlPath.match(/^\/api\/student-app\/sessions\/(\d+)\/revoke$/);
+  if (request.method === "POST" && studentSessionRevokeMatch) {
+    handleStudentAppRevokeSession(request, response, Number(studentSessionRevokeMatch[1]));
+    return;
+  }
+
+  if (request.method === "POST" && urlPath === "/api/student-app/auth/forgot-password") {
+    handleStudentAppForgotPassword(request, response);
     return;
   }
 

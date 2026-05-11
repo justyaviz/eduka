@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "24.3.0";
+  const VERSION = "24.7.0";
   const TOKEN_KEY = "eduka_student_token";
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
@@ -106,6 +106,38 @@
     state.token = token || "";
     if (token) localStorage.setItem(TOKEN_KEY, token);
     else localStorage.removeItem(TOKEN_KEY);
+  }
+
+  async function refreshSession(silent = true) {
+    if (!state.token) return false;
+    try {
+      const payload = await api('/api/student-app/auth/refresh', { method: 'POST', body: '{}', timeout: 16000 });
+      if (payload.token) setToken(payload.token);
+      state.data = payload;
+      if (!silent) toast('Sessiya yangilandi', 'success');
+      return true;
+    } catch (err) {
+      if (!silent) toast(err.message, 'error');
+      return false;
+    }
+  }
+
+  function showNetworkState() {
+    let bar = document.querySelector('[data-network-state]');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'network-state-247';
+      bar.dataset.networkState = '1';
+      document.body.appendChild(bar);
+    }
+    if (navigator.onLine === false) {
+      bar.textContent = 'Internet aloqasi yo‘q. Oxirgi ma’lumotlar ko‘rsatilmoqda.';
+      bar.classList.add('show');
+    } else {
+      bar.textContent = 'Internet qaytdi';
+      bar.classList.add('show', 'online');
+      setTimeout(() => bar.classList.remove('show', 'online'), 1600);
+    }
   }
 
   async function api(path, options = {}) {
@@ -251,8 +283,18 @@
   }
 
   function renderDomainLogin() {
-    screen.innerHTML = `<section class="access-24"><button class="head-action floating" data-auth>${svg("home")}</button><div class="access-hero-24 compact"><img src="${logo}" alt="Eduka"/><h1>student.eduka.uz</h1><p>Login yoki telefon raqam va parol orqali kiring.</p></div><form class="login-24" data-domain-login><label>Login yoki telefon<input name="login" placeholder="Telefon yoki login" required autocomplete="username"/></label><label>Parol<input name="password" type="password" placeholder="Parol" required autocomplete="current-password"/></label><button class="primary-24">Kirish</button><small>Parolni unutgan bo'lsangiz, markaz administratoriga murojaat qiling.</small></form></section>`;
+    screen.innerHTML = `<section class="access-24"><button class="head-action floating" data-auth>${svg("home")}</button><div class="access-hero-24 compact"><img src="${logo}" alt="Eduka"/><h1>student.eduka.uz</h1><p>Login yoki telefon raqam va parol orqali kiring.</p></div><form class="login-24" data-domain-login><label>Login yoki telefon<input name="login" placeholder="Telefon yoki login" required autocomplete="username"/></label><label>Parol<input name="password" type="password" placeholder="Parol" required autocomplete="current-password"/></label><button class="primary-24">Kirish</button><button type="button" class="ghost-24" data-forgot>Parolni unutdim</button><small>Parolni unutgan bo'lsangiz, tizim administratorga murojaat qilish bo‘yicha xabar beradi.</small></form></section>`;
     $('[data-auth]').onclick = () => renderAuthHub();
+    const forgot = $('[data-forgot]');
+    if (forgot) forgot.onclick = async () => {
+      const form = $('[data-domain-login]');
+      const login = form?.querySelector('[name=login]')?.value || '';
+      if (!login.trim()) { toast('Avval telefon yoki login kiriting', 'warning'); return; }
+      setBusy(forgot, true, 'Yuborilmoqda...');
+      try { const res = await api('/api/student-app/auth/forgot-password', { method:'POST', body: JSON.stringify({ login }) }); toast(res.message || 'So‘rov qabul qilindi', 'success'); }
+      catch (err) { toast(err.message, 'error'); }
+      finally { setBusy(forgot, false); }
+    };
     $('[data-domain-login]').onsubmit = async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button');
@@ -528,10 +570,36 @@
 
   function security() {
     const s = state.data?.student || {};
-    screen.innerHTML = `${header('Xavfsizlik', 'Sessiya, parol va Telegram bog‘lanishi', true, 'lock')}<div class="stats-24 two"><article>${svg('bell')}<small>Telegram</small><b>${s.telegramUserId || s.telegram_user_id ? 'Ulangan' : 'Ulanmagan'}</b></article><article>${svg('lock')}<small>Session</small><b>Active</b></article></div><form class="login-24" data-password><label>Joriy parol<input type="password" name="current_password" placeholder="Joriy parol" /></label><label>Yangi parol<input type="password" name="new_password" placeholder="Kamida 6 belgi" required /></label><button class="primary-24">Parolni yangilash</button></form><button class="danger-24" data-revoke>Hamma qurilmalardan chiqish</button>${nav('profile')}`;
+    screen.innerHTML = `${header('Xavfsizlik', 'Sessiya, parol va Telegram bog‘lanishi', true, 'lock')}
+      <section class="security-247">
+        <article>${svg('bell')}<div><small>Telegram</small><b>${s.telegramUserId || s.telegram_user_id ? 'Ulangan' : 'Ulanmagan'}</b></div></article>
+        <article>${svg('lock')}<div><small>Joriy sessiya</small><b>Faol</b></div></article>
+        <article>${svg('check')}<div><small>Domain login</small><b>student.eduka.uz</b></div></article>
+      </section>
+      <form class="login-24" data-password>
+        <label>Joriy parol<input type="password" name="current_password" placeholder="Joriy parol" /></label>
+        <label>Yangi parol<input type="password" name="new_password" placeholder="Kamida 6 belgi" required /></label>
+        <button class="primary-24">Parolni yangilash</button>
+      </form>
+      <div class="section-title-24"><h2>Qurilmalar</h2><button class="ghost-24 compact" data-refresh-session>Tokenni yangilash</button></div>
+      <div class="sessions-247" data-sessions>${skeleton(3)}</div>
+      <button class="danger-24" data-revoke>Chiqish</button>${nav('profile')}`;
     bindNav();
-    $('[data-password]').onsubmit = async (e) => { e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); try { await api('/api/student-app/password', { method: 'POST', body: JSON.stringify(body) }); toast('Parol yangilandi'); e.target.reset(); } catch(err) { toast(err.message); } };
-    $('[data-revoke]').onclick = async () => { try { await api('/api/student-app/auth/logout', { method: 'POST', body: '{}' }); } catch {} setToken(''); state.data = null; renderAuthHub('Sessiya yakunlandi. Qayta kiring.'); };
+    $('[data-refresh-session]').onclick = async () => { const ok = await refreshSession(false); if (ok) await loadSessions(); };
+    $('[data-password]').onsubmit = async (e) => { e.preventDefault(); const btn = e.target.querySelector('button'); setBusy(btn, true, 'Saqlanmoqda...'); const body = Object.fromEntries(new FormData(e.target)); try { await api('/api/student-app/password', { method: 'POST', body: JSON.stringify(body) }); toast('Parol yangilandi', 'success'); e.target.reset(); } catch(err) { toast(err.message, 'error'); } finally { setBusy(btn, false); } };
+    $('[data-revoke]').onclick = async () => { try { await api('/api/student-app/auth/logout', { method: 'POST', body: '{}' }); } catch {} setToken(''); state.data = null; renderAuthHub('Siz ilovadan chiqdingiz.'); };
+    loadSessions();
+  }
+
+  async function loadSessions() {
+    const host = $('[data-sessions]');
+    if (!host) return;
+    try {
+      const data = await api('/api/student-app/sessions');
+      const sessions = data.sessions || [];
+      host.innerHTML = sessions.map((x) => `<article class="session-card-247 ${x.current ? 'current' : ''}">${svg('lock')}<div><b>${x.current ? 'Hozirgi qurilma' : 'Qurilma'}</b><small>${esc(x.user_agent || 'Noma’lum qurilma')}</small><span>Oxirgi faollik: ${esc(date(x.last_used_at || x.created_at))}</span></div>${x.current ? '<em>Active</em>' : `<button class="ghost-24 compact" data-revoke-session="${x.id}">O‘chirish</button>`}</article>`).join('') || empty('Faol qurilmalar topilmadi', 'lock');
+      $$('[data-revoke-session]', host).forEach((btn) => btn.onclick = async () => { setBusy(btn, true, 'O‘chirilmoqda...'); try { await api(`/api/student-app/sessions/${btn.dataset.revokeSession}/revoke`, { method:'POST', body:'{}' }); toast('Sessiya o‘chirildi', 'success'); await loadSessions(); } catch (err) { toast(err.message, 'error'); } finally { setBusy(btn, false); } });
+    } catch (err) { host.innerHTML = empty(err.message || 'Sessiyalar yuklanmadi', 'lock'); }
   }
 
   async function uploadStudentAvatar(file) {
@@ -617,6 +685,11 @@
     }, { passive: true });
   }
 
+  function scheduleSessionRefresh() {
+    if (state.refreshTimer) return;
+    state.refreshTimer = setInterval(() => { if (state.token && navigator.onLine !== false) refreshSession(true); }, 1000 * 60 * 20);
+  }
+
   async function boot() {
     try { tg?.ready?.(); tg?.expand?.(); } catch {}
     setupPullToRefresh();
@@ -625,13 +698,15 @@
     const incoming = qs.get('token') || extractPathToken() || localStorage.getItem(TOKEN_KEY) || '';
     if (incoming) setToken(incoming);
     if (state.token) {
-      try { await load(); if (location.pathname.match(/\/app\/open\//)) history.replaceState({}, '', '/app/home'); return renderRoute(route() === 'welcome' || route() === 'login' ? 'home' : route()); } catch { setToken(''); }
+      try { await load(); scheduleSessionRefresh(); if (location.pathname.match(/\/app\/open\//)) history.replaceState({}, '', '/app/home'); return renderRoute(route() === 'welcome' || route() === 'login' ? 'home' : route()); } catch { setToken(''); }
     }
-    if (await authTelegramIfPossible()) return renderRoute('home');
+    if (await authTelegramIfPossible()) { scheduleSessionRefresh(); return renderRoute('home'); }
     if (location.hostname.startsWith('student.')) return renderDomainLogin();
     renderWelcome();
   }
 
   window.addEventListener('popstate', () => renderRoute(route()));
+  window.addEventListener('offline', showNetworkState);
+  window.addEventListener('online', async () => { showNetworkState(); if (state.token) { try { await load(); renderRoute(route()); } catch {} } });
   boot().catch((err) => { console.error(err); renderAuthHub(err.message || 'Student App yuklanmadi'); });
 })();
