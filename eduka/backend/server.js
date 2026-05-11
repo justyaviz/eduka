@@ -203,6 +203,7 @@ async function ensureSchema(pool) {
     studentAppPlatformReadyPromise = (async () => {
       await ensureStudentGamificationTables(pool);
       await ensureStudentEcosystemTables(pool);
+      await ensureProductionStable27Schema(pool);
     })().catch((error) => {
       studentAppPlatformReadyPromise = null;
       throw error;
@@ -6593,6 +6594,173 @@ async function ensureStableProduction26Schema(pool) {
   await pool.query(`CREATE TABLE IF NOT EXISTS pwa_install_events (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, app TEXT NOT NULL DEFAULT 'student', user_agent TEXT, metadata JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
 }
 
+
+async function tableExists(pool, tableName) {
+  const result = await pool.query(
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1 LIMIT 1",
+    [tableName]
+  );
+  return result.rowCount > 0;
+}
+
+async function columnExists(pool, tableName, columnName) {
+  const result = await pool.query(
+    "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND column_name=$2 LIMIT 1",
+    [tableName, columnName]
+  );
+  return result.rowCount > 0;
+}
+
+async function safeQuery(pool, sql, params = []) {
+  try {
+    await pool.query(sql, params);
+    return { ok: true };
+  } catch (error) {
+    console.error(`Stable 27 safe query skipped: ${error.message}`);
+    return { ok: false, message: error.message, code: error.code };
+  }
+}
+
+async function ensureProductionStable27Schema(pool) {
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS production_audit_runs (
+    id BIGSERIAL PRIMARY KEY,
+    scope TEXT NOT NULL DEFAULT 'full',
+    status TEXT NOT NULL DEFAULT 'completed',
+    summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS production_issue_logs (
+    id BIGSERIAL PRIMARY KEY,
+    scope TEXT NOT NULL DEFAULT 'general',
+    severity TEXT NOT NULL DEFAULT 'info',
+    title TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ
+  )`);
+
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS student_app_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT,
+    student_id BIGINT,
+    telegram_user_id TEXT,
+    token_hash TEXT,
+    user_agent TEXT,
+    ip_address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
+    revoked_at TIMESTAMPTZ
+  )`);
+  for (const [tableName, ddl] of Object.entries({
+    student_reward_products: `CREATE TABLE IF NOT EXISTS student_reward_products (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, name TEXT NOT NULL DEFAULT 'Sovg\'a', description TEXT DEFAULT '', image_url TEXT DEFAULT '', coin_price INTEGER NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0, category TEXT DEFAULT 'general', status TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`,
+    student_coin_transactions: `CREATE TABLE IF NOT EXISTS student_coin_transactions (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, student_id BIGINT, teacher_id BIGINT, amount INTEGER NOT NULL DEFAULT 0, type TEXT DEFAULT 'earn', reason TEXT DEFAULT '', note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT NOW())`,
+    student_reward_redemptions: `CREATE TABLE IF NOT EXISTS student_reward_redemptions (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, student_id BIGINT, product_id BIGINT, coin_price INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`,
+    student_notifications: `CREATE TABLE IF NOT EXISTS student_notifications (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, student_id BIGINT, type TEXT NOT NULL DEFAULT 'system', title TEXT NOT NULL DEFAULT 'Xabar', body TEXT DEFAULT '', action_url TEXT DEFAULT '', read_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW())`,
+    telegram_notification_logs: `CREATE TABLE IF NOT EXISTS telegram_notification_logs (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, student_id BIGINT, chat_id TEXT, type TEXT NOT NULL DEFAULT 'system', status TEXT NOT NULL DEFAULT 'skipped', message TEXT DEFAULT '', error TEXT DEFAULT '', payload JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT NOW())`,
+    parent_access_links: `CREATE TABLE IF NOT EXISTS parent_access_links (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, student_id BIGINT, parent_name TEXT DEFAULT '', parent_phone TEXT DEFAULT '', telegram_user_id TEXT, telegram_chat_id TEXT, token_hash TEXT, status TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`,
+    finance_cashdesk_entries: `CREATE TABLE IF NOT EXISTS finance_cashdesk_entries (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, user_id BIGINT, payment_id BIGINT, type TEXT NOT NULL DEFAULT 'income', category TEXT DEFAULT 'payment', amount NUMERIC(14,2) NOT NULL DEFAULT 0, method TEXT DEFAULT 'cash', note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT NOW())`,
+    payment_provider_settings: `CREATE TABLE IF NOT EXISTS payment_provider_settings (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, provider TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'setup', public_key TEXT DEFAULT '', secret_ref TEXT DEFAULT '', settings JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(organization_id, provider))`
+  })) {
+    await safeQuery(pool, ddl);
+  }
+
+  const alterStatements = [
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar_url TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS telegram_user_id TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS student_app_password_hash TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS app_enabled BOOLEAN NOT NULL DEFAULT TRUE`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+    `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS avatar_url TEXT`,
+    `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url TEXT`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{}'::jsonb`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_code TEXT DEFAULT 'Start'`,
+    `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS license_expires_at TIMESTAMPTZ`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_token TEXT`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'paid'`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS method TEXT DEFAULT 'cash'`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS telegram_sent_at TIMESTAMPTZ`,
+    `ALTER TABLE student_app_sessions ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ`,
+    `ALTER TABLE student_app_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days')`,
+    `ALTER TABLE student_app_sessions ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ`,
+    `ALTER TABLE student_app_sessions ADD COLUMN IF NOT EXISTS user_agent TEXT`,
+    `ALTER TABLE student_app_sessions ADD COLUMN IF NOT EXISTS ip_address TEXT`
+  ];
+  for (const sql of alterStatements) await safeQuery(pool, sql);
+
+  const indexes = [
+    `CREATE INDEX IF NOT EXISTS stable27_students_org_idx ON students(organization_id)`,
+    `CREATE INDEX IF NOT EXISTS stable27_students_phone_idx ON students(normalized_phone)`,
+    `CREATE INDEX IF NOT EXISTS stable27_payments_org_student_idx ON payments(organization_id, student_id)`,
+    `CREATE INDEX IF NOT EXISTS stable27_coin_student_idx ON student_coin_transactions(organization_id, student_id)`,
+    `CREATE INDEX IF NOT EXISTS stable27_notifications_student_idx ON student_notifications(organization_id, student_id, created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS stable27_sessions_token_idx ON student_app_sessions(token_hash)`,
+    `CREATE INDEX IF NOT EXISTS stable27_parent_phone_idx ON parent_access_links(parent_phone)`,
+    `CREATE INDEX IF NOT EXISTS stable27_tg_logs_org_idx ON telegram_notification_logs(organization_id, created_at DESC)`
+  ];
+  for (const sql of indexes) await safeQuery(pool, sql);
+}
+
+async function production27Counts(pool) {
+  const tables = [
+    'organizations','users','students','teachers','groups','payments',
+    'student_app_sessions','student_reward_products','student_coin_transactions',
+    'student_reward_redemptions','student_notifications','telegram_notification_logs',
+    'parent_access_links','finance_cashdesk_entries','payment_provider_settings'
+  ];
+  const out = [];
+  for (const tableName of tables) {
+    try {
+      const exists = await tableExists(pool, tableName);
+      if (!exists) { out.push({ table: tableName, exists: false, count: 0 }); continue; }
+      const result = await pool.query(`SELECT COUNT(*)::int AS c FROM ${tableName}`);
+      out.push({ table: tableName, exists: true, count: result.rows[0].c });
+    } catch (error) {
+      out.push({ table: tableName, exists: false, error: error.message });
+    }
+  }
+  return out;
+}
+
+async function handleProduction27Audit(request, response, urlPath) {
+  try {
+    const pool = getDbPool();
+    await ensureSchema(pool);
+    await ensureProductionStable27Schema(pool);
+    const user = await findSessionUser(request).catch(() => null);
+    const counts = await production27Counts(pool);
+    const required = counts.filter((row) => !row.exists || row.error);
+    const sessionIsolation = {
+      ceo: '/ceo/login',
+      admin: '/admin/login',
+      student: '/app/home or student.eduka.uz',
+      parent: '/parent',
+      cookie: sessionCookieName,
+      note: 'CEO/Admin use server session cookie. Student/Parent apps use token/session isolation.'
+    };
+    const checks = {
+      database: required.length ? 'needs_attention' : 'ready',
+      migrations: required.length ? required : [],
+      sessions: sessionIsolation,
+      studentApp: { telegram: Boolean(process.env.STUDENT_BOT_TOKEN), pwa: true, domain: 'student.eduka.uz' },
+      telegram: { token: Boolean(process.env.STUDENT_BOT_TOKEN), webhookSecret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET) },
+      finance: { cashdesk: counts.find((r) => r.table === 'finance_cashdesk_entries')?.exists === true },
+      parent: { accessLinks: counts.find((r) => r.table === 'parent_access_links')?.exists === true }
+    };
+    await safeQuery(pool, `INSERT INTO production_audit_runs (scope,status,summary) VALUES ($1,$2,$3)`, ['stable-27', required.length ? 'needs_attention' : 'completed', checks]);
+    sendJson(response, 200, { ok: true, version: '27.0.0', user: user ? { id: user.id, role: user.role, organization_id: user.organization_id || null } : null, counts, checks });
+  } catch (error) {
+    withError(response, 'Production 27 audit', error);
+  }
+}
+
 async function handleProduction26Request(request, response, urlPath) {
   try {
     const pool = getDbPool();
@@ -6607,7 +6775,7 @@ async function handleProduction26Request(request, response, urlPath) {
         { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
         { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
       ];
-      sendJson(response, 200, { ok: true, data: { version: "26.4.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      sendJson(response, 200, { ok: true, data: { version: "27.0.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
       return;
     }
     if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
@@ -6693,10 +6861,16 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "26.4.0",
+      version: "27.0.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
+    return;
+  }
+
+
+  if (request.method === "GET" && ["/api/production/audit", "/api/production/audit27", "/api/production/stable-check"].includes(urlPath)) {
+    handleProduction27Audit(request, response, urlPath);
     return;
   }
 
