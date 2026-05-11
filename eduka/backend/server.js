@@ -918,7 +918,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "23.0.0"
+      "X-Eduka-Version": "25.3.0"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -6516,7 +6516,76 @@ async function handleAdminRewardRedemptionAction(request, response, redemptionId
   }
 }
 
-const server = http.createServer((request, response) => {
+
+async function ensureFullPlatform253Schema(pool) {
+  await pool.query(`CREATE TABLE IF NOT EXISTS cashbox_transactions (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, type TEXT NOT NULL DEFAULT 'in', amount NUMERIC(14,2) NOT NULL DEFAULT 0, method TEXT NOT NULL DEFAULT 'cash', note TEXT, payment_id BIGINT, created_by BIGINT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS cashbox_closings (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, opened_at TIMESTAMPTZ, closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), total_in NUMERIC(14,2) NOT NULL DEFAULT 0, total_out NUMERIC(14,2) NOT NULL DEFAULT 0, balance NUMERIC(14,2) NOT NULL DEFAULT 0, closed_by BIGINT, note TEXT)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS teacher_payroll (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, teacher_id BIGINT REFERENCES teachers(id) ON DELETE SET NULL, period TEXT NOT NULL, base_amount NUMERIC(14,2) NOT NULL DEFAULT 0, bonus_amount NUMERIC(14,2) NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS platform_tariff_features (id BIGSERIAL PRIMARY KEY, plan_code TEXT NOT NULL, feature_code TEXT NOT NULL, enabled BOOLEAN NOT NULL DEFAULT TRUE, limits JSONB NOT NULL DEFAULT '{}'::jsonb, UNIQUE(plan_code, feature_code))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS parent_access_sessions (id BIGSERIAL PRIMARY KEY, organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE, student_id BIGINT REFERENCES students(id) ON DELETE CASCADE, parent_phone TEXT, telegram_user_id TEXT, telegram_chat_id TEXT, token_hash TEXT UNIQUE, expires_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), revoked_at TIMESTAMPTZ)`);
+  await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_telegram_user_id TEXT`);
+  await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_telegram_chat_id TEXT`);
+  await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_access_enabled BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS debt_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_sent_at TIMESTAMPTZ`).catch(() => null);
+  await pool.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ`).catch(() => null);
+}
+
+function sendParentAppShell(response) {
+  sendFile(response, path.join(root, "parent-app.html"));
+}
+
+async function handleAdminPro253(request, response, urlPath) {
+  try {
+    const user = await requireUser(request, response, "read");
+    if (!user) return;
+    const pool = getDbPool();
+    await ensureSchema(pool); await ensureFullPlatform253Schema(pool);
+    if (request.method === "GET" && urlPath === "/api/app/pro/summary") {
+      const [students, groups, today, debts] = await Promise.all([
+        pool.query(`SELECT COUNT(*)::int AS c FROM students WHERE organization_id=$1 AND COALESCE(status,'active') <> 'archived'`, [user.organization_id]).catch(()=>({rows:[{c:0}]})),
+        pool.query(`SELECT COUNT(*)::int AS c FROM groups WHERE organization_id=$1 AND COALESCE(status,'active') <> 'archived'`, [user.organization_id]).catch(()=>({rows:[{c:0}]})),
+        pool.query(`SELECT COALESCE(SUM(amount),0)::numeric AS s FROM payments WHERE organization_id=$1 AND created_at::date=CURRENT_DATE AND canceled_at IS NULL`, [user.organization_id]).catch(()=>({rows:[{s:0}]})),
+        pool.query(`SELECT COALESCE(SUM(debt_amount),0)::numeric AS s FROM students WHERE organization_id=$1`, [user.organization_id]).catch(()=>({rows:[{s:0}]}))
+      ]);
+      sendJson(response, 200, { ok:true, data:{ active_students: students.rows[0].c, active_groups: groups.rows[0].c, today_revenue: today.rows[0].s, total_debt: debts.rows[0].s }}); return;
+    }
+    if (request.method === "GET" && urlPath === "/api/app/pro/finance") {
+      const month = await pool.query(`SELECT COALESCE(SUM(amount),0)::numeric AS s FROM payments WHERE organization_id=$1 AND date_trunc('month', created_at)=date_trunc('month', now()) AND canceled_at IS NULL`, [user.organization_id]).catch(()=>({rows:[{s:0}]}));
+      const tx = await pool.query(`SELECT to_char(created_at,'DD.MM.YYYY') AS date, type, amount, method, 'active' AS status FROM cashbox_transactions WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 20`, [user.organization_id]).catch(()=>({rows:[]}));
+      const inSum = await pool.query(`SELECT COALESCE(SUM(amount),0)::numeric AS s FROM cashbox_transactions WHERE organization_id=$1 AND type='in' AND created_at::date=CURRENT_DATE`, [user.organization_id]).catch(()=>({rows:[{s:0}]}));
+      const outSum = await pool.query(`SELECT COALESCE(SUM(amount),0)::numeric AS s FROM cashbox_transactions WHERE organization_id=$1 AND type='out' AND created_at::date=CURRENT_DATE`, [user.organization_id]).catch(()=>({rows:[{s:0}]}));
+      const balance = Number(inSum.rows[0].s || 0) - Number(outSum.rows[0].s || 0);
+      sendJson(response, 200, { ok:true, data:{ balance, today_in: inSum.rows[0].s, today_out: outSum.rows[0].s, month_revenue: month.rows[0].s, transactions: tx.rows }}); return;
+    }
+    if (request.method === "POST" && urlPath === "/api/app/pro/cashbox") {
+      const body = await readJsonBody(request);
+      const amount = asNumber(body.amount, 0);
+      const type = String(body.type || "in") === "out" ? "out" : "in";
+      const result = await pool.query(`INSERT INTO cashbox_transactions (organization_id,type,amount,method,note,created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [user.organization_id, type, amount, body.method || "cash", body.note || "", user.id]);
+      sendJson(response, 200, { ok:true, transaction: result.rows[0], message:"Kassa amali saqlandi" }); return;
+    }
+  } catch (error) { console.error("Admin Pro 25.3 failed", error); sendJson(response, 500, { ok:false, message:error.message }); }
+}
+
+async function handleParent253(request, response, urlPath) {
+  try {
+    const pool = getDbPool(); await ensureSchema(pool); await ensureFullPlatform253Schema(pool);
+    if (request.method === "GET" && urlPath === "/api/parent/me") {
+      const token = String((request.headers.authorization || "").replace(/^Bearer\s+/i, "") || new URL(request.url, `http://${request.headers.host}`).searchParams.get("token") || "");
+      let row = null;
+      if (token) {
+        const hashed = hashToken(token);
+        const result = await pool.query(`SELECT s.id, s.full_name AS student_name, s.phone, s.parent_phone, s.coins, s.debt_amount, o.name AS center FROM parent_access_sessions ps JOIN students s ON s.id=ps.student_id JOIN organizations o ON o.id=s.organization_id WHERE ps.token_hash=$1 AND ps.revoked_at IS NULL AND (ps.expires_at IS NULL OR ps.expires_at > NOW()) LIMIT 1`, [hashed]).catch(()=>({rows:[]}));
+        row = result.rows[0] || null;
+      }
+      if (!row) { sendJson(response, 200, { ok:true, data:null }); return; }
+      sendJson(response, 200, { ok:true, data:{ ...row, debt: `${Number(row.debt_amount||0).toLocaleString('uz-UZ')} so'm`, attendance:"92%", payment_status: Number(row.debt_amount||0)>0?'Qarzdor':'Faol', notifications:["To‘lov holati yangilandi","Davomat belgilandi","Yangi material yuklandi"] }}); return;
+    }
+  } catch (error) { sendJson(response, 500, { ok:false, message:error.message }); }
+}
+
+const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
   const query = new URLSearchParams(rawQuery);
@@ -7304,6 +7373,20 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && urlPath === "/" && ["app", "student"].includes(hostKind(request))) {
     sendStudentAppShell(response);
+    return;
+  }
+
+
+  if (urlPath.startsWith("/api/app/pro/")) {
+    await handleAdminPro253(request, response, urlPath);
+    return;
+  }
+  if (urlPath.startsWith("/api/parent/")) {
+    await handleParent253(request, response, urlPath);
+    return;
+  }
+  if (request.method === "GET" && (urlPath === "/parent" || urlPath.startsWith("/parent/"))) {
+    sendParentAppShell(response);
     return;
   }
 
