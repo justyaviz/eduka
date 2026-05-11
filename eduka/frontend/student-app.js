@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "24.2.0";
+  const VERSION = "24.3.0";
   const TOKEN_KEY = "eduka_student_token";
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
@@ -406,28 +406,124 @@
     bindNav();
   }
 
+  function learningTypeIcon(item) {
+    const raw = String(item.type || item.file_type || item.kind || item.category || "").toLowerCase();
+    if (raw.includes("video") || raw.includes("mp4") || raw.includes("youtube")) return "quiz";
+    if (raw.includes("link") || raw.includes("url")) return "bell";
+    if (raw.includes("test") || raw.includes("quiz")) return "quiz";
+    if (raw.includes("homework") || raw.includes("task")) return "document";
+    return "book";
+  }
+
+  function learningProgress(title, value = 0, max = 100, label = "") {
+    const pct = Math.max(0, Math.min(100, Math.round((Number(value || 0) / Math.max(1, Number(max || 100))) * 100)));
+    return `<section class="learning-progress-243"><div><small>${esc(title)}</small><b>${pct}%</b><span>${esc(label || `${number(value)}/${number(max)}`)}</span></div><div class="progress-orbit-243" style="--p:${pct}"><i></i></div></section>`;
+  }
+
+  function notificationCard(x) {
+    const type = String(x.type || "system").toLowerCase();
+    const icon = type.includes("payment") ? "wallet" : type.includes("coin") ? "coin" : type.includes("homework") ? "document" : type.includes("material") ? "book" : type.includes("attendance") ? "check" : "bell";
+    return `<article class="notice-card-243 ${x.unread ? 'unread' : ''}" data-notice-id="${esc(x.id || '')}">
+      <div class="notice-visual-243">${svg(icon)}</div>
+      <div><b>${esc(x.title || 'Bildirishnoma')}</b><small>${esc(x.description || '')}</small><span>${date(x.created_at || x.time)}</span></div>
+      <button class="notice-action-243" data-notice-action="${esc(type)}">Ochish</button>
+    </article>`;
+  }
+
+  function materialCard(x) {
+    const type = String(x.type || x.file_type || 'PDF').toUpperCase();
+    const icon = learningTypeIcon(x);
+    const size = x.size || x.file_size || x.duration || '';
+    return `<article class="material-card-243">
+      <div class="material-visual-243 ${icon}">${svg(icon)}</div>
+      <div class="material-body-243"><span>${esc(type)}</span><b>${esc(x.title || 'Material')}</b><small>${esc(x.subject || x.level || x.description || 'Dars materiali')}</small>${size ? `<em>${esc(size)}</em>` : ''}</div>
+      <button class="ghost-24 compact" data-material-open="${esc(x.file_url || x.url || x.link || '')}">${x.file_url || x.url || x.link ? 'Ochish' : 'Ko‘rish'}</button>
+    </article>`;
+  }
+
+  function homeworkCard(x) {
+    const status = String(x.submission_status || x.status || 'new');
+    const submitted = status.toLowerCase().includes('submit') || status.toLowerCase().includes('topshir');
+    return `<article class="homework-card-243 ${submitted ? 'done' : ''}" data-homework-id="${esc(x.id || '')}">
+      <div class="homework-top-243"><div class="homework-visual-243">${svg('document')}</div><div><span>${esc(x.subject || 'Fan')}</span><b>${esc(x.title || 'Uyga vazifa')}</b><small>Deadline: ${date(x.due_date)}</small></div>${statusPill(status)}</div>
+      <p>${esc(x.description || 'Vazifa tavsifi hali kiritilmagan.')}</p>
+      ${x.attachment_url ? `<a class="learning-link-243" href="${esc(x.attachment_url)}" target="_blank" rel="noopener">Biriktirilgan faylni ochish</a>` : ''}
+      ${x.teacher_note ? `<div class="teacher-note-243"><b>O‘qituvchi izohi</b><span>${esc(x.teacher_note)}</span></div>` : ''}
+      <div class="homework-actions-243"><button class="ghost-24 compact" data-homework-detail="${esc(x.id || '')}">Tafsilot</button><button class="primary-24 compact" data-homework-submit="${esc(x.id || '')}" ${submitted ? 'disabled' : ''}>${submitted ? 'Topshirilgan' : 'Topshirish'}</button></div>
+    </article>`;
+  }
+
+  function testCard(x) {
+    const status = String(x.status || 'published');
+    return `<article class="test-card-243" data-test-id="${esc(x.id || '')}">
+      <div class="test-visual-243">${svg('quiz')}</div>
+      <div class="test-body-243"><span>${esc(x.subject || 'Test')}</span><b>${esc(x.title || 'Test')}</b><small>${esc(x.description || `${x.question_count || 10} savol • ${x.duration_minutes || 15} daqiqa`)}</small><div class="test-meta-243"><em>${esc(x.question_count || 10)} savol</em><em>${esc(x.duration_minutes || 15)} daqiqa</em><em>${esc(status)}</em></div></div>
+      <button class="primary-24 compact" data-test-start="${esc(x.id || '')}">Boshlash</button>
+    </article>`;
+  }
+
+  async function markNotificationRead(id) {
+    if (!id || String(id).startsWith('coin-') || String(id).startsWith('payment-')) return;
+    try { await api(`/api/student-app/notifications/${encodeURIComponent(id).replace(/^notice-/, '')}/read`, { method: 'POST', body: '{}' }); } catch {}
+  }
+
+  async function submitHomework(id) {
+    const ok = await confirmSheet({ title: 'Vazifani topshirasizmi?', message: 'Vazifaga matnli javob yuboriladi. Fayl upload keyingi bosqichda GitHub asset storage orqali ulanadi.', ok: 'Topshirish', icon: 'document' });
+    if (!ok) return;
+    try {
+      await api(`/api/student-app/homework/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ comment: 'Student App orqali topshirildi' }) });
+      toast('Vazifa topshirildi', 'success');
+      await load();
+      homework();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
   function notifications() {
     const items = state.data?.notifications || [];
-    screen.innerHTML = `${header('Bildirishnomalar', 'Dars, to‘lov, coin va tizim xabarlari', true, 'bell')}<div class="tabs-24"><button class="active">Hammasi</button><button>O‘qilmagan</button><button>Muhim</button></div><div class="list-24">${items.map((x) => row(x.title || 'Xabar', x.description || '', date(x.created_at || x.time), 'bell')).join('') || empty('Bildirishnomalar yo‘q', 'bell')}</div>${nav('home')}`;
+    const unread = items.filter((x) => x.unread).length;
+    screen.innerHTML = `${header('Bildirishnomalar', `${unread} ta o‘qilmagan xabar`, true, 'bell')}
+      <div class="tabs-24"><button class="active">Hammasi</button><button>O‘qilmagan</button><button>Coin</button><button>Dars</button></div>
+      <section class="learning-hero-243 notice">${svg('bell')}<div><span>Notification center</span><b>Har bir xabar action bilan</b><p>To‘lov, coin, vazifa, material va dars eslatmalari bitta joyda.</p></div></section>
+      <div class="notice-list-243">${items.map(notificationCard).join('') || empty('Bildirishnomalar yo‘q', 'bell')}</div>${nav('home')}`;
     bindNav();
+    $$('[data-notice-id]').forEach((el) => el.onclick = async () => { await markNotificationRead(el.dataset.noticeId); toast('Xabar ochildi', 'success'); });
   }
 
   function materials() {
     const items = state.data?.materials || state.data?.library || [];
-    screen.innerHTML = `${header('Materiallar', 'PDF, video va dars resurslari', true, 'book')}<div class="tabs-24"><button class="active">Barchasi</button><button>PDF</button><button>Video</button><button>Link</button></div><div class="list-24">${items.map((x) => row(x.title || 'Material', `${String(x.type || 'PDF').toUpperCase()} • ${x.level || x.description || ''}`, x.file_url ? 'Ochish' : 'Ko‘rish', 'book')).join('') || empty('Materiallar hali qo‘shilmagan', 'book')}</div>${nav('home')}`;
+    const pdf = items.filter((x) => String(x.type || x.file_type || '').toLowerCase().includes('pdf')).length;
+    const video = items.filter((x) => String(x.type || x.file_type || '').toLowerCase().includes('video')).length;
+    screen.innerHTML = `${header('Materiallar', 'PDF, video, link va dars resurslari', true, 'book')}
+      <section class="learning-hero-243 materials">${svg('book')}<div><span>Learning Library</span><b>${items.length} ta material</b><p>PDF, video, link va hujjatlar fan bo‘yicha tartiblangan.</p></div></section>
+      <div class="learning-metrics-243"><article><b>${items.length}</b><small>Jami</small></article><article><b>${pdf}</b><small>PDF</small></article><article><b>${video}</b><small>Video</small></article></div>
+      <div class="tabs-24"><button class="active">Barchasi</button><button>PDF</button><button>Video</button><button>Link</button></div>
+      <div class="material-grid-243">${items.map(materialCard).join('') || empty('Materiallar hali qo‘shilmagan', 'book')}</div>${nav('home')}`;
     bindNav();
+    $$('[data-material-open]').forEach((btn) => btn.onclick = () => { const url = btn.dataset.materialOpen; if (url) window.open(url, '_blank', 'noopener'); else toast('Material fayli hali ulanmagan', 'warning'); });
   }
 
   function homework() {
     const hw = state.data?.homework || [];
-    screen.innerHTML = `${header('Uyga vazifa', 'Topshiriqlar va o‘qituvchi izohlari', true, 'document')}<div class="tabs-24"><button class="active">Yangi</button><button>Topshirilgan</button><button>Kechikkan</button></div><div class="list-24">${hw.map((x) => row(x.title || 'Vazifa', `${x.subject || 'Fan'} • Deadline: ${date(x.due_date)}`, x.submission_status || 'Pending', 'document')).join('') || empty('Uyga vazifa yo‘q', 'document')}</div>${nav('home')}`;
+    const pending = hw.filter((x) => !String(x.submission_status || '').toLowerCase().includes('submit')).length;
+    const done = hw.length - pending;
+    screen.innerHTML = `${header('Uyga vazifa', 'Topshiriqlar, deadline va o‘qituvchi izohi', true, 'document')}
+      <section class="learning-hero-243 homework">${svg('document')}<div><span>Homework desk</span><b>${pending} ta topshiriq</b><p>Vazifalarni ko‘ring, faylni oching va topshirish holatini kuzating.</p></div></section>
+      <div class="learning-metrics-243"><article><b>${pending}</b><small>Jarayonda</small></article><article><b>${done}</b><small>Topshirildi</small></article><article><b>${hw.length}</b><small>Jami</small></article></div>
+      <div class="tabs-24"><button class="active">Yangi</button><button>Topshirilgan</button><button>Kechikkan</button></div>
+      <div class="homework-list-243">${hw.map(homeworkCard).join('') || empty('Uyga vazifa yo‘q', 'document')}</div>${nav('home')}`;
     bindNav();
+    $$('[data-homework-submit]').forEach((btn) => btn.onclick = () => submitHomework(btn.dataset.homeworkSubmit));
+    $$('[data-homework-detail]').forEach((btn) => btn.onclick = () => toast('Vazifa tafsilotlari ochildi', 'info'));
   }
 
   function tests() {
     const tests = state.data?.tests || [];
-    screen.innerHTML = `${header('Testlar', 'Savollar, vaqt limiti va natijalar', true, 'quiz')}<div class="list-24">${tests.map((x) => row(x.title || 'Test', x.description || '10 savol • 15 daqiqa', x.status || 'Boshlash', 'quiz')).join('') || empty('Testlar hali yo‘q', 'quiz')}</div>${nav('home')}`;
+    screen.innerHTML = `${header('Testlar', 'Quiz, vaqt limiti va natijalar', true, 'quiz')}
+      <section class="learning-hero-243 tests">${svg('quiz')}<div><span>Test center</span><b>${tests.length} ta test</b><p>Testni boshlang, vaqtni kuzating va natijani ko‘ring.</p></div></section>
+      ${learningProgress('Learning progress', Math.min(100, tests.filter((x)=>String(x.status||'').includes('completed')).length * 20), 100, 'Testlar bo‘yicha umumiy progress')}
+      <div class="test-list-243">${tests.map(testCard).join('') || empty('Testlar hali yo‘q', 'quiz')}</div>${nav('home')}`;
     bindNav();
+    $$('[data-test-start]').forEach((btn) => btn.onclick = () => toast('Test ishlash moduli keyingi amaliy test engine bilan ulanadi', 'info'));
   }
 
   function security() {

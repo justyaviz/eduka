@@ -6267,6 +6267,59 @@ async function handleStudentRewardRedeem(request, response, productId) {
   }
 }
 
+async function handleStudentHomeworkSubmit(request, response, homeworkId) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  const body = await readJsonBody(request);
+  const homework = await session.pool.query(
+    `SELECT * FROM student_homework_tasks
+     WHERE id=$1 AND organization_id=$2 AND status='active'
+       AND (group_id IS NULL OR group_id=$3 OR group_id IN (SELECT group_id FROM group_students WHERE organization_id=$2 AND student_id=$4))
+     LIMIT 1`,
+    [homeworkId, session.row.organization_id, session.row.group_id || null, session.row.id]
+  );
+  if (!homework.rows[0]) {
+    sendJson(response, 404, { ok: false, message: "Vazifa topilmadi yoki sizga biriktirilmagan" });
+    return;
+  }
+  const result = await session.pool.query(
+    `INSERT INTO student_homework_submissions (organization_id, homework_id, student_id, file_url, comment, status, submitted_at)
+     VALUES ($1,$2,$3,$4,$5,'submitted',NOW())
+     ON CONFLICT DO NOTHING
+     RETURNING *`,
+    [session.row.organization_id, homeworkId, session.row.id, asText(body.file_url || body.fileUrl), asText(body.comment || body.answer)]
+  );
+  if (!result.rows[0]) {
+    const existing = await session.pool.query(
+      `UPDATE student_homework_submissions
+       SET file_url=COALESCE($4,file_url), comment=COALESCE($5,comment), status='submitted', submitted_at=NOW()
+       WHERE organization_id=$1 AND homework_id=$2 AND student_id=$3 RETURNING *`,
+      [session.row.organization_id, homeworkId, session.row.id, asText(body.file_url || body.fileUrl), asText(body.comment || body.answer)]
+    );
+    sendJson(response, 200, { ok: true, item: existing.rows[0] || null, message: "Uyga vazifa yangilandi" });
+    return;
+  }
+  try {
+    await session.pool.query(
+      `INSERT INTO student_notifications (organization_id, student_id, title, description, type, status)
+       VALUES ($1,$2,'Uyga vazifa topshirildi',$3,'homework','published')`,
+      [session.row.organization_id, session.row.id, homework.rows[0].title || "Vazifa"]
+    );
+  } catch {}
+  sendJson(response, 201, { ok: true, item: result.rows[0], message: "Uyga vazifa topshirildi" });
+}
+
+async function handleStudentNotificationRead(request, response, notificationId) {
+  const session = await requireStudentAppSession(request, response);
+  if (!session) return;
+  await session.pool.query(
+    `UPDATE student_notifications SET is_read=TRUE
+     WHERE id=$1 AND organization_id=$2 AND (student_id IS NULL OR student_id=$3)`,
+    [notificationId, session.row.organization_id, session.row.id]
+  );
+  sendJson(response, 200, { ok: true, message: "Bildirishnoma o'qildi" });
+}
+
 async function handleStudentAppProfileUpdate(request, response) {
   const session = await requireStudentAppSession(request, response);
   if (!session) return;
@@ -7026,6 +7079,18 @@ const server = http.createServer((request, response) => {
   const studentRewardRedeemMatch = urlPath.match(/^\/api\/student-app\/rewards\/(\d+)\/redeem$/);
   if (studentRewardRedeemMatch && request.method === "POST") {
     handleStudentRewardRedeem(request, response, Number(studentRewardRedeemMatch[1]));
+    return;
+  }
+
+  const studentHomeworkSubmitMatch = urlPath.match(/^\/api\/student-app\/homework\/(\d+)\/submit$/);
+  if (studentHomeworkSubmitMatch && request.method === "POST") {
+    handleStudentHomeworkSubmit(request, response, Number(studentHomeworkSubmitMatch[1]));
+    return;
+  }
+
+  const studentNotificationReadMatch = urlPath.match(/^\/api\/student-app\/notifications\/(\d+)\/read$/);
+  if (studentNotificationReadMatch && request.method === "POST") {
+    handleStudentNotificationRead(request, response, Number(studentNotificationReadMatch[1]));
     return;
   }
 
