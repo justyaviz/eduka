@@ -79,14 +79,15 @@ function aiBotConfig() {
     webhookSecret: env('EDUKA_AI_WEBHOOK_SECRET'),
     webhookUrl: `https://${baseDomain}/api/ai-bot/webhook`,
     supportUsername: env('SUPPORT_TELEGRAM', '@eduka_admin'),
-    aiEnabled: env('AI_ASSISTANT_LLM_ENABLED', 'true') !== 'false',
-    aiProvider: env('AI_ASSISTANT_PROVIDER', 'openai'),
+    aiEnabled: env('AI_ASSISTANT_EXTERNAL_LLM_ENABLED', 'false') === 'true',
+    aiProvider: env('AI_ASSISTANT_PROVIDER', 'local'),
     aiApiKey: env('OPENAI_API_KEY') || env('AI_PROVIDER_API_KEY'),
     aiModel: env('AI_ASSISTANT_MODEL', env('AI_PROVIDER_MODEL', 'gpt-4.1-mini')),
     aiTemperature: Number(env('AI_ASSISTANT_TEMPERATURE', '0.4')),
     aiMaxOutputTokens: Number(env('AI_ASSISTANT_MAX_OUTPUT_TOKENS', '650')),
     aiLanguage: env('AI_ASSISTANT_LANGUAGE', 'uz'),
-    forceLlmFirst: env('AI_ASSISTANT_FORCE_LLM_FIRST', 'true') !== 'false'
+    forceLlmFirst: false,
+    localBrainEnabled: env('AI_ASSISTANT_LOCAL_BRAIN_ENABLED', 'true') !== 'false'
   };
 }
 
@@ -545,6 +546,8 @@ async function getActiveFaqs(pool) {
 }
 
 function shouldUseLlm(config) {
+  // 29.3.2: Pul talab qiladigan tashqi AI endi default ishlamaydi.
+  // Faqat admin maxsus AI_ASSISTANT_EXTERNAL_LLM_ENABLED=true qilsa ulanadi.
   return Boolean(config.aiEnabled && config.aiProvider === 'openai' && config.aiApiKey);
 }
 
@@ -633,118 +636,125 @@ async function generateLlmSalesReply(pool, config, conv, analysis, userText, faq
 }
 
 
-function smartReplyText(config, conv, analysis, faq) {
+function getLocalTopics(input = '', analysis = {}, conv = {}) {
+  const text = normalizeText(input);
+  const topics = new Set([...(analysis.tags || []), ...((conv && conv.interest_tags) || [])]);
+  const addIf = (name, words) => { if (includesAny(text, words)) topics.add(name); };
+  addIf('pricing', ['narx', 'tarif', 'qancha', 'price', 'oyiga', 'pul', 'to‘lov qancha', 'tolov qancha']);
+  addIf('demo', ['demo', 'ko‘rish', 'korish', 'ko‘rsat', 'korsat', 'sinab', 'ulanish']);
+  addIf('student_app', ['student app', 'oquvchi app', 'o‘quvchi app', 'oquvchi kabinet', 'o‘quvchi kabinet', 'ilova']);
+  addIf('parent_app', ['parent', 'ota ona', 'ota-ona', 'farzand', 'ota onalar']);
+  addIf('telegram', ['telegram', 'bot', 'xabar', 'sms', 'notification', 'bildirishnoma']);
+  addIf('payments', ['tolov', 'to‘lov', 'qarz', 'qarzdorlik', 'chek', 'kassa', 'finance', 'kirim', 'chiqim']);
+  addIf('attendance', ['davomat', 'keldi', 'kelmadi', 'kech qoldi', 'attendance']);
+  addIf('gamification', ['coin', 'koin', 'sovga', 'sovg‘a', 'reward', 'rewards', 'gamification', 'reyting', 'yutuq', 'ragbat', 'rag‘bat']);
+  addIf('materials', ['material', 'pdf', 'fayl', 'darslik', 'resurs', 'video']);
+  addIf('homework', ['vazifa', 'uyga vazifa', 'topshiriq', 'test', 'quiz', 'imtihon']);
+  addIf('reports', ['hisobot', 'statistika', 'analytics', 'excel', 'export', 'pdf']);
+  addIf('security', ['xavfsiz', 'parol', 'login', 'kirish', 'session', 'domen', 'student.eduka']);
+  addIf('ceo', ['ceo', 'super admin', 'tarif boshqarish', 'saas', 'obuna', 'invoice']);
+  return [...topics];
+}
+
+function moduleAnswer(topic, memory = {}, config = {}) {
+  const count = memory.student_count ? `Siz aytgan ${memory.student_count} ta o‘quvchi uchun bu modul ayniqsa foydali bo‘ladi.\n\n` : '';
+  const map = {
+    pricing: `Narx markaz hajmi va yoqiladigan modullarga qarab tanlanadi. Eduka’da Start, Pro, Business va Enterprise paketlari bo‘ladi.\n\n${count}Aniq tavsiya uchun 3 ta ma’lumot kerak: o‘quvchilar soni, qaysi modullar kerakligi va asosiy muammo. Masalan: “250 ta o‘quvchi, to‘lov va davomat kerak”.`,
+    demo: `Demo ko‘rsatish mumkin. Demo uchun quyidagi ma’lumotlarni yuboring:\n\n1) Ism-familiya\n2) Telefon raqam\n3) O‘quv markaz nomi\n4) Shahar\n5) O‘quvchilar soni\n\nAvval ism-familiyangizni yozing.`,
+    crm_need: `Eduka CRM o‘quv markazning asosiy ishlarini bitta joyga yig‘adi: talabalar, guruhlar, o‘qituvchilar, dars jadvali, davomat, to‘lov, qarzdorlik, chek/QR va hisobotlar.\n\nEng katta foydasi: administrator Excel va qo‘lda hisob-kitobdan chiqadi, markaz egasi esa real statistikani ko‘radi.`,
+    student_app: `Student App — o‘quvchi uchun mobil kabinet. O‘quvchi dars jadvali, to‘lov holati, davomat, coin, sovg‘alar, reyting, materiallar, uyga vazifa va bildirishnomalarni ko‘radi.\n\nKirish 2 xil bo‘ladi: Telegram bot orqali yoki student.eduka.uz orqali login/parol bilan.`,
+    parent_app: `Parent App ota-onalar uchun. Ota-ona farzandining to‘lov holati, qarzdorligi, davomati, jadvali, vazifalari va bildirishnomalarini ko‘ra oladi.\n\nBu markazga ishonchni oshiradi, chunki ota-ona ma’lumotni administratorga yozmasdan o‘zi kuzatadi.`,
+    telegram: `Telegram notification moduli avtomatik xabar yuboradi: to‘lov qabul qilindi, qarzdorlik eslatmasi, davomat holati, coin berildi, sovg‘a statusi, dars eslatmasi va uyga vazifa.\n\nBu administratorning takroriy yozishmalarini kamaytiradi.`,
+    payments: `To‘lov va qarzdorlik moduli to‘lovlarni tartibga soladi. Admin to‘lov qo‘shadi, chek/QR chiqadi, qarzdorlik avtomatik hisoblanadi va o‘quvchiga Telegram xabar boradi.\n\nFinance Pro’da kassa kirim/chiqim, kunlik kassa yopish va oylik tushum hisobotlari ham bo‘ladi.`,
+    attendance: `Davomat modulida har dars uchun “keldi”, “kelmadi”, “kech qoldi”, “sababli” holatlari belgilanadi.\n\nO‘quvchi Student App’da davomati foizini ko‘radi, ota-ona esa farzandi darsga kelgan-kelmaganini nazorat qila oladi.`,
+    gamification: `Coin va sovg‘alar tizimi Eduka’dagi motivatsiya modulidir. O‘qituvchi yoki admin o‘quvchiga faollik, yaxshi davomat, uyga vazifa yoki yuqori natija uchun coin beradi.\n\nO‘quvchi Student App’da coin balansini ko‘radi, sovg‘alar do‘konidan mahsulot tanlaydi va so‘rov yuboradi. Admin so‘rovni tasdiqlaydi, rad etadi yoki “berildi” deb belgilaydi.`,
+    materials: `Materials modulida o‘qituvchi PDF, video, link yoki fayl yuklaydi. O‘quvchi Student App’da materiallarni fan bo‘yicha ko‘radi va yuklab oladi.\n\nBu darsdan keyingi resurslarni tartibli saqlash uchun kerak.`,
+    homework: `Homework va Tests moduli o‘quv jarayonini kuchaytiradi. O‘qituvchi vazifa beradi, deadline qo‘yadi, o‘quvchi esa fayl/rasm yoki matn orqali topshiradi.\n\nTestlarda savollar, vaqt limiti va natija ko‘rish poydevori bo‘ladi.`,
+    reports: `Hisobotlar modulida moliyaviy hisobot, qarzdorlar, davomat, o‘qituvchi samaradorligi, guruh statistikasi va Excel/PDF export bo‘ladi.\n\nBu markaz egasiga real qaror qabul qilishda yordam beradi.`,
+    security: `Eduka’da kirish rollar bo‘yicha ajratiladi: CEO, admin/owner, o‘qituvchi, o‘quvchi va ota-ona. Student App Telegram token yoki student.eduka.uz login orqali ishlaydi.\n\nSession, logout, token refresh va modul ruxsatlari alohida boshqariladi.`,
+    ceo: `CEO SaaS panel markazlarni boshqarish uchun: tariflar, obuna muddati, feature flags, limitlar, invoice, markazni bloklash/aktivlashtirish va monetizatsiya nazorati.\n\nBu Eduka’ni bitta CRM emas, SaaS biznes sifatida sotish uchun kerak.`
+  };
+  return map[topic] || null;
+}
+
+function smartReplyText(config, conv, analysis, faq, inputText = '') {
   const memory = conv.memory || {};
   const score = Number(conv.lead_score || analysis.score_after || 0);
   const temp = leadTemperature(score);
-  const tags = new Set([...(conv.interest_tags || []), ...(analysis.tags || [])]);
+  const topics = getLocalTopics(inputText, analysis, conv);
   const painText = (analysis.entities.pain_points || []).length
     ? `Siz aytgan muammolar: ${analysis.entities.pain_points.join(', ')}.`
     : '';
 
   if (analysis.intent === 'greeting') {
     return [
-      'Assalomu alaykum! Men <b>Eduka AI Assistant</b>man.',
+      'Assalomu alaykum. Men Eduka AI Assistantman.',
       '',
-      'Men o‘quv markazingiz uchun CRM, Student App, Parent App, Telegram xabarlar, to‘lov, davomat va gamification bo‘yicha maslahat beraman.',
+      'O‘quv markazingiz uchun CRM, Student App, Parent App, Telegram xabarlar, to‘lov, davomat, gamification va hisobotlar bo‘yicha yordam beraman.',
       '',
-      'Masalan yozing: “300 ta o‘quvchim bor, to‘lov va davomatni avtomatlashtirmoqchiman”.'
-    ].join('\n');
-  }
-
-  if (analysis.intent === 'pricing_request') {
-    if (!memory.student_count && !analysis.entities.student_count) {
-      return [
-        'Narx markazingiz hajmiga va kerakli modullarga qarab tanlanadi.',
-        '',
-        'Aniq tavsiya berishim uchun taxminan nechta o‘quvchingiz bor?',
-        '',
-        'Masalan: “150 ta o‘quvchi bor, to‘lov va davomat kerak”.'
-      ].join('\n');
-    }
-    const count = analysis.entities.student_count || memory.student_count;
-    const plan = count >= 500 ? 'Business yoki Enterprise' : count >= 150 ? 'Pro yoki Business' : 'Start yoki Pro';
-    return [
-      `Tushunarli. Taxminan <b>${count}</b> ta o‘quvchi uchun sizga <b>${plan}</b> tarifi mos keladi.`,
-      '',
-      'Eduka orqali siz to‘lov, davomat, qarzdorlik, Telegram xabarlar va Student App’ni bitta joydan boshqarasiz.',
-      '',
-      'Demo ko‘rsatib, markazingizga mos paketni tanlab beraymi?'
+      'Savolingizni yozing. Masalan: “300 ta o‘quvchim bor, to‘lov va davomatni avtomatlashtirmoqchiman”.'
     ].join('\n');
   }
 
   if (analysis.intent === 'demo_request') {
-    return [
-      'Albatta, demo tashkil qilamiz.',
-      '',
-      'Demo uchun quyidagi ma’lumotlarni navbat bilan yuboring:',
-      '1) Ism-familiya',
-      '2) Telefon raqam',
-      '3) O‘quv markaz nomi',
-      '4) Shahar',
-      '5) O‘quvchilar soni',
-      '',
-      'Avval ism-familiyangizni yozing.'
-    ].join('\n');
-  }
-
-  if (analysis.intent === 'crm_need') {
-    return [
-      'Tushundim. Sizga Eduka CRM mos keladi.',
-      painText,
-      '',
-      'Eduka markazda quyidagilarni tartibga soladi:',
-      '• talabalar va guruhlar',
-      '• to‘lov va qarzdorlik',
-      '• davomat va dars jadvali',
-      '• Telegram avtomatik xabarlar',
-      '• Student App va gamification',
-      '',
-      'Aniqroq maslahat berishim uchun nechta o‘quvchingiz bor?'
-    ].filter(Boolean).join('\n');
-  }
-
-  if (analysis.intent === 'gamification_question') {
-    return [
-      'Coin va sovg‘alar tizimi Eduka’dagi gamification modulidir.',
-      '',
-      'O‘qituvchi yoki admin o‘quvchiga faollik, yaxshi davomat, uyga vazifa yoki yuqori natija uchun coin beradi.',
-      'O‘quvchi Student App ichida coin balansini ko‘radi, sovg‘alar do‘konidan mahsulot tanlaydi va so‘rov yuboradi.',
-      '',
-      'Admin so‘rovni tasdiqlaydi, rad etadi yoki “berildi” deb belgilaydi. Bu tizim o‘quvchilar motivatsiyasini oshiradi.'
-    ].join('\n');
+    return moduleAnswer('demo', memory, config);
   }
 
   if (analysis.intent === 'support_request') {
     return operatorText(config);
   }
 
-  if (faq && !config.forceLlmFirst) {
-    return `<b>${faq.title}</b>\n\n${faq.answer}\n\nAgar markazingiz bo‘yicha aniq tavsiya xohlasangiz, o‘quvchilar soni va asosiy muammoingizni yozing.`;
+  if (analysis.intent === 'crm_need') {
+    return [moduleAnswer('crm_need', memory, config), painText, 'Aniqroq maslahat uchun o‘quvchilar sonini va eng katta muammoingizni yozing.'].filter(Boolean).join('\n\n');
   }
 
-  if (tags.size) {
+  // Eng muhim: savolda qaysi modul so‘ralgan bo‘lsa, aynan o‘sha modulga javob beradi.
+  const priority = ['pricing','gamification','student_app','parent_app','payments','attendance','telegram','materials','homework','reports','security','ceo','demo'];
+  for (const topic of priority) {
+    if (topics.includes(topic) || analysis.intent === `${topic}_question`) {
+      const ans = moduleAnswer(topic, memory, config);
+      if (ans) return ans;
+    }
+  }
+
+  if (analysis.intent === 'feature_question') {
     return [
-      'Tushunarli, men sizning so‘rovingizni analiz qildim.',
-      `Qiziqish: <b>${[...tags].join(', ')}</b>.`,
-      `Lead darajasi: <b>${temp}</b>.`,
+      'Eduka quyidagi asosiy qismlardan iborat:',
       '',
-      'Eduka sizga CRM, to‘lov/davomat, Telegram xabarlar va Student App orqali yordam beradi.',
+      '• Admin CRM: talaba, guruh, o‘qituvchi, to‘lov, davomat',
+      '• Student App: jadval, to‘lov, coin, vazifa, materiallar',
+      '• Parent App: ota-ona nazorati',
+      '• Telegram bot: avtomatik xabarlar',
+      '• Finance Pro: kassa, qarzdorlik, hisobot',
+      '• CEO SaaS: tarif, obuna, markazlarni boshqarish',
       '',
-      'Aniq tavsiya uchun o‘quvchilar sonini va qaysi muammo eng muhimligini yozing.'
+      'Qaysi modul sizga qiziq: to‘lov, davomat, Student App yoki gamification?'
+    ].join('\n');
+  }
+
+  if (faq) {
+    return `${faq.title}\n\n${faq.answer}\n\nAgar markazingiz bo‘yicha aniq tavsiya xohlasangiz, o‘quvchilar soni va asosiy muammoingizni yozing.`;
+  }
+
+  if (topics.length) {
+    return [
+      'Tushunarli. Sizning so‘rovingizni quyidagi yo‘nalishlarga ajratdim:',
+      topics.map((t) => `• ${t}`).join('\n'),
+      '',
+      `Lead darajasi: ${temp}.`,
+      '',
+      'Aniq tavsiya berishim uchun o‘quvchilar sonini va hozir eng qiynayotgan muammoni yozing.'
     ].join('\n');
   }
 
   return [
-    'Savolingizni qabul qildim. Men Eduka bo‘yicha AI yordamchiman.',
+    'Tushundim. Men Eduka bo‘yicha avtomatik yordamchiman va o‘quv markaz avtomatlashtirishiga oid savollarga javob beraman.',
     '',
-    'Quyidagilardan birini yozishingiz mumkin:',
-    '• narxlar',
-    '• demo',
-    '• imkoniyatlar',
-    '• student app',
-    '• to‘lov va davomat',
-    '• operator'
+    'Menga savolni biroz aniqroq yozing. Masalan:',
+    '• “To‘lov va qarzdorlik qanday ishlaydi?”',
+    '• “Student App nima qiladi?”',
+    '• “Coin va sovg‘alar tizimi qanday?”',
+    '• “Narxlar qanday?”'
   ].join('\n');
 }
 
@@ -989,7 +999,7 @@ async function processCommandOrText(pool, config, conv, chat, from, text, sendOp
     // Agar AI yoqilgan va API key bor bo‘lsa-yu xato qilsa, eski FAQ'ni ko‘r-ko‘rona yubormaymiz.
     // Faqat AI butunlay sozlanmagan bo‘lsa yoki force=false bo‘lsa fallback ishlaydi.
     const unavailable = config.forceLlmFirst && shouldUseLlm(config) ? llmUnavailableText(config, llmError && llmError.message) : null;
-    reply = unavailable || smartReplyText(config, smartConv, analysis, faq);
+    reply = smartReplyText(config, smartConv, analysis, faq, input);
   }
 
   // Demo niyati aniq bo‘lsa, AI javobidan keyin keyingi xabarni lead formga o‘tkazamiz.
@@ -1247,7 +1257,7 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
 
   if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/llm-status') {
     const config = aiBotConfig();
-    sendJson(response, 200, { ok: true, llm: { enabled: Boolean(config.aiEnabled), provider: config.aiProvider, model: config.aiModel, api_key_configured: Boolean(config.aiApiKey), max_output_tokens: config.aiMaxOutputTokens, language: config.aiLanguage, force_llm_first: config.forceLlmFirst } });
+    sendJson(response, 200, { ok: true, llm: { enabled: false, provider: 'local', model: 'eduka-local-rule-brain-29.3.2', api_key_configured: false, local_brain_enabled: Boolean(config.localBrainEnabled), external_ai_disabled: true, max_output_tokens: 0, language: config.aiLanguage, force_llm_first: false } });
     return true;
   }
 
@@ -1257,7 +1267,7 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
     const fakeConv = { chat_id: 'admin-test', memory: {}, lead_score: 0, interest_tags: [] };
     const analysis = analyzeIntent(body.text || 'Eduka nima?', fakeConv);
     const reply = await generateLlmSalesReply(pool, config, fakeConv, analysis, body.text || 'Eduka nima?', null).catch((error) => null);
-    sendJson(response, 200, { ok: Boolean(reply), reply: reply || smartReplyText(config, fakeConv, analysis, null), llm_used: Boolean(reply), model: config.aiModel });
+    sendJson(response, 200, { ok: true, reply: smartReplyText(config, fakeConv, analysis, null, body.text || 'Eduka nima?'), llm_used: false, model: 'local-rule-brain' });
     return true;
   }
 
