@@ -4,44 +4,62 @@ const DEFAULT_FAQS = [
   {
     key: 'about',
     title: 'Eduka nima?',
-    keywords: ['eduka', 'nima', 'crm', 'platforma', 'haqida'],
+    keywords: ['eduka', 'nima', 'crm', 'platforma', 'haqida', 'tizim', 'avtomatlashtirish'],
     answer: 'Eduka — o‘quv markazlar uchun CRM, Student App, Parent App, Telegram bildirishnomalar, to‘lov, davomat, gamification va hisobotlarni bir joyda boshqaradigan SaaS platforma.'
   },
   {
     key: 'features',
     title: 'Imkoniyatlar',
-    keywords: ['imkoniyat', 'funksiya', 'nimalar', 'modul'],
+    keywords: ['imkoniyat', 'funksiya', 'nimalar', 'modul', 'qila oladi', 'nima bor'],
     answer: 'Eduka imkoniyatlari: talabalar, guruhlar, o‘qituvchilar, dars jadvali, davomat, to‘lovlar, qarzdorlik, chek/QR, Telegram xabar, Student App, Parent App, coin/rewards, hisobotlar va CEO SaaS boshqaruvi.'
   },
   {
     key: 'pricing',
     title: 'Narxlar',
-    keywords: ['narx', 'tarif', 'qancha', 'to‘lov', 'tolov', 'price'],
-    answer: 'Eduka tariflari markaz hajmiga qarab Start, Pro, Business va Enterprise shaklida sozlanadi. Aniq narx uchun demo so‘rov qoldiring — sizga mos paket tavsiya qilamiz.'
+    keywords: ['narx', 'tarif', 'qancha', 'to‘lov', 'tolov', 'price', 'oyiga', 'pul'],
+    answer: 'Eduka tariflari markaz hajmiga qarab Start, Pro, Business va Enterprise shaklida sozlanadi. Aniq narx uchun o‘quvchilar soni va kerakli modullarni yozing — sizga mos paket tavsiya qilamiz.'
   },
   {
     key: 'student_app',
     title: 'Student App',
-    keywords: ['student app', 'o‘quvchi app', 'student', 'ilova'],
+    keywords: ['student app', 'o‘quvchi app', 'oquvchi app', 'student', 'ilova', 'kabinet'],
     answer: 'Student App orqali o‘quvchi dars jadvali, to‘lov holati, davomat, coin, sovg‘alar, reyting, yutuqlar, materiallar, uyga vazifa va bildirishnomalarni ko‘radi.'
   },
   {
     key: 'parent_app',
     title: 'Parent App',
-    keywords: ['parent', 'ota-ona', 'ota ona', 'farzand'],
+    keywords: ['parent', 'ota-ona', 'ota ona', 'farzand', 'ota onalar'],
     answer: 'Parent App ota-onaga farzandining jadvali, to‘lov holati, qarzdorligi, davomati, vazifalari va bildirishnomalarini ko‘rsatish uchun rejalangan modul.'
   },
   {
     key: 'telegram',
     title: 'Telegram xabarlar',
-    keywords: ['telegram', 'bot', 'xabar', 'sms', 'notification'],
+    keywords: ['telegram', 'bot', 'xabar', 'sms', 'notification', 'bildirishnoma'],
     answer: 'Eduka Telegram bot orqali to‘lov, coin, sovg‘a statusi, davomat, dars eslatmasi, qarzdorlik va uyga vazifa xabarlarini yubora oladi.'
+  },
+  {
+    key: 'payments',
+    title: 'To‘lov va qarzdorlik',
+    keywords: ['qarzdorlik', 'qarz', 'tolov', 'to‘lov', 'chek', 'kassa', 'finance'],
+    answer: 'Eduka to‘lovlarni, qarzdorlikni, chek/QRni, kassa kirim-chiqimini va Telegram orqali to‘lov xabarlarini boshqarishga yordam beradi.'
+  },
+  {
+    key: 'attendance',
+    title: 'Davomat',
+    keywords: ['davomat', 'kelmagan', 'keldi', 'darsga kelish', 'attendance'],
+    answer: 'Davomat modulida keldi, kelmadi, kech qoldi va sababli holatlari yuritiladi. O‘quvchi va ota-ona bu ma’lumotlarni ilova yoki Telegram orqali ko‘rishi mumkin.'
+  },
+  {
+    key: 'gamification',
+    title: 'Gamification',
+    keywords: ['coin', 'sovga', 'sovg‘a', 'reyting', 'yutuq', 'gamification', 'ragbat'],
+    answer: 'Gamification modulida o‘qituvchi o‘quvchiga coin beradi, o‘quvchi coin evaziga sovg‘a oladi, reyting va yutuqlar orqali motivatsiya oshadi.'
   },
   {
     key: 'demo',
     title: 'Demo olish',
-    keywords: ['demo', 'ko‘rish', 'korish', 'sinab', 'ulanish'],
-    answer: 'Demo olish uchun “Demo so‘rash” tugmasini bosing. Ism, telefon, markaz nomi, shahar va talabalar sonini qoldirsangiz, operator siz bilan bog‘lanadi.'
+    keywords: ['demo', 'ko‘rish', 'korish', 'sinab', 'ulanish', 'test qilib', 'ko‘rsatib'],
+    answer: 'Demo olish uchun ism, telefon, markaz nomi, shahar va o‘quvchilar sonini qoldiring. Operator siz bilan bog‘lanib, Eduka qanday ishlashini ko‘rsatadi.'
   }
 ];
 
@@ -190,12 +208,39 @@ async function ensureAiAssistantSchema(pool) {
     );
     ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS business_connection_id TEXT;
     ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS is_business_chat BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS memory JSONB NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS lead_score INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS last_intent TEXT;
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS interest_tags TEXT[] NOT NULL DEFAULT '{}';
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS qualified BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE ai_assistant_conversations ADD COLUMN IF NOT EXISTS summary TEXT;
     ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS business_connection_id TEXT;
     ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS business_message_id TEXT;
     ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS is_business_message BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS intent TEXT;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS confidence NUMERIC DEFAULT 0;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS lead_score_delta INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE ai_assistant_messages ADD COLUMN IF NOT EXISTS ai_reason JSONB NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE ai_assistant_leads ADD COLUMN IF NOT EXISTS intent TEXT;
+    ALTER TABLE ai_assistant_leads ADD COLUMN IF NOT EXISTS score INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE ai_assistant_leads ADD COLUMN IF NOT EXISTS interest_tags TEXT[] NOT NULL DEFAULT '{}';
+    ALTER TABLE ai_assistant_leads ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+    CREATE TABLE IF NOT EXISTS ai_assistant_intent_logs (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER,
+      chat_id TEXT,
+      telegram_user_id TEXT,
+      intent TEXT NOT NULL,
+      confidence NUMERIC NOT NULL DEFAULT 0,
+      score_delta INTEGER NOT NULL DEFAULT 0,
+      entities JSONB NOT NULL DEFAULT '{}'::jsonb,
+      suggested_action TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE INDEX IF NOT EXISTS idx_ai_assistant_messages_chat ON ai_assistant_messages(chat_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ai_assistant_messages_business ON ai_assistant_messages(business_connection_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ai_assistant_leads_status ON ai_assistant_leads(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ai_assistant_intent_logs_intent ON ai_assistant_intent_logs(intent, created_at DESC);
   `);
 
   for (const faq of DEFAULT_FAQS) {
@@ -210,8 +255,8 @@ async function ensureAiAssistantSchema(pool) {
 
 async function logMessage(pool, data) {
   await pool.query(
-    `INSERT INTO ai_assistant_messages (chat_id, telegram_user_id, direction, message_type, text, payload, business_connection_id, business_message_id, is_business_message)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
+    `INSERT INTO ai_assistant_messages (chat_id, telegram_user_id, direction, message_type, text, payload, business_connection_id, business_message_id, is_business_message, intent, confidence, lead_score_delta, ai_reason)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13::jsonb)`,
     [
       String(data.chat_id || ''),
       String(data.telegram_user_id || ''),
@@ -221,7 +266,11 @@ async function logMessage(pool, data) {
       JSON.stringify(data.payload || {}),
       data.business_connection_id || null,
       data.business_message_id || null,
-      Boolean(data.is_business_message)
+      Boolean(data.is_business_message),
+      data.intent || null,
+      Number(data.confidence || 0),
+      Number(data.lead_score_delta || 0),
+      JSON.stringify(data.ai_reason || {})
     ]
   );
 }
@@ -309,6 +358,245 @@ async function findFaq(pool, input) {
     if (keywords.some((keyword) => text.includes(normalizeText(keyword)))) return row;
   }
   return null;
+}
+
+
+function includesAny(text, words) {
+  return words.some((word) => text.includes(normalizeText(word)));
+}
+
+function extractEntities(input) {
+  const raw = String(input || '');
+  const text = normalizeText(raw);
+  const phoneMatch = raw.match(/(\+?998[\s\-]?)?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/);
+  const studentCountMatch = raw.match(/(\d{2,5})\s*(ta\s*)?(o['‘`]?quvchi|student|talaba|bola|odam)?/i);
+  const cityMatch = raw.match(/\b(toshkent|tashkent|samarqand|samarkand|buxoro|andijon|farg[‘'`]?ona|fergana|qo[‘'`]?qon|kokand|namangan|qarshi|termiz|jizzax|nukus|urganch|navoiy|guliston)\b/i);
+  const centerMatch = raw.match(/(?:markaz(?:im|imiz)?|o['‘`]?quv markaz(?:i|imiz)?|academy|school|center)\s*(?:nomi)?\s*[:\-]?\s*([A-Za-zА-Яа-я0-9 '\-_.]{3,40})/i);
+  const entities = {};
+  if (phoneMatch) entities.phone = phoneMatch[0].replace(/\s+/g, '');
+  if (studentCountMatch && Number(studentCountMatch[1]) > 5) entities.student_count = Number(studentCountMatch[1]);
+  if (cityMatch) entities.city = cityMatch[0];
+  if (centerMatch) entities.center_name = centerMatch[1].trim();
+  const painPoints = [];
+  if (includesAny(text, ['tolov', 'to‘lov', 'qarz', 'qarzdorlik', 'kassa', 'chek'])) painPoints.push('payments');
+  if (includesAny(text, ['davomat', 'kelmadi', 'darsga kelish', 'attendance'])) painPoints.push('attendance');
+  if (includesAny(text, ['student app', 'oquvchi app', 'o‘quvchi app', 'ilova'])) painPoints.push('student_app');
+  if (includesAny(text, ['ota ona', 'ota-ona', 'parent'])) painPoints.push('parent_app');
+  if (includesAny(text, ['telegram', 'sms', 'xabar', 'notification'])) painPoints.push('telegram');
+  if (includesAny(text, ['coin', 'sovga', 'sovg‘a', 'reyting', 'gamification'])) painPoints.push('gamification');
+  if (includesAny(text, ['hisobot', 'report', 'analitika', 'statistika'])) painPoints.push('reports');
+  entities.pain_points = [...new Set(painPoints)];
+  return entities;
+}
+
+function analyzeIntent(input, conversation = {}) {
+  const text = normalizeText(input);
+  const entities = extractEntities(input);
+  let intent = 'unknown';
+  let confidence = 0.35;
+  let suggested_action = 'answer_with_context';
+  let score_delta = 0;
+  const tags = new Set(entities.pain_points || []);
+
+  if (!text) return { intent, confidence, entities, score_delta, suggested_action, tags: [] };
+  if (text === '/start' || text === '/menu' || includesAny(text, ['salom', 'assalom', 'hello', 'hi'])) {
+    intent = 'greeting'; confidence = 0.88; suggested_action = 'welcome'; score_delta = 2;
+  }
+  if (includesAny(text, ['narx', 'tarif', 'qancha', 'price', 'oyiga', 'pul', 'to‘lov qancha', 'tolov qancha'])) {
+    intent = 'pricing_request'; confidence = 0.9; suggested_action = 'qualify_student_count'; score_delta += 20; tags.add('pricing');
+  }
+  if (includesAny(text, ['demo', 'ko‘rmoqchiman', 'kormoqchiman', 'ko‘rsat', 'korsat', 'sinab', 'ulanish', 'boglanish', 'bog‘lanish'])) {
+    intent = 'demo_request'; confidence = 0.92; suggested_action = 'collect_lead'; score_delta += 30; tags.add('demo');
+  }
+  if (includesAny(text, ['crm kerak', 'crm qidiryapman', 'avtomatlashtirish', 'tizim kerak', 'platforma kerak', 'oquv markazim bor', 'o‘quv markazim bor'])) {
+    intent = 'crm_need'; confidence = 0.86; suggested_action = 'recommend_modules'; score_delta += 30; tags.add('crm_need');
+  }
+  if (includesAny(text, ['nimalar bor', 'imkoniyat', 'funksiya', 'qanday ishlaydi', 'modul'])) {
+    intent = intent === 'unknown' ? 'feature_question' : intent; confidence = Math.max(confidence, 0.78); score_delta += 10;
+  }
+  if (includesAny(text, ['student app', 'o‘quvchi app', 'oquvchi app'])) {
+    intent = 'student_app_question'; confidence = 0.86; score_delta += 12; tags.add('student_app');
+  }
+  if (includesAny(text, ['parent', 'ota ona', 'ota-ona'])) {
+    intent = 'parent_app_question'; confidence = 0.86; score_delta += 10; tags.add('parent_app');
+  }
+  if (includesAny(text, ['operator', 'odam bilan', 'aloqa', 'telefon bering', 'menejer'])) {
+    intent = 'support_request'; confidence = 0.9; suggested_action = 'operator'; score_delta += 20; tags.add('support');
+  }
+  if (entities.phone) { score_delta += 40; suggested_action = 'hot_lead_notify'; }
+  if (entities.student_count) { score_delta += 20; tags.add('has_student_count'); }
+  if (entities.center_name) { score_delta += 15; tags.add('has_center'); }
+  if ((entities.pain_points || []).length >= 2) score_delta += 15;
+  const previousScore = Number(conversation.lead_score || 0);
+  const score_after = Math.max(0, Math.min(100, previousScore + score_delta));
+  return { intent, confidence, entities, score_delta, score_after, suggested_action, tags: [...tags] };
+}
+
+function mergeMemory(memory = {}, analysis = {}, input = '') {
+  const next = { ...(memory || {}) };
+  const entities = analysis.entities || {};
+  if (entities.phone) next.phone = entities.phone;
+  if (entities.student_count) next.student_count = entities.student_count;
+  if (entities.city) next.city = entities.city;
+  if (entities.center_name) next.center_name = entities.center_name;
+  const tags = new Set([...(next.interest_tags || []), ...(analysis.tags || [])]);
+  next.interest_tags = [...tags];
+  next.last_intent = analysis.intent;
+  next.last_message = String(input || '').slice(0, 500);
+  next.updated_at = new Date().toISOString();
+  return next;
+}
+
+function leadTemperature(score) {
+  if (score >= 75) return 'issiq';
+  if (score >= 40) return 'iliq';
+  return 'sovuq';
+}
+
+async function updateConversationIntelligence(pool, conv, analysis, input) {
+  const memory = mergeMemory(conv.memory || {}, analysis, input);
+  const tags = [...new Set([...(conv.interest_tags || []), ...(analysis.tags || []), ...(memory.interest_tags || [])])];
+  const score = Math.max(0, Math.min(100, Number(conv.lead_score || 0) + Number(analysis.score_delta || 0)));
+  const summary = [
+    memory.student_count ? `${memory.student_count} ta o‘quvchi` : '',
+    memory.center_name ? `Markaz: ${memory.center_name}` : '',
+    memory.city ? `Shahar: ${memory.city}` : '',
+    tags.length ? `Qiziqish: ${tags.join(', ')}` : ''
+  ].filter(Boolean).join(' • ');
+  await pool.query(
+    `UPDATE ai_assistant_conversations SET memory=$2::jsonb, lead_score=$3, last_intent=$4, interest_tags=$5, qualified=$6, summary=$7, last_message=$8, updated_at=NOW() WHERE id=$1`,
+    [conv.id, JSON.stringify(memory), score, analysis.intent, tags, score >= 75, summary || null, String(input || '').slice(0, 500)]
+  );
+  await pool.query(
+    `INSERT INTO ai_assistant_intent_logs (conversation_id, chat_id, telegram_user_id, intent, confidence, score_delta, entities, suggested_action)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
+    [conv.id, conv.chat_id, conv.telegram_user_id, analysis.intent, analysis.confidence, analysis.score_delta, JSON.stringify(analysis.entities || {}), analysis.suggested_action]
+  );
+  return { ...conv, memory, lead_score: score, last_intent: analysis.intent, interest_tags: tags, qualified: score >= 75, summary };
+}
+
+function smartReplyText(config, conv, analysis, faq) {
+  const memory = conv.memory || {};
+  const score = Number(conv.lead_score || analysis.score_after || 0);
+  const temp = leadTemperature(score);
+  const tags = new Set([...(conv.interest_tags || []), ...(analysis.tags || [])]);
+  const painText = (analysis.entities.pain_points || []).length
+    ? `Siz aytgan muammolar: ${analysis.entities.pain_points.join(', ')}.`
+    : '';
+
+  if (analysis.intent === 'greeting') {
+    return [
+      'Assalomu alaykum! Men <b>Eduka AI Assistant</b>man.',
+      '',
+      'Men o‘quv markazingiz uchun CRM, Student App, Parent App, Telegram xabarlar, to‘lov, davomat va gamification bo‘yicha maslahat beraman.',
+      '',
+      'Masalan yozing: “300 ta o‘quvchim bor, to‘lov va davomatni avtomatlashtirmoqchiman”.'
+    ].join('\n');
+  }
+
+  if (analysis.intent === 'pricing_request') {
+    if (!memory.student_count && !analysis.entities.student_count) {
+      return [
+        'Narx markazingiz hajmiga va kerakli modullarga qarab tanlanadi.',
+        '',
+        'Aniq tavsiya berishim uchun taxminan nechta o‘quvchingiz bor?',
+        '',
+        'Masalan: “150 ta o‘quvchi bor, to‘lov va davomat kerak”.'
+      ].join('\n');
+    }
+    const count = analysis.entities.student_count || memory.student_count;
+    const plan = count >= 500 ? 'Business yoki Enterprise' : count >= 150 ? 'Pro yoki Business' : 'Start yoki Pro';
+    return [
+      `Tushunarli. Taxminan <b>${count}</b> ta o‘quvchi uchun sizga <b>${plan}</b> tarifi mos keladi.`,
+      '',
+      'Eduka orqali siz to‘lov, davomat, qarzdorlik, Telegram xabarlar va Student App’ni bitta joydan boshqarasiz.',
+      '',
+      'Demo ko‘rsatib, markazingizga mos paketni tanlab beraymi?'
+    ].join('\n');
+  }
+
+  if (analysis.intent === 'demo_request') {
+    return [
+      'Albatta, demo tashkil qilamiz.',
+      '',
+      'Demo uchun quyidagi ma’lumotlarni navbat bilan yuboring:',
+      '1) Ism-familiya',
+      '2) Telefon raqam',
+      '3) O‘quv markaz nomi',
+      '4) Shahar',
+      '5) O‘quvchilar soni',
+      '',
+      'Avval ism-familiyangizni yozing.'
+    ].join('\n');
+  }
+
+  if (analysis.intent === 'crm_need') {
+    return [
+      'Tushundim. Sizga Eduka CRM mos keladi.',
+      painText,
+      '',
+      'Eduka markazda quyidagilarni tartibga soladi:',
+      '• talabalar va guruhlar',
+      '• to‘lov va qarzdorlik',
+      '• davomat va dars jadvali',
+      '• Telegram avtomatik xabarlar',
+      '• Student App va gamification',
+      '',
+      'Aniqroq maslahat berishim uchun nechta o‘quvchingiz bor?'
+    ].filter(Boolean).join('\n');
+  }
+
+  if (analysis.intent === 'support_request') {
+    return operatorText(config);
+  }
+
+  if (faq) {
+    return `<b>${faq.title}</b>\n\n${faq.answer}\n\nAgar markazingiz bo‘yicha aniq tavsiya xohlasangiz, o‘quvchilar soni va asosiy muammoingizni yozing.`;
+  }
+
+  if (tags.size) {
+    return [
+      'Tushunarli, men sizning so‘rovingizni analiz qildim.',
+      `Qiziqish: <b>${[...tags].join(', ')}</b>.`,
+      `Lead darajasi: <b>${temp}</b>.`,
+      '',
+      'Eduka sizga CRM, to‘lov/davomat, Telegram xabarlar va Student App orqali yordam beradi.',
+      '',
+      'Aniq tavsiya uchun o‘quvchilar sonini va qaysi muammo eng muhimligini yozing.'
+    ].join('\n');
+  }
+
+  return [
+    'Savolingizni qabul qildim. Men Eduka bo‘yicha AI yordamchiman.',
+    '',
+    'Quyidagilardan birini yozishingiz mumkin:',
+    '• narxlar',
+    '• demo',
+    '• imkoniyatlar',
+    '• student app',
+    '• to‘lov va davomat',
+    '• operator'
+  ].join('\n');
+}
+
+async function maybeCreateSmartLead(pool, conv, analysis, from) {
+  const memory = conv.memory || {};
+  const score = Number(conv.lead_score || 0);
+  if (score < 75 && !analysis.entities.phone) return null;
+  const existing = await pool.query(
+    `SELECT * FROM ai_assistant_leads WHERE telegram_user_id=$1 AND created_at > NOW() - INTERVAL '14 days' ORDER BY created_at DESC LIMIT 1`,
+    [String(conv.telegram_user_id)]
+  );
+  if (existing.rows[0]) {
+    await pool.query(`UPDATE ai_assistant_leads SET score=$2, intent=$3, interest_tags=$4, ai_summary=$5, updated_at=NOW() WHERE id=$1`, [existing.rows[0].id, score, analysis.intent, conv.interest_tags || [], conv.summary || null]);
+    return existing.rows[0];
+  }
+  const lead = await pool.query(
+    `INSERT INTO ai_assistant_leads (chat_id, telegram_user_id, username, full_name, phone, center_name, city, student_count, notes, intent, score, interest_tags, ai_summary, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'new') RETURNING *`,
+    [conv.chat_id, conv.telegram_user_id, from.username || null, memory.full_name || from.first_name || null, memory.phone || analysis.entities.phone || null, memory.center_name || analysis.entities.center_name || null, memory.city || analysis.entities.city || null, memory.student_count || analysis.entities.student_count || null, JSON.stringify(memory), analysis.intent, score, conv.interest_tags || analysis.tags || [], conv.summary || null]
+  );
+  return lead.rows[0];
 }
 
 function startText() {
@@ -417,9 +705,9 @@ async function handleLeadStep(pool, config, conv, chatId, from, text, sendOption
   if (conv.state === 'lead_students') {
     draft.student_count = clean;
     const leadResult = await pool.query(
-      `INSERT INTO ai_assistant_leads (chat_id, telegram_user_id, username, full_name, phone, center_name, city, student_count, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [String(chatId), String(conv.telegram_user_id), from.username || null, draft.full_name || null, draft.phone || null, draft.center_name || null, draft.city || null, draft.student_count || null, JSON.stringify(draft)]
+      `INSERT INTO ai_assistant_leads (chat_id, telegram_user_id, username, full_name, phone, center_name, city, student_count, notes, intent, score, interest_tags, ai_summary)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [String(chatId), String(conv.telegram_user_id), from.username || null, draft.full_name || null, draft.phone || null, draft.center_name || null, draft.city || null, draft.student_count || null, JSON.stringify(draft), 'demo_request', Math.max(80, Number(conv.lead_score || 0)), conv.interest_tags || ['demo'], 'Demo form orqali qoldirilgan issiq lead']
     );
     await setConversationState(pool, conv.telegram_user_id, 'idle', {});
     await notifyAdmin(pool, config, leadResult.rows[0]);
@@ -436,29 +724,37 @@ async function processCommandOrText(pool, config, conv, chat, from, text, sendOp
     return;
   }
 
-  const normalizedInput = normalizeText(input);
-  const isHello = ['salom', 'assalomu alaykum', 'assalom', 'hello', 'hi'].some((word) => normalizedInput === word || normalizedInput.startsWith(word + ' '));
+  const analysis = analyzeIntent(input, conv);
+  let smartConv = await updateConversationIntelligence(pool, conv, analysis, input);
+  await logMessage(pool, {
+    chat_id: chatId,
+    telegram_user_id: from.id || chat.id,
+    direction: 'ai',
+    message_type: 'intent_analysis',
+    text: `intent=${analysis.intent}; score_delta=${analysis.score_delta}`,
+    payload: { analysis, memory: smartConv.memory, score: smartConv.lead_score },
+    business_connection_id: sendOptions.business_connection_id || null,
+    is_business_message: Boolean(sendOptions.business_connection_id),
+    intent: analysis.intent,
+    confidence: analysis.confidence,
+    lead_score_delta: analysis.score_delta,
+    ai_reason: analysis
+  });
 
-  if (input === '/start' || input === '/menu' || isHello) {
-    await setConversationState(pool, conv.telegram_user_id, 'idle', {});
-    const text = sendOptions.business_connection_id
-      ? `${startText()}\n\nYozishingiz mumkin: demo, narxlar, imkoniyatlar, student app, parent app, operator.`
-      : startText();
-    await sendBotMessage(pool, config, chatId, text, mainMenuKeyboard(), sendOptions);
+  // Demo niyati juda aniq bo‘lsa, lead formni avtomatik boshlaymiz.
+  if (analysis.intent === 'demo_request') {
+    await setConversationState(pool, smartConv.telegram_user_id, 'lead_name', smartConv.memory || {});
+    await sendBotMessage(pool, config, chatId, smartReplyText(config, smartConv, analysis), demoCancelKeyboard(), sendOptions);
     return;
   }
 
   const faq = await findFaq(pool, input);
-  if (faq) {
-    await sendBotMessage(pool, config, chatId, `<b>${faq.title}</b>\n\n${faq.answer}`, mainMenuKeyboard(), sendOptions);
-    return;
+  const reply = smartReplyText(config, smartConv, analysis, faq);
+  const createdLead = await maybeCreateSmartLead(pool, smartConv, analysis, from);
+  if (createdLead && Number(createdLead.score || 0) >= 75) {
+    try { await notifyAdmin(pool, config, createdLead); } catch {}
   }
-
-  await sendBotMessage(pool, config, chatId, [
-    'Savolingizni tushundim. Hozircha men Eduka haqida tayyor ma’lumotlar asosida javob beraman.',
-    '',
-    'Quyidagi bo‘limlardan birini tanlang yoki demo so‘rov qoldiring.'
-  ].join('\n'), mainMenuKeyboard(), sendOptions);
+  await sendBotMessage(pool, config, chatId, reply, mainMenuKeyboard(), sendOptions);
 }
 
 async function processCallback(pool, config, conv, callback) {
@@ -675,6 +971,23 @@ async function handleAdminApi({ request, response, pool, sendJson, readJsonBody,
   if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/business-messages') {
     const result = await pool.query(`SELECT * FROM ai_assistant_messages WHERE is_business_message=TRUE ORDER BY created_at DESC LIMIT 200`);
     sendJson(response, 200, { ok: true, messages: result.rows });
+    return true;
+  }
+
+
+  if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/intelligence') {
+    const [intents, hotLeads, conversations] = await Promise.all([
+      pool.query(`SELECT intent, COUNT(*)::int AS total, ROUND(AVG(confidence)::numeric,2) AS avg_confidence FROM ai_assistant_intent_logs WHERE created_at > NOW() - INTERVAL '7 days' GROUP BY intent ORDER BY total DESC LIMIT 20`).catch(() => ({ rows: [] })),
+      pool.query(`SELECT * FROM ai_assistant_conversations WHERE lead_score >= 60 ORDER BY lead_score DESC, updated_at DESC LIMIT 50`).catch(() => ({ rows: [] })),
+      pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE qualified=TRUE)::int AS qualified, ROUND(AVG(lead_score)::numeric,1) AS avg_score FROM ai_assistant_conversations`).catch(() => ({ rows: [{ total: 0, qualified: 0, avg_score: 0 }] }))
+    ]);
+    sendJson(response, 200, { ok: true, intents: intents.rows, hot_leads: hotLeads.rows, conversations: conversations.rows[0] });
+    return true;
+  }
+
+  if (request.method === 'GET' && urlPath === '/api/app/ai-assistant/conversations') {
+    const result = await pool.query(`SELECT * FROM ai_assistant_conversations ORDER BY lead_score DESC, updated_at DESC LIMIT 150`);
+    sendJson(response, 200, { ok: true, conversations: result.rows });
     return true;
   }
 

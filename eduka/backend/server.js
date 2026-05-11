@@ -7028,7 +7028,7 @@ async function handleProduction26Request(request, response, urlPath) {
         { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
         { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
       ];
-      sendJson(response, 200, { ok: true, data: { version: "29.1.2", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      sendJson(response, 200, { ok: true, data: { version: "29.2.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
       return;
     }
     if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
@@ -7286,7 +7286,7 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "29.1.2",
+      version: "29.2.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });

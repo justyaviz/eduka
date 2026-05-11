@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Eduka AI Assistant</title>
-  <link rel="stylesheet" href="/ai-assistant.css?v=2911" />
+  <link rel="stylesheet" href="/ai-assistant.css?v=2920" />
 </head>
 <body>
   <main class="ai-page">
@@ -20,9 +20,9 @@
     <section class="ai-main">
       <header class="top">
         <div>
-          <p class="eyebrow">Eduka 29.1.1</p>
-          <h1>AI Assistant Bot</h1>
-          <p class="muted">@eduka_aibot uchun lead, demo so‘rov, FAQ, webhook va Telegram Business chat automation boshqaruvi.</p>
+          <p class="eyebrow">Eduka 29.2.0</p>
+          <h1>Real AI Sales Assistant</h1>
+          <p class="muted">@eduka_aibot uchun intent analyzer, lead scoring, memory, smart reply, FAQ va Telegram Business chat automation boshqaruvi.</p>
         </div>
         <div class="actions">
           <button id="setWebhookBtn">Webhook ulash</button>
@@ -33,6 +33,12 @@
       <div class="grid stats" id="statsGrid">
         <div class="card skeleton"></div><div class="card skeleton"></div><div class="card skeleton"></div><div class="card skeleton"></div>
       </div>
+
+      <section class="card">
+        <div class="card-head"><h2>AI Intelligence</h2><span>Intent • Lead scoring • Memory</span></div>
+        <div id="intelligenceGrid" class="grid stats"><div class="card skeleton"></div><div class="card skeleton"></div><div class="card skeleton"></div></div>
+        <div id="hotLeadList" class="list"></div>
+      </section>
 
       <div class="grid two">
         <section class="card">
@@ -59,6 +65,6 @@
     </section>
   </main>
   <div id="toast" class="toast hidden"></div>
-  <script src="/ai-assistant.js?v=2911"></script>
+  <script src="/ai-assistant.js?v=2920"></script>
 </body>
 </html>
