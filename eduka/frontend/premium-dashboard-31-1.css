@@ -1,0 +1,238 @@
+/* Eduka 31.1.0 — Premium CRM Dashboard & Design System */
+:root{
+  --eduka-blue:#1690F5;
+  --eduka-blue-dark:#0B63CE;
+  --eduka-bg:#F4F8FF;
+  --eduka-card:#FFFFFF;
+  --eduka-text:#0F172A;
+  --eduka-muted:#64748B;
+  --eduka-line:#E2E8F0;
+  --eduka-success:#10B981;
+  --eduka-warning:#F59E0B;
+  --eduka-danger:#EF4444;
+  --eduka-radius:28px;
+  --eduka-shadow:0 20px 60px rgba(15,23,42,.10);
+}
+body.eduka-premium-crm{
+  background: radial-gradient(circle at 20% 0%, rgba(22,144,245,.13), transparent 34%),
+              radial-gradient(circle at 90% 15%, rgba(37,99,235,.10), transparent 30%),
+              var(--eduka-bg) !important;
+  color:var(--eduka-text);
+}
+body.eduka-premium-crm .app-shell{background:transparent!important;}
+body.eduka-premium-crm .workspace{background:transparent!important;}
+body.eduka-premium-crm .content{
+  background:transparent!important;
+  padding:28px 34px 54px!important;
+  overflow-x:hidden;
+}
+body.eduka-premium-crm .license-banner{display:none!important;}
+body.eduka-premium-crm .sidebar{
+  width:254px!important;
+  background:linear-gradient(180deg,#081530 0%,#0E2B68 56%,#123F91 100%)!important;
+  border-right:1px solid rgba(255,255,255,.10)!important;
+  box-shadow:12px 0 38px rgba(15,23,42,.14);
+  padding:22px 16px!important;
+}
+body.eduka-premium-crm .sidebar-brand{margin:0 0 18px!important;}
+body.eduka-premium-crm .create-student{
+  border-radius:18px!important;
+  min-height:48px!important;
+  background:linear-gradient(135deg,#1690F5,#0B63CE)!important;
+  box-shadow:0 18px 35px rgba(22,144,245,.28)!important;
+  color:white!important;
+  font-weight:800!important;
+}
+.premium-side-section{margin:14px 0 18px;}
+.premium-side-section h4{
+  margin:0 0 8px 12px;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  color:rgba(255,255,255,.48);
+  font-weight:800;
+}
+body.eduka-premium-crm .side-nav{gap:2px!important;}
+body.eduka-premium-crm .side-nav button,
+.premium-side-section button{
+  width:100%;
+  display:flex!important;
+  align-items:center;
+  gap:10px;
+  border:0!important;
+  border-radius:14px!important;
+  padding:12px 12px!important;
+  color:rgba(255,255,255,.76)!important;
+  background:transparent!important;
+  font-weight:700!important;
+  text-align:left;
+  cursor:pointer;
+}
+.premium-side-section button svg{width:18px;height:18px;stroke-width:2.2;}
+body.eduka-premium-crm .side-nav button.active,
+.premium-side-section button.active{
+  color:#fff!important;
+  background:linear-gradient(135deg,rgba(22,144,245,.95),rgba(20,184,166,.48))!important;
+  box-shadow:0 14px 34px rgba(22,144,245,.24);
+}
+body.eduka-premium-crm .side-subnav,
+body.eduka-premium-crm .sidebar-footer{display:none!important;}
+body.eduka-premium-crm .topbar{
+  height:78px!important;
+  margin:16px 22px 0!important;
+  padding:12px 16px!important;
+  border:1px solid rgba(226,232,240,.9)!important;
+  border-radius:26px!important;
+  background:rgba(255,255,255,.82)!important;
+  backdrop-filter:blur(18px);
+  box-shadow:0 18px 50px rgba(15,23,42,.08)!important;
+  gap:12px!important;
+}
+body.eduka-premium-crm .center-name{
+  min-width:150px;
+  font-size:15px!important;
+  color:var(--eduka-text)!important;
+}
+body.eduka-premium-crm .search-box{
+  max-width:520px!important;
+  border-radius:18px!important;
+  background:#F8FBFF!important;
+  border:1px solid var(--eduka-line)!important;
+  box-shadow:none!important;
+}
+body.eduka-premium-crm .topbar .ghost-icon,
+body.eduka-premium-crm .topbar .lang-button,
+body.eduka-premium-crm .topbar .logout-button,
+body.eduka-premium-crm .topbar .icon-button{
+  border-radius:16px!important;
+  border:1px solid var(--eduka-line)!important;
+  background:#fff!important;
+  color:var(--eduka-text)!important;
+  min-width:44px;
+  min-height:44px;
+}
+body.eduka-premium-crm .topbar .ghost-icon:nth-of-type(n+3){display:none!important;}
+.eduka-premium-dashboard{display:grid;gap:22px;}
+.eduka-premium-hero{
+  position:relative;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);
+  gap:22px;
+  border-radius:34px;
+  padding:30px;
+  background:linear-gradient(135deg,#0B63CE 0%,#1690F5 48%,#54C4FF 100%);
+  box-shadow:0 26px 70px rgba(22,144,245,.24);
+  color:#fff;
+}
+.eduka-premium-hero:before{
+  content:"";
+  position:absolute;
+  inset:auto -80px -160px auto;
+  width:420px;height:420px;
+  border-radius:999px;
+  background:rgba(255,255,255,.16);
+}
+.eduka-premium-hero:after{
+  content:"";
+  position:absolute;
+  inset:-120px auto auto 38%;
+  width:300px;height:300px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+}
+.eduka-premium-hero > *{position:relative;z-index:1;}
+.eduka-premium-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;opacity:.82;margin-bottom:10px;}
+.eduka-premium-hero h1{font-size:34px;line-height:1.08;margin:0 0 10px;font-weight:900;letter-spacing:-.04em;}
+.eduka-premium-hero p{margin:0;color:rgba(255,255,255,.82);font-weight:600;max-width:760px;}
+.eduka-premium-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;}
+.eduka-premium-btn{
+  border:0;
+  border-radius:16px;
+  padding:13px 18px;
+  font-weight:900;
+  cursor:pointer;
+  background:#fff;
+  color:#0B63CE;
+  box-shadow:0 16px 34px rgba(15,23,42,.14);
+}
+.eduka-premium-btn.secondary{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.28);box-shadow:none;}
+.eduka-premium-hero-panel{
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.24);
+  border-radius:26px;
+  padding:18px;
+  backdrop-filter:blur(16px);
+}
+.eduka-premium-hero-panel h3{margin:0 0 12px;font-size:15px;}
+.eduka-premium-hero-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid rgba(255,255,255,.16);}
+.eduka-premium-hero-row:first-of-type{border-top:0;}
+.eduka-premium-hero-row span{opacity:.78;font-weight:700;}
+.eduka-premium-hero-row strong{font-size:18px;}
+.eduka-premium-kpis{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:16px;}
+.eduka-premium-kpi{
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(226,232,240,.92);
+  border-radius:26px;
+  padding:18px;
+  box-shadow:var(--eduka-shadow);
+}
+.eduka-premium-kpi .kpi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.eduka-premium-kpi .kpi-icon{
+  width:42px;height:42px;border-radius:16px;display:grid;place-items:center;
+  background:linear-gradient(135deg,rgba(22,144,245,.13),rgba(22,144,245,.04));
+  color:var(--eduka-blue);
+}
+.eduka-premium-kpi .kpi-icon svg{width:20px;height:20px;}
+.eduka-premium-kpi span{font-size:12px;color:var(--eduka-muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+.eduka-premium-kpi strong{display:block;font-size:28px;line-height:1;font-weight:900;letter-spacing:-.04em;color:var(--eduka-text);}
+.eduka-premium-kpi small{display:block;margin-top:8px;color:var(--eduka-muted);font-weight:700;}
+.eduka-premium-trend{display:inline-flex;align-items:center;border-radius:999px;background:#ECFDF5;color:#047857;font-size:11px;font-weight:900;padding:5px 8px;}
+.eduka-premium-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;}
+.eduka-premium-card{
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(226,232,240,.92);
+  border-radius:30px;
+  box-shadow:var(--eduka-shadow);
+  padding:22px;
+}
+.eduka-premium-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
+.eduka-premium-card-head h2{margin:0;font-size:22px;letter-spacing:-.035em;}
+.eduka-premium-card-head p{margin:4px 0 0;color:var(--eduka-muted);font-weight:600;}
+.eduka-premium-pill{border-radius:999px;padding:7px 11px;background:#EEF6FF;color:#0B63CE;font-size:12px;font-weight:900;}
+.eduka-premium-list{display:grid;gap:12px;}
+.eduka-premium-item{
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;
+  padding:14px;border:1px solid var(--eduka-line);border-radius:20px;background:#fff;
+}
+.eduka-premium-item-icon{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;background:#F1F8FF;color:var(--eduka-blue);}
+.eduka-premium-item-icon svg{width:20px;height:20px;}
+.eduka-premium-item h3{margin:0;font-size:15px;}
+.eduka-premium-item p{margin:3px 0 0;color:var(--eduka-muted);font-size:13px;font-weight:600;}
+.eduka-premium-status{font-size:12px;font-weight:900;padding:7px 10px;border-radius:999px;background:#F1F5F9;color:#334155;white-space:nowrap;}
+.eduka-premium-status.warn{background:#FFF7ED;color:#C2410C;}
+.eduka-premium-status.danger{background:#FEF2F2;color:#B91C1C;}
+.eduka-premium-status.good{background:#ECFDF5;color:#047857;}
+.eduka-premium-actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.eduka-premium-action{
+  border:1px solid var(--eduka-line);
+  border-radius:22px;
+  background:#fff;
+  padding:16px;
+  text-align:left;
+  cursor:pointer;
+  display:grid;
+  gap:10px;
+  font-weight:900;
+  color:var(--eduka-text);
+}
+.eduka-premium-action svg{width:22px;height:22px;color:var(--eduka-blue);}
+.eduka-premium-action small{display:block;color:var(--eduka-muted);font-weight:700;}
+.eduka-premium-empty{border:1px dashed var(--eduka-line);border-radius:22px;padding:22px;color:var(--eduka-muted);font-weight:700;text-align:center;background:#fff;}
+body.eduka-premium-crm #dashboard > :not([data-premium-dashboard]){display:none!important;}
+body.eduka-premium-crm #dashboard [data-crm305-mount],
+body.eduka-premium-crm #dashboard [data-crm30-mount],
+body.eduka-premium-crm #dashboard .crm305-shell{display:none!important;}
+body.eduka-premium-crm #dashboard[data-premium-owned="true"]{display:block!important;}
+@media(max-width:1200px){.eduka-premium-kpis{grid-template-columns:repeat(3,1fr)}.eduka-premium-grid{grid-template-columns:1fr}.eduka-premium-hero{grid-template-columns:1fr}}
+@media(max-width:780px){body.eduka-premium-crm .content{padding:18px 14px 36px!important}.eduka-premium-kpis{grid-template-columns:repeat(2,1fr)}.eduka-premium-hero{padding:22px;border-radius:26px}.eduka-premium-hero h1{font-size:27px}.eduka-premium-actions-grid{grid-template-columns:1fr}}
