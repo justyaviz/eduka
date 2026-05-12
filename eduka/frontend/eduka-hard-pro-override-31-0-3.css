@@ -1,0 +1,35 @@
+/* Eduka 31.0.3 — Hard Pro UI Override
+   Hides legacy dashboard/page content on Pro admin routes so old app.js cannot visually overwrite Pro UI. */
+html.eduka-pro-route body.eduka-hard-pro-active .content > .license-banner {
+  display: none !important;
+}
+
+html.eduka-pro-route body.eduka-hard-pro-active .view#dashboard > :not([data-crm305-mount]),
+html.eduka-pro-route body.eduka-hard-pro-active .view#students > :not([data-crm305-mount]),
+html.eduka-pro-route body.eduka-hard-pro-active .view#teachers > :not([data-crm305-mount]),
+html.eduka-pro-route body.eduka-hard-pro-active .view#groups > :not([data-crm305-mount]),
+html.eduka-pro-route body.eduka-hard-pro-active .view#finance > :not([data-crm305-mount]),
+html.eduka-pro-route body.eduka-hard-pro-active .view#attendance > :not([data-crm305-mount]) {
+  display: none !important;
+}
+
+html.eduka-pro-route body.eduka-hard-pro-active .view#dashboard [data-crm305-mount],
+html.eduka-pro-route body.eduka-hard-pro-active .view#students [data-crm305-mount],
+html.eduka-pro-route body.eduka-hard-pro-active .view#teachers [data-crm305-mount],
+html.eduka-pro-route body.eduka-hard-pro-active .view#groups [data-crm305-mount],
+html.eduka-pro-route body.eduka-hard-pro-active .view#finance [data-crm305-mount],
+html.eduka-pro-route body.eduka-hard-pro-active .view#attendance [data-crm305-mount] {
+  display: block !important;
+  min-height: 420px;
+}
+
+html.eduka-pro-route body.eduka-hard-pro-active .eduka-hard-pro-loading {
+  margin: 18px 0;
+  padding: 26px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(235,246,255,.92));
+  border: 1px solid rgba(148,163,184,.24);
+  box-shadow: 0 22px 70px rgba(15, 23, 42, .08);
+  color: #0f172a;
+  font-weight: 800;
+}
