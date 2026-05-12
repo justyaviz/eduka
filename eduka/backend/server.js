@@ -7559,6 +7559,274 @@ async function handleCrmCorePro30(request, response, urlPath) {
   sendJson(response, 404, { ok: false, message: "CRM Core Pro endpoint topilmadi" });
 }
 
+
+
+// === Eduka 30.5.0 CRM Real Workflow & UX Final ===
+async function ensureCrm305Schema(pool) {
+  await ensureCrmCoreProSchema(pool).catch(() => {});
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS group_students (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    group_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    joined_at DATE DEFAULT CURRENT_DATE,
+    left_at DATE,
+    monthly_price NUMERIC(14,2) DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(organization_id, group_id, student_id)
+  )`);
+  await safeQuery(pool, `ALTER TABLE group_students ADD COLUMN IF NOT EXISTS monthly_price NUMERIC(14,2) DEFAULT 0`);
+  await safeQuery(pool, `ALTER TABLE group_students ADD COLUMN IF NOT EXISTS joined_at DATE DEFAULT CURRENT_DATE`);
+  await safeQuery(pool, `ALTER TABLE group_students ADD COLUMN IF NOT EXISTS left_at DATE`);
+  await safeQuery(pool, `ALTER TABLE groups ADD COLUMN IF NOT EXISTS monthly_price NUMERIC(14,2) DEFAULT 0`);
+  await safeQuery(pool, `ALTER TABLE groups ADD COLUMN IF NOT EXISTS days TEXT`);
+  await safeQuery(pool, `ALTER TABLE groups ADD COLUMN IF NOT EXISTS start_time TIME`);
+  await safeQuery(pool, `ALTER TABLE groups ADD COLUMN IF NOT EXISTS end_time TIME`);
+  await safeQuery(pool, `ALTER TABLE groups ADD COLUMN IF NOT EXISTS room TEXT`);
+  await safeQuery(pool, `ALTER TABLE payments ADD COLUMN IF NOT EXISTS qr_token TEXT`);
+  await safeQuery(pool, `ALTER TABLE payments ADD COLUMN IF NOT EXISTS telegram_sent_at TIMESTAMPTZ`);
+  await safeQuery(pool, `ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_cancelled_at TIMESTAMPTZ`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS crm_payment_plans (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+    group_id BIGINT,
+    monthly_price NUMERIC(14,2) NOT NULL DEFAULT 0,
+    start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    end_date DATE,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS crm_receipt_events (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT,
+    payment_id BIGINT,
+    event TEXT NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await safeQuery(pool, `CREATE TABLE IF NOT EXISTS crm_role_permissions (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT,
+    role TEXT NOT NULL,
+    permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(organization_id, role)
+  )`);
+}
+
+function crm305MonthDiff(startDate, endDate = new Date()) {
+  const start = new Date(startDate || new Date());
+  const end = new Date(endDate || new Date());
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+  if (months < 1) months = 1;
+  return months;
+}
+
+async function crm305RecalculateStudentDebt(pool, organizationId, studentId) {
+  const plans = await pool.query(`SELECT * FROM crm_payment_plans WHERE organization_id=$1 AND student_id=$2 AND status='active'`, [organizationId, studentId]).catch(()=>({rows:[]}));
+  let expected = 0;
+  for (const plan of plans.rows) expected += Number(plan.monthly_price || 0) * crm305MonthDiff(plan.start_date, plan.end_date || new Date());
+  const paid = await pool.query(`SELECT COALESCE(SUM(COALESCE(amount, paid_amount, 0) + COALESCE(discount,0)),0)::numeric AS paid FROM payments WHERE organization_id=$1 AND student_id=$2 AND status <> 'cancelled'`, [organizationId, studentId]).catch(()=>({rows:[{paid:0}]}));
+  let balance = Math.max(Number(expected || 0) - Number(paid.rows[0]?.paid || 0), 0);
+  if (!plans.rows.length) {
+    await recalculateStudentBalance(pool, organizationId, studentId).catch(()=>{});
+    const current = await pool.query(`SELECT COALESCE(balance,0)::numeric AS balance FROM students WHERE organization_id=$1 AND id=$2`, [organizationId, studentId]).catch(()=>({rows:[{balance:0}]}));
+    balance = Number(current.rows[0]?.balance || 0);
+  }
+  await pool.query(`UPDATE students SET balance=$3, status=CASE WHEN $3::numeric > 0 AND COALESCE(status,'active') IN ('active','debtor') THEN 'debtor' WHEN $3::numeric <= 0 AND status='debtor' THEN 'active' ELSE status END WHERE organization_id=$1 AND id=$2`, [organizationId, studentId, balance]).catch(()=>{});
+  return { expected, paid: Number(paid.rows[0]?.paid || 0), balance };
+}
+
+async function handleCrmWorkflow305(request, response, urlPath) {
+  const pool = getDbPool();
+  await ensureCrm305Schema(pool);
+
+  if (request.method === 'GET' && urlPath === '/api/app/crm305/dashboard') {
+    const user = await requireUser(request, response, 'read'); if (!user) return;
+    const overviewReq = { ...request, method: 'GET' };
+    return handleCrmCorePro30(overviewReq, response, '/api/app/crm30/overview');
+  }
+
+  const studentProfile = urlPath.match(/^\/api\/app\/crm305\/students\/(\d+)\/profile$/);
+  if (studentProfile && request.method === 'GET') {
+    const user = await requireUser(request, response, 'students:read'); if (!user) return;
+    const id = Number(studentProfile[1]);
+    await crm305RecalculateStudentDebt(pool, user.organization_id, id).catch(()=>{});
+    const [student, groups, payments, attendance, timeline] = await Promise.all([
+      pool.query(`SELECT s.*, g.name AS group_name, g.monthly_price AS group_price FROM students s LEFT JOIN groups g ON g.id=s.group_id WHERE s.organization_id=$1 AND s.id=$2`, [user.organization_id, id]),
+      pool.query(`SELECT gs.*, g.name, g.course_name, g.days, g.start_time, g.end_time, g.room, g.monthly_price FROM group_students gs LEFT JOIN groups g ON g.id=gs.group_id WHERE gs.organization_id=$1 AND gs.student_id=$2 ORDER BY gs.joined_at DESC`, [user.organization_id, id]).catch(()=>({rows:[]})),
+      pool.query(`SELECT p.*, g.name AS group_name FROM payments p LEFT JOIN groups g ON g.id=p.group_id WHERE p.organization_id=$1 AND p.student_id=$2 ORDER BY COALESCE(p.payment_date, p.paid_at::date, p.created_at::date) DESC, p.id DESC LIMIT 80`, [user.organization_id, id]).catch(()=>({rows:[]})),
+      pool.query(`SELECT ar.*, g.name AS group_name FROM attendance_records ar LEFT JOIN groups g ON g.id=ar.group_id WHERE ar.organization_id=$1 AND ar.student_id=$2 ORDER BY ar.lesson_date DESC LIMIT 90`, [user.organization_id, id]).catch(()=>({rows:[]})),
+      pool.query(`SELECT action, entity, details, created_at FROM crm_core_action_logs WHERE organization_id=$1 AND (entity_id=$2 OR details::text ILIKE $3) ORDER BY created_at DESC LIMIT 50`, [user.organization_id, id, `%${id}%`]).catch(()=>({rows:[]}))
+    ]);
+    if (!student.rows[0]) return sendJson(response, 404, { ok:false, message:'Talaba topilmadi' });
+    const attendanceTotal = attendance.rows.length;
+    const attendanceCame = attendance.rows.filter(x => ['present','late'].includes(String(x.status))).length;
+    sendJson(response, 200, { ok:true, version:'30.5.0', student: student.rows[0], groups: groups.rows, payments: payments.rows, attendance: attendance.rows, timeline: timeline.rows, summary: { attendance_rate: attendanceTotal ? Math.round(attendanceCame / attendanceTotal * 100) : 0, payments_count: payments.rows.length, groups_count: groups.rows.filter(g=>g.status==='active').length, debt: Number(student.rows[0].balance || 0), telegram_linked: Boolean(student.rows[0].telegram_chat_id), student_app_enabled: Boolean(student.rows[0].student_app_enabled) } });
+    return;
+  }
+
+  const assignGroup = urlPath.match(/^\/api\/app\/crm305\/students\/(\d+)\/groups$/);
+  if (assignGroup && request.method === 'POST') {
+    const user = await requireUser(request, response, 'students:write'); if (!user) return;
+    const id = Number(assignGroup[1]);
+    const body = await readJsonBody(request);
+    const groupId = Number(body.group_id || 0);
+    if (!groupId) return sendJson(response, 400, { ok:false, message:'Guruh tanlang' });
+    const group = await pool.query(`SELECT id, name, course_name, COALESCE(monthly_price, price, 0)::numeric AS monthly_price FROM groups WHERE organization_id=$1 AND id=$2`, [user.organization_id, groupId]);
+    if (!group.rows[0]) return sendJson(response, 404, { ok:false, message:'Guruh topilmadi' });
+    const price = Number(body.monthly_price ?? group.rows[0].monthly_price ?? 0);
+    const joinedAt = asDate(body.joined_at) || new Date().toISOString().slice(0,10);
+    await pool.query(`INSERT INTO group_students (organization_id, group_id, student_id, status, joined_at, monthly_price) VALUES ($1,$2,$3,'active',$4,$5) ON CONFLICT (organization_id, group_id, student_id) DO UPDATE SET status='active', left_at=NULL, joined_at=EXCLUDED.joined_at, monthly_price=EXCLUDED.monthly_price`, [user.organization_id, groupId, id, joinedAt, price]);
+    await pool.query(`UPDATE students SET group_id=$3, course_name=COALESCE(NULLIF($4,''), course_name), updated_at=NOW() WHERE organization_id=$1 AND id=$2`, [user.organization_id, id, groupId, group.rows[0].course_name || '']);
+    await pool.query(`INSERT INTO crm_payment_plans (organization_id, student_id, group_id, monthly_price, start_date, status) VALUES ($1,$2,$3,$4,$5,'active')`, [user.organization_id, id, groupId, price, joinedAt]);
+    const debt = await crm305RecalculateStudentDebt(pool, user.organization_id, id);
+    await crm30Log(pool, user, 'assign_group_with_plan', 'students', id, { group_id: groupId, monthly_price: price, joined_at: joinedAt, debt });
+    sendJson(response, 200, { ok:true, message:'Talaba guruhga biriktirildi', group: group.rows[0], debt });
+    return;
+  }
+
+  const removeGroup = urlPath.match(/^\/api\/app\/crm305\/students\/(\d+)\/groups\/(\d+)$/);
+  if (removeGroup && request.method === 'DELETE') {
+    const user = await requireUser(request, response, 'students:write'); if (!user) return;
+    const studentId = Number(removeGroup[1]);
+    const groupId = Number(removeGroup[2]);
+    await pool.query(`UPDATE group_students SET status='left', left_at=CURRENT_DATE WHERE organization_id=$1 AND student_id=$2 AND group_id=$3`, [user.organization_id, studentId, groupId]);
+    await pool.query(`UPDATE crm_payment_plans SET status='inactive', end_date=CURRENT_DATE WHERE organization_id=$1 AND student_id=$2 AND group_id=$3 AND status='active'`, [user.organization_id, studentId, groupId]);
+    const debt = await crm305RecalculateStudentDebt(pool, user.organization_id, studentId);
+    await crm30Log(pool, user, 'remove_group', 'students', studentId, { group_id: groupId, debt });
+    sendJson(response, 200, { ok:true, message:'Talaba guruhdan chiqarildi', debt });
+    return;
+  }
+
+  const archiveStudent = urlPath.match(/^\/api\/app\/crm305\/students\/(\d+)\/(archive|restore)$/);
+  if (archiveStudent && request.method === 'POST') {
+    const user = await requireUser(request, response, 'students:write'); if (!user) return;
+    const id = Number(archiveStudent[1]);
+    const archived = archiveStudent[2] === 'archive';
+    const result = await pool.query(`UPDATE students SET status=$3, archived_at=${archived ? 'NOW()' : 'NULL'}, updated_at=NOW() WHERE organization_id=$1 AND id=$2 RETURNING *`, [user.organization_id, id, archived ? 'archived' : 'active']);
+    await crm30Log(pool, user, archived ? 'archive_student' : 'restore_student', 'students', id, {});
+    sendJson(response, 200, { ok:true, student: result.rows[0] });
+    return;
+  }
+
+  const resetStudentApp = urlPath.match(/^\/api\/app\/crm305\/students\/(\d+)\/app-reset$/);
+  if (resetStudentApp && request.method === 'POST') {
+    const user = await requireUser(request, response, 'students:write'); if (!user) return;
+    const id = Number(resetStudentApp[1]);
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await pool.query(`UPDATE students SET student_app_enabled=TRUE, app_password_set_at=NOW(), metadata=COALESCE(metadata,'{}'::jsonb) || $3::jsonb WHERE organization_id=$1 AND id=$2`, [user.organization_id, id, JSON.stringify({ student_app_code: code })]).catch(async()=>{
+      await safeQuery(pool, `ALTER TABLE students ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`);
+      await pool.query(`UPDATE students SET student_app_enabled=TRUE, app_password_set_at=NOW(), metadata=COALESCE(metadata,'{}'::jsonb) || $3::jsonb WHERE organization_id=$1 AND id=$2`, [user.organization_id, id, JSON.stringify({ student_app_code: code })]);
+    });
+    await crm30Log(pool, user, 'student_app_reset', 'students', id, { code_generated: true });
+    sendJson(response, 200, { ok:true, temporary_code: code, message:'Student App kodi yangilandi' });
+    return;
+  }
+
+  if (request.method === 'POST' && urlPath === '/api/app/crm305/debt-engine/recalculate') {
+    const user = await requireUser(request, response, 'payments:write'); if (!user) return;
+    const body = await readJsonBody(request).catch(()=>({}));
+    const ids = body.student_id ? [{id:Number(body.student_id)}] : (await pool.query(`SELECT id FROM students WHERE organization_id=$1`, [user.organization_id])).rows;
+    const results = [];
+    for (const row of ids) results.push({ student_id: row.id, ...(await crm305RecalculateStudentDebt(pool, user.organization_id, row.id)) });
+    await crm30Log(pool, user, 'debt_engine_recalculate', 'students', body.student_id || null, { count: results.length });
+    sendJson(response, 200, { ok:true, count: results.length, results });
+    return;
+  }
+
+  const receipt = urlPath.match(/^\/api\/app\/crm305\/payments\/(\d+)\/receipt-pro$/);
+  if (receipt && request.method === 'GET') {
+    const user = await requireUser(request, response, 'payments:read'); if (!user) return;
+    const id = Number(receipt[1]);
+    const result = await pool.query(`SELECT p.*, s.full_name AS student_name, s.phone AS student_phone, s.balance AS student_balance, g.name AS group_name, o.name AS organization_name, u.full_name AS admin_name FROM payments p LEFT JOIN students s ON s.id=p.student_id LEFT JOIN groups g ON g.id=p.group_id LEFT JOIN organizations o ON o.id=p.organization_id LEFT JOIN users u ON u.id=p.created_by WHERE p.organization_id=$1 AND p.id=$2`, [user.organization_id, id]).catch(()=>({rows:[]}));
+    if (!result.rows[0]) return sendJson(response, 404, { ok:false, message:'Chek topilmadi' });
+    const r = result.rows[0];
+    const receiptNo = r.receipt_no || `EDK-${user.organization_id}-${id}`;
+    const qrToken = r.qr_token || `receipt_${receiptNo}`;
+    await pool.query(`UPDATE payments SET receipt_no=$3, qr_token=$4 WHERE organization_id=$1 AND id=$2`, [user.organization_id, id, receiptNo, qrToken]).catch(()=>{});
+    const qr_payload = `https://t.me/${process.env.STUDENT_BOT_USERNAME || 'edukauz_bot'}?start=${encodeURIComponent(qrToken)}`;
+    const thermal = [
+      'EDUKA CRM',
+      r.organization_name || 'O\'quv markaz',
+      `Chek №: ${receiptNo}`,
+      `Sana: ${String(r.payment_date || r.paid_at || new Date()).slice(0,10)}`,
+      `Talaba: ${r.student_name || '-'}`,
+      `Guruh: ${r.group_name || '-'}`,
+      `To\'lov turi: ${r.payment_type || '-'}`,
+      `To\'landi: ${crm30Money(r.amount || r.paid_amount).toLocaleString('uz-UZ')} so\'m`,
+      `Qolgan qarzdorlik: ${crm30Money(r.student_balance).toLocaleString('uz-UZ')} so\'m`,
+      `Admin: ${r.admin_name || '-'}`
+    ];
+    sendJson(response, 200, { ok:true, receipt: { ...r, receipt_no: receiptNo, qr_token: qrToken }, qr_payload, thermal });
+    return;
+  }
+
+  const cancelReceipt = urlPath.match(/^\/api\/app\/crm305\/payments\/(\d+)\/cancel$/);
+  if (cancelReceipt && request.method === 'POST') {
+    const user = await requireUser(request, response, 'payments:write'); if (!user) return;
+    const id = Number(cancelReceipt[1]);
+    const body = await readJsonBody(request).catch(()=>({}));
+    const before = await pool.query(`SELECT * FROM payments WHERE organization_id=$1 AND id=$2`, [user.organization_id, id]);
+    if (!before.rows[0]) return sendJson(response, 404, { ok:false, message:'To\'lov topilmadi' });
+    await pool.query(`UPDATE payments SET status='cancelled', cancelled_at=NOW(), cancelled_by=$3, cancel_reason=$4, receipt_cancelled_at=NOW() WHERE organization_id=$1 AND id=$2`, [user.organization_id, id, user.id, asText(body.reason, 'Bekor qilindi')]);
+    await safeQuery(pool, `INSERT INTO finance_cashdesk_entries (organization_id, payment_id, direction, amount, note, created_by) VALUES ($1,$2,'out',$3,$4,$5)`, [user.organization_id, id, crm30Money(before.rows[0].amount || before.rows[0].paid_amount), 'To\'lov bekor qilindi', user.id]);
+    await crm305RecalculateStudentDebt(pool, user.organization_id, before.rows[0].student_id);
+    await crm30Log(pool, user, 'cancel_payment_accounting', 'payments', id, { reason: body.reason || null });
+    sendJson(response, 200, { ok:true, message:'To\'lov bekor qilindi va balans qayta hisoblandi' });
+    return;
+  }
+
+  const attendanceGroup = urlPath.match(/^\/api\/app\/crm305\/attendance\/groups\/(\d+)\/students$/);
+  if (attendanceGroup && request.method === 'GET') {
+    const user = await requireUser(request, response, 'attendance:read'); if (!user) return;
+    const groupId = Number(attendanceGroup[1]);
+    const date = asDate(requestQuery(request).get('date')) || new Date().toISOString().slice(0,10);
+    const students = await pool.query(`SELECT s.id, s.full_name, s.phone, s.avatar_url, COALESCE(ar.status,'present') AS attendance_status, ar.note FROM students s LEFT JOIN attendance_records ar ON ar.organization_id=s.organization_id AND ar.student_id=s.id AND ar.group_id=$2 AND ar.lesson_date=$3 WHERE s.organization_id=$1 AND (s.group_id=$2 OR s.id IN (SELECT student_id FROM group_students WHERE organization_id=$1 AND group_id=$2 AND status='active')) AND COALESCE(s.status,'active') <> 'archived' ORDER BY s.full_name`, [user.organization_id, groupId, date]);
+    sendJson(response, 200, { ok:true, date, students: students.rows });
+    return;
+  }
+
+  if (request.method === 'GET' && urlPath === '/api/app/crm305/export') {
+    const user = await requireUser(request, response, 'read'); if (!user) return;
+    const type = asText(requestQuery(request).get('type'), 'students');
+    const format = asText(requestQuery(request).get('format'), 'csv');
+    const queryMap = {
+      debtors: { sql:`SELECT full_name, phone, balance, status FROM students WHERE organization_id=$1 AND COALESCE(balance,0)>0 ORDER BY balance DESC`, headers:['full_name','phone','balance','status'] },
+      students: { sql:`SELECT id, full_name, phone, parent_phone, course_name, balance, status FROM students WHERE organization_id=$1 ORDER BY id DESC`, headers:['id','full_name','phone','parent_phone','course_name','balance','status'] },
+      payments: { sql:`SELECT p.id, s.full_name AS student, p.amount, p.payment_type, p.status, p.receipt_no, p.payment_date FROM payments p LEFT JOIN students s ON s.id=p.student_id WHERE p.organization_id=$1 ORDER BY p.id DESC`, headers:['id','student','amount','payment_type','status','receipt_no','payment_date'] },
+      attendance: { sql:`SELECT s.full_name AS student, g.name AS group_name, ar.lesson_date, ar.status FROM attendance_records ar LEFT JOIN students s ON s.id=ar.student_id LEFT JOIN groups g ON g.id=ar.group_id WHERE ar.organization_id=$1 ORDER BY ar.lesson_date DESC`, headers:['student','group_name','lesson_date','status'] }
+    };
+    const selected = queryMap[type] || queryMap.students;
+    const result = await pool.query(selected.sql, [user.organization_id]);
+    if (format === 'pdf') {
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Eduka ${type}</title><style>body{font-family:Arial;padding:24px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}th{background:#f3f7ff}</style></head><body><h1>Eduka ${type} hisoboti</h1><table><thead><tr>${selected.headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${result.rows.map(row=>`<tr>${selected.headers.map(h=>`<td>${String(row[h]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+      response.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Content-Disposition':`inline; filename=eduka-${type}.html` });
+      response.end(html);
+      return;
+    }
+    const csv = [selected.headers.join(',')].concat(result.rows.map(row => selected.headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))).join('\n');
+    response.writeHead(200, { 'Content-Type':'text/csv; charset=utf-8', 'Content-Disposition':`attachment; filename=eduka-${type}.csv` });
+    response.end(csv);
+    return;
+  }
+
+  if (request.method === 'GET' && urlPath === '/api/app/crm305/permissions') {
+    const user = await requireUser(request, response, 'read'); if (!user) return;
+    const defaults = {
+      owner:['*'], admin:['students:*','groups:*','teachers:*','payments:*','attendance:*','reports:read'], teacher:['groups:read','attendance:*','students:read'], cashier:['payments:*','students:read','reports:read'], manager:['students:*','groups:read','leads:*']
+    };
+    const rows = await pool.query(`SELECT role, permissions FROM crm_role_permissions WHERE organization_id=$1`, [user.organization_id]).catch(()=>({rows:[]}));
+    sendJson(response, 200, { ok:true, defaults, custom: rows.rows });
+    return;
+  }
+
+  sendJson(response, 404, { ok:false, message:'CRM 30.5 endpoint topilmadi' });
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
