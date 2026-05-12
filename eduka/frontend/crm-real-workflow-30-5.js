@@ -111,4 +111,8 @@
   const obs = new MutationObserver(()=>{ clearTimeout(window.__crm305Timer); window.__crm305Timer=setTimeout(renderActive,80); });
   document.addEventListener('DOMContentLoaded', ()=>{ renderActive(); const main=$('.content'); if(main) obs.observe(main,{subtree:true,attributes:true,attributeFilter:['class']}); });
   window.addEventListener('popstate', ()=>setTimeout(renderActive,80));
+  window.__crm305RenderActive = renderActive;
+  window.__crm305RenderActiveVersion = '30.5.2';
+  window.addEventListener('eduka:legacy-render-complete', () => setTimeout(renderActive, 40));
+  window.addEventListener('eduka:force-pro-render', () => setTimeout(renderActive, 20));
 })();

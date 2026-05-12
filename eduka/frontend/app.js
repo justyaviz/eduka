@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "31.0.1";
+const EDUKA_VERSION = "31.0.2";
 let edukaBootFinished = false;
 function finishBoot() {
   if (edukaBootFinished) return;
@@ -32,6 +32,24 @@ function allowDevelopmentFallback() {
   return devHost && localStorage.getItem("eduka_allow_demo") === "1";
 }
 window.addEventListener("load", () => window.setTimeout(() => { if (!edukaBootFinished) finishBoot(); }, 8000));
+
+function edukaPrimaryProRouteView() {
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  const routeMap = {
+    "/admin/dashboard": "dashboard",
+    "/admin/students": "students",
+    "/admin/teachers": "teachers",
+    "/admin/groups": "groups",
+    "/admin/payments": "finance",
+    "/admin/attendance": "attendance"
+  };
+  return routeMap[path] || null;
+}
+function edukaProRouteOwns(viewName) {
+  return edukaPrimaryProRouteView() === viewName;
+}
+window.edukaPrimaryProRouteView = edukaPrimaryProRouteView;
+window.edukaProRouteOwns = edukaProRouteOwns;
 
 let toastTimer;
 let activeModal = null;
@@ -2334,12 +2352,12 @@ function renderAll() {
   renderAnalytics();
   renderReports();
   renderSubscription();
-  renderCrmDashboard();
-  renderCrmStudents();
-  renderCrmGroups();
-  renderCrmTeachers();
+  if (!edukaProRouteOwns("dashboard")) renderCrmDashboard();
+  if (!edukaProRouteOwns("students")) renderCrmStudents();
+  if (!edukaProRouteOwns("groups")) renderCrmGroups();
+  if (!edukaProRouteOwns("teachers")) renderCrmTeachers();
   renderCrmCourses();
-  renderCrmPayments();
+  if (!edukaProRouteOwns("finance")) renderCrmPayments();
   renderCrmExtraIncomePage();
   renderCrmSalaryPage();
   renderCrmBonusesPage();
@@ -2347,7 +2365,7 @@ function renderAll() {
   renderCrmCashPage();
   renderCrmDebts();
   renderCrmLeads();
-  renderCrmAttendancePage();
+  if (!edukaProRouteOwns("attendance")) renderCrmAttendancePage();
   renderCrmSchedulePage();
   renderCrmReportsPage();
   renderCrmSettingsPage();
