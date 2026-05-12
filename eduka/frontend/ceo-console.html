@@ -3,60 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Eduka CEO Console 29.0</title>
-  <link rel="stylesheet" href="/ceo-console.css?v=22.0.1" />
-<link rel="stylesheet" href="/ceo-billing-pro-25.css?v=27.4.0">
-<link rel="stylesheet" href="/platform-26.css?v=27.4.0">
-  <link rel="stylesheet" href="/platform-27-4.css?v=27.4.0" />
-  <link rel="stylesheet" href="/platform-29.css?v=29.0.0" />
+  <title>Eduka CEO Control Center 32.2</title>
+  <link rel="stylesheet" href="/ceo-control-center-32-2.css?v=32.2.0" />
 </head>
 <body>
-  <div class="ceo-shell">
-    <aside class="ceo-side" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">E</div>
-        <div><b>Eduka CEO</b><span>Platform Control Center</span></div>
-      </div>
-      <nav class="ceo-nav" id="ceoNav">
-        <button data-page="dashboard" class="active"><span>⌂</span>Dashboard</button>
-        <button data-page="centers"><span>▦</span>O‘quv markazlar</button>
-        <button data-page="new-center"><span>＋</span>Yangi markaz</button>
-        <button data-page="plans"><span>◆</span>Tariflar</button>
-        <button data-page="features"><span>☑</span>Ruxsatlar</button>
-        <button data-page="subscriptions"><span>⏱</span>Obunalar</button>
-        <button data-page="billing"><span>₽</span>Billing</button>
-        <button data-page="invoices"><span>▤</span>Invoice</button>
-        <button data-page="support"><span>?</span>Support</button>
-        <button data-page="admins"><span>♙</span>Adminlar</button>
-        <button data-page="audit"><span>⎇</span>Audit log</button>
-        <button data-page="settings"><span>⚙</span>Sozlamalar</button>
-      </nav>
-      <div class="side-foot">
-        <b>v27.4</b><br/>Stable production, reports, payments va PWA final.
-      </div>
-    </aside>
-    <main class="ceo-main">
-      <header class="topbar">
-        <button class="icon" id="menuBtn">☰</button>
-        <div class="titlebox"><h1 id="pageTitle">CEO Dashboard</h1><small id="userLine">Tekshirilmoqda...</small></div>
-        <label class="search"><span>⌕</span><input id="globalSearch" placeholder="Markaz, owner, invoice, support...  Ctrl+K" /></label>
-        <div class="top-actions">
-          <button class="btn ghost" id="notifBtn">Bildirishnomalar</button>
-          <button class="btn ghost" id="refreshBtn">Yangilash</button>
-          <a class="btn ghost" href="/admin/login" target="_blank">Center CRM</a>
-          <button class="btn danger" id="logoutBtn">Chiqish</button>
-        </div>
-      </header>
-      <section class="content" id="appRoot"><div class="notice">Yuklanmoqda...</div></section>
-    </main>
+  <div id="ceoApp" class="ceo-app" data-version="32.2.0">
+    <div class="ceo-boot">
+      <div class="boot-logo">E</div>
+      <b>Eduka CEO Control Center</b>
+      <span>Platforma boshqaruvi yuklanmoqda...</span>
+    </div>
   </div>
-  <div class="drawer" id="drawer"><div class="drawer-head"><b>Natijalar</b><button class="btn ghost" id="drawerClose">✕</button></div><div id="drawerBody"></div></div>
-  <div class="modal" id="modal"><div class="dialog"><div class="dialog-head"><h3 id="modalTitle">Modal</h3><button class="btn ghost" id="modalClose">✕</button></div><div class="dialog-body" id="modalBody"></div></div></div>
-  <div class="toast" id="toast"></div>
-  <script src="/ceo-console.js?v=22.0.1"></script>
-<script src="/ceo-billing-pro-25.js?v=27.4.0"></script>
-<script src="/platform-26.js?v=27.4.0"></script>
-  <script src="/platform-27-4.js?v=27.4.0"></script>
-  <script src="/platform-29.js?v=29.0.0"></script>
+  <div id="ceoToast" class="ceo-toast"></div>
+  <script src="/ceo-control-center-32-2.js?v=32.2.0"></script>
 </body>
 </html>
