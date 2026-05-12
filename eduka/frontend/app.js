@@ -15,17 +15,23 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "22.8.0";
+const EDUKA_VERSION = "31.0.1";
+let edukaBootFinished = false;
 function finishBoot() {
+  if (edukaBootFinished) return;
+  edukaBootFinished = true;
+  document.body.classList.add("app-ready");
+  document.body.dataset.uiReady = "true";
   document.body.classList.remove("is-booting");
-  window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 700);
+  window.dispatchEvent(new Event("eduka:app-ready"));
+  window.setTimeout(() => document.querySelector("[data-boot-loader]")?.remove(), 320);
 }
 function allowDevelopmentFallback() {
   const host = window.location.hostname;
   const devHost = ["localhost", "127.0.0.1", "0.0.0.0"].includes(host);
   return devHost && localStorage.getItem("eduka_allow_demo") === "1";
 }
-window.addEventListener("load", () => window.setTimeout(finishBoot, 650));
+window.addEventListener("load", () => window.setTimeout(() => { if (!edukaBootFinished) finishBoot(); }, 8000));
 
 let toastTimer;
 let activeModal = null;
@@ -1195,6 +1201,7 @@ function showApp(user) {
     ? (isSuperRole(role) ? pathView : "admin-login")
     : (isSuperRole(role) && !window.location.pathname.startsWith("/admin") ? "admin-dashboard" : pathView);
   setView(initialView, { replace: true });
+  window.dispatchEvent(new Event("eduka:route-change"));
   if (isPlatformPath()) return;
   refreshAll();
 }
@@ -1203,6 +1210,7 @@ function showAuth() {
   authScreen.hidden = false;
   appShell.hidden = true;
   closeOnboarding();
+  window.dispatchEvent(new Event("eduka:app-ready"));
 }
 
 const onboardingData = {

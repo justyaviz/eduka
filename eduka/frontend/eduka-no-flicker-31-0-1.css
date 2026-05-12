@@ -1,0 +1,173 @@
+/* Eduka 31.0.1 — No Flicker UI Loader Fix
+   Prevents old admin CRM markup from flashing before the Pro UI scripts finish rendering. */
+:root {
+  --nf-blue: #1690f5;
+  --nf-navy: #0f172a;
+  --nf-line: #dbeafe;
+  --nf-card: rgba(255, 255, 255, 0.92);
+  --nf-shadow: 0 24px 70px rgba(15, 23, 42, 0.14);
+}
+
+body.is-booting {
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef7ff 54%, #ffffff 100%);
+}
+
+body.is-booting [data-auth-screen],
+body.is-booting [data-app-shell] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.eduka-boot-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(22, 144, 245, 0.18), transparent 28%),
+    radial-gradient(circle at 80% 10%, rgba(14, 99, 206, 0.12), transparent 24%),
+    linear-gradient(135deg, #f8fbff 0%, #eef7ff 58%, #ffffff 100%);
+  color: var(--nf-navy);
+  transition: opacity 0.26s ease, visibility 0.26s ease;
+}
+
+body.app-ready .eduka-boot-loader {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.boot-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid rgba(22, 144, 245, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 40px rgba(22, 144, 245, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.boot-logo img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.boot-logo strong {
+  letter-spacing: 0.08em;
+  color: var(--nf-blue);
+}
+
+.boot-orb {
+  width: 74px;
+  height: 74px;
+  margin: 0 auto;
+  position: relative;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #1690f5, #0b63ce);
+  box-shadow: 0 20px 55px rgba(22, 144, 245, 0.34);
+  overflow: hidden;
+}
+
+.boot-orb span {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  animation: edukaBootFloat 1.35s ease-in-out infinite alternate;
+}
+
+.boot-orb span:nth-child(1) { width: 34px; height: 34px; left: 12px; top: 10px; }
+.boot-orb span:nth-child(2) { width: 22px; height: 22px; right: 11px; bottom: 13px; animation-delay: .18s; }
+.boot-orb span:nth-child(3) { width: 10px; height: 10px; left: 19px; bottom: 15px; animation-delay: .34s; }
+
+@keyframes edukaBootFloat {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: .86; }
+  to { transform: translate3d(4px, -6px, 0) scale(1.08); opacity: 1; }
+}
+
+.boot-progress {
+  width: min(260px, 70vw);
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0 auto;
+  background: rgba(22, 144, 245, 0.13);
+}
+
+.boot-progress i {
+  display: block;
+  height: 100%;
+  width: 44%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1690f5, #0b63ce);
+  animation: edukaBootBar 1.05s ease-in-out infinite;
+}
+
+@keyframes edukaBootBar {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(260%); }
+}
+
+/* Admin Pro routes use client-side overlays. Hide old markup until route integration is ready. */
+html.eduka-pro-route body:not(.pro-ui-ready) .workspace .content {
+  position: relative;
+  min-height: 70vh;
+}
+
+html.eduka-pro-route body:not(.pro-ui-ready):not(.is-booting) .workspace .content > .view {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+html.eduka-pro-route body:not(.pro-ui-ready):not(.is-booting) .workspace .content::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  z-index: 30;
+  border-radius: 28px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.75) 48%, rgba(255,255,255,0) 100%) -220px 0 / 220px 100% no-repeat,
+    var(--nf-card);
+  box-shadow: var(--nf-shadow);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  animation: edukaSkeleton 1.18s linear infinite;
+}
+
+html.eduka-pro-route body:not(.pro-ui-ready):not(.is-booting) .workspace .content::after {
+  content: "CRM Pro interfeysi tayyorlanmoqda...";
+  position: absolute;
+  z-index: 31;
+  top: 50px;
+  left: 52px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+@keyframes edukaSkeleton {
+  to { background-position: calc(100% + 220px) 0, 0 0; }
+}
+
+body.pro-ui-ready .workspace .content > .view,
+body.app-ready [data-app-shell],
+body.app-ready [data-auth-screen] {
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-orb span,
+  .boot-progress i,
+  html.eduka-pro-route body:not(.pro-ui-ready):not(.is-booting) .workspace .content::before {
+    animation: none !important;
+  }
+}

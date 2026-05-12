@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eduka CRM 27.4.0 - Stable Production</title>
+    <title>Eduka CRM 31.0.1 - No Flicker UI Loader Fix</title>
+    <script>
+      (function(){
+        var proRoutes=["/admin/dashboard","/admin/students","/admin/teachers","/admin/groups","/admin/payments","/admin/attendance","/admin/crm-core-pro","/admin/operations","/admin/schedule","/admin/daily-operations","/admin/finance-pro"];
+        var path=location.pathname.replace(/\/$/,"")||"/";
+        if(proRoutes.some(function(route){return path===route||path.indexOf(route+"/")===0;})){document.documentElement.classList.add("eduka-pro-route");}
+      })();
+    </script>
+    <style>body.is-booting [data-auth-screen],body.is-booting [data-app-shell]{opacity:0!important;visibility:hidden!important;pointer-events:none!important}</style>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -24,8 +32,9 @@
   <link rel="stylesheet" href="/crm-core-pro-30.css?v=30.0.0" />
   <link rel="stylesheet" href="/crm-real-workflow-30-5.css?v=30.5.0" />
   <link rel="stylesheet" href="/academy-operations-31.css?v=31.0.0" />
+    <link rel="stylesheet" href="/eduka-no-flicker-31-0-1.css?v=31.0.1" />
 </head>
-  <body class="is-booting">
+  <body class="is-booting" data-ui-ready="false">
     <div class="eduka-boot-loader" data-boot-loader>
       <div class="boot-orb"><span></span><span></span><span></span></div>
       <div class="boot-logo"><img src="/assets/logo_icon.webp" alt="" /><strong>EDUKA</strong></div>
@@ -357,5 +366,6 @@
   <script src="/crm-core-pro-30.js?v=30.0.0"></script>
   <script src="/crm-real-workflow-30-5.js?v=30.5.0"></script>
   <script src="/academy-operations-31.js?v=31.0.0"></script>
+    <script src="/eduka-no-flicker-31-0-1.js?v=31.0.1"></script>
 </body>
 </html>
