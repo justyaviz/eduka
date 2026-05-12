@@ -8235,6 +8235,98 @@ async function handlePremiumCrm32(request, response, urlPath) {
   sendJson(response, 404, { ok: false, message: "crm32 endpoint not found" });
 }
 
+
+
+async function ensureLeadSales321(pool) {
+  await pool.query(`CREATE TABLE IF NOT EXISTS leads (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, full_name TEXT, phone TEXT, course_name TEXT, source TEXT DEFAULT 'Instagram', status TEXT DEFAULT 'new', manager_name TEXT, note TEXT, students_count INT, demo_at TIMESTAMPTZ, converted_student_id BIGINT, lost_reason TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lead_followups (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, lead_id BIGINT, title TEXT, note TEXT, due_at TIMESTAMPTZ, status TEXT DEFAULT 'open', created_by BIGINT, created_at TIMESTAMPTZ DEFAULT NOW(), completed_at TIMESTAMPTZ)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS demo_lessons (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, lead_id BIGINT, course_name TEXT, teacher_id BIGINT, group_id BIGINT, demo_at TIMESTAMPTZ, status TEXT DEFAULT 'scheduled', note TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS sales_activity_logs (id BIGSERIAL PRIMARY KEY, organization_id BIGINT, lead_id BIGINT, actor_id BIGINT, action TEXT, payload JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT NOW())`);
+}
+
+async function handleLeadSales321(request, response, urlPath) {
+  const pool = getDbPool();
+  await ensureSchema(pool);
+  await ensureLeadSales321(pool);
+  const user = await requireUser(request, response, 'read');
+  if (!user) return;
+  const orgId = user.organization_id || 1;
+  const query = requestQuery(request);
+  const safeRows = async (sql, params = [], fallback = []) => { try { return (await pool.query(sql, params)).rows; } catch (_) { return fallback; } };
+  const safeOne = async (sql, params = [], fallback = {}) => { const rows = await safeRows(sql, params, []); return rows[0] || fallback; };
+  const log = async (leadId, action, payload = {}) => pool.query(`INSERT INTO sales_activity_logs (organization_id,lead_id,actor_id,action,payload) VALUES ($1,$2,$3,$4,$5::jsonb)`, [orgId, leadId || null, user.id || null, action, JSON.stringify(payload)]).catch(()=>null);
+  try {
+    if (urlPath === '/api/app/sales32/dashboard' && request.method === 'GET') {
+      const search = `%${(query.get('search') || '').trim()}%`;
+      const status = query.get('status') || '';
+      const source = query.get('source') || '';
+      const leads = await safeRows(`SELECT * FROM leads WHERE organization_id=$1 AND ($2='' OR status=$2) AND ($3='' OR source=$3) AND ($4='%%' OR full_name ILIKE $4 OR phone ILIKE $4 OR course_name ILIKE $4) ORDER BY updated_at DESC, id DESC LIMIT 300`, [orgId, status, source, search]);
+      const summary = await safeOne(`SELECT COUNT(*)::int AS total_leads, COUNT(*) FILTER (WHERE status IN ('demo','paid','student'))::int AS hot_leads, COUNT(*) FILTER (WHERE DATE(created_at)=CURRENT_DATE)::int AS new_today, COUNT(*) FILTER (WHERE converted_student_id IS NOT NULL OR status='student')::int AS converted FROM leads WHERE organization_id=$1`, [orgId], { total_leads:0, hot_leads:0, new_today:0, converted:0 });
+      const demo = await safeOne(`SELECT COUNT(*)::int AS demo_lessons FROM demo_lessons WHERE organization_id=$1 AND status='scheduled'`, [orgId], { demo_lessons:0 });
+      const follow = await safeOne(`SELECT COUNT(*)::int AS followups_today FROM lead_followups WHERE organization_id=$1 AND status='open' AND DATE(due_at) <= CURRENT_DATE`, [orgId], { followups_today:0 });
+      summary.demo_lessons = demo.demo_lessons || 0;
+      summary.followups_today = follow.followups_today || 0;
+      summary.conversion_rate = summary.total_leads ? Math.round((summary.converted || 0) * 100 / summary.total_leads) : 0;
+      const followups = await safeRows(`SELECT f.*, l.full_name AS lead_name FROM lead_followups f LEFT JOIN leads l ON l.id=f.lead_id WHERE f.organization_id=$1 AND f.status='open' ORDER BY f.due_at NULLS LAST, f.id DESC LIMIT 50`, [orgId]);
+      sendJson(response, 200, { ok:true, version:'32.1.0', summary, leads, followups }); return;
+    }
+    if (urlPath === '/api/app/sales32/leads' && request.method === 'POST') {
+      const body = await readJsonBody(request).catch(()=>({}));
+      const lead = await pool.query(`INSERT INTO leads (organization_id,full_name,phone,course_name,source,status,manager_name,note,students_count,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) RETURNING *`, [orgId, body.full_name || body.name || 'Nomsiz lead', body.phone || null, body.course_name || null, body.source || 'Instagram', body.status || 'new', body.manager_name || null, body.note || null, body.students_count || null]);
+      await log(lead.rows[0].id, 'lead.create', body);
+      sendJson(response, 201, { ok:true, lead: lead.rows[0] }); return;
+    }
+    const next = urlPath.match(/^\/api\/app\/sales32\/leads\/(\d+)\/next$/);
+    if (next && request.method === 'POST') {
+      const id = Number(next[1]);
+      const current = await safeOne(`SELECT status FROM leads WHERE organization_id=$1 AND id=$2`, [orgId, id], { status:'new' });
+      const flow = ['new','contacted','interested','demo','paid','student'];
+      const nextStatus = flow[Math.min(flow.indexOf(current.status || 'new') + 1, flow.length-1)] || 'contacted';
+      const row = await pool.query(`UPDATE leads SET status=$3, updated_at=NOW() WHERE organization_id=$1 AND id=$2 RETURNING *`, [orgId, id, nextStatus]);
+      await log(id, 'lead.next', { status: nextStatus });
+      sendJson(response, 200, { ok:true, lead: row.rows[0] }); return;
+    }
+    const demo = urlPath.match(/^\/api\/app\/sales32\/leads\/(\d+)\/demo$/);
+    if (demo && request.method === 'POST') {
+      const id = Number(demo[1]); const body = await readJsonBody(request).catch(()=>({}));
+      const lead = await safeOne(`SELECT * FROM leads WHERE organization_id=$1 AND id=$2`, [orgId, id], null);
+      if (!lead) return sendJson(response, 404, { ok:false, message:'Lead topilmadi' });
+      const demoAt = body.demo_at || new Date(Date.now() + 24*3600*1000).toISOString();
+      const row = await pool.query(`INSERT INTO demo_lessons (organization_id,lead_id,course_name,demo_at,note,status) VALUES ($1,$2,$3,$4,$5,'scheduled') RETURNING *`, [orgId, id, body.course_name || lead.course_name || null, demoAt, body.note || null]);
+      await pool.query(`UPDATE leads SET status='demo', demo_at=$3, updated_at=NOW() WHERE organization_id=$1 AND id=$2`, [orgId, id, demoAt]);
+      await log(id, 'demo.schedule', row.rows[0]);
+      sendJson(response, 201, { ok:true, demo: row.rows[0] }); return;
+    }
+    const convert = urlPath.match(/^\/api\/app\/sales32\/leads\/(\d+)\/convert$/);
+    if (convert && request.method === 'POST') {
+      const id = Number(convert[1]);
+      const lead = await safeOne(`SELECT * FROM leads WHERE organization_id=$1 AND id=$2`, [orgId, id], null);
+      if (!lead) return sendJson(response, 404, { ok:false, message:'Lead topilmadi' });
+      let studentId = lead.converted_student_id;
+      if (!studentId) {
+        const row = await pool.query(`INSERT INTO students (organization_id,full_name,phone,course_name,status,created_at,updated_at) VALUES ($1,$2,$3,$4,'active',NOW(),NOW()) RETURNING id`, [orgId, lead.full_name || 'Yangi talaba', lead.phone || null, lead.course_name || null]).catch(async()=>({rows:[]}));
+        studentId = row.rows[0]?.id || null;
+      }
+      await pool.query(`UPDATE leads SET status='student', converted_student_id=$3, updated_at=NOW() WHERE organization_id=$1 AND id=$2`, [orgId, id, studentId]);
+      await log(id, 'lead.convert', { student_id: studentId });
+      sendJson(response, 200, { ok:true, student_id: studentId }); return;
+    }
+    const taskDone = urlPath.match(/^\/api\/app\/sales32\/tasks\/(\d+)\/done$/);
+    if (taskDone && request.method === 'POST') {
+      const id = Number(taskDone[1]);
+      await pool.query(`UPDATE lead_followups SET status='done', completed_at=NOW() WHERE organization_id=$1 AND id=$2`, [orgId, id]);
+      sendJson(response, 200, { ok:true }); return;
+    }
+    if (urlPath === '/api/app/sales32/export' && request.method === 'GET') {
+      const rows = await safeRows(`SELECT id,full_name,phone,course_name,source,status,manager_name,created_at FROM leads WHERE organization_id=$1 ORDER BY id DESC`, [orgId]);
+      const header = ['id','full_name','phone','course_name','source','status','manager_name','created_at'];
+      const csv = [header.join(','), ...rows.map(r=>header.map(k=>`"${String(r[k] ?? '').replace(/"/g,'""')}"`).join(','))].join('\n');
+      response.writeHead(200, { 'Content-Type':'text/csv; charset=utf-8', 'Content-Disposition':'attachment; filename="eduka-leads.csv"' }); response.end(csv); return;
+    }
+    sendJson(response, 404, { ok:false, message:'Sales CRM endpoint topilmadi' });
+  } catch (error) { withError(response, 'Lead Sales CRM 32.1', error); }
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -9101,6 +9193,12 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+
+
+  if (urlPath.startsWith("/api/app/sales32/")) {
+    await handleLeadSales321(request, response, urlPath);
+    return;
+  }
 
   if (urlPath.startsWith("/api/app/crm32/")) {
     await handlePremiumCrm32(request, response, urlPath);
