@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eduka CRM — Admin Dashboard Pro</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
+    <link rel="stylesheet" href="/admin-dashboard-pro-32-2-1.css?v=32.2.1" />
+  </head>
+  <body>
+    <div class="eduka-admin-app" data-dashboard-root>
+      <aside class="eduka-sidebar" aria-label="Admin menyu">
+        <a class="eduka-brand" href="/admin/dashboard" aria-label="Eduka dashboard">
+          <span class="eduka-brand-mark"><img src="/assets/logo_icon.webp" alt="" /></span>
+          <span><strong>EDUKA</strong><small>CRM Pro</small></span>
+        </a>
+        <a class="eduka-primary-action" href="/admin/students?action=create">+ Talaba yaratish</a>
+        <nav class="eduka-nav">
+          <p>Asosiy</p>
+          <a class="active" href="/admin/dashboard" data-icon="dashboard">Dashboard</a>
+          <a href="/admin/students" data-icon="students">Talabalar</a>
+          <a href="/admin/groups" data-icon="groups">Guruhlar</a>
+          <a href="/admin/teachers" data-icon="teachers">O‘qituvchilar</a>
+          <a href="/admin/schedule" data-icon="schedule">Dars jadvali</a>
+          <a href="/admin/attendance" data-icon="attendance">Davomat</a>
+          <p>Moliya</p>
+          <a href="/admin/payments" data-icon="payments">To‘lovlar</a>
+          <a href="/admin/debts" data-icon="debts">Qarzdorlik</a>
+          <a href="/admin/finance-pro" data-icon="cash">Kassa</a>
+          <a href="/admin/reports" data-icon="reports">Hisobotlar</a>
+          <p>Sotuv</p>
+          <a href="/admin/leads" data-icon="leads">Leadlar</a>
+          <a href="/admin/demo-lessons" data-icon="demo">Demo darslar</a>
+          <p>Platforma</p>
+          <a href="/admin/gamification" data-icon="gift">Gamification</a>
+          <a href="/admin/settings" data-icon="settings">Sozlamalar</a>
+        </nav>
+      </aside>
+
+      <div class="eduka-workspace">
+        <header class="eduka-topbar">
+          <button class="eduka-mobile-menu" type="button" data-mobile-menu aria-label="Menyuni ochish">☰</button>
+          <label class="eduka-search"><span>Qidiruv</span><input type="search" placeholder="Talaba, telefon, guruh, to‘lov..." data-global-search /></label>
+          <div class="eduka-center-pill"><span data-center-avatar>E</span><div><small>O‘quv markaz</small><strong data-center-name>Eduka CRM</strong></div></div>
+          <button class="eduka-icon-btn" type="button" data-refresh>Yangilash</button>
+          <button class="eduka-profile-btn" type="button" data-logout>Chiqish</button>
+        </header>
+
+        <main class="eduka-content">
+          <section class="eduka-hero">
+            <div>
+              <span class="eduka-eyebrow">Admin Dashboard Pro</span>
+              <h1>Bugungi markaz holati</h1>
+              <p>Bugungi darslar, tushum, qarzdorlik va shoshilinch ishlar bitta joyda.</p>
+              <div class="eduka-hero-actions">
+                <a href="/admin/students?action=create">Talaba qo‘shish</a>
+                <a href="/admin/payments?action=create" class="ghost">To‘lov qo‘shish</a>
+              </div>
+            </div>
+            <div class="eduka-hero-card">
+              <span>Bugungi tushum</span>
+              <strong data-kpi="todayRevenue">0 so‘m</strong>
+              <small data-kpi="todayRevenueHint">Ma’lumot yuklanmoqda...</small>
+            </div>
+          </section>
+
+          <section class="eduka-kpi-grid" data-kpi-grid>
+            <article><span>Jami talabalar</span><strong data-kpi="students">—</strong><small data-kpi="studentsHint">Faol talabalar</small></article>
+            <article><span>Bugungi darslar</span><strong data-kpi="lessons">—</strong><small data-kpi="lessonsHint">Jadval asosida</small></article>
+            <article><span>Qarzdorlar</span><strong data-kpi="debtors">—</strong><small data-kpi="debtorsHint">Nazorat kerak</small></article>
+            <article><span>Davomat</span><strong data-kpi="attendance">—</strong><small data-kpi="attendanceHint">Bugungi foiz</small></article>
+            <article><span>Faol guruhlar</span><strong data-kpi="groups">—</strong><small data-kpi="groupsHint">O‘quv jarayoni</small></article>
+            <article><span>Yangi leadlar</span><strong data-kpi="leads">—</strong><small data-kpi="leadsHint">Sotuv kanali</small></article>
+          </section>
+
+          <section class="eduka-dashboard-grid">
+            <article class="eduka-panel eduka-panel-large">
+              <div class="eduka-panel-head"><div><span>Today operations</span><h2>Bugungi darslar</h2></div><a href="/admin/attendance">Davomatga o‘tish</a></div>
+              <div class="eduka-list" data-today-lessons>
+                <div class="eduka-skeleton"></div><div class="eduka-skeleton short"></div><div class="eduka-skeleton"></div>
+              </div>
+            </article>
+            <article class="eduka-panel">
+              <div class="eduka-panel-head"><div><span>Action center</span><h2>Shoshilinch ishlar</h2></div><a href="/admin/reports">Hisobot</a></div>
+              <div class="eduka-action-list" data-action-center>
+                <div class="eduka-alert muted">Ma’lumotlar yuklanmoqda...</div>
+              </div>
+            </article>
+          </section>
+
+          <section class="eduka-dashboard-grid second">
+            <article class="eduka-panel">
+              <div class="eduka-panel-head"><div><span>Moliya</span><h2>To‘lovlar holati</h2></div><a href="/admin/payments">To‘lovlar</a></div>
+              <div class="eduka-money-list" data-payments-summary></div>
+            </article>
+            <article class="eduka-panel">
+              <div class="eduka-panel-head"><div><span>Tezkor amallar</span><h2>Action shortcuts</h2></div></div>
+              <div class="eduka-shortcuts">
+                <a href="/admin/students?action=create">Talaba qo‘shish</a>
+                <a href="/admin/groups?action=create">Guruh yaratish</a>
+                <a href="/admin/payments?action=create">To‘lov qo‘shish</a>
+                <a href="/admin/schedule?action=create">Dars jadvali</a>
+              </div>
+            </article>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script src="/admin-dashboard-pro-32-2-1.js?v=32.2.1" defer></script>
+  </body>
+</html>

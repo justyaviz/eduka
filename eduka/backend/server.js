@@ -920,7 +920,7 @@ function sendFile(response, filePath) {
     const headers = {
       "Content-Type": contentType,
       "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "25.3.0"
+      "X-Eduka-Version": "32.2.1"
     };
     if (noCache) {
       headers.Pragma = "no-cache";
@@ -941,6 +941,10 @@ function sendRedirect(response, location) {
 
 function sendAppShell(response) {
   sendFile(response, path.join(root, "app.html"));
+}
+
+function sendAdminDashboardProShell(response) {
+  sendFile(response, path.join(root, "admin-dashboard-pro-32-2-1.html"));
 }
 
 function sendCeoLoginShell(response) {
@@ -9252,6 +9256,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && (urlPath === "/app" || urlPath.startsWith("/app/"))) {
     sendStudentAppShell(response);
+    return;
+  }
+
+  if (request.method === "GET" && (urlPath === "/admin/dashboard" || urlPath === "/dashboard")) {
+    sendAdminDashboardProShell(response);
     return;
   }
 
