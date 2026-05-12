@@ -7028,7 +7028,7 @@ async function handleProduction26Request(request, response, urlPath) {
         { name: "Telegram Bot", state: process.env.STUDENT_BOT_TOKEN ? "ready" : "warn", note: process.env.STUDENT_BOT_TOKEN ? "Token configured" : "STUDENT_BOT_TOKEN kiritilmagan" },
         { name: "PostgreSQL", state: process.env.DATABASE_URL ? "ready" : "warn", note: process.env.DATABASE_URL ? "DATABASE_URL mavjud" : "DATABASE_URL yo'q" }
       ];
-      sendJson(response, 200, { ok: true, data: { version: "29.3.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
+      sendJson(response, 200, { ok: true, data: { version: "31.0.0", database: Boolean(process.env.DATABASE_URL), modules: 12, checks } });
       return;
     }
     if (request.method === "POST" && urlPath === "/api/pwa/install-event") {
@@ -7827,6 +7827,310 @@ async function handleCrmWorkflow305(request, response, urlPath) {
   sendJson(response, 404, { ok:false, message:'CRM 30.5 endpoint topilmadi' });
 }
 
+
+// === Eduka 31.0 Academy Operations Pro ===
+function ops31ParseTimeToMinutes(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function ops31DayOfWeek(dateValue) {
+  const d = new Date(dateValue || Date.now());
+  const day = d.getDay();
+  return day === 0 ? 7 : day;
+}
+
+async function ensureAcademyOperations31Schema(pool) {
+  await ensureCrmCoreProSchema(pool);
+  await pool.query(`ALTER TABLE groups ADD COLUMN IF NOT EXISTS room_id BIGINT`);
+  await pool.query(`ALTER TABLE groups ADD COLUMN IF NOT EXISTS schedule_days TEXT[] DEFAULT '{}'::text[]`);
+  await pool.query(`ALTER TABLE groups ADD COLUMN IF NOT EXISTS start_time TEXT`);
+  await pool.query(`ALTER TABLE groups ADD COLUMN IF NOT EXISTS end_time TEXT`);
+  await pool.query(`ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS lesson_instance_id BIGINT`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS academy_rooms (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    name TEXT NOT NULL,
+    capacity INT NOT NULL DEFAULT 0,
+    branch TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS academy_schedule_slots (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    group_id BIGINT NOT NULL,
+    teacher_id BIGINT,
+    room_id BIGINT,
+    weekday INT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_academy_schedule_org_weekday ON academy_schedule_slots(organization_id, weekday)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS academy_lesson_instances (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    schedule_slot_id BIGINT,
+    group_id BIGINT NOT NULL,
+    teacher_id BIGINT,
+    room_id BIGINT,
+    lesson_date DATE NOT NULL,
+    start_time TEXT,
+    end_time TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attendance_saved_at TIMESTAMPTZ,
+    summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (organization_id, group_id, lesson_date, start_time)
+  )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_academy_lessons_org_date ON academy_lesson_instances(organization_id, lesson_date)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS teacher_lesson_reports (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    lesson_instance_id BIGINT,
+    teacher_id BIGINT,
+    group_id BIGINT,
+    report_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    topic TEXT,
+    homework TEXT,
+    note TEXT,
+    attendance_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_by BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS academy_operations_logs (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT,
+    user_id BIGINT,
+    action TEXT NOT NULL,
+    entity TEXT,
+    entity_id BIGINT,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+}
+
+async function ops31Log(pool, user, action, entity, entityId, details = {}) {
+  try {
+    await pool.query(`INSERT INTO academy_operations_logs (organization_id,user_id,action,entity,entity_id,details) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`, [user.organization_id, user.id, action, entity, entityId || null, JSON.stringify(details || {})]);
+  } catch (_) {}
+}
+
+async function ops31BuildLessonsForDate(pool, organizationId, dateValue) {
+  const weekday = ops31DayOfWeek(dateValue);
+  const date = asDate(dateValue) || new Date().toISOString().slice(0, 10);
+  const slots = await pool.query(`SELECT ss.*, g.name AS group_name, g.price AS group_price, t.full_name AS teacher_name, r.name AS room_name
+    FROM academy_schedule_slots ss
+    LEFT JOIN groups g ON g.id=ss.group_id
+    LEFT JOIN teachers t ON t.id=ss.teacher_id
+    LEFT JOIN academy_rooms r ON r.id=ss.room_id
+    WHERE ss.organization_id=$1 AND ss.weekday=$2 AND ss.status='active'
+    ORDER BY ss.start_time`, [organizationId, weekday]).catch(()=>({ rows: [] }));
+  const lessons = [];
+  for (const slot of slots.rows) {
+    const inserted = await pool.query(`INSERT INTO academy_lesson_instances (organization_id,schedule_slot_id,group_id,teacher_id,room_id,lesson_date,start_time,end_time,status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending')
+      ON CONFLICT (organization_id, group_id, lesson_date, start_time) DO UPDATE SET schedule_slot_id=EXCLUDED.schedule_slot_id, teacher_id=EXCLUDED.teacher_id, room_id=EXCLUDED.room_id, end_time=EXCLUDED.end_time, updated_at=NOW()
+      RETURNING *`, [organizationId, slot.id, slot.group_id, slot.teacher_id, slot.room_id, date, slot.start_time, slot.end_time]).catch(()=>({ rows: [] }));
+    lessons.push({ ...slot, lesson: inserted.rows[0] || null });
+  }
+  return lessons;
+}
+
+async function ops31FindConflicts(pool, organizationId, { weekday, start_time, end_time, teacher_id, room_id, exclude_id }) {
+  const start = ops31ParseTimeToMinutes(start_time);
+  const end = ops31ParseTimeToMinutes(end_time);
+  if (start === null || end === null) return [];
+  const rows = await pool.query(`SELECT ss.*, g.name AS group_name, t.full_name AS teacher_name, r.name AS room_name
+    FROM academy_schedule_slots ss
+    LEFT JOIN groups g ON g.id=ss.group_id
+    LEFT JOIN teachers t ON t.id=ss.teacher_id
+    LEFT JOIN academy_rooms r ON r.id=ss.room_id
+    WHERE ss.organization_id=$1 AND ss.weekday=$2 AND ss.status='active' AND ($3::bigint IS NULL OR ss.id<>$3)`, [organizationId, Number(weekday), exclude_id || null]).catch(()=>({ rows: [] }));
+  return rows.rows.filter(row => {
+    const a = ops31ParseTimeToMinutes(row.start_time);
+    const b = ops31ParseTimeToMinutes(row.end_time);
+    const overlaps = a !== null && b !== null && start < b && end > a;
+    if (!overlaps) return false;
+    return (teacher_id && Number(row.teacher_id) === Number(teacher_id)) || (room_id && Number(row.room_id) === Number(room_id));
+  }).map(row => ({ id: row.id, group_name: row.group_name, teacher_name: row.teacher_name, room_name: row.room_name, start_time: row.start_time, end_time: row.end_time, conflict_type: Number(row.teacher_id) === Number(teacher_id) ? 'teacher' : 'room' }));
+}
+
+async function handleAcademyOperations31(request, response, urlPath) {
+  try {
+    const pool = getDbPool();
+    await ensureAcademyOperations31Schema(pool);
+
+    if (request.method === 'GET' && urlPath === '/api/app/operations31/overview') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const today = asDate(requestQuery(request).get('date')) || new Date().toISOString().slice(0,10);
+      await ops31BuildLessonsForDate(pool, user.organization_id, today).catch(()=>[]);
+      const [rooms, slots, lessons, live, reports] = await Promise.all([
+        pool.query(`SELECT COUNT(*)::int AS total FROM academy_rooms WHERE organization_id=$1 AND status='active'`, [user.organization_id]).catch(()=>({rows:[{total:0}]})),
+        pool.query(`SELECT COUNT(*)::int AS total FROM academy_schedule_slots WHERE organization_id=$1 AND status='active'`, [user.organization_id]).catch(()=>({rows:[{total:0}]})),
+        pool.query(`SELECT COUNT(*)::int AS total FROM academy_lesson_instances WHERE organization_id=$1 AND lesson_date=$2`, [user.organization_id, today]).catch(()=>({rows:[{total:0}]})),
+        pool.query(`SELECT status, COUNT(*)::int AS count FROM academy_lesson_instances WHERE organization_id=$1 AND lesson_date=$2 GROUP BY status`, [user.organization_id, today]).catch(()=>({rows:[]})),
+        pool.query(`SELECT COUNT(*)::int AS total FROM teacher_lesson_reports WHERE organization_id=$1 AND report_date=$2`, [user.organization_id, today]).catch(()=>({rows:[{total:0}]}))
+      ]);
+      sendJson(response, 200, { ok:true, date:today, kpis:{ rooms: rooms.rows[0].total, schedule_slots: slots.rows[0].total, today_lessons: lessons.rows[0].total, teacher_reports: reports.rows[0].total }, lesson_statuses: live.rows });
+      return;
+    }
+
+    if (urlPath === '/api/app/operations31/rooms' && request.method === 'GET') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const rows = await pool.query(`SELECT * FROM academy_rooms WHERE organization_id=$1 ORDER BY status, name`, [user.organization_id]);
+      sendJson(response, 200, { ok:true, rooms: rows.rows }); return;
+    }
+    if (urlPath === '/api/app/operations31/rooms' && request.method === 'POST') {
+      const user = await requireUser(request, response, 'settings:write'); if (!user) return;
+      const body = await readJsonBody(request).catch(()=>({}));
+      const result = await pool.query(`INSERT INTO academy_rooms (organization_id,name,capacity,branch,status,note) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [user.organization_id, asText(body.name,'Xona'), asNumber(body.capacity,0), body.branch || null, body.status || 'active', body.note || null]);
+      await ops31Log(pool, user, 'create_room', 'academy_rooms', result.rows[0].id, body);
+      sendJson(response, 200, { ok:true, room: result.rows[0] }); return;
+    }
+
+    if (urlPath === '/api/app/operations31/schedule' && request.method === 'GET') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const rows = await pool.query(`SELECT ss.*, g.name AS group_name, t.full_name AS teacher_name, r.name AS room_name
+        FROM academy_schedule_slots ss
+        LEFT JOIN groups g ON g.id=ss.group_id
+        LEFT JOIN teachers t ON t.id=ss.teacher_id
+        LEFT JOIN academy_rooms r ON r.id=ss.room_id
+        WHERE ss.organization_id=$1 ORDER BY ss.weekday, ss.start_time`, [user.organization_id]);
+      sendJson(response, 200, { ok:true, slots: rows.rows }); return;
+    }
+    if (urlPath === '/api/app/operations31/schedule' && request.method === 'POST') {
+      const user = await requireUser(request, response, 'groups:write'); if (!user) return;
+      const body = await readJsonBody(request).catch(()=>({}));
+      const weekday = asNumber(body.weekday, 1);
+      const groupId = asNumber(body.group_id, 0);
+      if (!groupId) return sendJson(response, 400, { ok:false, message:'Guruh tanlanmadi' });
+      const conflicts = await ops31FindConflicts(pool, user.organization_id, body);
+      if (conflicts.length && !body.force) return sendJson(response, 409, { ok:false, message:'Jadvalda to‘qnashuv bor', conflicts });
+      const groupInfo = await pool.query(`SELECT teacher_id, room_id FROM groups WHERE organization_id=$1 AND id=$2`, [user.organization_id, groupId]).catch(()=>({rows:[]}));
+      const teacherId = body.teacher_id || groupInfo.rows[0]?.teacher_id || null;
+      const roomId = body.room_id || groupInfo.rows[0]?.room_id || null;
+      const result = await pool.query(`INSERT INTO academy_schedule_slots (organization_id,group_id,teacher_id,room_id,weekday,start_time,end_time,note)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [user.organization_id, groupId, teacherId, roomId, weekday, asText(body.start_time,'09:00'), asText(body.end_time,'10:30'), body.note || null]);
+      await pool.query(`UPDATE groups SET teacher_id=COALESCE($3,teacher_id), room_id=COALESCE($4,room_id), start_time=$5, end_time=$6, schedule_days=array_append(COALESCE(schedule_days,'{}'::text[]), $7) WHERE organization_id=$1 AND id=$2`, [user.organization_id, groupId, teacherId, roomId, body.start_time, body.end_time, String(weekday)]).catch(()=>{});
+      await ops31Log(pool, user, 'create_schedule_slot', 'academy_schedule_slots', result.rows[0].id, body);
+      sendJson(response, 200, { ok:true, slot: result.rows[0], conflicts }); return;
+    }
+
+    if (urlPath === '/api/app/operations31/schedule/conflicts' && request.method === 'GET') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const q = requestQuery(request);
+      const conflicts = await ops31FindConflicts(pool, user.organization_id, { weekday:q.get('weekday'), start_time:q.get('start_time'), end_time:q.get('end_time'), teacher_id:q.get('teacher_id'), room_id:q.get('room_id'), exclude_id:q.get('exclude_id') });
+      sendJson(response, 200, { ok:true, conflicts }); return;
+    }
+
+    if (urlPath === '/api/app/operations31/today-lessons' && request.method === 'GET') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const date = asDate(requestQuery(request).get('date')) || new Date().toISOString().slice(0,10);
+      await ops31BuildLessonsForDate(pool, user.organization_id, date).catch(()=>[]);
+      const rows = await pool.query(`SELECT li.*, g.name AS group_name, t.full_name AS teacher_name, r.name AS room_name,
+        (SELECT COUNT(*)::int FROM group_students gs WHERE gs.organization_id=li.organization_id AND gs.group_id=li.group_id AND gs.status='active') AS student_count,
+        (SELECT COUNT(*)::int FROM attendance_records ar WHERE ar.organization_id=li.organization_id AND ar.lesson_instance_id=li.id) AS attendance_count
+        FROM academy_lesson_instances li
+        LEFT JOIN groups g ON g.id=li.group_id
+        LEFT JOIN teachers t ON t.id=li.teacher_id
+        LEFT JOIN academy_rooms r ON r.id=li.room_id
+        WHERE li.organization_id=$1 AND li.lesson_date=$2 ORDER BY li.start_time`, [user.organization_id, date]);
+      sendJson(response, 200, { ok:true, date, lessons: rows.rows }); return;
+    }
+
+    const lessonStatus = urlPath.match(/^\/api\/app\/operations31\/lessons\/(\d+)\/status$/);
+    if (lessonStatus && request.method === 'POST') {
+      const user = await requireUser(request, response, 'attendance:write'); if (!user) return;
+      const id = Number(lessonStatus[1]);
+      const body = await readJsonBody(request).catch(()=>({}));
+      const status = ['pending','live','completed','cancelled'].includes(body.status) ? body.status : 'live';
+      const result = await pool.query(`UPDATE academy_lesson_instances SET status=$3, updated_at=NOW() WHERE organization_id=$1 AND id=$2 RETURNING *`, [user.organization_id, id, status]);
+      await ops31Log(pool, user, 'lesson_status', 'academy_lesson_instances', id, { status });
+      sendJson(response, 200, { ok:true, lesson: result.rows[0] || null }); return;
+    }
+
+    const attendanceFromLesson = urlPath.match(/^\/api\/app\/operations31\/lessons\/(\d+)\/attendance$/);
+    if (attendanceFromLesson && request.method === 'GET') {
+      const user = await requireUser(request, response, 'attendance:read'); if (!user) return;
+      const id = Number(attendanceFromLesson[1]);
+      const lesson = await pool.query(`SELECT * FROM academy_lesson_instances WHERE organization_id=$1 AND id=$2`, [user.organization_id, id]);
+      if (!lesson.rows[0]) return sendJson(response, 404, { ok:false, message:'Dars topilmadi' });
+      const groupId = lesson.rows[0].group_id;
+      const rows = await pool.query(`SELECT s.id, s.full_name, s.phone, s.avatar_url, COALESCE(ar.status,'present') AS status, ar.note
+        FROM students s
+        LEFT JOIN attendance_records ar ON ar.organization_id=s.organization_id AND ar.student_id=s.id AND ar.lesson_instance_id=$2
+        WHERE s.organization_id=$1 AND (s.group_id=$3 OR s.id IN (SELECT student_id FROM group_students WHERE organization_id=$1 AND group_id=$3 AND status='active')) AND COALESCE(s.status,'active') <> 'archived'
+        ORDER BY s.full_name`, [user.organization_id, id, groupId]);
+      sendJson(response, 200, { ok:true, lesson: lesson.rows[0], students: rows.rows }); return;
+    }
+
+    if (attendanceFromLesson && request.method === 'POST') {
+      const user = await requireUser(request, response, 'attendance:write'); if (!user) return;
+      const id = Number(attendanceFromLesson[1]);
+      const body = await readJsonBody(request).catch(()=>({}));
+      const lesson = await pool.query(`SELECT * FROM academy_lesson_instances WHERE organization_id=$1 AND id=$2`, [user.organization_id, id]);
+      if (!lesson.rows[0]) return sendJson(response, 404, { ok:false, message:'Dars topilmadi' });
+      const l = lesson.rows[0];
+      const records = Array.isArray(body.records) ? body.records : [];
+      for (const rec of records) {
+        const status = ['present','absent','late','excused','online'].includes(rec.status) ? rec.status : 'present';
+        await pool.query(`INSERT INTO attendance_records (organization_id,student_id,group_id,lesson_instance_id,lesson_date,status,note,created_by)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          ON CONFLICT (organization_id, student_id, group_id, lesson_date) DO UPDATE SET status=EXCLUDED.status, note=EXCLUDED.note, lesson_instance_id=EXCLUDED.lesson_instance_id`, [user.organization_id, Number(rec.student_id), l.group_id, id, l.lesson_date, status, rec.note || null, user.id]).catch(async () => {
+            await pool.query(`INSERT INTO attendance_records (organization_id,student_id,group_id,lesson_instance_id,lesson_date,status,note,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [user.organization_id, Number(rec.student_id), l.group_id, id, l.lesson_date, status, rec.note || null, user.id]).catch(()=>{});
+          });
+      }
+      await pool.query(`UPDATE academy_lesson_instances SET attendance_saved_at=NOW(), status=CASE WHEN status='pending' THEN 'completed' ELSE status END WHERE organization_id=$1 AND id=$2`, [user.organization_id, id]);
+      await ops31Log(pool, user, 'save_lesson_attendance', 'academy_lesson_instances', id, { count: records.length });
+      sendJson(response, 200, { ok:true, message:'Davomat saqlandi', count: records.length }); return;
+    }
+
+    const summaryMatch = urlPath.match(/^\/api\/app\/operations31\/lessons\/(\d+)\/summary$/);
+    if (summaryMatch && request.method === 'POST') {
+      const user = await requireUser(request, response, 'attendance:write'); if (!user) return;
+      const id = Number(summaryMatch[1]);
+      const body = await readJsonBody(request).catch(()=>({}));
+      const lesson = await pool.query(`SELECT * FROM academy_lesson_instances WHERE organization_id=$1 AND id=$2`, [user.organization_id, id]);
+      if (!lesson.rows[0]) return sendJson(response, 404, { ok:false, message:'Dars topilmadi' });
+      const stats = await pool.query(`SELECT status, COUNT(*)::int AS count FROM attendance_records WHERE organization_id=$1 AND lesson_instance_id=$2 GROUP BY status`, [user.organization_id, id]).catch(()=>({rows:[]}));
+      const report = await pool.query(`INSERT INTO teacher_lesson_reports (organization_id,lesson_instance_id,teacher_id,group_id,report_date,topic,homework,note,attendance_summary,created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) RETURNING *`, [user.organization_id, id, lesson.rows[0].teacher_id, lesson.rows[0].group_id, lesson.rows[0].lesson_date, body.topic || null, body.homework || null, body.note || null, JSON.stringify(stats.rows), user.id]);
+      await pool.query(`UPDATE academy_lesson_instances SET summary=$3::jsonb, status='completed' WHERE organization_id=$1 AND id=$2`, [user.organization_id, id, JSON.stringify({ topic:body.topic || null, homework:body.homework || null, note:body.note || null, attendance:stats.rows })]);
+      await ops31Log(pool, user, 'lesson_summary', 'academy_lesson_instances', id, body);
+      sendJson(response, 200, { ok:true, report: report.rows[0] }); return;
+    }
+
+    if (urlPath === '/api/app/operations31/teacher-schedule' && request.method === 'GET') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const teacherId = requestQuery(request).get('teacher_id');
+      const rows = await pool.query(`SELECT ss.*, g.name AS group_name, t.full_name AS teacher_name, r.name AS room_name FROM academy_schedule_slots ss LEFT JOIN groups g ON g.id=ss.group_id LEFT JOIN teachers t ON t.id=ss.teacher_id LEFT JOIN academy_rooms r ON r.id=ss.room_id WHERE ss.organization_id=$1 AND ($2::bigint IS NULL OR ss.teacher_id=$2) ORDER BY ss.weekday, ss.start_time`, [user.organization_id, teacherId || null]);
+      sendJson(response, 200, { ok:true, schedule: rows.rows }); return;
+    }
+
+    const groupSchedule = urlPath.match(/^\/api\/app\/operations31\/groups\/(\d+)\/schedule$/);
+    if (groupSchedule && request.method === 'GET') {
+      const user = await requireUser(request, response, 'read'); if (!user) return;
+      const groupId = Number(groupSchedule[1]);
+      const rows = await pool.query(`SELECT ss.*, t.full_name AS teacher_name, r.name AS room_name FROM academy_schedule_slots ss LEFT JOIN teachers t ON t.id=ss.teacher_id LEFT JOIN academy_rooms r ON r.id=ss.room_id WHERE ss.organization_id=$1 AND ss.group_id=$2 ORDER BY ss.weekday, ss.start_time`, [user.organization_id, groupId]);
+      sendJson(response, 200, { ok:true, schedule: rows.rows }); return;
+    }
+
+    sendJson(response, 404, { ok:false, message:'Operations 31 endpoint topilmadi' });
+  } catch (error) {
+    withError(response, 'Academy Operations 31', error);
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -7836,7 +8140,7 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "29.3.0",
+      version: "31.0.0",
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
@@ -8690,6 +8994,12 @@ const server = http.createServer(async (request, response) => {
   }
   if (urlPath.startsWith("/api/super/monetization27/")) {
     await handleCeoMonetization274(request, response, urlPath);
+    return;
+  }
+
+
+  if (urlPath.startsWith("/api/app/operations31/")) {
+    await handleAcademyOperations31(request, response, urlPath);
     return;
   }
 
