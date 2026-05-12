@@ -8131,6 +8131,110 @@ async function handleAcademyOperations31(request, response, urlPath) {
   }
 }
 
+
+
+async function handlePremiumCrm32(request, response, urlPath) {
+  const pool = getDbPool();
+  await ensureSchema(pool);
+  const user = await requireUser(request, response, "read");
+  if (!user) return;
+  const orgId = user.organization_id || 1;
+  const query = requestQuery(request);
+  const safeRows = async (sql, params = [], fallback = []) => {
+    try { return (await pool.query(sql, params)).rows; } catch (error) { return fallback; }
+  };
+  const safeOne = async (sql, params = [], fallback = {}) => {
+    const rows = await safeRows(sql, params, []);
+    return rows[0] || fallback;
+  };
+  if (request.method === "GET" && urlPath === "/api/app/crm32/full-system") {
+    const [org, students, groups, teachers, payments, lessons, leads, rooms] = await Promise.all([
+      safeOne("SELECT id, name, subdomain, status FROM organizations WHERE id=$1", [orgId], { id: orgId, name: "Eduka CRM" }),
+      safeRows(`SELECT s.id, s.full_name, s.phone, s.parent_phone, s.status, s.balance, s.course_name, s.telegram_chat_id, s.student_app_status, s.archived_at, g.name AS group_name
+        FROM students s LEFT JOIN groups g ON g.id=s.group_id WHERE s.organization_id=$1 ORDER BY s.id DESC LIMIT 200`, [orgId]),
+      safeRows(`SELECT g.*, COUNT(gs.student_id)::int AS students_count
+        FROM groups g LEFT JOIN group_students gs ON gs.group_id=g.id AND gs.organization_id=g.organization_id
+        WHERE g.organization_id=$1 GROUP BY g.id ORDER BY g.id DESC LIMIT 100`, [orgId]),
+      safeRows(`SELECT t.*, COUNT(g.id)::int AS groups_count, 0::int AS today_lessons
+        FROM teachers t LEFT JOIN groups g ON g.teacher_id=t.id AND g.organization_id=t.organization_id
+        WHERE t.organization_id=$1 GROUP BY t.id ORDER BY t.id DESC LIMIT 100`, [orgId]),
+      safeRows(`SELECT p.*, s.full_name AS student_name, g.name AS group_name
+        FROM payments p LEFT JOIN students s ON s.id=p.student_id LEFT JOIN groups g ON g.id=p.group_id
+        WHERE p.organization_id=$1 ORDER BY p.created_at DESC LIMIT 150`, [orgId]),
+      safeRows(`SELECT l.*, g.name AS group_name, g.teacher_name, g.room, g.start_time
+        FROM lessons l LEFT JOIN groups g ON g.id=l.group_id
+        WHERE l.organization_id=$1 AND DATE(l.lesson_at)=CURRENT_DATE ORDER BY l.lesson_at ASC LIMIT 50`, [orgId]),
+      safeRows(`SELECT id, full_name, phone, status, source, course_name, manager_name, note, demo_at, converted_student_id
+        FROM leads WHERE organization_id=$1 ORDER BY id DESC LIMIT 120`, [orgId]),
+      safeRows(`SELECT id, name, capacity, branch, status FROM rooms WHERE organization_id=$1 ORDER BY name LIMIT 50`, [orgId])
+    ]);
+    const todayRevenue = payments.filter(p => String(p.created_at || '').slice(0,10) === new Date().toISOString().slice(0,10) && String(p.status || 'paid') !== 'cancelled').reduce((a,p)=>a+Number(p.amount||0),0);
+    const monthRevenue = payments.filter(p => String(p.status || 'paid') !== 'cancelled').reduce((a,p)=>a+Number(p.amount||0),0);
+    const totalDebt = students.reduce((a,s)=>a+Math.max(0, Number(s.balance||0)),0);
+    const debtors = students.filter(s=>Number(s.balance||0)>0).length;
+    const overview = { students: students.length, groups: groups.length, teachers: teachers.length, todayLessons: lessons.length, todayRevenue, monthRevenue, totalDebt, debtors, attendanceRate: 0, leads: leads.length };
+    const tasks = [
+      { title: "Davomat olinmagan darslarni tekshiring", subtitle: `${lessons.length} ta bugungi dars`, status: lessons.length ? "diqqat" : "OK", level: lessons.length ? "amber" : "green" },
+      { title: "Qarzdorlar bilan ishlash", subtitle: `${debtors} ta talaba`, status: debtors ? "muhim" : "OK", level: debtors ? "red" : "green" },
+      { title: "Yangi leadlar follow-up", subtitle: `${leads.filter(l=>String(l.status||'new')==='new').length} ta yangi lead`, status: "sales", level: "" }
+    ];
+    const automation = [
+      { name: "Qarzdorlik eslatmasi", description: "To‘lov muddati o‘tganlarga Telegram/SMS eslatma" },
+      { name: "Dars eslatmasi", description: "Darsdan oldin student va o‘qituvchiga xabar" },
+      { name: "Lead follow-up", description: "2 kun javobsiz lead uchun manager vazifa" }
+    ];
+    sendJson(response, 200, { ok: true, version: "32.0.0", center: org, overview, students, groups, teachers, payments, lessons, leads, rooms, tasks, automation, permissions: { role: user.role, full_access: hasPermission(user, '*') } });
+    return;
+  }
+  const profile = urlPath.match(/^\/api\/app\/crm32\/(students|groups|teachers)\/(\d+)\/profile$/);
+  if (request.method === "GET" && profile) {
+    const type = profile[1]; const id = Number(profile[2]);
+    const table = type === "students" ? "students" : type === "groups" ? "groups" : "teachers";
+    const row = await safeOne(`SELECT * FROM ${table} WHERE organization_id=$1 AND id=$2`, [orgId, id], { id, status: "not_found" });
+    const timeline = await safeRows("SELECT action, entity, entity_id, created_at, payload FROM audit_logs WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 30", [orgId]);
+    sendJson(response, 200, { ok: true, profile: row, timeline });
+    return;
+  }
+  const receipt = urlPath.match(/^\/api\/app\/crm32\/payments\/(\d+)\/receipt$/);
+  if (request.method === "GET" && receipt) {
+    const id = Number(receipt[1]);
+    const p = await safeOne(`SELECT p.*, s.full_name AS student_name, s.phone AS student_phone, g.name AS group_name, o.name AS org_name
+      FROM payments p LEFT JOIN students s ON s.id=p.student_id LEFT JOIN groups g ON g.id=p.group_id LEFT JOIN organizations o ON o.id=p.organization_id
+      WHERE p.organization_id=$1 AND p.id=$2`, [orgId, id], { id });
+    const token = p.receipt_token || `EDU-${orgId}-${id}`;
+    const text = `EDUKA TO‘LOV CHEKI\nChek: ${token}\nMarkaz: ${p.org_name || 'Eduka CRM'}\nTalaba: ${p.student_name || '-'}\nGuruh: ${p.group_name || '-'}\nSumma: ${Number(p.amount||0).toLocaleString('uz-UZ')} so‘m\nTo‘lov turi: ${p.payment_type || 'naqd'}\nHolat: ${p.status || 'paid'}\nQR: https://t.me/edukauz_bot?start=receipt_${token}`;
+    sendJson(response, 200, { ok: true, receipt_token: token, receipt_text: text, qr_payload: `https://t.me/edukauz_bot?start=receipt_${token}` });
+    return;
+  }
+  const cancel = urlPath.match(/^\/api\/app\/crm32\/payments\/(\d+)\/cancel$/);
+  if (request.method === "POST" && cancel) {
+    const id = Number(cancel[1]);
+    await pool.query("UPDATE payments SET status='cancelled', cancelled_at=NOW(), receipt_cancelled_at=NOW() WHERE organization_id=$1 AND id=$2", [orgId, id]).catch(()=>null);
+    await pool.query("INSERT INTO audit_logs (organization_id, user_id, action, entity, entity_id, payload) VALUES ($1,$2,'payment.cancel','payment',$3,$4)", [orgId, user.id, id, JSON.stringify({ source: 'crm32' })]).catch(()=>null);
+    sendJson(response, 200, { ok: true, id, status: "cancelled" });
+    return;
+  }
+  if (request.method === "GET" && urlPath === "/api/app/crm32/export") {
+    const type = query.get("type") || "students";
+    let rows = [];
+    if (type === "payments") rows = await safeRows("SELECT id, created_at, amount, payment_type, status, student_id FROM payments WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 500", [orgId]);
+    else if (type === "debtors") rows = await safeRows("SELECT id, full_name, phone, balance FROM students WHERE organization_id=$1 AND COALESCE(balance,0)>0 ORDER BY balance DESC LIMIT 500", [orgId]);
+    else if (type === "attendance") rows = await safeRows("SELECT id, student_id, lesson_id, status, created_at FROM attendance WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 500", [orgId]);
+    else rows = await safeRows("SELECT id, full_name, phone, status, balance, course_name FROM students WHERE organization_id=$1 ORDER BY id DESC LIMIT 500", [orgId]);
+    const headers = Object.keys(rows[0] || { id: '', empty: '' });
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','))].join('\n');
+    response.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename=eduka-${type}.csv` });
+    response.end(csv);
+    return;
+  }
+  if (request.method === "POST" && urlPath === "/api/app/crm32/audit") {
+    await pool.query("INSERT INTO crm_launch_audits (organization_id, version, status, payload) VALUES ($1,'32.0.0','ok',$2)", [orgId, JSON.stringify({ at: new Date().toISOString(), user: user.id })]).catch(()=>null);
+    sendJson(response, 200, { ok: true, version: "32.0.0", status: "ready" });
+    return;
+  }
+  sendJson(response, 404, { ok: false, message: "crm32 endpoint not found" });
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
@@ -8997,6 +9101,11 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+
+  if (urlPath.startsWith("/api/app/crm32/")) {
+    await handlePremiumCrm32(request, response, urlPath);
+    return;
+  }
 
   if (urlPath.startsWith("/api/app/operations31/")) {
     await handleAcademyOperations31(request, response, urlPath);
