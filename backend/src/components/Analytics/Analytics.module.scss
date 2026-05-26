@@ -1,0 +1,56 @@
+.analytics{
+    background-image: url('https://www.catalyst-au.net/wp-content/uploads/2021/12/system_integration_icon_medium.jpeg');
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-attachment: fixed;
+    padding: 30px 0;
+
+    &__content{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        h2{
+            font-size: 32px;
+            text-align: center;
+            color: #ffcc00;
+        }
+        p{
+            width: 100%;
+            max-width: 873px;
+            padding-top: 30px;
+            font-size: 26px;
+            text-align: center;
+            color: white;
+        }
+        iframe{
+            padding-top: 30px;
+            width: 75%;
+            height: 500px;
+        }
+    }
+}
+@media only screen and (max-width: 850px) {
+    .analytics{
+        &__content{
+            p{
+                font-size: 20px;
+            }
+            iframe{
+                height: 300px;
+            }
+        }
+    }
+}
+@media only screen and (max-width: 550px) {
+    .analytics{
+        &__content{
+            p{
+                font-size: 16px;
+            }
+            iframe{
+                height: 200px;
+            }
+        }
+    }
+    
+}

@@ -1,0 +1,44 @@
+.get_demo{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    .info_content{
+        h1{
+            font-size: 48px;
+            color: white;
+            letter-spacing: 1px;
+            padding-bottom: 40px;
+        }
+        p{
+            font-size: 28px;
+            color: white;
+            font-weight: 600;
+        }
+    }
+}
+@media only screen and (max-width: 900px){
+    .get_demo{
+        flex-wrap: wrap;
+        justify-content: center;
+        text-align: center;
+        padding-bottom: 30px;
+        .info_content{
+            h1{
+                font-size: 32px;
+            }
+        }
+    }
+}
+@media only screen and (max-width: 650px) {
+    .get_demo{
+        .info_content{
+            h1{
+                font-size: 20px;
+            }
+            p{
+                font-size: 16px;
+                padding-bottom: 20px;
+            }
+        }
+    }
+}

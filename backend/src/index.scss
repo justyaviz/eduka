@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Outfit:wght@100..900&display=swap');
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body{
+    font-family: 'Montserrat', sans-serif;
+}
+.container{
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+.top_content{
+    background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(2, 28, 66, 0.75)),  url('https://media.istockphoto.com/id/1642381198/photo/customer-relationship-management.jpg?s=612x612&w=0&k=20&c=hewouH78IzuySSSq6QawNCBQCMPfaIfEvTYIdhTZYJs=');
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-attachment: fixed;
+    height: 100vh;
+    width: 100%;
+}
+@media only screen and (max-width: 1247px) {
+    .top_content{
+        height: max-content;
+        padding-bottom: 30px;
+    }
+}

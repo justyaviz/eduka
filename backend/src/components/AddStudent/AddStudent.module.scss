@@ -1,0 +1,49 @@
+form{
+    width: 100%;
+    max-width: 300px;
+    text-align: center;
+    .note{
+        color: #ffcc00;
+        font-weight: bold;
+        font-size: 20px;
+        padding-bottom: 10px;
+    }
+    .overview{
+        font-size: 14px;
+        text-align: center;
+        color: white;
+        line-height: 1.5;
+        padding-bottom: 15px;
+        font-weight: bold;
+    }
+    input, button{
+        width: 100%;
+        padding: 15px;
+        border: none;
+        outline: none;
+        border-radius: 10px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 16px;
+        font-weight: 500;
+        &:not(:last-child){
+            margin-bottom: 15px;
+        }
+        &::placeholder{
+            color: rgba(0,0,0,0.5);
+        }
+    }
+    button{
+        border-radius: 25px;
+        font-size: 16px;
+        background-color: #ffcc00;
+        color: black;
+        cursor: pointer;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    span{
+        color: white;
+        font-size: 12px;
+        font-weight: 500;
+    }
+}
