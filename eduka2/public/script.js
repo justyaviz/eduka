@@ -119,3 +119,13 @@ document.querySelectorAll(".nav-links a").forEach((link) => {
     link.classList.add("active");
   });
 });
+
+
+
+// Gamification link fallback: server route ishlamasa ham majburan ochadi
+document.querySelectorAll('[data-page-link="gamification"]').forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    window.location.href = "/gamification";
+  });
+});
