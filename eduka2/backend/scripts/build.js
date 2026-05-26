@@ -1,5 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const index = path.join(__dirname, '..', '..', 'public', 'index.html');
-if (!fs.existsSync(index)) { console.error('Build failed: ../public/index.html not found'); process.exit(1); }
-console.log('EDUKA 2.0 backend-root build OK');
+const publicDir = path.join(__dirname, '..', 'public');
+const required = ['index.html', 'style.css', 'script.js'];
+for (const file of required) {
+  const full = path.join(publicDir, file);
+  if (!fs.existsSync(full)) {
+    console.error(`Missing ${file}`);
+    process.exit(1);
+  }
+}
+console.log('Build OK: static Eduka landing is ready.');
