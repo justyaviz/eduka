@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js",
+    "start:safe": "node server.js",
+    "railway:start": "node server.js"
   },
   "dependencies": {
     "i18next": "^23.12.2",
