@@ -9300,7 +9300,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && urlPath === "/app.html") {
-    sendRedirect(response, "/app/dashboard");
+    sendRedirect(response, "/admin/dashboard");
     return;
   }
 

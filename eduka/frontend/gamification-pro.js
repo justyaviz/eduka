@@ -44,13 +44,18 @@
       const btn=document.createElement('button');
       btn.type='button'; btn.dataset.view='gamification-dashboard'; btn.dataset.route='/admin/gamification'; btn.dataset.lucideIcon='trophy'; btn.innerHTML='<i data-lucide="trophy"></i>Gamification';
       const before=side.querySelector('[data-view="reports"]') || side.querySelector('[data-view="settings"]');
-      side.insertBefore(btn,before || null);
+      if (before && before.parentNode === side) side.insertBefore(btn,before);
+      else side.appendChild(btn);
     }
     const sidebar=document.querySelector('.sidebar');
     if(sidebar && !sidebar.querySelector('[data-subnav="gamification"]')){
       const sub=document.createElement('div'); sub.className='side-subnav'; sub.dataset.subnav='gamification'; sub.hidden=true;
       sub.innerHTML=VIEWS.map(v=>`<button type="button" data-view="${v}"><i data-lucide="${ICONS[v]}"></i>${LABELS[v]}</button>`).join('');
-      const settings=sidebar.querySelector('[data-subnav="settings"]'); sidebar.insertBefore(sub,settings || sidebar.querySelector('.sidebar-footer'));
+      const settings=sidebar.querySelector('[data-subnav="settings"]');
+      const footer=sidebar.querySelector('.sidebar-footer');
+      if (settings && settings.parentNode === sidebar) sidebar.insertBefore(sub,settings);
+      else if (footer && footer.parentNode === sidebar) sidebar.insertBefore(sub,footer);
+      else sidebar.appendChild(sub);
     }
     const content=document.querySelector('.content');
     if(content){
