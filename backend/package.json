@@ -1,22 +1,21 @@
 {
-  "name": "eduka-2-railway-backend-root-fixed",
-  "version": "2.0.1",
-  "description": "Eduka 2.0 Clean SaaS UI rebuild with Railway-ready Node server",
-  "main": "server.js",
+  "name": "docus-starter",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "start:safe": "node server.js",
-    "build": "node scripts/build-check.js",
-    "check": "node scripts/build-check.js"
+    "dev": "nuxi dev --host demo.modme.local",
+    "build": "nuxi build",
+    "generate": "nuxi generate",
+    "preview": "nuxi preview",
+    "lint": "eslint ."
   },
-  "engines": {
-    "node": ">=18"
-  },
-  "keywords": [
-    "eduka",
-    "crm",
-    "saas",
-    "education"
-  ],
-  "license": "MIT"
+  "devDependencies": {
+    "@nuxt-themes/docus": "latest",
+    "@nuxt/devtools": "^1.3.1",
+    "@nuxt/eslint-config": "^0.3.13",
+    "@nuxtjs/plausible": "^1.0.0",
+    "@types/node": "^20.12.12",
+    "eslint": "^9.3.0",
+    "nuxt": "^3.11.2"
+  }
 }

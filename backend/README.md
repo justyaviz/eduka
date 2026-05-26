@@ -1,36 +1,57 @@
-# Eduka 2.0 — Final Clean UI Rebuild
+# Docus Starter
 
-Eduka 2.0 brandbook ranglariga mos, 0 dan qayta yig‘ilgan SaaS/CRM preview platforma.
+Starter template for [Docus](https://docus.dev).
 
-## Routes
+## Clone
 
-- `/` — Landing page
-- `/ceo` — CEO Dashboard
-- `/ceo/centers` — Markazlar va Tariflar
-- `/ceo/billing` — Platform Analytics & Billing
-- `/admin` — O‘quv Markaz Dashboard
-- `/admin/students` — O‘quvchilar Moduli
-- `/admin/finance` — To‘lovlar va Moliya
-- `/admin/attendance` — Davomat va Jadval
-- `/teacher` — O‘qituvchi Paneli
-- `/student-app` — Student App
-- `/login` — Login Preview
-- `/preview` — 10 sahifa preview
-- `/api/health` — Railway healthcheck
-
-## Railway
-
-Root Directory: project root
-Build Command: `npm run build`
-Start Command: `npm run start:safe`
-Healthcheck Path: `/api/health`
-
-## Local
+Clone the repository (using `nuxi`):
 
 ```bash
-npm install
-npm run build
-npm start
+npx nuxi init -t themes/docus
 ```
 
-Open: `http://localhost:3000`
+## Setup
+
+Install dependencies:
+
+```bash
+yarn install
+```
+
+## Development
+
+```bash
+yarn dev
+```
+
+## Edge Side Rendering
+
+Can be deployed to Vercel Functions, Netlify Functions, AWS, and most Node-compatible environments.
+
+Look at all the available presets [here](https://v3.nuxtjs.org/guide/deploy/presets).
+
+```bash
+yarn build
+```
+
+## Static Generation
+
+Use the `generate` command to build your application.
+
+The HTML files will be generated in the .output/public directory and ready to be deployed to any static compatible hosting.
+
+```bash
+yarn generate
+```
+
+## Preview build
+
+You might want to preview the result of your build locally, to do so, run the following command:
+
+```bash
+yarn preview
+```
+
+---
+
+For a detailed explanation of how things work, check out [Docus](https://docus.dev).
