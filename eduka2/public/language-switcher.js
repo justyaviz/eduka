@@ -1,6 +1,13 @@
 
 (function(){
   const translations = {
+"EDUKA raqamlarda": {"en": "EDUKA in numbers", "ru": "EDUKA в цифрах"},
+"EDUKA foydalanuvchilari raqamlarda": {"en": "EDUKA users in numbers", "ru": "Пользователи EDUKA в цифрах"},
+"O‘quv markazlari, filiallar, guruhlar va o‘quvchilar uchun yagona zamonaviy boshqaruv platformasi.": {"en": "A unified modern management platform for learning centers, branches, groups, and students.", "ru": "Единая современная платформа управления для учебных центров, филиалов, групп и учеников."},
+"O‘quv markazlari": {"en": "Learning centers", "ru": "Учебные центры"},
+"Filiallar": {"en": "Branches", "ru": "Филиалы"},
+"Guruhlar": {"en": "Groups", "ru": "Группы"},
+"O‘quvchilar": {"en": "Students", "ru": "Ученики"},
   "O‘quv markazingizni yangi bosqichga olib chiqing!": {
     "en": "Take your learning center to the next level!",
     "ru": "Выведите свой учебный центр на новый уровень!"

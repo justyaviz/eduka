@@ -1,0 +1,155 @@
+
+/* ===== EDUKA Stats + Strong Scroll Animations ===== */
+.eduka-stats-section {
+  position: relative;
+  padding: 86px 0 92px;
+  background:
+    radial-gradient(circle at 12% 15%, rgba(18, 60, 255, .08), transparent 260px),
+    radial-gradient(circle at 88% 72%, rgba(79, 111, 255, .08), transparent 300px),
+    #f7faff;
+}
+
+.eduka-stats-wrap {
+  position: relative;
+}
+
+.eduka-stats-heading {
+  text-align: center;
+  margin: 0 auto 42px;
+  max-width: 760px;
+}
+
+.eduka-stats-heading h2 {
+  margin: 16px 0 14px;
+  color: #071132;
+  font-size: clamp(36px, 4.2vw, 58px);
+  line-height: 1.02;
+  letter-spacing: -1.7px;
+  font-weight: 950;
+}
+
+.eduka-stats-heading p {
+  margin: 0 auto;
+  max-width: 640px;
+  color: #66748e;
+  font-size: 17px;
+  line-height: 1.65;
+  font-weight: 650;
+}
+
+.eduka-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.eduka-stat-card {
+  min-height: 168px;
+  border-radius: 24px;
+  border: 1px solid #e3ebf8;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(18, 60, 255, .09), transparent 72%),
+    rgba(255,255,255,.94);
+  box-shadow: 0 20px 55px rgba(8, 25, 74, .08);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  gap: 2px 4px;
+  padding: 24px 16px;
+  text-align: center;
+  transition: transform .26s ease, box-shadow .26s ease, border-color .26s ease;
+}
+
+.eduka-stat-card:hover {
+  transform: translateY(-7px);
+  border-color: rgba(18,60,255,.28);
+  box-shadow: 0 30px 75px rgba(18, 60, 255, .14);
+}
+
+.eduka-stat-card strong,
+.eduka-stat-card span {
+  display: inline-block;
+  background: linear-gradient(135deg, #123cff, #4f6fff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(42px, 4vw, 64px);
+  line-height: .95;
+  letter-spacing: -2px;
+  font-weight: 950;
+}
+
+.eduka-stat-card p {
+  width: 100%;
+  margin: 14px 0 0;
+  color: #071132;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+/* Strong reveal system */
+[data-animate] {
+  opacity: 0;
+  transform: translate3d(0, 34px, 0) scale(.985);
+  filter: blur(8px);
+  transition:
+    opacity .82s cubic-bezier(.22, 1, .36, 1),
+    transform .82s cubic-bezier(.22, 1, .36, 1),
+    filter .82s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--anim-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+[data-animate="left"] {
+  transform: translate3d(-44px, 0, 0) scale(.985);
+}
+
+[data-animate="right"] {
+  transform: translate3d(44px, 0, 0) scale(.985);
+}
+
+[data-animate="zoom"] {
+  transform: scale(.92);
+}
+
+[data-animate="fade"] {
+  transform: translate3d(0, 18px, 0);
+}
+
+[data-animate].is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+main.page-leave {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+@media (max-width: 980px) {
+  .eduka-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .eduka-stats-section {
+    padding: 60px 0;
+  }
+
+  .eduka-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-animate] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
