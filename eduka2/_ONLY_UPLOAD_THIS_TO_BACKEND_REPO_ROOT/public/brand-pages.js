@@ -31,3 +31,20 @@
 })();
 
 (function(){const icons={help:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 0 1 4.5 1.2c0 1.8-2.3 2.1-2.3 4"/><path d="M12 17.5h.01"/></svg>`,check:`<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`};document.querySelectorAll("[data-hicon]").forEach(el=>{const n=el.getAttribute("data-hicon");if(!el.innerHTML.trim()&&icons[n]){el.innerHTML=icons[n];el.classList.add("hicon-ready")}})})();
+
+/* EDUKA_TOPBAR_ICON_PATCH */
+
+(function(){
+  const icons = {
+    phone:`<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"/></svg>`,
+    globe:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z"/></svg>`,
+    chevron:`<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`
+  };
+  document.querySelectorAll("[data-hicon]").forEach((el)=>{
+    const n = el.getAttribute("data-hicon");
+    if (icons[n] && !el.innerHTML.trim()) {
+      el.innerHTML = icons[n];
+      el.classList.add("hicon-ready");
+    }
+  });
+})();

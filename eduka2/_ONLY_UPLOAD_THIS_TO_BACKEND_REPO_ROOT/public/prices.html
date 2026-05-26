@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/support-chat.css" />
   <link rel="stylesheet" href="/topbar-standard.css" />
   <link rel="stylesheet" href="/demo-modal.css" />
+  <link rel="stylesheet" href="/topbar-unified.css" />
 </head>
 <body class="prices-page brand-page">
   <div id="site-loader" class="site-loader" aria-label="Sayt yuklanmoqda">
@@ -25,22 +26,31 @@
     </div>
   </div>
 
-  <header class="brand-header" id="top">
-    <div class="brand-nav">
-      <a class="brand-logo" href="/" data-scroll-top aria-label="EDUKA bosh sahifa">
+  <header class="eduka-topbar" id="top">
+    <div class="eduka-topbar__inner">
+      <a class="eduka-topbar__logo" href="/" data-scroll-top aria-label="EDUKA bosh sahifa">
         <img src="/assets/logo-icon.png" alt="EDUKA" />
         <span>EDUKA</span>
       </a>
-      <nav class="brand-links" aria-label="Asosiy menyu">
-        <a class="active" href="/prices">Narxlar</a>
-        <a href="/gamification">Gamification</a>
-        <a href="#support" data-support-open>Qo‘llab-quvvatlash</a>
-        <a href="/vacancies">Vakansiyalar</a>
+
+      <nav class="eduka-topbar__links" aria-label="Asosiy menyu">
+        <a href="/prices" data-nav="prices" class="active">Narxlar</a>
+        <a href="/gamification" data-nav="gamification">Gamification</a>
+        <a href="#support" data-support-open data-nav="support">Qo‘llab-quvvatlash</a>
+        <a href="/vacancies" data-nav="vacancies">Vakansiyalar</a>
       </nav>
-      <div class="brand-actions">
-        <a class="brand-phone" href="tel:+998787771100"><span data-hicon="phone"></span>+998 78 777 11 00</a>
-        <button class="brand-lang" type="button"><span data-hicon="globe"></span>UZ<span data-hicon="chevron"></span></button>
-        <a class="brand-demo" href="#demo" data-demo-open>Demo olish</a>
+
+      <div class="eduka-topbar__actions">
+        <a class="eduka-topbar__phone" href="tel:+998787771100">
+          <span data-hicon="phone"></span>
+          <span>+998 78 777 11 00</span>
+        </a>
+        <button class="eduka-topbar__lang" type="button">
+          <span data-hicon="globe"></span>
+          <span>UZ</span>
+          <span data-hicon="chevron"></span>
+        </button>
+        <a class="eduka-topbar__demo" href="#demo" data-demo-open>Demo olish</a>
       </div>
     </div>
   </header>
@@ -189,5 +199,6 @@
   </div>
 
   <script src="/demo-modal.js"></script>
+  <script src="/topbar-unified.js"></script>
 </body>
 </html>
