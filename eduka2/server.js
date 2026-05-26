@@ -16,13 +16,11 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Static files
 app.use(express.static(publicDir, {
   extensions: ["html"],
   maxAge: "1h"
 }));
 
-// Pages
 app.get(["/", "/uz"], (req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
@@ -31,7 +29,10 @@ app.get(["/gamification", "/uz/gamification"], (req, res) => {
   res.sendFile(path.join(publicDir, "gamification.html"));
 });
 
-// Fallback for Railway/direct refresh
+app.get(["/prices", "/uz/prices"], (req, res) => {
+  res.sendFile(path.join(publicDir, "prices.html"));
+});
+
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ ok: false, error: "Not found" });
@@ -39,6 +40,10 @@ app.get("*", (req, res) => {
 
   if (req.path.includes("gamification")) {
     return res.sendFile(path.join(publicDir, "gamification.html"));
+  }
+
+  if (req.path.includes("prices")) {
+    return res.sendFile(path.join(publicDir, "prices.html"));
   }
 
   return res.sendFile(path.join(publicDir, "index.html"));
