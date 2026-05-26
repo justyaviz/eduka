@@ -1,8 +1,8 @@
 # EDUKA Social Contacts Fix
 
 Tuzatildi:
-- Asosiy telefon: +998 93 194 92 00
-- Qo'shimcha telefon: +998 20 027 29 00
+- Asosiy telefon: +998 99 893 90 00
+- Qo'shimcha telefon: +998 99 893 90 00
 - Telegram: https://t.me/eduka_uz
 - Instagram: https://www.instagram.com/eduka_uz/
 

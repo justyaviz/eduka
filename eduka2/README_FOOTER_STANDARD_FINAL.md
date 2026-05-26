@@ -14,8 +14,8 @@ Tuzatildi:
   - Maxfiylik siyosati / Foydalanish shartlari
 
 Kontaktlar:
-- +998 93 194 92 00
-- +998 20 027 29 00
+- +998 99 893 90 00
+- +998 99 893 90 00
 - info@eduka.uz
 - Telegram: https://t.me/eduka_uz
 - Instagram: https://www.instagram.com/eduka_uz/
