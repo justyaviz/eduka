@@ -1,5 +1,5 @@
 (function () {
-  const CLEAN_FLAG = "eduka_cache_reset_32_3_0";
+  const CLEAN_FLAG = "eduka_cache_reset_32_4_0";
   const isStudentApp = location.pathname === "/student-app" || location.pathname.startsWith("/student-app/");
 
   async function deleteOldCaches() {

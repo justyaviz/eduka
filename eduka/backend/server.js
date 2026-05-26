@@ -15,9 +15,11 @@ try {
 
 const root = path.join(__dirname, "..", "frontend");
 const port = Number(process.env.PORT) || 3000;
+const EDUKA_VERSION = process.env.EDUKA_VERSION || "32.4.0";
 const sessionCookieName = "eduka_session";
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 7;
 const loginAttempts = new Map();
+const apiRateLimitHits = new Map();
 let pgPool;
 let schemaReadyPromise;
 let studentAppCompatReadyPromise;
@@ -38,12 +40,12 @@ const mimeTypes = {
 };
 
 function sendJson(response, statusCode, payload) {
-  response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  response.writeHead(statusCode, securityHeaders({ "Content-Type": "application/json; charset=utf-8" }));
   response.end(JSON.stringify(payload));
 }
 
 function sendJsonWithHeaders(response, statusCode, payload, headers = {}) {
-  response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8", ...headers });
+  response.writeHead(statusCode, securityHeaders({ "Content-Type": "application/json; charset=utf-8", ...headers }));
   response.end(JSON.stringify(payload));
 }
 
@@ -79,6 +81,34 @@ function normalizePhone(phone) {
 
 function clientIp(request) {
   return String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "local").split(",")[0].trim();
+}
+
+function securityHeaders(extra = {}) {
+  return {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "X-Eduka-Version": EDUKA_VERSION,
+    ...extra
+  };
+}
+
+function checkApiRateLimit(request, urlPath) {
+  if (String(process.env.EDUKA_RATE_LIMIT_ENABLED || "1") === "0") return true;
+  if (!urlPath.startsWith("/api/")) return true;
+  if (urlPath === "/api/health" || urlPath === "/api/ai-bot/webhook" || urlPath.startsWith("/api/payments/providers/")) return true;
+  const minute = new Date().toISOString().slice(0, 16);
+  const key = `${clientIp(request)}:${minute}`;
+  const limit = Number(process.env.EDUKA_API_RATE_LIMIT_PER_MINUTE || 240);
+  const count = Number(apiRateLimitHits.get(key) || 0) + 1;
+  apiRateLimitHits.set(key, count);
+  if (apiRateLimitHits.size > 5000) {
+    for (const hitKey of apiRateLimitHits.keys()) {
+      if (!hitKey.endsWith(minute)) apiRateLimitHits.delete(hitKey);
+    }
+  }
+  return count <= limit;
 }
 
 function checkLoginRateLimit(request) {
@@ -599,10 +629,22 @@ async function handleStudentAppAvatarUploadRequest(request, response) {
   }
 }
 
+function safeErrorMessage(error) {
+  const message = String(error && error.message ? error.message : "Server error");
+  if (process.env.NODE_ENV !== "production") return message;
+  if (["DATABASE_URL is not configured", "pg dependency is not installed"].includes(message)) {
+    return "Server konfiguratsiyasi to'liq emas. Administratorga murojaat qiling.";
+  }
+  if (/unauthorized/i.test(message)) return "Unauthorized";
+  if (/ruxsat|forbidden/i.test(message)) return "Bu amal uchun ruxsat yo'q";
+  return "Server xatosi. Keyinroq urinib ko'ring.";
+}
+
 function withError(response, label, error) {
-  console.error(`${label} failed: ${error.message}`);
-  const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(error.message) ? 503 : 500;
-  sendJson(response, statusCode, { ok: false, message: error.message });
+  console.error(`${label} failed: ${error.stack || error.message}`);
+  const rawMessage = String(error && error.message ? error.message : "");
+  const statusCode = ["DATABASE_URL is not configured", "pg dependency is not installed"].includes(rawMessage) ? 503 : (error.statusCode || 500);
+  sendJson(response, statusCode, { ok: false, message: safeErrorMessage(error) });
 }
 
 async function handleApiRoute(response, label, handler) {
@@ -936,11 +978,10 @@ function sendFile(response, filePath) {
     }
 
     const noCache = [".html", ".js", ".css"].includes(extension);
-    const headers = {
+    const headers = securityHeaders({
       "Content-Type": contentType,
-      "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400",
-      "X-Eduka-Version": "32.2.1"
-    };
+      "Cache-Control": noCache ? "no-store, no-cache, must-revalidate, proxy-revalidate" : "public, max-age=86400"
+    });
     if (noCache) {
       headers.Pragma = "no-cache";
       headers.Expires = "0";
@@ -951,10 +992,10 @@ function sendFile(response, filePath) {
 }
 
 function sendRedirect(response, location) {
-  response.writeHead(302, {
+  response.writeHead(302, securityHeaders({
     "Location": location,
     "Cache-Control": "no-store"
-  });
+  }));
   response.end();
 }
 
@@ -8350,19 +8391,67 @@ async function handleLeadSales321(request, response, urlPath) {
   } catch (error) { withError(response, 'Lead Sales CRM 32.1', error); }
 }
 
+
+async function handleSystemStatusRequest(request, response) {
+  try {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    const pool = getDbPool();
+    const checks = {
+      database: Boolean(process.env.DATABASE_URL),
+      node_env: process.env.NODE_ENV || "development",
+      asset_storage: githubAssetConfig().repo && githubAssetConfig().token ? "github" : (String(process.env.ASSET_UPLOAD_FALLBACK || "off").toLowerCase() === "off" ? "not_configured" : "database_fallback"),
+      owner_reset_allowed: String(process.env.EDUKA_ALLOW_OWNER_RESET || "0") === "1",
+      rate_limit: String(process.env.EDUKA_RATE_LIMIT_ENABLED || "1") !== "0"
+    };
+    const [centers, users, students, payments, audit] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS count FROM organizations").catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query("SELECT COUNT(*)::int AS count FROM users").catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query("SELECT COUNT(*)::int AS count FROM students").catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS total FROM payments WHERE paid_at >= date_trunc('month', NOW())").catch(() => ({ rows: [{ total: 0 }] })),
+      pool.query("SELECT COUNT(*)::int AS count FROM audit_logs WHERE created_at > NOW() - interval '24 hours'").catch(() => ({ rows: [{ count: 0 }] }))
+    ]);
+    sendJson(response, 200, {
+      ok: true,
+      version: EDUKA_VERSION,
+      time: new Date().toISOString(),
+      checks,
+      metrics: {
+        centers: centers.rows[0]?.count || 0,
+        users: users.rows[0]?.count || 0,
+        students: students.rows[0]?.count || 0,
+        month_payments_total: payments.rows[0]?.total || 0,
+        audit_24h: audit.rows[0]?.count || 0
+      }
+    });
+  } catch (error) {
+    withError(response, "System status", error);
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const [rawUrlPath, rawQuery = ""] = request.url.split("?");
   const urlPath = decodeURIComponent(rawUrlPath);
   const query = new URLSearchParams(rawQuery);
+  if (!response.getHeader("X-Request-Id")) response.setHeader("X-Request-Id", crypto.randomUUID());
+  if (!checkApiRateLimit(request, urlPath)) {
+    sendJson(response, 429, { ok: false, message: "Juda ko'p so'rov yuborildi. Birozdan keyin qayta urinib ko'ring." });
+    return;
+  }
 
   if (request.method === "GET" && ["/api/health", "/healthz", "/health"].includes(urlPath)) {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
-      version: "31.0.0",
+      version: EDUKA_VERSION,
       time: new Date().toISOString(),
       database: Boolean(process.env.DATABASE_URL)
     });
+    return;
+  }
+
+  if (request.method === "GET" && ["/api/system/status", "/api/super/system-status"].includes(urlPath)) {
+    await handleSystemStatusRequest(request, response);
     return;
   }
 
@@ -8372,17 +8461,23 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (urlPath === "/api/ai-bot/set-webhook" && ["GET", "POST"].includes(request.method)) {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
     await aiAssistantBot.handleSetWebhook({ response, pool: getDbPool(), sendJson });
     return;
   }
 
   if (urlPath === "/api/ai-bot/webhook-info" && request.method === "GET") {
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
     await aiAssistantBot.handleWebhookInfo({ response, sendJson });
     return;
   }
 
   if (urlPath.startsWith("/api/app/ai-assistant")) {
-    await aiAssistantBot.handleAdminApi({ request, response, pool: getDbPool(), sendJson, readJsonBody, urlPath, query });
+    const user = await requireSuperUser(request, response);
+    if (!user) return;
+    await aiAssistantBot.handleAdminApi({ request, response, pool: getDbPool(), sendJson, readJsonBody, urlPath, query, user });
     return;
   }
 
@@ -9217,6 +9312,11 @@ const server = http.createServer(async (request, response) => {
   }
 
 
+
+  if (urlPath.startsWith("/api/app/crm305/")) {
+    await handleApiRoute(response, "CRM Workflow 30.5", () => handleCrmWorkflow305(request, response, urlPath));
+    return;
+  }
 
   if (urlPath.startsWith("/api/app/sales32/")) {
     await handleApiRoute(response, "Lead Sales CRM 32.1", () => handleLeadSales321(request, response, urlPath));

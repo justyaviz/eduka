@@ -1060,7 +1060,7 @@ async function handleWebhook({ request, response, pool, sendJson, readJsonBody }
   }
   if (config.webhookSecret) {
     const headerSecret = String(request.headers['x-telegram-bot-api-secret-token'] || '');
-    if (headerSecret && headerSecret !== config.webhookSecret) {
+    if (headerSecret !== config.webhookSecret) {
       sendJson(response, 401, { ok: false, message: 'Invalid webhook secret' });
       return;
     }

@@ -315,12 +315,12 @@ function quoteIdent(identifier) {
 }
 
 async function resetToOwnerOnly(pool, ownerEmail) {
-  if (process.env.EDUKA_SKIP_OWNER_RESET === "1") {
-    console.log("Owner-only reset skipped by EDUKA_SKIP_OWNER_RESET=1");
+  if (process.env.EDUKA_ALLOW_OWNER_RESET !== "1") {
+    console.log("Owner-only reset skipped. Set EDUKA_ALLOW_OWNER_RESET=1 only for intentional full data reset.");
     return;
   }
 
-  console.log("Resetting Eduka to clean owner-only production state...");
+  console.log("WARNING: EDUKA_ALLOW_OWNER_RESET=1. Resetting Eduka to clean owner-only production state...");
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -379,8 +379,12 @@ async function run() {
   });
 
   const superEmail = (process.env.SUPER_ADMIN_EMAIL || "yaviz@eduka.uz").toLowerCase();
-  const superPassword = process.env.SUPER_ADMIN_PASSWORD || "owner";
+  const superPassword = process.env.SUPER_ADMIN_PASSWORD || "change-me-before-production";
   const superPhone = process.env.SUPER_ADMIN_PHONE || "+998200049899";
+
+  if (process.env.NODE_ENV === "production" && ["owner", "password", "123456", "change-me-before-production"].includes(String(superPassword).toLowerCase())) {
+    throw new Error("SUPER_ADMIN_PASSWORD must be changed to a strong password before production migration");
+  }
   const normalizedPhone = String(superPhone).replace(/\D/g, "") || "998901234567";
 
   try {
@@ -424,7 +428,7 @@ async function run() {
 
     console.log("Eduka 21.8.1 migration completed.");
     console.log(`Super Admin: ${superEmail}`);
-    console.log(`Temporary password: ${superPassword}`);
+    console.log("Super Admin password: configured via SUPER_ADMIN_PASSWORD (hidden)");
   } finally {
     await pool.end();
   }

@@ -1,6 +1,6 @@
-// Eduka 31.1.0 — Premium CRM Dashboard & Design System
+// Eduka 32.4.0 — Premium CRM Dashboard & Design System
 (function(){
-  const VERSION = '31.1.0';
+  const VERSION = '32.4.0';
   const $ = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
   const money = (v)=>`${Number(v||0).toLocaleString('uz-UZ')} so'm`;
@@ -146,7 +146,7 @@
   }
   function boot(){
     applyBody(); simplifySidebar(); simplifyTopbar(); renderDashboard();
-    document.title='Eduka CRM 31.1.0 — Premium Dashboard';
+    document.title='Eduka CRM 32.4.0 — Premium Dashboard';
   }
   document.addEventListener('DOMContentLoaded',()=>{ boot(); setTimeout(boot,350); setTimeout(boot,1600); });
   window.addEventListener('popstate',()=>setTimeout(boot,80));

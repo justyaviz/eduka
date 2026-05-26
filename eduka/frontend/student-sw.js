@@ -1,9 +1,9 @@
-const CACHE = "eduka-student-v32.3.0";
+const CACHE = "eduka-student-v32.4.0";
 const APP_SHELL = "/student-app/home?v=3230";
 const ASSETS = [
   APP_SHELL,
-  "/student-app.css?v=32.3.0",
-  "/student-app.js?v=32.3.0",
+  "/student-app.css?v=32.4.0",
+  "/student-app.js?v=32.4.0",
   "/assets/logo_icon.webp"
 ];
 
