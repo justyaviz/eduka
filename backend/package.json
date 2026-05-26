@@ -1,6 +1,6 @@
 {
-  "name": "eduka-2-final-rebuild",
-  "version": "2.0.0",
+  "name": "eduka-2-railway-backend-root-fixed",
+  "version": "2.0.1",
   "description": "Eduka 2.0 Clean SaaS UI rebuild with Railway-ready Node server",
   "main": "server.js",
   "scripts": {
@@ -12,6 +12,11 @@
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["eduka", "crm", "saas", "education"],
+  "keywords": [
+    "eduka",
+    "crm",
+    "saas",
+    "education"
+  ],
   "license": "MIT"
 }
