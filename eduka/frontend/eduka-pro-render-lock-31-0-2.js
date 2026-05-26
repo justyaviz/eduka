@@ -1,7 +1,7 @@
-/* Eduka 32.4.0 — Pro Render Lock
+/* Eduka 32.4.1 — Pro Render Lock
    Prevents legacy app.js dashboard/page render from overwriting CRM Pro UI after data loads. */
 (function () {
-  const VERSION = "32.4.0";
+  const VERSION = "32.4.1";
   const ROUTE_TO_VIEW = {
     "/admin/dashboard": "dashboard",
     "/admin/students": "students",

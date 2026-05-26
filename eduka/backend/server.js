@@ -15,7 +15,8 @@ try {
 
 const root = path.join(__dirname, "..", "frontend");
 const port = Number(process.env.PORT) || 3000;
-const EDUKA_VERSION = process.env.EDUKA_VERSION || "32.4.0";
+const EDUKA_VERSION = process.env.EDUKA_VERSION || "32.4.1";
+const HOST = process.env.HOST || "0.0.0.0";
 const sessionCookieName = "eduka_session";
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 7;
 const loginAttempts = new Map();
@@ -8439,12 +8440,20 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "GET" && ["/api/health", "/healthz", "/health"].includes(urlPath)) {
+  if (["GET", "HEAD"].includes(request.method) && ["/api/health", "/healthz", "/health", "/"].includes(urlPath) && urlPath !== "/") {
+    if (request.method === "HEAD") {
+      response.writeHead(200, securityHeaders({ "Content-Type": "application/json; charset=utf-8" }));
+      response.end();
+      return;
+    }
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
+      service: "eduka-backend",
       version: EDUKA_VERSION,
+      uptime: Math.round(process.uptime()),
       time: new Date().toISOString(),
+      port,
       database: Boolean(process.env.DATABASE_URL)
     });
     return;
@@ -9423,8 +9432,17 @@ const server = http.createServer(async (request, response) => {
   sendFile(response, requestedPath);
 });
 
-server.listen(port, () => {
-  console.log(`Eduka landing is running on port ${port}`);
+process.on("unhandledRejection", (error) => {
+  console.error("Eduka unhandled rejection:", error && error.stack ? error.stack : error);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Eduka uncaught exception:", error && error.stack ? error.stack : error);
+});
+
+server.listen(port, HOST, () => {
+  console.log(`Eduka backend is running on ${HOST}:${port}`);
+  console.log(`Healthcheck ready: /api/health`);
   logTelegramConfigSummary();
   studentTelegramBot.startPollingIfEnabled({
     getDbPool,

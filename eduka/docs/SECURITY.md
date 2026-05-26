@@ -1,6 +1,6 @@
 # Eduka security notes
 
-Eduka 32.4.0 adds production hardening:
+Eduka 32.4.1 adds production hardening:
 
 - JSON/static responses include security headers.
 - API rate limit is enabled by default.

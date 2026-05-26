@@ -1,6 +1,6 @@
 # Eduka next roadmap
 
-## 32.4.0 completed
+## 32.4.1 completed
 - Production hardening layer
 - API rate limiter
 - Security headers

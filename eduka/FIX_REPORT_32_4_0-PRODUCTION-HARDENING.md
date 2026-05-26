@@ -1,9 +1,9 @@
-# Eduka 32.4.0 — Production Hardening & System Upgrade
+# Eduka 32.4.1 — Production Hardening & System Upgrade
 
 ## Bajarildi
 
 ### Backend/security
-- `EDUKA_VERSION` 32.4.0 ga ko‘tarildi.
+- `EDUKA_VERSION` 32.4.1 ga ko‘tarildi.
 - JSON va static response’larga security headers qo‘shildi.
 - Har request uchun `X-Request-Id` qo‘shildi.
 - `/api/*` uchun default rate limit qo‘shildi.
@@ -14,7 +14,7 @@
 - `npm run check:production` qo‘shildi.
 - `npm run backup:db` qo‘shildi.
 - `npm run doctor` qo‘shildi.
-- `package-lock.json` 32.4.0 ga yangilandi.
+- `package-lock.json` 32.4.1 ga yangilandi.
 
 ### Documentation/cleanup
 - Eski changelog va fix reportlar `docs/archive/` ichiga o‘tkazildi.
@@ -24,9 +24,9 @@
 - `docs/architecture/NEXT_ROADMAP_32_4_0.md` qo‘shildi.
 
 ### Frontend/cache
-- Asosiy frontend cache querylari 32.4.0 ga yangilandi.
+- Asosiy frontend cache querylari 32.4.1 ga yangilandi.
 - App/Student/CEO title’lar 32.4 ga yangilandi.
-- Service worker cache versiyasi 32.4.0 ga yangilandi.
+- Service worker cache versiyasi 32.4.1 ga yangilandi.
 
 ## Tekshiruvlar
 

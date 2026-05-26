@@ -12,8 +12,8 @@
     <link rel="manifest" href="/student-manifest.json" />
     <meta name="theme-color" content="#1690F5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <script src="/cache-reset.js?v=32.4.0"></script>
-    <link rel="stylesheet" href="/student-app.css?v=32.4.0" />
+    <script src="/cache-reset.js?v=32.4.1"></script>
+    <link rel="stylesheet" href="/student-app.css?v=32.4.1" />
   </head>
   <body class="student-app-pro">
     <main class="student-shell" data-student-shell>
@@ -23,7 +23,7 @@
     </main>
     <div class="toast-host" data-toast-host></div>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="/student-app.js?v=32.4.0"></script>
+    <script src="/student-app.js?v=32.4.1"></script>
     <script>
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations()
@@ -34,7 +34,7 @@
             }
             return null;
           })))
-          .finally(() => navigator.serviceWorker.register("/student-sw.js?v=32.4.0", { scope: "/student-app/" }).catch(() => {}));
+          .finally(() => navigator.serviceWorker.register("/student-sw.js?v=32.4.1", { scope: "/student-app/" }).catch(() => {}));
       }
     </script>
   </body>

@@ -1,4 +1,4 @@
-# Eduka 32.4.0 deployment
+# Eduka 32.4.1 deployment
 
 ## Railway root
 `eduka`
@@ -11,7 +11,7 @@
 ## Required variables
 ```env
 NODE_ENV=production
-EDUKA_VERSION=32.4.0
+EDUKA_VERSION=32.4.1
 DATABASE_URL=...
 SUPER_ADMIN_EMAIL=...
 SUPER_ADMIN_PASSWORD=strong_random_16_plus_chars

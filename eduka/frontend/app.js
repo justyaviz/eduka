@@ -15,7 +15,7 @@ const onboarding = document.querySelector("[data-onboarding]");
 const onboardingSteps = document.querySelector("[data-onboarding-steps]");
 const onboardingForm = document.querySelector("[data-onboarding-form]");
 
-const EDUKA_VERSION = "32.4.0";
+const EDUKA_VERSION = "32.4.1";
 let edukaBootFinished = false;
 function finishBoot() {
   if (edukaBootFinished) return;
