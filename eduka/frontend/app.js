@@ -1925,14 +1925,14 @@ function actionButtons(resource, item) {
     const profile = document.createElement("button");
     profile.type = "button";
     profile.append(svgIcon("user-plus"), document.createTextNode("Profil"));
-    profile.addEventListener("click", () => setView("student-profile", { route: `/admin/students/${item.id}` }));
+    profile.addEventListener("click", () => setView("student-profile", { route: `/app/students/${item.id}` }));
     wrap.append(profile);
   }
   if (resource === "groups") {
     const profile = document.createElement("button");
     profile.type = "button";
     profile.append(svgIcon("layers"), document.createTextNode("Profil"));
-    profile.addEventListener("click", () => setView("group-profile", { route: `/admin/groups/${item.id}` }));
+    profile.addEventListener("click", () => setView("group-profile", { route: `/app/groups/${item.id}` }));
     wrap.append(profile);
   }
   if (resource === "payments") {
@@ -2967,7 +2967,7 @@ async function applyTenantContext() {
   }
   centerName.textContent = center.name;
   showApp(tenantUserFromSession(center, session));
-  if (!window.location.pathname.startsWith("/admin")) setView("dashboard", { route: `/admin/dashboard${window.location.search}`, replace: true });
+  if (!window.location.pathname.startsWith("/app")) setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
   return true;
 }
 
@@ -2998,7 +2998,7 @@ async function handleTenantLogin(form) {
     addAuditLog("tenant login success", "center", center.name, "-", session.userEmail);
     saveAdminState();
     showApp(payload.user || tenantUserFromSession(center, session));
-    setView("dashboard", { route: `/admin/dashboard${window.location.search}`, replace: true });
+    setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
     showToast("Kabinet ochildi.");
     return;
   } catch (error) {
@@ -3030,7 +3030,7 @@ async function handleTenantLogin(form) {
   addAuditLog("tenant login success", "center", center.name, "-", user.email);
   saveAdminState();
   showApp(tenantUserFromSession(center, session));
-  setView("dashboard", { route: `/admin/dashboard${window.location.search}`, replace: true });
+  setView("dashboard", { route: `/app/dashboard${window.location.search}`, replace: true });
   showToast("Kabinet ochildi.");
 }
 
@@ -6106,9 +6106,9 @@ async function handleCrmAction(action, button) {
     return;
   }
 
-  if (action === "view" && resource === "students") return setView("student-profile", { route: `/admin/students/${id}` });
-  if (action === "view" && resource === "groups") return setView("group-profile", { route: `/admin/groups/${id}` });
-  if (action === "view" && resource === "teachers") return setView("teacher-profile", { route: `/admin/teachers/${id}` });
+  if (action === "view" && resource === "students") return setView("student-profile", { route: `/app/students/${id}` });
+  if (action === "view" && resource === "groups") return setView("group-profile", { route: `/app/groups/${id}` });
+  if (action === "view" && resource === "teachers") return setView("teacher-profile", { route: `/app/teachers/${id}` });
   if (action === "edit" && item) return openDrawer(resource, item);
 
   if (action === "delete" && item) {
@@ -6330,7 +6330,7 @@ async function handleCrmAction(action, button) {
     }
     if (action === "super-center-login") {
       const subdomain = center.subdomain || center.slug || "demo";
-      window.open(`https://${subdomain}.eduka.uz/admin/login`, "_blank", "noopener,noreferrer");
+      window.open(`https://${subdomain}.eduka.uz/app/login`, "_blank", "noopener,noreferrer");
       showToast("Markaz login oynasi ochildi.");
       return;
     }
@@ -6595,9 +6595,9 @@ document.addEventListener("click", async (event) => {
     const resource = globalResult.dataset.resource;
     const id = globalResult.dataset.id;
     document.querySelector("[data-global-results]")?.setAttribute("hidden", "");
-    if (resource === "students") setView("student-profile", { route: `/admin/students/${id}` });
-    else if (resource === "groups") setView("group-profile", { route: `/admin/groups/${id}` });
-    else if (resource === "teachers") setView("teacher-profile", { route: `/admin/teachers/${id}` });
+    if (resource === "students") setView("student-profile", { route: `/app/students/${id}` });
+    else if (resource === "groups") setView("group-profile", { route: `/app/groups/${id}` });
+    else if (resource === "teachers") setView("teacher-profile", { route: `/app/teachers/${id}` });
     else setView(globalResult.dataset.globalResult || "dashboard");
     return;
   }
@@ -6664,9 +6664,9 @@ document.addEventListener("click", async (event) => {
   if (crmRow && !event.target.closest("button, a, input, select, textarea, details, summary")) {
     const resource = crmRow.dataset.crmRow;
     const id = crmRow.dataset.id;
-    if (resource === "students") setView("student-profile", { route: `/admin/students/${id}` });
-    if (resource === "groups") setView("group-profile", { route: `/admin/groups/${id}` });
-    if (resource === "teachers") setView("teacher-profile", { route: `/admin/teachers/${id}` });
+    if (resource === "students") setView("student-profile", { route: `/app/students/${id}` });
+    if (resource === "groups") setView("group-profile", { route: `/app/groups/${id}` });
+    if (resource === "teachers") setView("teacher-profile", { route: `/app/teachers/${id}` });
     return;
   }
 
