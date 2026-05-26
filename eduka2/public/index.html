@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/topbar-standard.css" />
   <link rel="stylesheet" href="/demo-modal.css" />
   <link rel="stylesheet" href="/topbar-unified.css" />
+  <link rel="stylesheet" href="/language-switcher.css" />
 </head>
 <body>
   <div id="site-loader" class="site-loader" aria-label="Sayt yuklanmoqda">
@@ -46,11 +47,18 @@
           <span data-hicon="phone"></span>
           <span>+998 78 777 11 00</span>
         </a>
-        <button class="eduka-topbar__lang" type="button">
-          <span data-hicon="globe"></span>
-          <span>UZ</span>
-          <span data-hicon="chevron"></span>
-        </button>
+        <div class="eduka-lang" data-lang-dropdown>
+          <button class="eduka-topbar__lang" type="button" data-lang-toggle aria-label="Tilni tanlash">
+            <span data-hicon="globe"></span>
+            <span data-current-lang>UZ</span>
+            <span data-hicon="chevron"></span>
+          </button>
+          <div class="eduka-lang-menu" data-lang-menu>
+            <button type="button" data-set-lang="uz">UZ — O‘zbek</button>
+            <button type="button" data-set-lang="en">EN — English</button>
+            <button type="button" data-set-lang="ru">RU — Русский</button>
+          </div>
+        </div>
         <a class="eduka-topbar__demo" href="#demo" data-demo-open>Demo olish</a>
       </div>
     </div>
@@ -276,5 +284,6 @@
 
   <script src="/demo-modal.js"></script>
   <script src="/topbar-unified.js"></script>
+  <script src="/language-switcher.js"></script>
 </body>
 </html>
