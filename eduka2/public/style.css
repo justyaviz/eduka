@@ -97,3 +97,263 @@ a{color:inherit;text-decoration:none}button{font:inherit}img{max-width:100%;disp
 .nav-links a.active {
   color: var(--ink);
 }
+
+
+
+/* ===== EDUKA Global Loader + Premium Animations ===== */
+.site-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(18, 60, 255, 0.08), transparent 34%),
+    rgba(247, 250, 255, 0.96);
+  backdrop-filter: blur(18px);
+  transition: opacity .55s ease, visibility .55s ease, transform .55s ease;
+}
+
+.site-loader.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.02);
+  pointer-events: none;
+}
+
+.dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.dot {
+  height: 20px;
+  width: 20px;
+  margin-right: 10px;
+  border-radius: 10px;
+  background-color: #b3d4fc;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.dot:last-child {
+  margin-right: 0;
+}
+
+.dot:nth-child(1) {
+  animation-delay: -0.3s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.1s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    background-color: #b3d4fc;
+    box-shadow: 0 0 0 0 rgba(178, 212, 252, 0.7);
+  }
+
+  50% {
+    transform: scale(1.2);
+    background-color: #6793fb;
+    box-shadow: 0 0 0 10px rgba(178, 212, 252, 0);
+  }
+
+  100% {
+    transform: scale(0.8);
+    background-color: #b3d4fc;
+    box-shadow: 0 0 0 0 rgba(178, 212, 252, 0.7);
+  }
+}
+
+html.is-loading,
+html.is-loading body {
+  overflow: hidden;
+}
+
+body {
+  opacity: 0;
+  transition: opacity .45s ease;
+}
+
+body.is-ready {
+  opacity: 1;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(26px) scale(.985);
+  filter: blur(7px);
+  transition:
+    opacity .72s cubic-bezier(.22, 1, .36, 1),
+    transform .72s cubic-bezier(.22, 1, .36, 1),
+    filter .72s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-34px);
+  filter: blur(7px);
+  transition:
+    opacity .75s cubic-bezier(.22, 1, .36, 1),
+    transform .75s cubic-bezier(.22, 1, .36, 1),
+    filter .75s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(34px);
+  filter: blur(7px);
+  transition:
+    opacity .75s cubic-bezier(.22, 1, .36, 1),
+    transform .75s cubic-bezier(.22, 1, .36, 1),
+    filter .75s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-left.is-visible,
+.reveal-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+  filter: blur(0);
+}
+
+.reveal-zoom {
+  opacity: 0;
+  transform: scale(.94);
+  filter: blur(8px);
+  transition:
+    opacity .72s cubic-bezier(.22, 1, .36, 1),
+    transform .72s cubic-bezier(.22, 1, .36, 1),
+    filter .72s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-zoom.is-visible {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+}
+
+.brand-header,
+.site-header,
+.prices-header,
+.game-header {
+  animation: headerDrop .65s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes headerDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+a,
+button,
+.brand-demo,
+.prices-demo,
+.game-demo,
+.cta,
+.primary-btn,
+.outline-btn,
+.video-btn,
+.payment-banner a,
+.price-card-text a,
+.game-cta-box a {
+  transition:
+    transform .22s ease,
+    box-shadow .22s ease,
+    background .22s ease,
+    color .22s ease,
+    border-color .22s ease;
+}
+
+a:hover,
+button:hover,
+.brand-demo:hover,
+.prices-demo:hover,
+.game-demo:hover,
+.cta:hover,
+.primary-btn:hover,
+.outline-btn:hover,
+.video-btn:hover,
+.payment-banner a:hover,
+.price-card-text a:hover,
+.game-cta-box a:hover {
+  transform: translateY(-2px);
+}
+
+.pricing-table tr,
+.game-card,
+.feature-card,
+.partner-card,
+.stat-card,
+.payment-banner,
+.gamification-price-card,
+.brand-footer,
+.faq-item,
+.dashboard-window,
+.hero-shot-frame,
+.hero-shot {
+  will-change: transform, opacity;
+}
+
+.game-card:hover,
+.feature-card:hover,
+.partner-card:hover,
+.stat-card:hover,
+.gamification-price-card:hover,
+.payment-banner:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 24px 65px rgba(8, 25, 74, .12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+
+  .site-loader {
+    display: none !important;
+  }
+
+  body,
+  .reveal,
+  .reveal-left,
+  .reveal-right,
+  .reveal-zoom {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}

@@ -14,3 +14,263 @@ html{scroll-behavior:smooth}
 
 .prices-hero{padding:72px 0 92px;background:#f7faff}.prices-hero h1{text-align:center;font-size:52px;letter-spacing:-1.5px;margin:0 0 58px;font-weight:950;color:#071132}.pricing-table-wrap{background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(8,25,74,.10);overflow:hidden;border:1px solid #e5ecf8}.pricing-table{width:100%;border-collapse:collapse;background:#fff}.pricing-table th{background:#f0f5ff;text-align:center;padding:28px 30px 24px;font-size:16px;font-weight:900}.pricing-table th:first-child{text-align:left}.pricing-table th span{display:block;color:#8a96ad;font-size:14px;margin-top:8px;font-weight:650}.pricing-table td{padding:28px 30px;border-top:1px solid #e9eef8;text-align:center;font-size:19px;font-weight:950}.pricing-table td:first-child{text-align:left;font-size:21px}.pricing-table td small{display:block;color:#123cff;font-size:13px;margin-top:8px;font-weight:850}.pricing-table td small s{color:#9ca6b7;margin-right:6px}.pricing-table [data-hicon]{display:inline-grid;color:#123cff;width:18px;height:18px;vertical-align:-3px}.highlight-row{background:#f4f8ff}.highlight-row td{color:#123cff}
 .payment-banner{margin:38px 0 30px;min-height:96px;background:linear-gradient(90deg,#edf4ff,#f7faff);border:1px solid #d8e4ff;border-radius:18px;display:flex;align-items:center;justify-content:space-between;padding:26px 38px}.payment-banner h2{margin:0 0 8px;font-size:26px;font-weight:950}.payment-banner p{margin:0;color:#6b7893}.payment-banner a{height:54px;padding:0 34px;border-radius:12px;background:linear-gradient(135deg,#123cff,#4f6fff);color:#fff;text-decoration:none;display:inline-flex;align-items:center;font-weight:950}.bonus-badges{display:flex;gap:12px;justify-content:center;margin:26px 0 70px}.bonus-badges span{height:38px;padding:0 14px;background:#fff;border:1px solid #e4ebf8;border-radius:10px;color:#66748e;display:inline-flex;align-items:center;gap:8px;font-weight:800}.bonus-badges [data-hicon]{color:#123cff}.down-arrows{display:grid;place-items:center;gap:10px;margin:0 0 120px}.down-arrows span{width:34px;height:34px;border-right:6px solid #123cff;border-bottom:6px solid #123cff;transform:rotate(45deg);opacity:.75}.gamification-price-card{min-height:250px;background:linear-gradient(90deg,#edf4ff,#ffffff);border:1px solid #d8e4ff;border-radius:22px;display:flex;align-items:center;justify-content:space-between;padding:46px 52px;box-shadow:0 20px 50px rgba(8,25,74,.08)}.price-card-text h2{font-size:29px;margin:0 0 20px;display:flex;align-items:center;gap:10px}.price-card-text h2 [data-hicon]{color:#123cff}.price-card-text p{max-width:600px;color:#67748e;line-height:1.6;font-size:16px;margin:0 0 26px}.price-card-text a{height:54px;padding:0 30px;border-radius:12px;background:linear-gradient(135deg,#123cff,#4f6fff);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-weight:950}.price-bubble{width:132px;height:132px;border-radius:50%;background:linear-gradient(135deg,#123cff,#7ca0ff);display:grid;place-items:center;color:#fff;font-size:31px;font-weight:950;box-shadow:0 22px 46px rgba(18,60,255,.22)}@media(max-width:980px){.pricing-table-wrap{overflow-x:auto}.pricing-table{min-width:850px}.payment-banner,.gamification-price-card{flex-direction:column;align-items:flex-start;gap:24px}.bonus-badges{flex-direction:column;align-items:center}}
+
+
+
+/* ===== EDUKA Global Loader + Premium Animations ===== */
+.site-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(18, 60, 255, 0.08), transparent 34%),
+    rgba(247, 250, 255, 0.96);
+  backdrop-filter: blur(18px);
+  transition: opacity .55s ease, visibility .55s ease, transform .55s ease;
+}
+
+.site-loader.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.02);
+  pointer-events: none;
+}
+
+.dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.dot {
+  height: 20px;
+  width: 20px;
+  margin-right: 10px;
+  border-radius: 10px;
+  background-color: #b3d4fc;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.dot:last-child {
+  margin-right: 0;
+}
+
+.dot:nth-child(1) {
+  animation-delay: -0.3s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.1s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    background-color: #b3d4fc;
+    box-shadow: 0 0 0 0 rgba(178, 212, 252, 0.7);
+  }
+
+  50% {
+    transform: scale(1.2);
+    background-color: #6793fb;
+    box-shadow: 0 0 0 10px rgba(178, 212, 252, 0);
+  }
+
+  100% {
+    transform: scale(0.8);
+    background-color: #b3d4fc;
+    box-shadow: 0 0 0 0 rgba(178, 212, 252, 0.7);
+  }
+}
+
+html.is-loading,
+html.is-loading body {
+  overflow: hidden;
+}
+
+body {
+  opacity: 0;
+  transition: opacity .45s ease;
+}
+
+body.is-ready {
+  opacity: 1;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(26px) scale(.985);
+  filter: blur(7px);
+  transition:
+    opacity .72s cubic-bezier(.22, 1, .36, 1),
+    transform .72s cubic-bezier(.22, 1, .36, 1),
+    filter .72s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-34px);
+  filter: blur(7px);
+  transition:
+    opacity .75s cubic-bezier(.22, 1, .36, 1),
+    transform .75s cubic-bezier(.22, 1, .36, 1),
+    filter .75s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(34px);
+  filter: blur(7px);
+  transition:
+    opacity .75s cubic-bezier(.22, 1, .36, 1),
+    transform .75s cubic-bezier(.22, 1, .36, 1),
+    filter .75s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-left.is-visible,
+.reveal-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+  filter: blur(0);
+}
+
+.reveal-zoom {
+  opacity: 0;
+  transform: scale(.94);
+  filter: blur(8px);
+  transition:
+    opacity .72s cubic-bezier(.22, 1, .36, 1),
+    transform .72s cubic-bezier(.22, 1, .36, 1),
+    filter .72s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-zoom.is-visible {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+}
+
+.brand-header,
+.site-header,
+.prices-header,
+.game-header {
+  animation: headerDrop .65s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes headerDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+a,
+button,
+.brand-demo,
+.prices-demo,
+.game-demo,
+.cta,
+.primary-btn,
+.outline-btn,
+.video-btn,
+.payment-banner a,
+.price-card-text a,
+.game-cta-box a {
+  transition:
+    transform .22s ease,
+    box-shadow .22s ease,
+    background .22s ease,
+    color .22s ease,
+    border-color .22s ease;
+}
+
+a:hover,
+button:hover,
+.brand-demo:hover,
+.prices-demo:hover,
+.game-demo:hover,
+.cta:hover,
+.primary-btn:hover,
+.outline-btn:hover,
+.video-btn:hover,
+.payment-banner a:hover,
+.price-card-text a:hover,
+.game-cta-box a:hover {
+  transform: translateY(-2px);
+}
+
+.pricing-table tr,
+.game-card,
+.feature-card,
+.partner-card,
+.stat-card,
+.payment-banner,
+.gamification-price-card,
+.brand-footer,
+.faq-item,
+.dashboard-window,
+.hero-shot-frame,
+.hero-shot {
+  will-change: transform, opacity;
+}
+
+.game-card:hover,
+.feature-card:hover,
+.partner-card:hover,
+.stat-card:hover,
+.gamification-price-card:hover,
+.payment-banner:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 24px 65px rgba(8, 25, 74, .12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+
+  .site-loader {
+    display: none !important;
+  }
+
+  body,
+  .reveal,
+  .reveal-left,
+  .reveal-right,
+  .reveal-zoom {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
