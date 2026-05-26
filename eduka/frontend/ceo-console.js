@@ -69,7 +69,7 @@
     if(action==='center-plan'&&c) return openModal('Tarif o‘zgartirish', `<form data-form="center-plan" data-id="${c.id}"><label>Tarif<select class="select" name="plan">${planOptions(c.plan||'Start')}</select></label><br><button class="btn primary">Saqlash</button></form>`);
     if(action==='center-features'&&c) return openModal('Ruxsatlar', `<form data-form="center-features" data-id="${c.id}">${featureInputs(c.feature_flags||PLAN_FLAGS[c.plan]||DEFAULT_FLAGS)}<br><button class="btn primary">Saqlash</button></form>`);
     if(action==='center-reset'&&c){ const res=await api(`/api/super/centers/${c.id}/admin-reset`,{method:'POST',body:JSON.stringify({})}); return openModal('Parol reset qilindi', `<p>Markaz: <b>${esc(c.name)}</b></p><p>Email: <b>${esc(res.admin?.email||c.email||'-')}</b></p><p>Yangi vaqtinchalik parol:</p><h2>${esc(res.temporaryPassword)}</h2>`); }
-    if(action==='center-login'&&c){ const res=await api(`/api/super/centers/${c.id}/login-as`,{method:'POST'}); toast('Markaz CRM sessiyasi ochildi'); window.open(res.redirect||'/admin/dashboard','_blank'); return; }
+    if(action==='center-login'&&c){ const res=await api(`/api/super/centers/${c.id}/login-as`,{method:'POST'}); toast('Markaz CRM sessiyasi ochildi'); window.open(res.redirect||'/app/dashboard','_blank'); return; }
     if(action==='plan-new') return openModal('Tarif qo‘shish', planForm());
     if(action==='plan-edit'&&p) return openModal('Tarif tahrirlash', planForm(p));
     if(action==='plan-features'&&p) return openModal('Tarif ruxsatlari', planForm(p,true));

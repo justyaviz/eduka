@@ -4430,7 +4430,7 @@ async function handleStudentAppAction(button) {
   const action = button.dataset.studentAppAction;
   const service = window.crmServices?.studentAppAdminService;
   if (action === "preview") {
-    window.open("/app/home?preview=1", "_blank", "noopener,noreferrer");
+    window.open("/student-app/home?preview=1", "_blank", "noopener,noreferrer");
     return;
   }
   if (action === "open-webhook-doc") {

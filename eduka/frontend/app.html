@@ -6,7 +6,7 @@
     <title>Eduka CRM 31.1.0 - Premium Dashboard & Design System</title>
     <script>
       (function(){
-        var proRoutes=["/admin/dashboard","/admin/students","/admin/teachers","/admin/groups","/admin/payments","/admin/attendance","/admin/crm-core-pro","/admin/operations","/admin/schedule","/admin/daily-operations","/admin/finance-pro"];
+        var proRoutes=["/app/dashboard","/app/students","/app/teachers","/app/groups","/app/payments","/app/attendance","/app/crm-core-pro","/app/operations","/app/schedule","/app/daily-operations","/app/finance-pro"];
         var path=location.pathname.replace(/\/$/,"")||"/";
         if(proRoutes.some(function(route){return path===route||path.indexOf(route+"/")===0;})){document.documentElement.classList.add("eduka-pro-route");}
       })();
@@ -16,6 +16,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <meta name="description" content="Eduka CRM ichki kabineti: lidlar, o'qituvchilar, guruhlar, talabalar, davomat, moliya va sozlamalar." />
+    <script src="/cache-reset.js?v=32.3.0"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -75,25 +76,25 @@
         </a>
         <button class="create-student" type="button" data-open-modal="students" data-ui-icon="user-plus">Talaba yaratish</button>
         <nav class="side-nav" aria-label="CRM menyu">
-          <button class="active" type="button" data-view="dashboard" data-route="/admin/dashboard" data-lucide-icon="layout-dashboard">Dashboard</button>
-          <button type="button" data-view="students" data-route="/admin/students" data-lucide-icon="graduation-cap">Talabalar</button>
-          <button type="button" data-view="groups" data-route="/admin/groups" data-lucide-icon="layers">Guruhlar</button>
-          <button type="button" data-view="courses" data-route="/admin/courses" data-lucide-icon="book-open">Kurslar</button>
-          <button type="button" data-view="teachers" data-route="/admin/teachers" data-lucide-icon="user-check">O'qituvchilar</button>
-          <button type="button" data-view="schedule" data-route="/admin/schedule" data-lucide-icon="calendar-days">Dars jadvali</button>
-          <button type="button" data-view="attendance" data-route="/admin/attendance" data-lucide-icon="clipboard-check">Davomad</button>
-          <button type="button" data-view="finance" data-route="/admin/payments" data-lucide-icon="credit-card">To'lovlar</button>
-          <button type="button" data-view="debtors" data-route="/admin/debts" data-lucide-icon="badge-alert">Qarzdorlik</button>
-          <button type="button" data-view="leads" data-route="/admin/leads" data-lucide-icon="kanban">Leadlar</button>
-          <button type="button" data-view="reports" data-route="/admin/reports" data-lucide-icon="bar-chart-3">Hisobotlar</button>
-          <button type="button" data-view="teacher-attendance" data-route="/admin/staff-attendance" data-lucide-icon="user-round-check">Xodimlar davomati</button>
-          <button type="button" data-view="archive" data-route="/admin/archive" data-lucide-icon="archive">Arxiv</button>
-          <button type="button" data-view="market" data-route="/admin/market" data-lucide-icon="shopping-bag">Market</button>
-          <button type="button" data-view="branches" data-route="/admin/branches" data-lucide-icon="building-2">Filiallar</button>
-          <button type="button" data-view="rooms" data-route="/admin/rooms" data-lucide-icon="door-open">Xonalar</button>
-          <button type="button" data-view="telegram" data-route="/admin/telegram" data-lucide-icon="send">Telegram xabarlar</button>
-          <button type="button" data-view="settings" data-route="/admin/settings" data-lucide-icon="settings">Sozlamalar</button>
-          <button type="button" data-view="subscription" data-route="/admin/subscription" data-lucide-icon="badge-check">Tarif / Obuna</button>
+          <button class="active" type="button" data-view="dashboard" data-route="/app/dashboard" data-lucide-icon="layout-dashboard">Dashboard</button>
+          <button type="button" data-view="students" data-route="/app/students" data-lucide-icon="graduation-cap">Talabalar</button>
+          <button type="button" data-view="groups" data-route="/app/groups" data-lucide-icon="layers">Guruhlar</button>
+          <button type="button" data-view="courses" data-route="/app/courses" data-lucide-icon="book-open">Kurslar</button>
+          <button type="button" data-view="teachers" data-route="/app/teachers" data-lucide-icon="user-check">O'qituvchilar</button>
+          <button type="button" data-view="schedule" data-route="/app/schedule" data-lucide-icon="calendar-days">Dars jadvali</button>
+          <button type="button" data-view="attendance" data-route="/app/attendance" data-lucide-icon="clipboard-check">Davomad</button>
+          <button type="button" data-view="finance" data-route="/app/payments" data-lucide-icon="credit-card">To'lovlar</button>
+          <button type="button" data-view="debtors" data-route="/app/debts" data-lucide-icon="badge-alert">Qarzdorlik</button>
+          <button type="button" data-view="leads" data-route="/app/leads" data-lucide-icon="kanban">Leadlar</button>
+          <button type="button" data-view="reports" data-route="/app/reports" data-lucide-icon="bar-chart-3">Hisobotlar</button>
+          <button type="button" data-view="teacher-attendance" data-route="/app/staff-attendance" data-lucide-icon="user-round-check">Xodimlar davomati</button>
+          <button type="button" data-view="archive" data-route="/app/archive" data-lucide-icon="archive">Arxiv</button>
+          <button type="button" data-view="market" data-route="/app/market" data-lucide-icon="shopping-bag">Market</button>
+          <button type="button" data-view="branches" data-route="/app/branches" data-lucide-icon="building-2">Filiallar</button>
+          <button type="button" data-view="rooms" data-route="/app/rooms" data-lucide-icon="door-open">Xonalar</button>
+          <button type="button" data-view="telegram" data-route="/app/telegram" data-lucide-icon="send">Telegram xabarlar</button>
+          <button type="button" data-view="settings" data-route="/app/settings" data-lucide-icon="settings">Sozlamalar</button>
+          <button type="button" data-view="subscription" data-route="/app/subscription" data-lucide-icon="badge-check">Tarif / Obuna</button>
           <button type="button" data-view="super-dashboard" data-route="/super/dashboard" data-lucide-icon="shield" data-super-only>Super Admin</button>
         </nav>
         <div class="side-subnav" data-subnav="finance" hidden>
@@ -319,7 +320,7 @@
           <section class="view" id="group-profile"><div class="profile-page" data-group-profile></div></section>
           <section class="view" id="subscription"><div class="page-head"><h1>Tarif / Obuna</h1><span>7 kun trial va billing</span></div><div class="subscription-grid" data-subscription></div></section>
           <section class="view" id="settings"><div class="page-head"><h1>Sozlamalar</h1></div><div class="settings-tabs"><button class="active" type="button">Markaz</button><button type="button">Filiallar</button><button type="button">Xodimlar va rollar</button><button type="button">To'lov</button><button type="button">Telegram</button><button type="button">Bildirishnomalar</button></div><div class="settings-grid premium-settings"><article><h2>Markaz ma'lumotlari</h2><label>Nomi<input value="" /></label><label>Telefon<input value="" /></label><label>Manzil<input value="" /></label><label>Logo<input aria-label="Logo URL" /></label></article><article><h2>Xodimlar va rollar</h2><p>Admin, menejer, o'qituvchi va buxgalter rollari boshqariladi.</p><div class="role-list"><span>Admin</span><span>Manager</span><span>Teacher</span><span>Buxgalter</span></div></article><article><h2>To'lov sozlamalari</h2><label>Oylik to'lov kuni<input type="number" value="5" /></label><p>Naqd, karta, Click, Payme, Uzum, Bank faol.</p></article><article><h2>Telegram bot</h2><label>Bot token<input aria-label="Bot token" /></label><label class="check-field"><input type="checkbox" checked /><span>Davomat xabarlarini yuborish</span></label><label class="check-field"><input type="checkbox" checked /><span>Qarzdorlik eslatmalari</span></label></article></div></section>
-          <section class="view" id="access-denied"><div class="access-card"><h1>Ruxsat yo'q</h1><p>Bu sahifa sizning rolingiz uchun yopiq. Kerakli dashboardga qayting yoki admin bilan bog'laning.</p><button type="button" data-route="/admin/crm-core-pro" data-lucide-icon="rocket">CRM Core Pro</button>
+          <section class="view" id="access-denied"><div class="access-card"><h1>Ruxsat yo'q</h1><p>Bu sahifa sizning rolingiz uchun yopiq. Kerakli dashboardga qayting yoki admin bilan bog'laning.</p><button type="button" data-route="/app/crm-core-pro" data-lucide-icon="rocket">CRM Core Pro</button>
           <button type="button" data-view="dashboard">Dashboardga qaytish</button></div></section>
           <section class="view" id="super-centers"><div class="page-head"><h1>O'quv markazlar</h1><span>Super Admin</span></div><div class="filters"><input data-super-filter="search" placeholder="Markaz qidirish" /><select data-super-filter="status"><option value="">Status</option><option value="active">Aktiv</option><option value="blocked">Bloklangan</option></select><select data-super-filter="plan"><option value="">Tarif</option><option>Start</option><option>Pro</option><option>Business</option></select></div><div class="table" data-table="superCentersFull"><div><b>Markaz</b><b>Egasi</b><b>Telefon</b><b>Tarif</b><b>Obuna</b><b>Talabalar</b><b>Filial</b><b>Status</b><b>Amallar</b></div></div></section>
           <section class="view" id="super-center-profile"><div class="profile-page" data-super-center-profile></div></section>
