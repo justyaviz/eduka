@@ -1,0 +1,12 @@
+
+/* ===== EDUKA Correct Social Contacts ===== */
+.brand-socials a[aria-label="Telegram"],
+.brand-socials a[aria-label="Instagram"] {
+  transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+}
+
+.brand-socials a[aria-label="Telegram"]:hover,
+.brand-socials a[aria-label="Instagram"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(18, 60, 255, .24);
+}
