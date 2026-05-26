@@ -1,0 +1,17 @@
+{
+  "name": "eduka-2-clean",
+  "version": "2.0.0",
+  "description": "Eduka 2.0 clean rebuild: modern SaaS dashboards for landing, CEO, center admin, teacher and student app.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:safe": "node server.js",
+    "build": "node scripts/build-check.js",
+    "doctor": "node scripts/build-check.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
