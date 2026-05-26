@@ -1,3 +1,11 @@
+
+html {
+  scroll-behavior: smooth;
+}
+.brand {
+  cursor: pointer;
+}
+
 :root{
   --blue:#123CFF;
   --blue2:#0b63ff;

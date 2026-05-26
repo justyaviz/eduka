@@ -90,3 +90,22 @@ renderPlan('monthly');
 document.querySelector('.mobile-menu')?.addEventListener('click', () => {
   document.body.classList.toggle('menu-open');
 });
+
+
+
+// Logo bosilganda sahifaning eng tepasiga silliq chiqish
+document.querySelectorAll("[data-scroll-top]").forEach((logoLink) => {
+  logoLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "smooth"
+    });
+
+    // URL oxiridagi #top ni tozalaydi
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  });
+});
