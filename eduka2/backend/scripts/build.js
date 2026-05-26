@@ -23,10 +23,8 @@ if (!fs.existsSync(publicDir) && fs.existsSync(parentPublicDir)) {
 }
 
 if (!fs.existsSync(publicDir)) {
-  fs.mkdirSync(path.join(publicDir, "assets"), { recursive: true });
+  fs.mkdirSync(publicDir, { recursive: true });
   fs.writeFileSync(path.join(publicDir, "index.html"), "<!doctype html><html><body><h1>EDUKA</h1></body></html>");
-  fs.writeFileSync(path.join(publicDir, "style.css"), "");
-  fs.writeFileSync(path.join(publicDir, "script.js"), "");
 }
 
 console.log("Build check passed.");

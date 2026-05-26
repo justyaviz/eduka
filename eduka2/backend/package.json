@@ -1,6 +1,6 @@
 {
-  "name": "eduka-brand-fixed",
-  "version": "2.0.2",
+  "name": "eduka-ceo-panel",
+  "version": "2.1.0",
   "private": true,
   "type": "commonjs",
   "scripts": {

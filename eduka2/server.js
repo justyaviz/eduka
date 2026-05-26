@@ -8,6 +8,8 @@ const HOST = "0.0.0.0";
 const publicDir = path.join(__dirname, "public");
 
 app.disable("x-powered-by");
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 app.get(["/api/health", "/health", "/healthz"], (req, res) => {
   res.status(200).json({
@@ -20,15 +22,13 @@ app.get(["/api/health", "/health", "/healthz"], (req, res) => {
   });
 });
 
-
-// SEO helpers
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").send("User-agent: *\nAllow: /\nSitemap: https://eduka.uz/sitemap.xml\n");
 });
 
 app.get("/sitemap.xml", (req, res) => {
-  const urls = ["/", "/prices", "/gamification", "/vacancies"].map((path) => {
-    return `<url><loc>https://eduka.uz${path}</loc><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.8"}</priority></url>`;
+  const urls = ["/", "/prices", "/gamification", "/vacancies", "/ceo"].map((urlPath) => {
+    return `<url><loc>https://eduka.uz${urlPath}</loc><changefreq>weekly</changefreq><priority>${urlPath === "/" ? "1.0" : "0.8"}</priority></url>`;
   }).join("");
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
 });
@@ -42,16 +42,20 @@ app.use(express.static(publicDir, {
 function sendPage(res, fileName) {
   const filePath = path.join(publicDir, fileName);
   if (fs.existsSync(filePath)) return res.sendFile(filePath);
-  return res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>EDUKA</title></head><body><h1>EDUKA server ishlayapti</h1><p>${fileName} topilmadi.</p></body></html>`);
+  return res.status(404).send(`Missing file: ${fileName}`);
 }
 
 app.get(["/", "/uz", "/index.html"], (req, res) => sendPage(res, "index.html"));
 app.get(["/gamification", "/uz/gamification"], (req, res) => sendPage(res, "gamification.html"));
 app.get(["/prices", "/uz/prices"], (req, res) => sendPage(res, "prices.html"));
 app.get(["/vacancies", "/uz/vacancies"], (req, res) => sendPage(res, "vacancies.html"));
+app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", "/ceo/centers", "/ceo/tariffs", "/ceo/payments", "/ceo/roles", "/ceo/settings"], (req, res) => {
+  sendPage(res, "ceo.html");
+});
 
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ ok: false, error: "Not found" });
+  if (req.path.startsWith("/ceo")) return sendPage(res, "ceo.html");
   if (req.path.includes("gamification")) return sendPage(res, "gamification.html");
   if (req.path.includes("prices")) return sendPage(res, "prices.html");
   if (req.path.includes("vacancies")) return sendPage(res, "vacancies.html");

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#f7faff" />
+  <title>CEO Panel | EDUKA</title>
+  <meta name="description" content="EDUKA CEO Panel — demo so‘rovlar, o‘quv markazlar, tariflar, to‘lovlar va ruxsatlarni boshqarish." />
+  <link rel="icon" href="/assets/logo-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ceo/ceo.css" />
+</head>
+<body>
+  <div class="ceo-loader" id="ceoLoader">
+    <div class="dots-container"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+
+  <main class="ceo-login-page" id="ceoLoginPage">
+    <section class="ceo-login-card">
+      <a class="ceo-login-logo" href="/">
+        <img src="/assets/logo-icon.png" alt="EDUKA">
+        <span>EDUKA</span>
+      </a>
+      <div class="ceo-login-copy">
+        <span>CEO Access</span>
+        <h1>Platformani boshqarish paneli</h1>
+        <p>Demo so‘rovlar, o‘quv markazlar, tariflar, to‘lovlar va ruxsatlarni yagona joyda nazorat qiling.</p>
+      </div>
+      <form class="ceo-login-form" id="ceoLoginForm">
+        <label>Email</label>
+        <input type="email" id="ceoEmail" value="ceo@eduka.uz" placeholder="ceo@eduka.uz" required>
+        <label>Parol</label>
+        <input type="password" id="ceoPassword" value="admin123" placeholder="Parol" required>
+        <button type="submit">CEO Panelga kirish</button>
+        <small>Demo login: ceo@eduka.uz / admin123</small>
+      </form>
+    </section>
+    <aside class="ceo-login-visual">
+      <div class="visual-card main">
+        <div class="visual-top"><span></span><span></span><span></span></div>
+        <h3>EDUKA Platform Overview</h3>
+        <div class="visual-stats"><b>148</b><b>42</b><b>₿</b></div>
+        <div class="visual-chart"><i></i></div>
+      </div>
+      <div class="visual-card floating one">Yangi demo so‘rov +12</div>
+      <div class="visual-card floating two">Trial tugaydi: 4 markaz</div>
+    </aside>
+  </main>
+
+  <div class="ceo-app" id="ceoApp" hidden>
+    <aside class="ceo-sidebar">
+      <a class="ceo-brand" href="/ceo/dashboard">
+        <img src="/assets/logo-icon.png" alt="EDUKA">
+        <span>EDUKA</span>
+      </a>
+      <nav class="ceo-nav" id="ceoNav">
+        <button class="active" data-page="dashboard"><span data-icon="grid"></span>Boshqaruv paneli</button>
+        <button data-page="demo"><span data-icon="message"></span>Demo so‘rovlar <b>12</b></button>
+        <button data-page="centers"><span data-icon="building"></span>O‘quv markazlar</button>
+        <button data-page="tariffs"><span data-icon="card"></span>Tariflar</button>
+        <button data-page="payments"><span data-icon="wallet"></span>To‘lovlar</button>
+        <button data-page="roles"><span data-icon="shield"></span>Ruxsatlar</button>
+        <button data-page="settings"><span data-icon="settings"></span>Sozlamalar</button>
+      </nav>
+      <div class="ceo-sidebar-footer">
+        <span>CEO Panel v1.0</span>
+        <button id="ceoLogout"><span data-icon="logout"></span>Chiqish</button>
+      </div>
+    </aside>
+
+    <section class="ceo-main">
+      <header class="ceo-topbar">
+        <div>
+          <p id="pageEyebrow">EDUKA CEO</p>
+          <h1 id="pageTitle">Boshqaruv paneli</h1>
+        </div>
+        <div class="ceo-top-actions">
+          <label class="ceo-search"><span data-icon="search"></span><input id="globalSearch" placeholder="Qidirish..." /></label>
+          <button class="ceo-bell"><span data-icon="bell"></span><b>5</b></button>
+          <div class="ceo-profile"><strong>CEO</strong><span>ceo@eduka.uz</span></div>
+        </div>
+      </header>
+
+      <div class="ceo-content">
+        <section class="ceo-page active" data-view="dashboard">
+          <div class="stats-grid">
+            <article class="stat-card blue"><span data-icon="message"></span><p>Jami demo so‘rovlar</p><h3>248</h3><small>+18 bu hafta</small></article>
+            <article class="stat-card green"><span data-icon="building"></span><p>Faol markazlar</p><h3>86</h3><small>12 trial</small></article>
+            <article class="stat-card purple"><span data-icon="wallet"></span><p>Oylik tushum</p><h3>124.8M</h3><small>so‘m</small></article>
+            <article class="stat-card orange"><span data-icon="warning"></span><p>Qarzdor markazlar</p><h3>7</h3><small>nazorat kerak</small></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel-card chart-card">
+              <div class="panel-head"><h2>Demo so‘rovlar grafigi</h2><span>Oxirgi 7 kun</span></div>
+              <div class="bar-chart">
+                <i style="height:42%"></i><i style="height:72%"></i><i style="height:55%"></i><i style="height:86%"></i><i style="height:62%"></i><i style="height:94%"></i><i style="height:78%"></i>
+              </div>
+            </article>
+            <article class="panel-card">
+              <div class="panel-head"><h2>Tezkor ogohlantirishlar</h2><span>5 ta</span></div>
+              <div class="alert-list">
+                <p><b>4</b> markaz trial muddati tugayapti</p>
+                <p><b>7</b> markaz qarzdor</p>
+                <p><b>12</b> yangi demo so‘rov javob kutmoqda</p>
+              </div>
+            </article>
+          </div>
+
+          <article class="panel-card">
+            <div class="panel-head"><h2>Oxirgi demo so‘rovlar</h2><button data-page-jump="demo">Barchasini ko‘rish</button></div>
+            <div class="ceo-table-wrap"><table class="ceo-table" id="recentDemoTable"></table></div>
+          </article>
+        </section>
+
+        <section class="ceo-page" data-view="demo">
+          <div class="module-head">
+            <div><h2>Demo so‘rovlar</h2><p>Landingdagi Demo olish formasidan kelgan barcha so‘rovlar.</p></div>
+            <button class="primary-action" id="addDemoBtn">+ Demo qo‘shish</button>
+          </div>
+          <div class="filters-row">
+            <button class="filter active" data-demo-filter="all">Barchasi</button>
+            <button class="filter" data-demo-filter="Yangi">Yangi</button>
+            <button class="filter" data-demo-filter="Demo belgilandi">Demo belgilandi</button>
+            <button class="filter" data-demo-filter="Mijoz bo‘ldi">Mijoz bo‘ldi</button>
+            <button class="filter" data-demo-filter="Rad etildi">Rad etildi</button>
+          </div>
+          <article class="panel-card"><div class="ceo-table-wrap"><table class="ceo-table" id="demoTable"></table></div></article>
+        </section>
+
+        <section class="ceo-page" data-view="centers">
+          <div class="module-head">
+            <div><h2>O‘quv markazlar</h2><p>Platformaga ulangan barcha markazlar va ularning obuna holati.</p></div>
+            <button class="primary-action">+ Markaz yaratish</button>
+          </div>
+          <div class="center-grid" id="centerGrid"></div>
+        </section>
+
+        <section class="ceo-page" data-view="tariffs">
+          <div class="module-head">
+            <div><h2>Tariflar</h2><p>Start, Basic, Pro va Premium tariflar imkoniyatlarini boshqaring.</p></div>
+            <button class="primary-action">+ Tarif qo‘shish</button>
+          </div>
+          <div class="tariff-grid" id="tariffGrid"></div>
+        </section>
+
+        <section class="ceo-page" data-view="payments">
+          <div class="module-head">
+            <div><h2>To‘lovlar / obunalar</h2><p>Markazlar to‘lovlari, qarzdorlik va keyingi to‘lov sanalarini nazorat qiling.</p></div>
+            <button class="primary-action">+ To‘lov qo‘shish</button>
+          </div>
+          <article class="panel-card"><div class="ceo-table-wrap"><table class="ceo-table" id="paymentsTable"></table></div></article>
+        </section>
+
+        <section class="ceo-page" data-view="roles">
+          <div class="module-head">
+            <div><h2>Ruxsatlar / rollar</h2><p>CEO panel xodimlari uchun rollar va ruxsatlarni boshqarish.</p></div>
+            <button class="primary-action">+ Rol qo‘shish</button>
+          </div>
+          <div class="roles-grid" id="rolesGrid"></div>
+        </section>
+
+        <section class="ceo-page" data-view="settings">
+          <div class="module-head">
+            <div><h2>Platforma sozlamalari</h2><p>Landing, call markaz, Telegram va default trial sozlamalari.</p></div>
+            <button class="primary-action" id="saveSettings">Saqlash</button>
+          </div>
+          <form class="settings-grid">
+            <label><span>Platforma nomi</span><input value="EDUKA"></label>
+            <label><span>Call markaz raqami</span><input value="+998 99 893 90 00"></label>
+            <label><span>Sotuv bo‘limi Telegram</span><input value="https://t.me/eduka_sales"></label>
+            <label><span>Support Telegram</span><input value="https://t.me/eduka_uz"></label>
+            <label><span>Default trial kunlari</span><input value="7"></label>
+            <label><span>Default til</span><select><option>UZ</option><option>EN</option><option>RU</option></select></label>
+          </form>
+          <article class="panel-card audit">
+            <div class="panel-head"><h2>Audit log</h2><span>Oxirgi harakatlar</span></div>
+            <div id="auditList" class="audit-list"></div>
+          </article>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <div class="ceo-modal" id="demoModal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-modal>×</button>
+      <h2>Demo so‘rov tafsiloti</h2>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="/ceo/ceo.js"></script>
+</body>
+</html>
