@@ -62,3 +62,38 @@ a{color:inherit;text-decoration:none}button{font:inherit}img{max-width:100%;disp
 .lang svg { width: 22px; height: 22px; }
 .lang .chev, .lang svg:last-child { width: 16px; height: 16px; }
 .outline-btn svg { width: 20px; height: 20px; }
+
+
+
+/* Header menu underline animation: chapdan o‘ngga */
+.nav-links a {
+  position: relative;
+  padding: 10px 0;
+  transition: color .25s ease;
+}
+
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .28s ease;
+}
+
+.nav-links a:hover::after,
+.nav-links a:focus-visible::after,
+.nav-links a.active::after {
+  transform: scaleX(1);
+}
+
+.nav-links a:hover,
+.nav-links a:focus-visible,
+.nav-links a.active {
+  color: var(--ink);
+}
