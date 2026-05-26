@@ -37,6 +37,8 @@
     ".vacancy-bottom",
     ".vacancy-note",
     ".brand-footer-grid > *",
+    ".eduka-footer__inner > *",
+    ".eduka-footer__bottom > *",
     ".faq-item",
     ".tabs",
     ".plan-card",

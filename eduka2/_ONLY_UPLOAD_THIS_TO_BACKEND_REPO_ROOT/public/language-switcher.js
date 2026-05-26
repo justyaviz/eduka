@@ -1,6 +1,13 @@
 
 (function(){
   const translations = {
+"Sahifalar": {"en": "Pages", "ru": "Страницы"},
+"EDUKA — ta’lim markazlari uchun yaratilgan zamonaviy va professional CRM platforma.": {"en": "EDUKA is a modern and professional CRM platform created for education centers.", "ru": "EDUKA — современная профессиональная CRM-платформа для учебных центров."},
+"Ijtimoiy tarmoqlar": {"en": "Social media", "ru": "Социальные сети"},
+"Qo‘llab-quvvatlash": {"en": "Support", "ru": "Поддержка"},
+"Barcha huquqlar himoyalangan.": {"en": "All rights reserved.", "ru": "Все права защищены."},
+"Foydalanish shartlari": {"en": "Terms of use", "ru": "Условия использования"},
+"Maxfiylik siyosati": {"en": "Privacy policy", "ru": "Политика конфиденциальности"},
 "EDUKA raqamlarda": {"en": "EDUKA in numbers", "ru": "EDUKA в цифрах"},
 "EDUKA foydalanuvchilari raqamlarda": {"en": "EDUKA users in numbers", "ru": "Пользователи EDUKA в цифрах"},
 "O‘quv markazlari, filiallar, guruhlar va o‘quvchilar uchun yagona zamonaviy boshqaruv platformasi.": {"en": "A unified modern management platform for learning centers, branches, groups, and students.", "ru": "Единая современная платформа управления для учебных центров, филиалов, групп и учеников."},
