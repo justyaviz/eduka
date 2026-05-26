@@ -2549,7 +2549,7 @@ async function handleSuperCenterImpersonateRequest(request, response, centerId) 
     const token = crypto.randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + sessionMaxAgeSeconds * 1000);
     await pool.query("INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)", [admin.rows[0].id, hashToken(token), expiresAt]);
-    sendJsonWithHeaders(response, 200, { ok: true, redirect: "/admin/dashboard", user: admin.rows[0] }, { "Set-Cookie": buildSessionCookie(token) });
+    sendJsonWithHeaders(response, 200, { ok: true, redirect: "/app/dashboard", user: admin.rows[0] }, { "Set-Cookie": buildSessionCookie(token) });
   } catch (error) { withError(response, "Super center login as", error); }
 }
 
@@ -9253,13 +9253,13 @@ const server = http.createServer(async (request, response) => {
     ["/super/login/", "/ceo/login"],
     ["/app/", "/app"],
     ["/student-app/", "/student-app"],
-    ["/admin/", "/admin"],
-    ["/dashboard/", "/admin/dashboard"],
-    ["/login/", "/admin/login"],
-    ["/crm/", "/admin"],
-    ["/panel/", "/admin"],
-    ["/auth/login/", "/admin/auth/login"],
-    ["/auth/register/", "/admin/auth/register"]
+    ["/admin/", "/app/dashboard"],
+    ["/dashboard/", "/app/dashboard"],
+    ["/login/", "/app/login"],
+    ["/crm/", "/app/dashboard"],
+    ["/panel/", "/app/dashboard"],
+    ["/auth/login/", "/app/auth/login"],
+    ["/auth/register/", "/app/auth/register"]
   ]);
 
   if (request.method === "GET" && appRouteRedirects.has(urlPath)) {
@@ -9284,8 +9284,14 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "GET" && (urlPath === "/admin/dashboard" || urlPath === "/dashboard")) {
-    sendAdminDashboardProShell(response);
+  if (request.method === "GET" && (urlPath === "/admin" || urlPath.startsWith("/admin/"))) {
+    const appPath = urlPath === "/admin" ? "/app/dashboard" : urlPath.replace(/^\/admin(?=\/|$)/, "/app");
+    sendRedirect(response, rawQuery ? `${appPath}?${rawQuery}` : appPath);
+    return;
+  }
+
+  if (request.method === "GET" && urlPath === "/dashboard") {
+    sendRedirect(response, rawQuery ? `/app/dashboard?${rawQuery}` : "/app/dashboard");
     return;
   }
 
@@ -9300,7 +9306,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && urlPath === "/app.html") {
-    sendRedirect(response, "/admin/dashboard");
+    sendRedirect(response, "/app/dashboard");
     return;
   }
 

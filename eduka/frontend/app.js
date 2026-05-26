@@ -654,13 +654,14 @@ function navViewFor(viewName) {
 }
 
 function routeForView(viewName, options = {}) {
-  if (options.route) return options.route;
+  const crmRoute = (route) => route ? String(route).replace(/^\/admin(?=\/|$)/, "/app") : route;
+  if (options.route) return crmRoute(options.route);
   if (viewName === "admin-center-profile") return `/ceo/centers/${adminProfileIdFromPath() || adminState.centers[0]?.id || ""}`;
-  if (viewName === "student-profile") return `/admin/students/${profileIdFromPath("students") || state.students[0]?.id || ""}`;
-  if (viewName === "group-profile") return `/admin/groups/${profileIdFromPath("groups") || state.groups[0]?.id || ""}`;
-  if (viewName === "teacher-profile") return `/admin/teachers/${profileIdFromPath("teachers") || state.teachers[0]?.id || ""}`;
+  if (viewName === "student-profile") return `/app/students/${profileIdFromPath("students") || state.students[0]?.id || ""}`;
+  if (viewName === "group-profile") return `/app/groups/${profileIdFromPath("groups") || state.groups[0]?.id || ""}`;
+  if (viewName === "teacher-profile") return `/app/teachers/${profileIdFromPath("teachers") || state.teachers[0]?.id || ""}`;
   if (viewName === "super-center-profile") return `/ceo/centers/${profileIdFromPath("centers") || state.superCenters[0]?.id || ""}`;
-  return routeByView[viewName];
+  return crmRoute(routeByView[viewName]);
 }
 
 function svgIcon(name) {
