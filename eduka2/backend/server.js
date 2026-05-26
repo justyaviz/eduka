@@ -9,11 +9,13 @@ const publicDir = path.join(__dirname, "public");
 
 app.disable("x-powered-by");
 
+// Healthcheck first
 app.get(["/api/health", "/health", "/healthz"], (req, res) => {
   res.status(200).json({
     ok: true,
     status: "healthy",
     service: "eduka",
+    publicExists: fs.existsSync(publicDir),
     root: __dirname,
     timestamp: new Date().toISOString()
   });
@@ -30,7 +32,11 @@ function sendPage(res, fileName) {
   if (fs.existsSync(filePath)) {
     return res.sendFile(filePath);
   }
-  return res.status(404).send(`Missing file: ${fileName}`);
+
+  return res.status(200).send(`<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EDUKA</title><style>body{font-family:Arial,sans-serif;padding:40px}h1{color:#123cff}</style></head>
+<body><h1>EDUKA server ishlayapti</h1><p>${fileName} topilmadi. GitHub'ga public papkani to'liq yuklang.</p></body></html>`);
 }
 
 app.get(["/", "/uz", "/index.html"], (req, res) => sendPage(res, "index.html"));
