@@ -8,16 +8,11 @@ const required = [
   "public/assets/logo-icon.png"
 ];
 
-let missing = [];
-for (const file of required) {
-  if (!fs.existsSync(path.join(__dirname, file))) {
-    missing.push(file);
-  }
-}
+const missing = required.filter((file) => !fs.existsSync(path.join(__dirname, file)));
 
 if (missing.length) {
   console.error("Missing required files:", missing.join(", "));
   process.exit(1);
 }
 
-console.log("Build check passed. Static EDUKA site is ready.");
+console.log("Build check passed. EDUKA static files are ready.");
