@@ -1,7 +1,7 @@
 
 (function(){
   const VERSION='32.0.0';
-  const routes=['/app/students','/app/groups','/app/teachers','/app/payments','/app/debts','/app/attendance','/app/schedule','/app/operations','/app/leads','/app/reports','/app/settings','/app/dashboard'];
+  const routes=[];
   const state={data:null,route:null,search:'',filter:'',drawer:null};
   const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
   function money(v){return new Intl.NumberFormat('uz-UZ').format(Number(v||0))+' so‘m'}
