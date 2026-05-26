@@ -1,12 +1,23 @@
-const fs = require('fs');
-const path = require('path');
-const publicDir = path.join(__dirname, '..', 'public');
-const required = ['index.html', 'style.css', 'script.js'];
+const fs = require("fs");
+const path = require("path");
+
+const required = [
+  "public/index.html",
+  "public/style.css",
+  "public/script.js",
+  "public/assets/logo-icon.png"
+];
+
+let missing = [];
 for (const file of required) {
-  const full = path.join(publicDir, file);
-  if (!fs.existsSync(full)) {
-    console.error(`Missing ${file}`);
-    process.exit(1);
+  if (!fs.existsSync(path.join(__dirname, file))) {
+    missing.push(file);
   }
 }
-console.log('Build OK: static Eduka landing is ready.');
+
+if (missing.length) {
+  console.error("Missing required files:", missing.join(", "));
+  process.exit(1);
+}
+
+console.log("Build check passed. Static EDUKA site is ready.");
