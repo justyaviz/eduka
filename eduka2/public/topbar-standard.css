@@ -1,0 +1,267 @@
+
+/* ===== EDUKA GLOBAL STANDARD TOPBAR — same on every page ===== */
+:root {
+  --eduka-blue: #123cff;
+  --eduka-blue-2: #4f6fff;
+  --eduka-dark: #071132;
+  --eduka-border: #e3ebf8;
+  --eduka-bg: #f7faff;
+}
+
+body {
+  font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.brand-header,
+.site-header,
+header.brand-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  width: 100% !important;
+  background: rgba(247, 250, 255, 0.88) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  padding: 16px 0 18px !important;
+  border-bottom: 1px solid rgba(18, 60, 255, 0.07) !important;
+  box-shadow: none !important;
+}
+
+.brand-nav,
+.site-nav,
+header .brand-nav {
+  width: min(1180px, calc(100% - 112px)) !important;
+  height: 66px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+  padding: 0 22px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid var(--eduka-border) !important;
+  box-shadow: 0 18px 45px rgba(8, 25, 74, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+}
+
+.brand-logo,
+.site-logo,
+header .brand-logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 172px !important;
+  text-decoration: none !important;
+  color: var(--eduka-dark) !important;
+  font-size: 30px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: -1.2px !important;
+  white-space: nowrap !important;
+}
+
+.brand-logo img,
+.site-logo img,
+header .brand-logo img {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 10px !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.brand-links,
+.site-links,
+header .brand-links {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 34px !important;
+  flex: 1 1 auto !important;
+}
+
+.brand-links a,
+.site-links a,
+header .brand-links a {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 66px !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+  color: var(--eduka-dark) !important;
+  font-size: 15px !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  white-space: nowrap !important;
+  transition: color .24s ease !important;
+}
+
+.brand-links a::after,
+.site-links a::after,
+header .brand-links a::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: auto !important;
+  bottom: 15px !important;
+  width: 100% !important;
+  height: 2px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, var(--eduka-blue), var(--eduka-blue-2)) !important;
+  transform: scaleX(0) !important;
+  transform-origin: left center !important;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1) !important;
+}
+
+.brand-links a:hover,
+.brand-links a.active,
+.site-links a:hover,
+.site-links a.active,
+header .brand-links a:hover,
+header .brand-links a.active {
+  color: var(--eduka-blue) !important;
+}
+
+.brand-links a:hover::after,
+.brand-links a.active::after,
+.site-links a:hover::after,
+.site-links a.active::after,
+header .brand-links a:hover::after,
+header .brand-links a.active::after {
+  transform: scaleX(1) !important;
+}
+
+.brand-actions,
+.site-actions,
+header .brand-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 16px !important;
+  min-width: 378px !important;
+}
+
+.brand-phone,
+.site-phone,
+header .brand-phone {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  text-decoration: none !important;
+  color: var(--eduka-dark) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  white-space: nowrap !important;
+}
+
+.brand-lang,
+.site-lang,
+header .brand-lang {
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  color: var(--eduka-dark) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+}
+
+.brand-phone [data-hicon],
+.brand-lang [data-hicon],
+.site-phone [data-hicon],
+.site-lang [data-hicon],
+header .brand-phone [data-hicon],
+header .brand-lang [data-hicon] {
+  width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: #061a63 !important;
+}
+
+.brand-phone svg,
+.brand-lang svg,
+.site-phone svg,
+.site-lang svg,
+header .brand-phone svg,
+header .brand-lang svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 2 !important;
+}
+
+.brand-demo,
+.site-demo,
+header .brand-demo {
+  height: 46px !important;
+  min-width: 136px !important;
+  box-sizing: border-box !important;
+  padding: 0 26px !important;
+  border-radius: 11px !important;
+  background: linear-gradient(135deg, #06123e 0%, var(--eduka-blue) 100%) !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 15px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  box-shadow: 0 14px 28px rgba(18, 60, 255, .16) !important;
+}
+
+.brand-demo:hover,
+.site-demo:hover,
+header .brand-demo:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 18px 36px rgba(18, 60, 255, .22) !important;
+}
+
+@media (max-width: 1180px) {
+  .brand-nav,
+  .site-nav,
+  header .brand-nav {
+    width: min(1180px, calc(100% - 32px)) !important;
+  }
+
+  .brand-links,
+  .site-links,
+  header .brand-links {
+    gap: 20px !important;
+  }
+
+  .brand-actions,
+  .site-actions,
+  header .brand-actions {
+    min-width: auto !important;
+  }
+}
+
+@media (max-width: 1020px) {
+  .brand-links,
+  .brand-actions,
+  .site-links,
+  .site-actions,
+  header .brand-links,
+  header .brand-actions {
+    display: none !important;
+  }
+
+  .brand-nav,
+  .site-nav,
+  header .brand-nav {
+    justify-content: flex-start !important;
+  }
+}
