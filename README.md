@@ -1,10 +1,10 @@
-# EDUKA 2.0 Clean Rebuild
+# Eduka 2.0 — Final Clean UI Rebuild
 
-Bu versiya eski chalkash fayllarsiz 0 dan yozilgan modern EDUKA 2.0 preview platforma.
+Eduka 2.0 brandbook ranglariga mos, 0 dan qayta yig‘ilgan SaaS/CRM preview platforma.
 
-## Sahifalar
+## Routes
 
-- `/` — Landing Page
+- `/` — Landing page
 - `/ceo` — CEO Dashboard
 - `/ceo/centers` — Markazlar va Tariflar
 - `/ceo/billing` — Platform Analytics & Billing
@@ -12,22 +12,25 @@ Bu versiya eski chalkash fayllarsiz 0 dan yozilgan modern EDUKA 2.0 preview plat
 - `/admin/students` — O‘quvchilar Moduli
 - `/admin/finance` — To‘lovlar va Moliya
 - `/admin/attendance` — Davomat va Jadval
-- `/teacher` — O‘qituvchi Dashboard
+- `/teacher` — O‘qituvchi Paneli
 - `/student-app` — Student App
-- `/login` — Login preview
+- `/login` — Login Preview
+- `/preview` — 10 sahifa preview
 - `/api/health` — Railway healthcheck
 
 ## Railway
 
-Root Directory: loyiha rooti
+Root Directory: project root
 Build Command: `npm run build`
 Start Command: `npm run start:safe`
 Healthcheck Path: `/api/health`
 
-## Brand
+## Local
 
-- Primary Blue: `#1E3AFF`
-- Dark Blue: `#0A0F2C`
-- White: `#FFFFFF`
-- Gray: `#AAB0C0`
-- Gradient: `#1E3AFF → #4F6BFF`
+```bash
+npm install
+npm run build
+npm start
+```
+
+Open: `http://localhost:3000`
