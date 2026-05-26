@@ -1,0 +1,314 @@
+
+/* ===== EDUKA Real CRM Image Gallery ===== */
+.crm-image-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.crm-image-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e3ebf8;
+  border-radius: 28px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 20px 55px rgba(8, 25, 74, .08);
+  cursor: zoom-in;
+  transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+}
+
+.crm-image-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(18, 60, 255, .28);
+  box-shadow: 0 34px 82px rgba(18, 60, 255, .15);
+}
+
+.crm-image-card--large {
+  grid-column: span 2;
+}
+
+.crm-image-frame {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
+  border-bottom: 1px solid #e8eef8;
+  aspect-ratio: 16 / 10.2;
+}
+
+.crm-image-card--large .crm-image-frame {
+  aspect-ratio: 16 / 9.2;
+}
+
+.crm-image-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+  transform: scale(1.01);
+  transition: transform .45s ease;
+}
+
+.crm-image-card:hover .crm-image-frame img {
+  transform: scale(1.045);
+}
+
+.crm-image-caption {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 20px 22px 22px;
+}
+
+.crm-image-caption > span {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: #edf4ff;
+  color: #123cff;
+}
+
+.crm-image-caption h3 {
+  margin: 0 0 7px;
+  color: #071132;
+  font-size: 21px;
+  line-height: 1.15;
+  font-weight: 950;
+  letter-spacing: -.35px;
+}
+
+.crm-image-caption p {
+  margin: 0;
+  color: #66748e;
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 650;
+}
+
+.crm-image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 9, 28, .74);
+  backdrop-filter: blur(12px);
+}
+
+.crm-image-modal.is-open {
+  display: flex;
+  animation: crmModalFade .22s ease both;
+}
+
+.crm-image-modal__box {
+  position: relative;
+  width: min(1240px, 96vw);
+  max-height: 92vh;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 40px 120px rgba(0,0,0,.30);
+  animation: crmModalScale .24s ease both;
+}
+
+.crm-image-modal__box img {
+  width: 100%;
+  max-height: 92vh;
+  display: block;
+  object-fit: contain;
+  background: #f7faff;
+}
+
+.crm-image-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.92);
+  color: #071132;
+  box-shadow: 0 12px 30px rgba(8,25,74,.15);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  z-index: 2;
+}
+
+.crm-image-modal__close:hover {
+  background: #123cff;
+  color: #fff;
+}
+
+@keyframes crmModalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes crmModalScale {
+  from { opacity: 0; transform: scale(.965) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@media (max-width: 1050px) {
+  .crm-image-showcase-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crm-image-card--large {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 680px) {
+  .crm-image-showcase-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .crm-image-card--large {
+    grid-column: auto;
+  }
+
+  .crm-image-caption {
+    grid-template-columns: 42px 1fr;
+    padding: 18px;
+  }
+
+  .crm-image-caption > span {
+    width: 42px;
+    height: 42px;
+  }
+
+  .crm-image-frame,
+  .crm-image-card--large .crm-image-frame {
+    aspect-ratio: 16 / 11;
+  }
+
+  .crm-image-modal {
+    padding: 12px;
+  }
+
+  .crm-image-modal__box {
+    border-radius: 18px;
+  }
+}
+
+/* ===== Demo fallback style, if project has no modal CSS ===== */
+.eduka-demo-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(3, 9, 28, .62);
+  backdrop-filter: blur(12px);
+}
+
+.eduka-demo-fallback.is-open {
+  display: flex !important;
+  animation: crmModalFade .22s ease both;
+}
+
+.eduka-demo-fallback .demo-modal-box {
+  width: min(620px, 96vw);
+  border-radius: 28px;
+  background: #fff;
+  padding: 34px;
+  position: relative;
+  box-shadow: 0 40px 110px rgba(3, 9, 28, .24);
+  animation: crmModalScale .24s ease both;
+}
+
+.eduka-demo-fallback .demo-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: #f2f6ff;
+  color: #071132;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+.eduka-demo-fallback h2 {
+  margin: 0 0 24px;
+  text-align: center;
+  color: #071132;
+  font-size: 34px;
+  font-weight: 950;
+}
+
+.eduka-demo-fallback .demo-form {
+  display: grid;
+  gap: 13px;
+}
+
+.eduka-demo-fallback label {
+  color: #071132;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.eduka-demo-fallback input,
+.eduka-demo-fallback select {
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  border: 1px solid #dce7f8;
+  outline: none;
+  padding: 0 14px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.eduka-demo-fallback input:focus,
+.eduka-demo-fallback select:focus {
+  border-color: #123cff;
+  box-shadow: 0 0 0 4px rgba(18,60,255,.10);
+}
+
+.eduka-demo-fallback .phone-row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+}
+
+.eduka-demo-fallback .checkbox-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: #66748e;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.eduka-demo-fallback .checkbox-row input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.eduka-demo-fallback .demo-submit-btn {
+  height: 54px;
+  border: 0;
+  border-radius: 15px;
+  background: linear-gradient(135deg,#123cff,#4f6fff);
+  color: #fff;
+  font-weight: 950;
+  cursor: pointer;
+  margin-top: 6px;
+}
