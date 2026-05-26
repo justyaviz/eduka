@@ -19,3 +19,6 @@ Open:
 - `/`
 - `/uz`
 - `/api/health`
+
+
+Icon update: all landing icons are refreshed with inline SVG icons in a Hugeicons-style stroke rounded system. See public/hugeicons.js.
