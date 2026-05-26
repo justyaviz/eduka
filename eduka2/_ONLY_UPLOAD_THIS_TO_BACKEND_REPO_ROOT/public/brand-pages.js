@@ -29,3 +29,5 @@
     });
   });
 })();
+
+(function(){const icons={help:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 0 1 4.5 1.2c0 1.8-2.3 2.1-2.3 4"/><path d="M12 17.5h.01"/></svg>`,check:`<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`};document.querySelectorAll("[data-hicon]").forEach(el=>{const n=el.getAttribute("data-hicon");if(!el.innerHTML.trim()&&icons[n]){el.innerHTML=icons[n];el.classList.add("hicon-ready")}})})();

@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/prices.css" />
   <link rel="stylesheet" href="/support-chat.css" />
   <link rel="stylesheet" href="/topbar-standard.css" />
+  <link rel="stylesheet" href="/demo-modal.css" />
 </head>
 <body class="prices-page brand-page">
   <div id="site-loader" class="site-loader" aria-label="Sayt yuklanmoqda">
@@ -39,7 +40,7 @@
       <div class="brand-actions">
         <a class="brand-phone" href="tel:+998787771100"><span data-hicon="phone"></span>+998 78 777 11 00</a>
         <button class="brand-lang" type="button"><span data-hicon="globe"></span>UZ<span data-hicon="chevron"></span></button>
-        <a class="brand-demo" href="/#demo">Demo olish</a>
+        <a class="brand-demo" href="#demo" data-demo-open>Demo olish</a>
       </div>
     </div>
   </header>
@@ -82,7 +83,7 @@
       <div><h4>Biz haqimizda</h4><a href="/">Bosh sahifa</a><a href="/prices">Narxlar</a><a href="/gamification">Gamification</a></div>
       <div><h4>Resurslar</h4><a href="#">Qo‘llanmalar</a><a href="#">Video darslar</a><a href="#">API hujjatlari</a></div>
       <div><h4>Kontaktlar</h4><a href="tel:+998787771100">+998 78 777 11 00</a><a href="mailto:info@eduka.uz">info@eduka.uz</a><a href="#">Toshkent, O‘zbekiston</a></div>
-      <div><h4>Ijtimoiy Tarmoqlar</h4><div class="brand-socials"><a href="#" data-hicon="facebook"></a><a href="#" data-hicon="instagram"></a><a href="#" data-hicon="telegram"></a><a href="#" data-hicon="youtube"></a></div><a class="footer-demo" href="/#demo">Demo olish</a></div>
+      <div><h4>Ijtimoiy Tarmoqlar</h4><div class="brand-socials"><a href="#" data-hicon="facebook"></a><a href="#" data-hicon="instagram"></a><a href="#" data-hicon="telegram"></a><a href="#" data-hicon="youtube"></a></div><a class="footer-demo" href="#demo" data-demo-open>Demo olish</a></div>
     </div>
   </footer>
 
@@ -161,5 +162,32 @@
   </div>
 
   <script src="/support-chat.js"></script>
+
+  <div id="demo-modal-root" class="demo-modal-root" aria-hidden="true">
+    <div class="demo-modal-backdrop" data-demo-close></div>
+    <section class="demo-modal-card" role="dialog" aria-modal="true" aria-labelledby="demo-modal-title">
+      <button class="demo-modal-close" type="button" data-demo-close aria-label="Demo formasini yopish"><span data-hicon="chevron"></span></button>
+      <form class="demo-form" data-demo-form>
+        <h2 id="demo-modal-title">Demo olish</h2>
+        <label class="demo-field"><span>Ismingiz</span><input type="text" name="name" placeholder="Ismingizni kiriting" autocomplete="name" required></label>
+        <label class="demo-field"><span>Markaz nomi</span><input type="text" name="center" placeholder="Markaz nomini kiriting" required></label>
+        <label class="demo-field"><span>Telefon raqami</span><div class="phone-row"><input class="phone-prefix" type="text" value="+998" aria-label="Telefon prefiksi" readonly><input type="tel" name="phone" placeholder="991234567" inputmode="numeric" autocomplete="tel" required></div></label>
+        <label class="demo-field"><span class="accent-label">To‘lov rejimi <b data-hicon="help"></b></span><select name="payment" required><option value="">To‘lov rejimini tanlang</option><option value="Oylik (Kalendar)">Oylik (Kalendar)</option><option value="Kunlik">Kunlik</option><option value="Modul">Modul</option><option value="Guruh boshlanish sanasi">Guruh boshlanish sanasi</option><option value="Kurs uchun to‘lov">Kurs uchun to‘lov</option><option value="Individual">Individual</option></select></label>
+        <label class="demo-field"><span>Parol</span><input type="password" name="password" placeholder="Kamida 8 ta belgi" minlength="8" autocomplete="new-password" required></label>
+        <label class="demo-check"><input type="checkbox" name="privacy" required><span>Men <a href="#" target="_blank" rel="noreferrer">Maxfiylik siyosatini</a> o‘qib chiqdim va shaxsiy ma’lumotlarni qayta ishlashga roziman</span></label>
+        <button class="demo-submit" type="submit" disabled>Demo olish</button>
+      </form>
+      <div class="demo-success" data-demo-success hidden>
+        <div class="send-animation">
+          <div class="send-step is-active" data-step="admin"><div class="send-icon"><span data-hicon="check"></span></div><h3>Adminga yuborildi</h3><p>Arizangiz EDUKA admin paneliga qabul qilindi.</p></div>
+          <div class="send-line"><span></span></div>
+          <div class="send-step" data-step="manager"><div class="send-icon"><span data-hicon="check"></span></div><h3>Menejerga yuborildi</h3><p>Menejer tez orada siz bilan bog‘lanadi.</p></div>
+        </div>
+        <button type="button" class="demo-done" data-demo-close>Yopish</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="/demo-modal.js"></script>
 </body>
 </html>
