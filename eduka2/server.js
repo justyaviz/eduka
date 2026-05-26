@@ -35,11 +35,13 @@ function sendPage(res, fileName) {
 app.get(["/", "/uz", "/index.html"], (req, res) => sendPage(res, "index.html"));
 app.get(["/gamification", "/uz/gamification"], (req, res) => sendPage(res, "gamification.html"));
 app.get(["/prices", "/uz/prices"], (req, res) => sendPage(res, "prices.html"));
+app.get(["/vacancies", "/uz/vacancies"], (req, res) => sendPage(res, "vacancies.html"));
 
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ ok: false, error: "Not found" });
   if (req.path.includes("gamification")) return sendPage(res, "gamification.html");
   if (req.path.includes("prices")) return sendPage(res, "prices.html");
+  if (req.path.includes("vacancies")) return sendPage(res, "vacancies.html");
   return sendPage(res, "index.html");
 });
 
