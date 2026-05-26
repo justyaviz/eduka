@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/prices.css" />
+  <link rel="stylesheet" href="/support-chat.css" />
 </head>
 <body class="prices-page brand-page">
   <div id="site-loader" class="site-loader" aria-label="Sayt yuklanmoqda">
@@ -31,7 +32,7 @@
       <nav class="brand-links" aria-label="Asosiy menyu">
         <a class="active" href="/prices">Narxlar</a>
         <a href="/gamification">Gamification</a>
-        <a href="/#support">Qo‘llab-quvvatlash</a>
+        <a href="#support" data-support-open>Qo‘llab-quvvatlash</a>
         <a href="/#vacancy">Vakansiyalar</a>
       </nav>
       <div class="brand-actions">
@@ -88,5 +89,76 @@
   <script src="/site-animations.js"></script>
   <script src="/script.js"></script>
   <script src="/brand-pages.js"></script>
+
+  <div id="support-chat-root" class="support-chat-root" aria-hidden="true">
+    <div class="support-chat-backdrop" data-support-close></div>
+
+    <aside class="support-chat-panel" role="dialog" aria-modal="true" aria-labelledby="support-chat-title">
+      <button class="support-close-btn" type="button" data-support-close aria-label="Chatni yopish">
+        <span data-hicon="chevron"></span>
+      </button>
+
+      <div class="support-chat-head">
+        <div class="support-brand-badge">
+          <img src="/assets/logo-icon.png" alt="EDUKA" />
+        </div>
+        <div>
+          <h3 id="support-chat-title">EDUKA yordam markazi</h3>
+          <p><span class="online-dot"></span> Real-time chat • Odatda 1–2 daqiqada javob</p>
+        </div>
+      </div>
+
+      <div class="support-start-view" data-support-start>
+        <div class="support-welcome-card">
+          <h4>Assalomu alaykum 👋</h4>
+          <p>Chatni boshlash uchun ismingiz va telefon raqamingizni qoldiring. Keyin savolingizni yuborishingiz mumkin.</p>
+        </div>
+
+        <div class="quick-questions pre-questions" aria-label="Tayyor savollar">
+          <button type="button" data-question="EDUKA narxlari haqida ma’lumot kerak">EDUKA narxlari haqida ma’lumot kerak</button>
+          <button type="button" data-question="Demo olishni xohlayman">Demo olishni xohlayman</button>
+          <button type="button" data-question="O‘quv markazim uchun CRM imkoniyatlarini bilmoqchiman">CRM imkoniyatlarini bilmoqchiman</button>
+        </div>
+
+        <form class="support-lead-form" data-support-form>
+          <label>
+            <span>Ismingiz</span>
+            <input type="text" name="name" placeholder="Masalan: Yahyobek" autocomplete="name" required />
+          </label>
+
+          <label>
+            <span>Telefon raqamingiz</span>
+            <input type="tel" name="phone" placeholder="+998 90 123 45 67" autocomplete="tel" required />
+          </label>
+
+          <input type="hidden" name="question" data-selected-question />
+
+          <button type="submit">
+            Chatni boshlash
+            <span data-hicon="arrow-right"></span>
+          </button>
+        </form>
+      </div>
+
+      <div class="support-chat-view" data-support-chat hidden>
+        <div class="support-messages" data-support-messages></div>
+
+        <div class="quick-questions in-chat-questions" aria-label="Tayyor savollar">
+          <button type="button" data-send-question="Narxlar qanday?">Narxlar qanday?</button>
+          <button type="button" data-send-question="Demo olish mumkinmi?">Demo olish mumkinmi?</button>
+          <button type="button" data-send-question="Telegram bot integratsiyasi bormi?">Telegram bot integratsiyasi bormi?</button>
+        </div>
+
+        <form class="support-message-form" data-message-form>
+          <input type="text" name="message" placeholder="Xabaringizni yozing..." autocomplete="off" required />
+          <button type="submit" aria-label="Xabar yuborish">
+            <span data-hicon="arrow-right"></span>
+          </button>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/support-chat.js"></script>
 </body>
 </html>
