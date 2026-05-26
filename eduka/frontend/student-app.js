@@ -6,12 +6,25 @@
   const screen = document.querySelector("[data-student-screen]");
   const tg = window.Telegram?.WebApp || null;
   const qs = new URLSearchParams(location.search);
-  const state = { token: "", data: null, botUrl: "https://t.me/eduka_student_bot" };
+  const state = { token: "", data: null, botUrl: "https://t.me/edukauz_bot" };
 
   const routes = new Set([
     "welcome", "telegram", "login", "home", "schedule", "payments", "attendance", "coins", "rewards",
-    "my-rewards", "ranking", "achievements", "notifications", "materials", "homework", "tests", "profile", "security"
+    "my-rewards", "ranking", "achievements", "notifications", "materials", "homework", "tests", "profile", "security",
+    "study", "rating", "referral", "extra-lesson", "dictionary", "library", "exam-results", "my-group", "profile-settings"
   ]);
+
+  const routeAliases = {
+    study: "materials",
+    rating: "ranking",
+    referral: "rewards",
+    "extra-lesson": "schedule",
+    dictionary: "materials",
+    library: "materials",
+    "exam-results": "tests",
+    "my-group": "schedule",
+    "profile-settings": "security"
+  };
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -26,7 +39,10 @@
     home: "Bosh sahifa", schedule: "Jadval", payments: "To'lovlar", attendance: "Davomat",
     coins: "Coin Wallet", rewards: "Sovg'alar do'koni", "my-rewards": "Mening sovg'alarim",
     ranking: "Reyting", achievements: "Yutuqlar", notifications: "Bildirishnomalar",
-    materials: "Materiallar", homework: "Uyga vazifa", tests: "Testlar", profile: "Profil", security: "Xavfsizlik"
+    materials: "Materiallar", homework: "Uyga vazifa", tests: "Testlar", profile: "Profil", security: "Xavfsizlik",
+    study: "O'qish", rating: "Reyting", referral: "Referral tizimi", "extra-lesson": "Qo'shimcha dars",
+    dictionary: "Lug'at", library: "Kutubxona", "exam-results": "Imtihon natijalarim", "my-group": "Mening guruhim",
+    "profile-settings": "Profil sozlamalari"
   };
 
   function toast(message, type = "info") {
@@ -78,13 +94,14 @@
   }
 
   function extractPathToken() {
-    const m = location.pathname.match(/\/app\/open\/([^/?#]+)/);
+    const m = location.pathname.match(/\/(?:student-app|app)\/open\/([^/?#]+)/);
     return m ? decodeURIComponent(m[1]) : "";
   }
 
   function route() {
     const parts = location.pathname.split("/").filter(Boolean);
-    if (parts[0] === "app" && parts[1] === "open") return "home";
+    if ((parts[0] === "student-app" || parts[0] === "app") && parts[1] === "open") return "home";
+    if (parts[0] === "student-app" && routes.has(parts[1])) return parts[1];
     if (parts[0] === "app" && routes.has(parts[1])) return parts[1];
     if (location.hostname.startsWith("student.")) return "login";
     return "welcome";
@@ -92,7 +109,7 @@
 
   function setRoute(name, replace = false) {
     const target = routes.has(name) ? name : "home";
-    const path = target === "welcome" ? "/app" : `/app/${target}`;
+    const path = target === "welcome" ? "/student-app" : `/student-app/${target}`;
     haptic("light");
     screen.classList.add("route-leave-24");
     setTimeout(() => {
@@ -235,10 +252,24 @@
   }
 
   function nav(active = "home") {
+    const activeMap = {
+      schedule: "study",
+      materials: "study",
+      homework: "study",
+      tests: "study",
+      library: "study",
+      dictionary: "study",
+      ranking: "rating",
+      coins: "rating",
+      rewards: "profile",
+      payments: "profile",
+      security: "profile"
+    };
+    const activeKey = activeMap[active] || active;
     const items = [
-      ["home", "home", "Bosh"], ["schedule", "calendar", "Jadval"], ["payments", "wallet", "To'lov"], ["coins", "coin", "Coin"], ["profile", "user", "Profil"]
+      ["home", "home", "Asosiy"], ["study", "book", "O'qish"], ["rating", "trophy", "Reyting"], ["profile", "user", "Profil"]
     ];
-    return `<nav class="dock-24" aria-label="Student App menu">${items.filter(([k]) => enabled(k) || ["home", "profile"].includes(k)).map(([k, icon, label]) => `<button class="${active === k ? "active" : ""}" data-go="${k}">${svg(icon)}<b>${label}</b></button>`).join("")}</nav>`;
+    return `<nav class="dock-24" aria-label="Student App menu">${items.filter(([k]) => enabled(routeAliases[k] || k) || ["home", "profile", "study", "rating"].includes(k)).map(([k, icon, label]) => `<button class="${activeKey === k ? "active" : ""}" data-go="${k}">${svg(icon)}<b>${label}</b></button>`).join("")}</nav>`;
   }
 
   function bindNav() {
@@ -278,7 +309,7 @@
   }
 
   function renderTelegramAccess() {
-    screen.innerHTML = `<section class="access-24"><button class="head-action floating" data-auth>${svg("home")}</button><div class="access-hero-24">${svg("bell", "hero-svg")}<h1>Telegram bot orqali kirish</h1><p>Botda telefon raqam va Student App kodini tasdiqlang. Tasdiqlashdan keyin tokenli tugma sizni login sahifasiz dashboardga olib kiradi.</p></div><div class="list-24">${row("Xavfsiz bog'lash", "Telegram ID talaba profilingizga ulanadi", "", "lock")}${row("Tokenli kirish", "Student App /app/open/TOKEN orqali ochiladi", "", "check")}${row("Qayta start kerak emas", "Ulangan bo'lsangiz, bot darhol App tugmasini beradi", "", "bell")}</div><a class="primary-24 link" href="${esc(state.botUrl)}">Telegram botga o'tish</a></section>`;
+    screen.innerHTML = `<section class="access-24"><button class="head-action floating" data-auth>${svg("home")}</button><div class="access-hero-24">${svg("bell", "hero-svg")}<h1>Telegram bot orqali kirish</h1><p>Botda telefon raqam va Student App kodini tasdiqlang. Tasdiqlashdan keyin tokenli tugma sizni login sahifasiz dashboardga olib kiradi.</p></div><div class="list-24">${row("Xavfsiz bog'lash", "Telegram ID talaba profilingizga ulanadi", "", "lock")}${row("Tokenli kirish", "Student App /student-app/open/TOKEN orqali ochiladi", "", "check")}${row("Qayta start kerak emas", "Ulangan bo'lsangiz, bot darhol App tugmasini beradi", "", "bell")}</div><a class="primary-24 link" href="${esc(state.botUrl)}">Telegram botga o'tish</a></section>`;
     $('[data-auth]').onclick = () => renderAuthHub();
   }
 
@@ -634,7 +665,9 @@
   }
 
   async function renderRoute(name = route()) {
-    screen.dataset.route = name;
+    const requestedName = name;
+    name = routeAliases[name] || name;
+    screen.dataset.route = requestedName;
     screen.classList.remove('route-leave-24');
     screen.classList.add('route-enter-24');
     setTimeout(() => screen.classList.remove('route-enter-24'), 280);
@@ -698,7 +731,7 @@
     const incoming = qs.get('token') || extractPathToken() || localStorage.getItem(TOKEN_KEY) || '';
     if (incoming) setToken(incoming);
     if (state.token) {
-      try { await load(); scheduleSessionRefresh(); if (location.pathname.match(/\/app\/open\//)) history.replaceState({}, '', '/app/home'); return renderRoute(route() === 'welcome' || route() === 'login' ? 'home' : route()); } catch { setToken(''); }
+      try { await load(); scheduleSessionRefresh(); if (location.pathname.match(/\/(?:student-app|app)\/open\//)) history.replaceState({}, '', '/student-app/home'); return renderRoute(route() === 'welcome' || route() === 'login' ? 'home' : route()); } catch { setToken(''); }
     }
     if (await authTelegramIfPossible()) { scheduleSessionRefresh(); return renderRoute('home'); }
     if (location.hostname.startsWith('student.')) return renderDomainLogin();

@@ -605,6 +605,18 @@ function withError(response, label, error) {
   sendJson(response, statusCode, { ok: false, message: error.message });
 }
 
+async function handleApiRoute(response, label, handler) {
+  try {
+    await handler();
+  } catch (error) {
+    if (!response.headersSent) {
+      withError(response, label, error);
+    } else {
+      console.error(`${label} failed after response started: ${error.message}`);
+    }
+  }
+}
+
 async function writeAudit(pool, user, action, entity, entityId, payload = {}) {
   try {
     await pool.query(
@@ -700,7 +712,14 @@ function getStudentTelegramConfig(options = {}) {
 }
 
 function getStudentWebAppUrlBase() {
-  return String(process.env.STUDENT_WEBAPP_URL || process.env.WEBAPP_URL || "https://eduka.uz/app").trim();
+  const raw = String(process.env.STUDENT_WEBAPP_URL || process.env.WEBAPP_URL || "https://eduka.uz/student-app").trim();
+  try {
+    const url = new URL(raw);
+    if (url.pathname.replace(/\/+$/, "") === "/app") url.pathname = "/student-app";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return raw === "/app" ? "/student-app" : raw;
+  }
 }
 
 function telegramConfiguredLabel(isConfigured) {
@@ -4403,12 +4422,12 @@ function studentAppWebUrl(organization, token = "") {
   const cleanPath = url.pathname.replace(/\/+$/, "");
   // Tokenni query emas, path ichida beramiz: Telegram iOS/WebView ba'zida queryni cache qiladi yoki yo'qotadi.
   if (token) {
-    url.pathname = `${cleanPath || "/app"}/open/${encodeURIComponent(token)}`;
+    url.pathname = `${cleanPath || "/student-app"}/open/${encodeURIComponent(token)}`;
     url.searchParams.set("v", "2300");
     return url.toString();
   }
   if (cleanPath === "" || cleanPath.endsWith("/student-app") || cleanPath.endsWith("/app")) {
-    url.pathname = `${cleanPath || "/app"}/home`;
+    url.pathname = `${cleanPath || "/student-app"}/home`;
   }
   url.searchParams.set("v", "2300");
   return url.toString();
@@ -6783,9 +6802,9 @@ function workflow274Checklist() {
     { key: 'payment_create', title: 'To‘lov qo‘shish', path: '/admin/payments', status: 'ready' },
     { key: 'receipt_qr', title: 'Chek / QR chiqarish', path: '/admin/payments', status: 'ready' },
     { key: 'telegram_message', title: 'Telegram xabar test', path: '/api/telegram-health', status: process.env.STUDENT_BOT_TOKEN ? 'ready' : 'needs_token' },
-    { key: 'student_app', title: 'Student App ochilishi', path: '/app/home', status: 'ready' },
+    { key: 'student_app', title: 'Student App ochilishi', path: '/student-app/home', status: 'ready' },
     { key: 'coin_award', title: 'Coin berish', path: '/admin/gamification', status: 'ready' },
-    { key: 'reward_redeem', title: 'Sovg‘a olish', path: '/app/rewards', status: 'ready' },
+    { key: 'reward_redeem', title: 'Sovg‘a olish', path: '/student-app/rewards', status: 'ready' },
     { key: 'parent_app', title: 'Parent App ochilishi', path: '/parent', status: 'foundation' }
   ];
 }
@@ -6997,7 +7016,7 @@ async function handleProduction27Audit(request, response, urlPath) {
     const sessionIsolation = {
       ceo: '/ceo/login',
       admin: '/admin/login',
-      student: '/app/home or student.eduka.uz',
+      student: '/student-app/home or student.eduka.uz',
       parent: '/parent',
       cookie: sessionCookieName,
       note: 'CEO/Admin use server session cookie. Student/Parent apps use token/session isolation.'
@@ -9176,50 +9195,50 @@ const server = http.createServer(async (request, response) => {
 
 
   if (urlPath.startsWith("/api/app/crm30/")) {
-    await handleCrmCorePro30(request, response, urlPath);
+    await handleApiRoute(response, "CRM Core Pro 30", () => handleCrmCorePro30(request, response, urlPath));
     return;
   }
 
   if (urlPath.startsWith("/api/workflow27/")) {
-    await handleWorkflow274(request, response, urlPath);
+    await handleApiRoute(response, "Workflow 27.4", () => handleWorkflow274(request, response, urlPath));
     return;
   }
   if (urlPath.startsWith("/api/app/admin-crm27/")) {
-    await handleAdminCrm274(request, response, urlPath);
+    await handleApiRoute(response, "Admin CRM 27.4", () => handleAdminCrm274(request, response, urlPath));
     return;
   }
   if (urlPath.startsWith("/api/app/finance27/")) {
-    await handleFinance274(request, response, urlPath);
+    await handleApiRoute(response, "Finance 27.4", () => handleFinance274(request, response, urlPath));
     return;
   }
   if (urlPath.startsWith("/api/super/monetization27/")) {
-    await handleCeoMonetization274(request, response, urlPath);
+    await handleApiRoute(response, "CEO Monetization 27.4", () => handleCeoMonetization274(request, response, urlPath));
     return;
   }
 
 
 
   if (urlPath.startsWith("/api/app/sales32/")) {
-    await handleLeadSales321(request, response, urlPath);
+    await handleApiRoute(response, "Lead Sales CRM 32.1", () => handleLeadSales321(request, response, urlPath));
     return;
   }
 
   if (urlPath.startsWith("/api/app/crm32/")) {
-    await handlePremiumCrm32(request, response, urlPath);
+    await handleApiRoute(response, "Premium CRM 32", () => handlePremiumCrm32(request, response, urlPath));
     return;
   }
 
   if (urlPath.startsWith("/api/app/operations31/")) {
-    await handleAcademyOperations31(request, response, urlPath);
+    await handleApiRoute(response, "Academy Operations 31", () => handleAcademyOperations31(request, response, urlPath));
     return;
   }
 
   if (urlPath.startsWith("/api/app/pro/")) {
-    await handleAdminPro253(request, response, urlPath);
+    await handleApiRoute(response, "Admin Pro 25.3", () => handleAdminPro253(request, response, urlPath));
     return;
   }
   if (urlPath.startsWith("/api/parent/")) {
-    await handleParent253(request, response, urlPath);
+    await handleApiRoute(response, "Parent App 25.3", () => handleParent253(request, response, urlPath));
     return;
   }
   if (request.method === "GET" && (urlPath === "/parent" || urlPath.startsWith("/parent/"))) {
@@ -9233,7 +9252,7 @@ const server = http.createServer(async (request, response) => {
     ["/super/login", "/ceo/login"],
     ["/super/login/", "/ceo/login"],
     ["/app/", "/app"],
-    ["/student-app/", "/app"],
+    ["/student-app/", "/student-app"],
     ["/admin/", "/admin"],
     ["/dashboard/", "/admin/dashboard"],
     ["/login/", "/admin/login"],
@@ -9248,14 +9267,20 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  // Public Student App lives at /app. The old /student-app URL remains as a redirect for backward compatibility.
+  // Backward compatibility for old Student App bot links. New CRM routes live under /app/*,
+  // while the public Student WebApp lives under /student-app/*.
+  if (request.method === "GET" && (urlPath === "/app/open" || urlPath.startsWith("/app/open/"))) {
+    sendRedirect(response, urlPath.replace(/^\/app/, "/student-app"));
+    return;
+  }
+
   if (request.method === "GET" && (urlPath === "/student-app" || urlPath.startsWith("/student-app/"))) {
-    sendRedirect(response, urlPath.replace(/^\/student-app/, "/app") || "/app");
+    sendStudentAppShell(response);
     return;
   }
 
   if (request.method === "GET" && (urlPath === "/app" || urlPath.startsWith("/app/"))) {
-    sendStudentAppShell(response);
+    sendAppShell(response);
     return;
   }
 
@@ -9275,7 +9300,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && urlPath === "/app.html") {
-    sendRedirect(response, "/admin");
+    sendRedirect(response, "/app/dashboard");
     return;
   }
 
