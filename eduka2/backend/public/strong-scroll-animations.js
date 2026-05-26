@@ -1,6 +1,15 @@
 
 (function () {
   const selectorList = [
+    ".eduka-section-head",
+    ".eduka-audience-card",
+    ".automation-chip",
+    ".workflow-step",
+    ".crm-preview-card",
+    ".security-grid > *",
+    ".security-cards article",
+    ".final-cta-box",
+    ".mini-window",
     "main > section",
     "section h1",
     "section h2",

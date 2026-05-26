@@ -48,3 +48,33 @@
     }
   });
 })();
+
+/* EDUKA_ENRICHED_EXTRA_ICONS */
+
+(function(){
+  const extraIcons = {
+    school:`<svg viewBox="0 0 24 24"><path d="M4 10 12 5l8 5-8 5-8-5Z"/><path d="M6 12v5c2.5 2 9.5 2 12 0v-5"/><path d="M20 10v6"/></svg>`,
+    code:`<svg viewBox="0 0 24 24"><path d="m8 9-4 3 4 3"/><path d="m16 9 4 3-4 3"/><path d="m14 5-4 14"/></svg>`,
+    building:`<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16"/><path d="M17 9h1a2 2 0 0 1 2 2v10"/><path d="M8 7h4M8 11h4M8 15h4M9 21v-3h3v3"/></svg>`,
+    video:`<svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="m17 10 4-2v8l-4-2v-4Z"/></svg>`,
+    users:`<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg>`,
+    students:`<svg viewBox="0 0 24 24"><path d="M12 14c3.3 0 6 1.8 6 4v1H6v-1c0-2.2 2.7-4 6-4Z"/><circle cx="12" cy="8" r="4"/><path d="m4 7 8-4 8 4-8 4-8-4Z"/></svg>`,
+    groups:`<svg viewBox="0 0 24 24"><path d="M8 21v-1a4 4 0 0 1 4-4h0a4 4 0 0 1 4 4v1"/><circle cx="12" cy="10" r="3"/><path d="M3 20v-1a3 3 0 0 1 3-3"/><path d="M21 20v-1a3 3 0 0 0-3-3"/><circle cx="6" cy="11" r="2"/><circle cx="18" cy="11" r="2"/></svg>`,
+    calendar:`<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>`,
+    wallet:`<svg viewBox="0 0 24 24"><path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h13"/><path d="M17 13h.01"/></svg>`,
+    warning:`<svg viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>`,
+    teacher:`<svg viewBox="0 0 24 24"><path d="M3 4h18v12H3z"/><path d="M8 20h8M12 16v4"/><circle cx="8" cy="10" r="2"/><path d="M12 9h5M12 12h4"/></svg>`,
+    lead:`<svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z"/></svg>`,
+    chart:`<svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-7"/></svg>`,
+    shield:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>`,
+    database:`<svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>`,
+    bell:`<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`
+  };
+  document.querySelectorAll("[data-hicon]").forEach((el)=>{
+    const name = el.getAttribute("data-hicon");
+    if (extraIcons[name]) {
+      el.innerHTML = extraIcons[name];
+      el.classList.add("hicon-ready");
+    }
+  });
+})();

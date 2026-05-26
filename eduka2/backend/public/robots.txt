@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://eduka.uz/sitemap.xml
