@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "nuxi dev --host demo.modme.local",
+    "dev": "nuxi dev --host 0.0.0.0",
     "build": "nuxi build",
     "generate": "nuxi generate",
-    "preview": "nuxi preview",
-    "lint": "eslint ."
+    "preview": "nuxi preview --host 0.0.0.0",
+    "lint": "eslint .",
+    "start": "node .output/server/index.mjs",
+    "start:safe": "node .output/server/index.mjs"
   },
   "devDependencies": {
     "@nuxt-themes/docus": "latest",
