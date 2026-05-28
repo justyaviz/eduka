@@ -1,6 +1,9 @@
+require("dotenv").config();
+
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const apiRoutes = require("./routes/api");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -12,32 +15,21 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.get(["/api/health", "/health", "/healthz"], (req, res) => {
-  res.status(200).json({
-    ok: true,
-    status: "healthy",
-    service: "eduka",
-    publicExists: fs.existsSync(publicDir),
-    root: __dirname,
-    timestamp: new Date().toISOString()
-  });
+  res.status(200).json({ ok:true, status:"healthy", service:"eduka", publicExists:fs.existsSync(publicDir), timestamp:new Date().toISOString() });
 });
+
+app.use("/api", apiRoutes);
 
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").send("User-agent: *\nAllow: /\nSitemap: https://eduka.uz/sitemap.xml\n");
 });
 
 app.get("/sitemap.xml", (req, res) => {
-  const urls = ["/", "/prices", "/gamification", "/vacancies", "/ceo"].map((urlPath) => {
-    return `<url><loc>https://eduka.uz${urlPath}</loc><changefreq>weekly</changefreq><priority>${urlPath === "/" ? "1.0" : "0.8"}</priority></url>`;
-  }).join("");
+  const urls = ["/", "/prices", "/gamification", "/vacancies", "/ceo"].map((p) => `<url><loc>https://eduka.uz${p}</loc><changefreq>weekly</changefreq><priority>${p === "/" ? "1.0" : "0.8"}</priority></url>`).join("");
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
 });
 
-app.use(express.static(publicDir, {
-  extensions: ["html"],
-  maxAge: "1h",
-  fallthrough: true
-}));
+app.use(express.static(publicDir, { extensions:["html"], maxAge:"1h", fallthrough:true }));
 
 function sendPage(res, fileName) {
   const filePath = path.join(publicDir, fileName);
@@ -49,12 +41,10 @@ app.get(["/", "/uz", "/index.html"], (req, res) => sendPage(res, "index.html"));
 app.get(["/gamification", "/uz/gamification"], (req, res) => sendPage(res, "gamification.html"));
 app.get(["/prices", "/uz/prices"], (req, res) => sendPage(res, "prices.html"));
 app.get(["/vacancies", "/uz/vacancies"], (req, res) => sendPage(res, "vacancies.html"));
-app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", "/ceo/centers", "/ceo/tariffs", "/ceo/payments", "/ceo/roles", "/ceo/settings"], (req, res) => {
-  sendPage(res, "ceo.html");
-});
+app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", "/ceo/centers", "/ceo/tariffs", "/ceo/payments", "/ceo/roles", "/ceo/settings"], (req, res) => sendPage(res, "ceo.html"));
 
 app.get("*", (req, res) => {
-  if (req.path.startsWith("/api/")) return res.status(404).json({ ok: false, error: "Not found" });
+  if (req.path.startsWith("/api/")) return res.status(404).json({ ok:false, error:"Not found" });
   if (req.path.startsWith("/ceo")) return sendPage(res, "ceo.html");
   if (req.path.includes("gamification")) return sendPage(res, "gamification.html");
   if (req.path.includes("prices")) return sendPage(res, "prices.html");
@@ -62,6 +52,4 @@ app.get("*", (req, res) => {
   return sendPage(res, "index.html");
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`EDUKA running on ${HOST}:${PORT}`);
-});
+app.listen(PORT, HOST, () => console.log(`EDUKA running on ${HOST}:${PORT}`));

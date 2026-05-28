@@ -1,15 +1,23 @@
 {
-  "name": "eduka-ceo-panel",
-  "version": "2.1.0",
+  "name": "eduka-real-backend-api",
+  "version": "2.2.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "build": "node scripts/build.js",
     "start": "node server.js",
-    "start:safe": "node server.js"
+    "start:safe": "node server.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed-ceo": "node scripts/create-ceo.js",
+    "db:setup": "npm run db:migrate && npm run db:seed-ceo"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
   },
   "engines": {
     "node": ">=18"

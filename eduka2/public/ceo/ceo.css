@@ -38,3 +38,5 @@ body.ceo-locked .ceo-login-page { display: grid !important; }
   font-weight: 950;
   cursor: pointer;
 }
+
+.ceo-toast{position:fixed;right:24px;bottom:24px;z-index:999999;background:#06123e;color:#fff;border-radius:16px;padding:14px 18px;font-weight:900;box-shadow:0 18px 50px rgba(6,18,62,.25);opacity:0;transform:translateY(16px);pointer-events:none;transition:.25s}.ceo-toast.show{opacity:1;transform:translateY(0)}[hidden]{display:none!important}body.ceo-locked .ceo-app{display:none!important}.empty-cell{text-align:center!important;padding:42px 18px!important;color:#66748e!important;font-weight:850!important}.empty-panel{grid-column:1/-1;min-height:220px;display:grid;place-items:center;text-align:center;color:#66748e;font-weight:850;border:1px dashed #cbd8ef;border-radius:24px;background:rgba(255,255,255,.72);padding:28px}.modal-actions{display:grid;gap:10px;margin-top:12px}.secondary-action{height:46px;border:1px solid #dce7f8;border-radius:14px;background:#fff;color:#123cff;font-weight:950;cursor:pointer}
