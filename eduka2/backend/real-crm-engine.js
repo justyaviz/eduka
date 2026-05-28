@@ -602,8 +602,14 @@ async function phase34FindApprovedOrganization(tenant) {
       OR lower(name) = lower($1)
     )
     AND COALESCE(status, 'active') = 'active'
-    AND COALESCE(created_by_ceo, FALSE) = TRUE
     AND deleted_at IS NULL
+    AND (
+      COALESCE(created_by_ceo, FALSE) = TRUE
+      OR COALESCE(admin_password, '') <> ''
+      OR COALESCE(email, '') <> ''
+      OR COALESCE(phone, '') <> ''
+      OR COALESCE(owner_name, '') <> ''
+    )
     LIMIT 1
   `, [tenant]);
 
@@ -2000,6 +2006,43 @@ function installRealCrmEngine(app) {
       });
     } catch(e) {
       phase3Err(res, e, "Create center admin failed");
+    }
+  });
+
+
+  /* ===== EDUKA PHASE 3.6 APPROVE EXISTING CENTER ===== */
+  app.post("/api/ceo/approve-existing-center", async (req, res) => {
+    try {
+      await phase34EnsureTenantFlags();
+      const subdomain = phase3Text(req.body.subdomain).toLowerCase().replace(/[^a-z0-9-]/g, "");
+      if (!subdomain) return res.status(400).json({ ok:false, error:"Subdomain kiritilmagan" });
+
+      const q = await realCrmQuery(`
+        UPDATE organizations
+        SET created_by_ceo = TRUE,
+            approved_at = COALESCE(approved_at, NOW()),
+            status = COALESCE(status, 'active'),
+            deleted_at = NULL
+        WHERE lower(COALESCE(subdomain, name)) = lower($1)
+           OR lower(name) = lower($1)
+        RETURNING *
+      `, [subdomain]);
+
+      if (!q.rows[0]) {
+        return res.status(404).json({
+          ok:false,
+          code:"CENTER_NOT_FOUND",
+          error:"Bu subdomain organizations jadvalida topilmadi"
+        });
+      }
+
+      return res.json({
+        ok:true,
+        message:"O‘quv markaz tasdiqlandi",
+        organization:q.rows[0]
+      });
+    } catch(e) {
+      phase3Err(res, e, "Approve existing center failed");
     }
   });
 

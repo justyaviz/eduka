@@ -110,8 +110,14 @@ async function phase35TenantExists(req) {
       OR lower(name) = lower($1)
     )
     AND COALESCE(status, 'active') = 'active'
-    AND COALESCE(created_by_ceo, FALSE) = TRUE
     AND deleted_at IS NULL
+    AND (
+      COALESCE(created_by_ceo, FALSE) = TRUE
+      OR COALESCE(admin_password, '') <> ''
+      OR COALESCE(email, '') <> ''
+      OR COALESCE(phone, '') <> ''
+      OR COALESCE(owner_name, '') <> ''
+    )
     LIMIT 1
   `, [tenant]);
 
