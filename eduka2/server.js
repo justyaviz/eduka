@@ -12,6 +12,7 @@ const publicDir = path.join(__dirname, "public");
 let dbReady = false;
 let dbError = null;
 let dbStarted = false;
+const { installRealCrmEngine } = require('./real-crm-engine');
 
 function normalizeHost(host) {
   return String(host || "")
@@ -182,6 +183,7 @@ app.get("*", (req, res) => {
   return sendPage(res, "index.html");
 });
 
+installRealCrmEngine(app);
 app.listen(PORT, HOST, () => {
   console.log(`✅ EDUKA running on ${HOST}:${PORT}`);
   console.log(`✅ Healthcheck ready: /api/health`);

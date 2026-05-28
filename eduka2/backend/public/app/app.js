@@ -40,37 +40,48 @@ const API = {
   async get(url, fallback){ try{ const r=await fetch(url,{headers:this.headers()}); const d=await r.json(); return d || fallback; }catch(e){ return fallback; } },
   async post(url, body){ try{ const r=await fetch(url,{method:"POST",headers:this.headers(),body:JSON.stringify(body)}); return await r.json(); }catch(e){ return {ok:false,error:e.message}; } }
 };
-const state = { page:"dashboard", finance:null, students:[], teachers:[], groups:[], leads:[], reminders:[] };
+const state = window.state = { page:"dashboard", finance:null, students:[], teachers:[], groups:[], courses:[], expenses:[], debtors:[], attendance:[], dashboard:{}, leads:[], reminders:[] };
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-function renderIcons(){ $$("[data-icon]").forEach(el=>{ const k=el.dataset.icon; if(ICONS[k]) el.innerHTML=ICONS[k]; }); }
+window.renderIcons = function renderIcons(){ $$("[data-icon]").forEach(el=>{ const k=el.dataset.icon; if(ICONS[k]) el.innerHTML=ICONS[k]; }); }
 function money(n){ return Number(n||0).toLocaleString("uz-UZ"); }
 function pageTitle(t, count){ return `<div class="page-head"><h1>${t}${count!==undefined?` <small>Miqdor — <b>${count}</b></small>`:""}</h1></div>`; }
 function btn(label, cls="", icon="plus"){ return `<button class="btn ${cls}">${icon?`<span data-icon="${icon}"></span>`:""}${label}</button>`; }
 function filters(items){ return `<div class="filters">${items.map(x=> x.startsWith("select:") ? `<select><option>${x.replace("select:","")}</option></select>` : x==="Filtr" ? `<button class="primary">Filtr</button>` : `<input placeholder="${x}">`).join("")}</div>`; }
 function table(heads, rows){ return `<div class="table-wrap"><table class="table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows?.length?rows.join(""):`<tr><td class="empty-row" colspan="${heads.length}">Ko‘rsatiladigan ma'lumotlar yo‘q</td></tr>`}</tbody></table></div>`; }
 function setActive(page){ $$(".side-nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===page || (financePages.includes(page)&&b.dataset.page==="finance") || (reportPages[page]&&b.dataset.page==="reports") || (settingsPages[page]&&b.dataset.page==="settings"))); }
-function go(page){ state.page=page; setActive(page); history.replaceState(null,"",`/app/${page}`); renderPage(page); }
+window.go = function go(page){ state.page=page; setActive(page); history.replaceState(null,"",`/app/${page}`); renderPage(page); }
 
 const financePages = ["finance","finance-withdraw","finance-expenses","salary","debtors"];
 const reportPages = {"conversion-reports":"Konversiya hisobotlari","attendance-summary":"Davomat hisobotlari","leads-report":"Lidlar hisobotlari","left-students":"Guruhni tark etgan o‘quvchilar","workly-report":"Workly hisobotlari","sms-journal":"Yuborilgan SMS jurnali","calls-journal":"Qo‘ng‘iroqlar jurnali","journals":"Jurnallar"};
 const settingsPages = {"general-settings":"Umumiy sozlamalari","login-settings":"Sistemaga kirish","lead-form-settings":"Lid forma","payment-methods":"To‘lov usullari","contacts-settings":"Aloqa","integrations":"Integratsiyalar","exams-settings":"Imtihonlar","receipt-settings":"Chek","billing-settings":"Hisob va to‘lovlar","landing-settings":"Landing page","auto-sms":"Auto-SMS"};
 
-async function loadData(){
-  const [students,teachers,groups,leads,reminders,finance] = await Promise.all([
+window.loadData = async function loadData(){
+  await API.post('/api/app/init', { centerName: location.hostname.split('.')[0] || 'main' });
+  const [students,teachers,groups,courses,leads,reminders,finance,expenses,debtors,attendance,dashboard] = await Promise.all([
     API.get("/api/app/students",{ok:false,students:[]}),
     API.get("/api/app/teachers",{ok:false,teachers:[]}),
     API.get("/api/app/groups",{ok:false,groups:[]}),
+    API.get("/api/app/courses",{ok:false,courses:[]}),
     API.get("/api/app/leads",{ok:false,leads:[]}),
     API.get("/api/app/reminders",{ok:false,reminders:[]}),
-    API.get("/api/app/finance/summary",{ok:false,income:0,expenses:0,profit:0,payments:[]})
+    API.get("/api/app/finance/summary",{ok:false,income:0,expenses:0,profit:0,payments:[]}),
+    API.get("/api/app/expenses",{ok:false,expenses:[]}),
+    API.get("/api/app/debtors",{ok:false,debtors:[]}),
+    API.get("/api/app/attendance",{ok:false,attendance:[]}),
+    API.get("/api/app/dashboard",{ok:false,stats:{}})
   ]);
   state.students = students.students || students.items || [];
   state.teachers = teachers.teachers || teachers.items || [];
   state.groups = groups.groups || groups.items || [];
+  state.courses = courses.courses || courses.items || [];
   state.leads = leads.leads || leads.items || [];
   state.reminders = reminders.reminders || reminders.items || [];
-  state.finance = finance.ok ? finance : {income:0,expenses:0,profit:0,payments:[]};
+  state.finance = finance.ok !== false ? finance : {income:0,expenses:0,profit:0,payments:[]};
+  state.expenses = expenses.expenses || [];
+  state.debtors = debtors.debtors || [];
+  state.attendance = attendance.attendance || [];
+  state.dashboard = dashboard.stats || {};
 }
 
 function dashboard(){
@@ -150,13 +161,13 @@ function renderPage(page){
  $("#content").innerHTML = (map[page]||dashboard)();
  renderIcons();
 }
-function openDrawer(type){
+window.openDrawer = function openDrawer(type){
  const titles={student:"Yangi foydalanuvchi qo‘shish",teacher:"Yangi o‘qituvchi qo‘shish",group:"Yangi guruh qo‘shish",payment:"To‘lov qabul qilish"};
  $("#drawerTitle").textContent=titles[type]||"Qo‘shish";
  $("#drawerBody").innerHTML=`<div class="form-grid"><label>Telefon<input placeholder="+998"></label><label>Ism<input></label>${type==="group"?`<label>Kurs tanlash<select><option>Tanlang</option></select></label><label>O‘qituvchi<select><option>Tanlang</option></select></label><label>Dars vaqti<input></label>`:""}${type==="payment"?`<label>Summa<input></label><label>To‘lov turi<select><option>Naqd pul</option><option>Card</option></select></label>`:""}<label>Izoh<textarea></textarea></label><button>Saqlash</button></div>`;
  $("#drawerBackdrop").hidden=false; $("#drawer").hidden=false;
 }
-function closeDrawer(){ $("#drawerBackdrop").hidden=true; $("#drawer").hidden=true; }
+window.closeDrawer = function closeDrawer(){ $("#drawerBackdrop").hidden=true; $("#drawer").hidden=true; }
 function bind(){
  $("#sideNav").addEventListener("click",e=>{ const b=e.target.closest("button[data-page]"); if(!b) return; go(b.dataset.page==="reports"?"conversion-reports":b.dataset.page==="settings"?"general-settings":b.dataset.page); });
  document.body.addEventListener("click",e=>{ const b=e.target.closest("[data-sub-page]"); if(b){ go(b.dataset.subPage); } const d=e.target.closest("[data-open-drawer]"); if(d){ openDrawer(d.dataset.openDrawer); } });
@@ -172,3 +183,224 @@ document.addEventListener("DOMContentLoaded",async()=>{
  go(key && key!=="app" ? key : "dashboard");
  setTimeout(()=>$("#bootLoader")?.classList.add("hide"),250);
 });
+
+/* ===== EDUKA REAL CRM ENGINE FRONTEND PHASE 1 ===== */
+(function(){
+  const oldLoadData = window.loadData;
+  const oldOpenDrawer = window.openDrawer;
+  const apiHeaders = () => {
+    const token = localStorage.getItem("eduka_center_token") || localStorage.getItem("token") || "";
+    return token ? { Authorization: "Bearer " + token, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+  };
+  async function apiGet(url, fallback){
+    try {
+      const r = await fetch(url, { headers: apiHeaders() });
+      const d = await r.json();
+      return d || fallback;
+    } catch(e) { return fallback; }
+  }
+  async function apiPost(url, body){
+    const r = await fetch(url, { method:"POST", headers: apiHeaders(), body: JSON.stringify(body) });
+    return await r.json();
+  }
+  async function initRealCrm(){
+    try { await apiPost("/api/app/init", { centerName: location.hostname.split(".")[0] || "main" }); } catch(e) {}
+  }
+  function toast(msg, ok=true){
+    let t = document.getElementById("realCrmToast");
+    if(!t){
+      t = document.createElement("div");
+      t.id = "realCrmToast";
+      t.style.cssText = "position:fixed;right:24px;bottom:96px;z-index:9999;background:#071137;color:#fff;padding:14px 18px;border-radius:14px;box-shadow:0 14px 35px rgba(0,0,0,.18);font-weight:800;transition:.2s";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.background = ok ? "#071137" : "#dc2626";
+    t.style.opacity = "1";
+    setTimeout(()=>t.style.opacity="0", 2200);
+  }
+  function closeDrawerSafe(){
+    const b = document.getElementById("drawerBackdrop");
+    const d = document.getElementById("drawer");
+    if(b) b.hidden = true;
+    if(d) d.hidden = true;
+  }
+  function getVal(id){ return (document.getElementById(id)?.value || "").trim(); }
+  function optionList(items, label, valueKey="id", labelKey="name"){
+    return `<option value="">${label}</option>` + (items||[]).map(x=>`<option value="${x[valueKey]}">${x[labelKey] || "-"}</option>`).join("");
+  }
+  async function refreshRealData(){
+    if(typeof loadData === "function") await loadData();
+    if(typeof go === "function") go((window.state && state.page) || "dashboard");
+  }
+
+  window.openDrawer = function(type){
+    const titles={student:"Yangi talaba qo‘shish",teacher:"Yangi o‘qituvchi qo‘shish",group:"Yangi guruh qo‘shish",payment:"To‘lov qabul qilish",course:"Yangi kurs qo‘shish",expense:"Yangi xarajat qo‘shish",reminder:"Eslatma yaratish"};
+    document.getElementById("drawerTitle").textContent=titles[type]||"Qo‘shish";
+    let html = "";
+    const courses = (window.state && state.courses) || [];
+    const teachers = (window.state && state.teachers) || [];
+    const students = (window.state && state.students) || [];
+    const groups = (window.state && state.groups) || [];
+
+    if(type === "student"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Telefon<input id="f_phone" placeholder="+998"></label>
+        <label>Ism<input id="f_name" required></label>
+        <label>Tug‘ilgan sana<input id="f_birth" type="date"></label>
+        <label>Jins<select id="f_gender"><option value="">Tanlang</option><option value="male">Erkak</option><option value="female">Ayol</option></select></label>
+        <label>Guruh<select id="f_group">${optionList(groups,"Guruhni tanlang")}</select></label>
+        <label>Izoh<textarea id="f_note"></textarea></label>
+        <button>Saqlash</button>
+      </form>`;
+    } else if(type === "teacher"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Telefon<input id="f_phone" placeholder="+998"></label>
+        <label>Ism<input id="f_name" required></label>
+        <label>Fan<input id="f_subject" placeholder="Masalan: Ingliz tili"></label>
+        <label>Oylik<input id="f_salary" type="number" placeholder="0"></label>
+        <button>Saqlash</button>
+      </form>`;
+    } else if(type === "course"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Kurs nomi<input id="f_name" required placeholder="Masalan: IELTS"></label>
+        <label>Narx<input id="f_price" type="number" placeholder="600000"></label>
+        <label>Davomiylik oy<input id="f_duration" type="number" value="1"></label>
+        <button>Saqlash</button>
+      </form>`;
+    } else if(type === "group"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Nomi<input id="f_name" required placeholder="Masalan: IELTS Evening"></label>
+        <label>Kurs tanlash<select id="f_course">${optionList(courses,"Kurs tanlang")}</select></label>
+        <label>O‘qituvchi<select id="f_teacher">${optionList(teachers,"O‘qituvchi tanlang")}</select></label>
+        <label>Kunlar<input id="f_days" placeholder="Dush, Chorsh, Jum"></label>
+        <label>Dars vaqti<input id="f_time" placeholder="09:00 - 10:30"></label>
+        <label>Xona<input id="f_room" placeholder="201-xona"></label>
+        <label>Boshlanish sanasi<input id="f_start" type="date"></label>
+        <button>Saqlash</button>
+      </form>`;
+    } else if(type === "payment"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Talaba<select id="f_student">${optionList(students,"Talabani tanlang")}</select></label>
+        <label>Guruh<select id="f_group">${optionList(groups,"Guruhni tanlang")}</select></label>
+        <label>Summa<input id="f_amount" type="number" required></label>
+        <label>To‘lov turi<select id="f_payment_type"><option value="cash">Naqd pul</option><option value="card">Karta</option><option value="click">Click</option><option value="payme">Payme</option><option value="uzum">Uzum</option></select></label>
+        <label>Izoh<textarea id="f_note"></textarea></label>
+        <button>Saqlash</button>
+      </form>`;
+    } else if(type === "expense"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Nomi<input id="f_title" required></label>
+        <label>Turkum<input id="f_category"></label>
+        <label>Summa<input id="f_amount" type="number" required></label>
+        <label>To‘lov turi<select id="f_payment_type"><option value="cash">Naqd pul</option><option value="card">Karta</option></select></label>
+        <label>Izoh<textarea id="f_note"></textarea></label>
+        <button>Saqlash</button>
+      </form>`;
+    } else if(type === "reminder"){
+      html = `<form id="realCrmForm" class="form-grid">
+        <label>Sarlavha<input id="f_title" required></label>
+        <label>Izoh<textarea id="f_note"></textarea></label>
+        <label>Vaqt<input id="f_due" type="datetime-local"></label>
+        <button>Saqlash</button>
+      </form>`;
+    }
+
+    document.getElementById("drawerBody").innerHTML = html || "<p>Forma topilmadi</p>";
+    document.getElementById("drawerBackdrop").hidden=false;
+    document.getElementById("drawer").hidden=false;
+
+    const form = document.getElementById("realCrmForm");
+    if(form){
+      form.addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        const submit = form.querySelector("button");
+        submit.disabled = true;
+        submit.textContent = "Saqlanmoqda...";
+        try{
+          let result;
+          if(type==="student"){
+            result = await apiPost("/api/app/students", { name:getVal("f_name"), phone:getVal("f_phone"), birthDate:getVal("f_birth") || null, gender:getVal("f_gender"), groupId:getVal("f_group") || null, note:getVal("f_note") });
+          } else if(type==="teacher"){
+            result = await apiPost("/api/app/teachers", { name:getVal("f_name"), phone:getVal("f_phone"), subject:getVal("f_subject"), salary:getVal("f_salary") });
+          } else if(type==="course"){
+            result = await apiPost("/api/app/courses", { name:getVal("f_name"), price:getVal("f_price"), durationMonths:getVal("f_duration") });
+          } else if(type==="group"){
+            result = await apiPost("/api/app/groups", { name:getVal("f_name"), courseId:getVal("f_course") || null, teacherId:getVal("f_teacher") || null, days:getVal("f_days"), lessonTime:getVal("f_time"), room:getVal("f_room"), startDate:getVal("f_start") || null });
+          } else if(type==="payment"){
+            result = await apiPost("/api/app/payments", { studentId:getVal("f_student") || null, groupId:getVal("f_group") || null, amount:getVal("f_amount"), paymentType:getVal("f_payment_type"), note:getVal("f_note") });
+          } else if(type==="expense"){
+            result = await apiPost("/api/app/expenses", { title:getVal("f_title"), category:getVal("f_category"), amount:getVal("f_amount"), paymentType:getVal("f_payment_type"), note:getVal("f_note") });
+          } else if(type==="reminder"){
+            result = await apiPost("/api/app/reminders", { title:getVal("f_title"), note:getVal("f_note"), dueAt:getVal("f_due") || null });
+          }
+          if(!result || !result.ok) throw new Error(result?.error || "Saqlanmadi");
+          toast("Ma'lumot saqlandi ✅");
+          closeDrawerSafe();
+          await refreshRealData();
+        }catch(err){
+          toast(err.message || "Xatolik", false);
+          submit.disabled = false;
+          submit.textContent = "Saqlash";
+        }
+      });
+    }
+  };
+
+  const oldLoadData2 = window.loadData;
+  window.loadData = async function(){
+    await initRealCrm();
+    const [students,teachers,groups,courses,leads,reminders,finance,expenses,debtors,attendance,dashboard] = await Promise.all([
+      apiGet("/api/app/students",{students:[]}),
+      apiGet("/api/app/teachers",{teachers:[]}),
+      apiGet("/api/app/groups",{groups:[]}),
+      apiGet("/api/app/courses",{courses:[]}),
+      apiGet("/api/app/leads",{leads:[]}),
+      apiGet("/api/app/reminders",{reminders:[]}),
+      apiGet("/api/app/finance/summary",{income:0,expenses:0,profit:0,payments:[]}),
+      apiGet("/api/app/expenses",{expenses:[]}),
+      apiGet("/api/app/debtors",{debtors:[]}),
+      apiGet("/api/app/attendance",{attendance:[]}),
+      apiGet("/api/app/dashboard",{stats:{}})
+    ]);
+    if(!window.state) window.state = {};
+    state.students = students.students || [];
+    state.teachers = teachers.teachers || [];
+    state.groups = groups.groups || [];
+    state.courses = courses.courses || [];
+    state.leads = leads.leads || [];
+    state.reminders = reminders.reminders || [];
+    state.finance = finance.ok !== false ? finance : {income:0,expenses:0,profit:0,payments:[]};
+    state.expenses = expenses.expenses || [];
+    state.debtors = debtors.debtors || [];
+    state.attendance = attendance.attendance || [];
+    state.dashboard = dashboard.stats || {};
+  };
+
+  function addRealButtons(){
+    document.body.addEventListener("click", (e)=>{
+      const txt = (e.target.textContent || "").trim();
+      if(e.target.closest(".btn") && txt.includes("Yangisini qo‘shish")){
+        const page = window.state?.page;
+        if(page==="students") return openDrawer("student");
+        if(page==="teachers") return openDrawer("teacher");
+        if(page==="groups") return openDrawer("group");
+      }
+      if(e.target.closest(".btn") && txt.includes("Qo‘shish") && window.state?.page==="reminders"){
+        return openDrawer("reminder");
+      }
+    }, true);
+  }
+
+  // Patch render functions if they are global function declarations.
+  setTimeout(()=>{
+    try{
+      addRealButtons();
+      const quick = document.getElementById("quickPop");
+      if(quick && !quick.querySelector('[data-open-drawer="course"]')){
+        quick.insertAdjacentHTML("beforeend", `<button data-open-drawer="course"><span data-icon="presentation"></span> Yangi kurs</button><button data-open-drawer="expense"><span data-icon="chart"></span> Xarajat</button><button data-open-drawer="reminder"><span data-icon="bell"></span> Eslatma</button>`);
+        if(typeof renderIcons === "function") renderIcons();
+      }
+    }catch(e){}
+  }, 500);
+})();
