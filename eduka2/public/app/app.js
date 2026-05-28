@@ -266,7 +266,7 @@ function bind(){
 }
 document.addEventListener("DOMContentLoaded",async()=>{
  renderIcons(); bind();
- const allowed = await installTenantLoginGuard();
+ const phase35ok = await phase35FrontendHardCheck(); if (!phase35ok) return; const allowed = await installTenantLoginGuard();
  if (allowed) {
    await loadData();
    const p=location.pathname.replace("/app/","").replace(/^\/+|\/+$/g,"")||"dashboard";
@@ -483,3 +483,44 @@ installTenantLoginGuard = async function() {
   hideTenantLogin();
   return true;
 };
+
+
+/* ===== EDUKA PHASE 3.5 FRONTEND FAIL-CLOSED GUARD ===== */
+(function(){
+  const root = "eduka.uz";
+  const host = location.hostname.toLowerCase();
+  const isRoot = host === root || host === "www."+root || host.includes("localhost") || host.includes("railway.app");
+  if (!isRoot) {
+    document.documentElement.classList.add("tenant-pending");
+  }
+})();
+async function phase35FrontendHardCheck(){
+  const root = "eduka.uz";
+  const host = location.hostname.toLowerCase();
+  const isRoot = host === root || host === "www."+root || host.includes("localhost") || host.includes("railway.app");
+  if (isRoot) {
+    document.documentElement.classList.remove("tenant-pending");
+    return true;
+  }
+  const st = await tenantStatus();
+  if (!st || st.ok === false || st.code === "TENANT_NOT_FOUND") {
+    document.body.innerHTML = `
+      <div class="tenant-notfound-screen">
+        <div class="tenant-notfound-card">
+          <div class="login-logo"><span data-icon="alert-triangle"></span><b>EDUKA</b></div>
+          <span class="login-badge error">Subdomain topilmadi</span>
+          <h1>O‘quv markaz topilmadi</h1>
+          <p>Bu subdomain EDUKA CEO panelida yaratilmagan yoki tasdiqlanmagan. Iltimos, EDUKA admini bilan bog‘laning.</p>
+          <div class="support-actions">
+            <a href="tel:+998998939000">+998 99 893 90 00</a>
+            <a href="https://t.me/eduka_sales" target="_blank">Telegram support</a>
+          </div>
+        </div>
+      </div>`;
+    document.documentElement.classList.remove("tenant-pending");
+    if (typeof renderIcons === "function") renderIcons();
+    return false;
+  }
+  document.documentElement.classList.remove("tenant-pending");
+  return true;
+}

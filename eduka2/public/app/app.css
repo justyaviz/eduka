@@ -93,3 +93,7 @@ body.tenant-locked .app-shell, body.tenant-locked #app, body.tenant-locked main{
 .support-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;font-weight:900}
 .support-actions a:first-child{background:#1455ff;color:#fff}
 .support-actions a:last-child{background:#eef4ff;color:#1455ff}
+
+
+/* ===== EDUKA PHASE 3.5 HIDE CRM UNTIL TENANT VERIFIED ===== */
+html.tenant-pending body{visibility:hidden!important}
