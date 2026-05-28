@@ -5,7 +5,7 @@ let pool = null;
 function getPool() {
   if (!pool) {
     if (!process.env.DATABASE_URL) {
-      console.error("DATABASE_URL is missing");
+      console.error("❌ DATABASE_URL is missing");
     }
 
     pool = new Pool({

@@ -10,6 +10,11 @@ async function initDatabase() {
   }
 
   const sqlPath = path.join(__dirname, "..", "migrations", "001_init.sql");
+
+  if (!fs.existsSync(sqlPath)) {
+    return { ok: false, error: "Migration file missing: migrations/001_init.sql" };
+  }
+
   const sql = fs.readFileSync(sqlPath, "utf8");
 
   await pool.query(sql);
@@ -36,6 +41,7 @@ async function initDatabase() {
 
   console.log("✅ Database schema ready");
   console.log("✅ CEO user ready:", email);
+
   return { ok: true, email, password };
 }
 
