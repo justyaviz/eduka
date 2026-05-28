@@ -1,29 +1,423 @@
-const icons={grid:`<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>`,message:`<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>`,building:`<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16"/><path d="M17 9h1a2 2 0 0 1 2 2v10"/><path d="M8 7h4M8 11h4M8 15h4"/></svg>`,card:`<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/></svg>`,wallet:`<svg viewBox="0 0 24 24"><path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h13"/><path d="M17 13h.01"/></svg>`,shield:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>`,settings:`<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/></svg>`,logout:`<svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 3v18"/></svg>`,search:`<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`,bell:`<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`,warning:`<svg viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>`};
-const TOKEN="eduka_ceo_token",USER="eduka_ceo_user";
-const titles={dashboard:"Boshqaruv paneli",demo:"Demo so‘rovlar",centers:"O‘quv markazlar",tariffs:"Tariflar",payments:"To‘lovlar / obunalar",roles:"Ruxsatlar / rollar",settings:"Platforma sozlamalari"};
-let state={demo:[],centers:[],payments:[],tariffs:[],dashboard:null};
-const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
-function api(path,o={}){return fetch(path,{...o,headers:{"Content-Type":"application/json",...(localStorage.getItem(TOKEN)?{Authorization:"Bearer "+localStorage.getItem(TOKEN)}:{}),...(o.headers||{})}}).then(async r=>{let d={};try{d=await r.json()}catch{}if(r.status===401){logout(false);throw new Error(d.error||"Unauthorized")}if(!r.ok||d.ok===false)throw new Error(d.realError||d.error||"API xato");return d})}
-function renderIcons(){$$("[data-icon]").forEach(e=>{e.innerHTML=icons[e.dataset.icon]||icons.grid})}
-function badge(s){let c="blue";if(["Active","To‘landi","Mijoz bo‘ldi"].includes(s))c="green";if(["Trial","Kutilmoqda","Demo belgilandi","Bog‘lanildi","Tayinlanmagan"].includes(s))c="orange";if(["Suspended","Qarzdor","Rad etildi","Muddat o‘tgan","Expired"].includes(s))c="red";return`<span class="badge ${c}">${s}</span>`}
-function fmt(d){try{return new Intl.DateTimeFormat("uz-UZ",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(d))}catch{return"-"}}
-function money(n){return Number(n||0).toLocaleString("uz-UZ")}
-function table(el,heads,rows,map,act=false,empty="Ma’lumot yo‘q"){if(!el)return;el.innerHTML=`<thead><tr>${heads.map(h=>`<th>${h}</th>`).join("")}${act?"<th>Amal</th>":""}</tr></thead><tbody>${rows.length?rows.map((r,i)=>`<tr>${map(r,i)}${act?`<td><button class="row-action" data-detail="${r.id}">Ochish</button></td>`:""}</tr>`).join(""):`<tr><td colspan="${heads.length+(act?1:0)}" class="empty-cell">${empty}</td></tr>`}</tbody>`}
-function toast(t){let x=$(".ceo-toast");if(!x){x=document.createElement("div");x.className="ceo-toast";document.body.appendChild(x)}x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),3500)}
-function updateStats(s={}){const c=$$(".stat-card h3");if(c[0])c[0].textContent=s.demoTotal||0;if(c[1])c[1].textContent=s.centersActive||0;if(c[2])c[2].textContent=s.paymentsPaid?Math.round(s.paymentsPaid/1000000)+"M":"0";if(c[3])c[3].textContent=s.paymentsDebt||0;const sm=$$(".stat-card small");if(sm[0])sm[0].textContent=(s.demoToday||0)+" bugun";if(sm[1])sm[1].textContent=(s.centersTotal||0)+" jami";if(sm[3])sm[3].textContent=s.paymentsDebt?"nazorat kerak":"toza";const b=$('[data-page="demo"] b');if(b)b.textContent=s.demoNew||0;const bell=$(".ceo-bell b");if(bell)bell.textContent=s.demoNew||0;const box=$(".alert-list");if(box)box.innerHTML=`<p><b>0</b> markaz trial holatida</p><p><b>${s.paymentsDebt||0}</b> markaz qarzdor</p><p><b>${s.demoNew||0}</b> yangi demo so‘rov javob kutmoqda</p>`}
-const demoMap=x=>`<td>${x.name}</td><td>${x.center}</td><td>${x.phone}</td><td>${x.payment||"-"}</td><td>${badge(x.status)}</td><td>${x.manager||"-"}</td><td>${fmt(x.createdAt)}</td>`;
-async function loadDashboard(){const d=await api("/api/ceo/dashboard");state.dashboard=d;updateStats(d.stats);table($("#recentDemoTable"),["Ism","Markaz","Telefon","To‘lov","Status","Menejer","Vaqt"],d.recentDemoRequests||[],demoMap,true,"Hali demo so‘rov kelmagan")}
-async function loadDemo(f="all"){const d=await api(`/api/ceo/demo-requests${f&&f!="all"?`?status=${encodeURIComponent(f)}`:""}`);state.demo=d.demoRequests||[];table($("#demoTable"),["Ism","Markaz","Telefon","To‘lov","Status","Menejer","Vaqt"],state.demo,demoMap,true,"Hali demo so‘rov yo‘q")}
-async function loadCenters(){const d=await api("/api/ceo/centers");state.centers=d.centers||[];$("#centerGrid").innerHTML=state.centers.length?state.centers.map(c=>`<article class="center-card"><h3>${c.name}</h3><p>${c.subdomain||"-"}</p>${badge(c.status||"Active")}<div class="center-meta"><span>Tarif <b>${c.tariff||"Start"}</b></span><span>O‘quvchi <b>${c.students||0}</b></span><span>Filial <b>${c.branches||1}</b></span><span>Yaratildi <b>${fmt(c.createdAt)}</b></span></div></article>`).join(""):`<div class="empty-panel">Hali o‘quv markaz yo‘q.</div>`}
-async function loadTariffs(){const d=await api("/api/ceo/tariffs");state.tariffs=d.tariffs||[];$("#tariffGrid").innerHTML=state.tariffs.map(t=>`<article class="tariff-card"><h3>${t.name}</h3><p>${t.student_limit||0} o‘quvchi / ${t.branch_limit||1} filial</p><h2>${money(t.monthly_price)} so‘m</h2><div class="tariff-meta"><span>Holat <b>${t.is_active?"Active":"Inactive"}</b></span></div></article>`).join("")||`<div class="empty-panel">Tariflar yo‘q</div>`}
-async function loadPayments(){const d=await api("/api/ceo/payments");state.payments=d.payments||[];table($("#paymentsTable"),["Markaz","Tarif","Summa","Status","Keyingi to‘lov"],state.payments,x=>`<td>${x.center||"-"}</td><td>${x.tariff||"-"}</td><td>${money(x.amount)}</td><td>${badge(x.status||"Kutilmoqda")}</td><td>${x.nextDate?fmt(x.nextDate):"-"}</td>`,false,"Hali to‘lovlar yo‘q")}
-function renderRoles(){const roles=[["CEO","Barcha ruxsatlar","7/7 modul"],["Admin","Markaz, demo, tariflar","5/7 modul"],["Sales manager","Demo va markaz yaratish","2/7 modul"],["Finance manager","To‘lovlar va obunalar","2/7 modul"],["Support manager","Support so‘rovlari","1/7 modul"],["Viewer","Faqat ko‘rish","Read only"]];$("#rolesGrid").innerHTML=roles.map(r=>`<article class="role-card"><h3>${r[0]}</h3><p>${r[1]}</p><span class="badge blue">${r[2]}</span></article>`).join("")}
-async function loadSettings(){const d=await api("/api/ceo/settings");const inp=$$(".settings-grid input,.settings-grid select");const s=d.settings||{};[s.platform_name,s.call_center_phone,s.sales_telegram,s.support_telegram,s.default_trial_days,s.default_language].forEach((v,i)=>{if(v&&inp[i])inp[i].value=v});const a=await api("/api/ceo/audit");$("#auditList").innerHTML=(a.auditLogs||[]).length?(a.auditLogs||[]).map(x=>`<p>${x.action}<span style="float:right;color:#8a96ad">${fmt(x.created_at)}</span></p>`).join(""):`<p>Hali audit log yo‘q</p>`}
-async function openPage(p){$$(".ceo-page").forEach(x=>x.classList.toggle("active",x.dataset.view===p));$$(".ceo-nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===p));$("#pageTitle").textContent=titles[p]||titles.dashboard;history.replaceState(null,"",p==="dashboard"?"/ceo/dashboard":`/ceo/${p==="demo"?"demo-requests":p}`);try{if(p==="dashboard")await loadDashboard();if(p==="demo")await loadDemo($(".filter.active")?.dataset.demoFilter||"all");if(p==="centers")await loadCenters();if(p==="tariffs")await loadTariffs();if(p==="payments")await loadPayments();if(p==="roles")renderRoles();if(p==="settings")await loadSettings()}catch(e){toast(e.message)}}
-function showLogin(){document.body.classList.add("ceo-locked");$("#ceoLoginPage").hidden=false;$("#ceoApp").hidden=true}
-async function showApp(){document.body.classList.remove("ceo-locked");$("#ceoLoginPage").hidden=true;$("#ceoApp").hidden=false;const u=JSON.parse(localStorage.getItem(USER)||"{}");if(u.email){$(".ceo-profile strong").textContent=u.role||"CEO";$(".ceo-profile span").textContent=u.email}const p=location.pathname.includes("demo")?"demo":location.pathname.split("/").pop()||"dashboard";await openPage(["centers","tariffs","payments","roles","settings"].includes(p)?p:"dashboard")}
-async function login(){const d=await api("/api/ceo/login",{method:"POST",body:JSON.stringify({email:$("#ceoEmail").value,password:$("#ceoPassword").value})});localStorage.setItem(TOKEN,d.token);localStorage.setItem(USER,JSON.stringify(d.user));await showApp()}
-function logout(red=true){localStorage.removeItem(TOKEN);localStorage.removeItem(USER);if(red)history.replaceState(null,"","/ceo/login");showLogin()}
-async function convert(id){await api(`/api/ceo/demo-requests/${id}/convert-to-center`,{method:"POST"});$("#demoModal").hidden=true;toast("O‘quv markaz yaratildi");await loadDashboard();await openPage("centers")}
-async function status(id,s){await api(`/api/ceo/demo-requests/${id}/status`,{method:"PATCH",body:JSON.stringify({status:s})});$("#demoModal").hidden=true;toast("Status yangilandi");await openPage("demo")}
-document.addEventListener("DOMContentLoaded",async()=>{renderIcons();$("#ceoLoginForm")?.addEventListener("submit",e=>{e.preventDefault();login().catch(err=>toast(err.message))});$("#ceoLogout")?.addEventListener("click",()=>logout(true));$$("[data-page]").forEach(b=>b.addEventListener("click",()=>openPage(b.dataset.page)));$$("[data-page-jump]").forEach(b=>b.addEventListener("click",()=>openPage(b.dataset.pageJump)));$$("[data-close-modal]").forEach(x=>x.addEventListener("click",()=>$("#demoModal").hidden=true));$$(".filter").forEach(f=>f.addEventListener("click",()=>{$$(".filter").forEach(x=>x.classList.remove("active"));f.classList.add("active");loadDemo(f.dataset.demoFilter)}));document.addEventListener("click",e=>{const b=e.target.closest("[data-detail]");if(b){const r=state.demo.find(x=>x.id===b.dataset.detail)||(state.dashboard?.recentDemoRequests||[]).find(x=>x.id===b.dataset.detail);if(!r)return;$("#modalBody").innerHTML=`<div class="detail-list"><p><span>Ism</span>${r.name}</p><p><span>Markaz</span>${r.center}</p><p><span>Telefon</span>${r.phone}</p><p><span>To‘lov rejimi</span>${r.payment||"-"}</p><p><span>Status</span>${r.status}</p><p><span>Menejer</span>${r.manager||"-"}</p><p><span>Kelgan vaqt</span>${fmt(r.createdAt)}</p><div class="modal-actions"><button class="primary-action" data-convert="${r.id}">O‘quv markazga aylantirish</button><button class="secondary-action" data-set-status="Bog‘lanildi" data-id="${r.id}">Bog‘lanildi</button><button class="secondary-action" data-set-status="Rad etildi" data-id="${r.id}">Rad etildi</button></div></div>`;$("#demoModal").hidden=false}const c=e.target.closest("[data-convert]");if(c)convert(c.dataset.convert);const st=e.target.closest("[data-set-status]");if(st)status(st.dataset.id,st.dataset.setStatus)});$("#saveSettings")?.addEventListener("click",async e=>{e.preventDefault();const i=$$(".settings-grid input,.settings-grid select");await api("/api/ceo/settings",{method:"PATCH",body:JSON.stringify({platform_name:i[0]?.value,call_center_phone:i[1]?.value,sales_telegram:i[2]?.value,support_telegram:i[3]?.value,default_trial_days:i[4]?.value,default_language:i[5]?.value})});toast("Sozlamalar saqlandi");await loadSettings()});setTimeout(()=>$("#ceoLoader")?.classList.add("hide"),450);if(localStorage.getItem(TOKEN)){try{await api("/api/ceo/me");await showApp()}catch{logout(false)}}else showLogin();setInterval(()=>{const cur=$(".ceo-page.active")?.dataset.view;if(localStorage.getItem(TOKEN)&&["dashboard","demo"].includes(cur))openPage(cur)},5000)});
+
+const icons = {
+  dashboard:`<svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm10 7h6V4h-6v16ZM4 20h6v-5H4v5Z"/></svg>`,
+  demo:`<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>`,
+  centers:`<svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16"/><path d="M8 7h4M8 11h4M8 15h4"/></svg>`,
+  tariffs:`<svg viewBox="0 0 24 24"><path d="M20 12V8H4v4"/><path d="M6 12v8h12v-8"/><path d="M9 16h6"/></svg>`,
+  payments:`<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>`,
+  roles:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>`,
+  settings:`<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-.6 1Z"/></svg>`,
+  search:`<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`,
+  bell:`<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`,
+  plus:`<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`,
+  logout:`<svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 3v18"/></svg>`,
+};
+
+const TOKEN = "eduka_ceo_token";
+const USER = "eduka_ceo_user";
+const titles = {
+  dashboard: "Boshqaruv paneli",
+  demo: "Demo so‘rovlar",
+  centers: "O‘quv markazlar",
+  tariffs: "Tariflar",
+  payments: "To‘lovlar / obunalar",
+  roles: "Ruxsatlar / rollar",
+  settings: "Platforma sozlamalari",
+};
+
+let state = { dashboard: null, demo: [], centers: [], payments: [], tariffs: [], currentPage: "dashboard" };
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+function api(path, options = {}) {
+  return fetch(path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(localStorage.getItem(TOKEN) ? { Authorization: "Bearer " + localStorage.getItem(TOKEN) } : {}),
+      ...(options.headers || {}),
+    },
+  }).then(async (r) => {
+    let d = {};
+    try { d = await r.json(); } catch {}
+    if (r.status === 401) {
+      logout(false);
+      throw new Error(d.error || "Unauthorized");
+    }
+    if (!r.ok || d.ok === false) throw new Error(d.realError || d.error || "API xato");
+    return d;
+  });
+}
+
+function renderIcons() {
+  $$("[data-icon]").forEach((e) => (e.innerHTML = icons[e.dataset.icon] || icons.dashboard));
+}
+
+function fmt(d) {
+  if (!d) return "-";
+  try {
+    return new Intl.DateTimeFormat("uz-UZ", {
+      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+    }).format(new Date(d));
+  } catch { return "-"; }
+}
+
+function money(n) {
+  return Number(n || 0).toLocaleString("uz-UZ");
+}
+
+function badge(s) {
+  const val = s || "-";
+  let c = "blue";
+  if (["Active", "To‘landi", "Mijoz bo‘ldi"].includes(val)) c = "green";
+  if (["Trial", "Kutilmoqda", "Demo belgilandi", "Bog‘lanildi", "Tayinlanmagan"].includes(val)) c = "orange";
+  if (["Suspended", "Qarzdor", "Rad etildi", "Muddat o‘tgan", "Expired"].includes(val)) c = "red";
+  return `<span class="badge ${c}">${val}</span>`;
+}
+
+function toast(t) {
+  let x = $(".ceo-toast");
+  if (!x) {
+    x = document.createElement("div");
+    x.className = "ceo-toast";
+    document.body.appendChild(x);
+  }
+  x.textContent = t;
+  x.classList.add("show");
+  setTimeout(() => x.classList.remove("show"), 3500);
+}
+
+function table(el, heads, rows, map, empty = "Ma’lumot yo‘q") {
+  if (!el) return;
+  el.innerHTML = `
+    <thead><tr>${heads.map((h) => `<th>${h}</th>`).join("")}<th>Amal</th></tr></thead>
+    <tbody>${
+      rows.length
+        ? rows.map((r, i) => `<tr>${map(r, i)}<td><button class="row-action" data-detail="${r.id}">Ochish</button></td></tr>`).join("")
+        : `<tr><td colspan="${heads.length + 1}" class="empty-cell">${empty}</td></tr>`
+    }</tbody>`;
+}
+
+function demoRow(x) {
+  return `<td><b>${x.name}</b></td><td>${x.center}</td><td>${x.phone}</td><td>${x.payment || "-"}</td><td>${badge(x.status)}</td><td>${x.manager || "-"}</td><td>${fmt(x.createdAt)}</td>`;
+}
+
+function updateStats(s = {}) {
+  const set = (id, val) => { const e = $(id); if (e) e.textContent = val; };
+  set("#statDemoTotal", s.demoTotal || 0);
+  set("#statDemoToday", s.demoToday || 0);
+  set("#statCentersTotal", s.centersTotal || 0);
+  set("#statCentersActive", s.centersActive || 0);
+  set("#statPaymentsPaid", money(s.paymentsPaid || 0));
+  set("#statDebt", s.centersDebt || 0);
+  set("#statDemoNew", s.demoNew || 0);
+  set("#statDemoConverted", s.demoConverted || 0);
+  const bell = $(".ceo-bell b");
+  if (bell) bell.textContent = s.demoNew || 0;
+  const nav = $('[data-page="demo"] b');
+  if (nav) nav.textContent = s.demoNew || 0;
+}
+
+async function loadDashboard() {
+  const d = await api("/api/ceo/dashboard");
+  state.dashboard = d;
+  updateStats(d.stats || {});
+  table($("#recentDemoTable"), ["Ism", "Markaz", "Telefon", "To‘lov", "Status", "Menejer", "Vaqt"], d.recentDemoRequests || [], demoRow, "Hali demo so‘rov kelmagan");
+  const act = $("#activityList");
+  if (act) {
+    act.innerHTML = (d.activity || []).length
+      ? d.activity.map((x) => `<p><b>${x.action}</b><span>${fmt(x.created_at)}</span></p>`).join("")
+      : `<p><b>Hali faoliyat yo‘q</b><span>—</span></p>`;
+  }
+  const recentCenters = $("#recentCenters");
+  if (recentCenters) {
+    recentCenters.innerHTML = (d.recentCenters || []).length
+      ? d.recentCenters.map((c) => `<article><b>${c.name}</b><span>${c.subdomain}</span>${badge(c.status)}</article>`).join("")
+      : `<div class="empty-mini">Hali markaz yo‘q</div>`;
+  }
+}
+
+async function loadDemo() {
+  const f = $(".filter.active")?.dataset.demoFilter || "all";
+  const q = $("#demoSearch")?.value || "";
+  const qs = new URLSearchParams();
+  if (f !== "all") qs.set("status", f);
+  if (q) qs.set("q", q);
+  const d = await api(`/api/ceo/demo-requests?${qs.toString()}`);
+  state.demo = d.demoRequests || [];
+  table($("#demoTable"), ["Ism", "Markaz", "Telefon", "To‘lov", "Status", "Menejer", "Vaqt"], state.demo, demoRow, "Hali demo so‘rov yo‘q");
+}
+
+async function loadCenters() {
+  const q = $("#centerSearch")?.value || "";
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  const d = await api(`/api/ceo/centers${qs}`);
+  state.centers = d.centers || [];
+  const grid = $("#centerGrid");
+  if (!grid) return;
+  grid.innerHTML = state.centers.length
+    ? state.centers.map((c) => `
+      <article class="center-card" data-center="${c.id}">
+        <div class="card-top">
+          <div><h3>${c.name}</h3><p>${c.subdomain || "-"}</p></div>${badge(c.status)}
+        </div>
+        <div class="center-meta">
+          <span>Egasi <b>${c.ownerName || "-"}</b></span>
+          <span>Telefon <b>${c.ownerPhone || "-"}</b></span>
+          <span>Tarif <b>${c.tariff || "Start"}</b></span>
+          <span>Oylik <b>${money(c.monthlyPayment)}</b></span>
+          <span>Trial <b>${c.trialEndsAt ? fmt(c.trialEndsAt) : "-"}</b></span>
+          <span>Yaratildi <b>${fmt(c.createdAt)}</b></span>
+        </div>
+        <div class="card-actions">
+          <button data-edit-center="${c.id}">Tahrirlash</button>
+          <button data-center-status="${c.id}" data-status="Active">Active</button>
+          <button data-center-status="${c.id}" data-status="Suspended">To‘xtatish</button>
+        </div>
+      </article>`).join("")
+    : `<div class="empty-panel">Hali o‘quv markaz yo‘q. Demo so‘rovdan markaz yaratishingiz mumkin.</div>`;
+}
+
+async function loadTariffs() {
+  const d = await api("/api/ceo/tariffs");
+  state.tariffs = d.tariffs || [];
+  const grid = $("#tariffGrid");
+  if (!grid) return;
+  grid.innerHTML = state.tariffs.length
+    ? state.tariffs.map((t) => `
+      <article class="tariff-card">
+        <div class="card-top"><h3>${t.name}</h3>${badge(t.is_active ? "Active" : "Inactive")}</div>
+        <p>${t.student_limit} o‘quvchi / ${t.branch_limit} filial</p>
+        <h2>${money(t.monthly_price)} so‘m</h2>
+        <ul>${(t.features || []).map((f) => `<li>${f}</li>`).join("")}</ul>
+      </article>`).join("")
+    : `<div class="empty-panel">Tariflar yo‘q</div>`;
+}
+
+async function loadPayments() {
+  const d = await api("/api/ceo/payments");
+  state.payments = d.payments || [];
+  table($("#paymentsTable"), ["Markaz", "Tarif", "Summa", "Status", "Keyingi to‘lov"], state.payments, (x) =>
+    `<td>${x.center || "-"}</td><td>${x.tariff || "-"}</td><td>${money(x.amount)}</td><td>${badge(x.status)}</td><td>${x.nextDate ? fmt(x.nextDate) : "-"}</td>`, "Hali to‘lovlar yo‘q");
+}
+
+function renderRoles() {
+  const roles = [
+    ["CEO", "Barcha ruxsatlar", "7/7 modul"],
+    ["Admin", "Platforma admini", "5/7 modul"],
+    ["Sales manager", "Demo va markaz yaratish", "2/7 modul"],
+    ["Finance manager", "To‘lovlar va obunalar", "2/7 modul"],
+    ["Support manager", "Support so‘rovlari", "1/7 modul"],
+    ["Viewer", "Faqat ko‘rish", "Read only"],
+  ];
+  $("#rolesGrid").innerHTML = roles.map((r) => `<article class="role-card"><h3>${r[0]}</h3><p>${r[1]}</p><span class="badge blue">${r[2]}</span></article>`).join("");
+}
+
+async function loadSettings() {
+  const d = await api("/api/ceo/settings");
+  const s = d.settings || {};
+  const map = {
+    platform_name: "#settingPlatformName",
+    call_center_phone: "#settingCallPhone",
+    sales_telegram: "#settingSalesTelegram",
+    support_telegram: "#settingSupportTelegram",
+    default_trial_days: "#settingTrialDays",
+    default_language: "#settingLang",
+  };
+  Object.entries(map).forEach(([k, sel]) => { if ($(sel) && s[k]) $(sel).value = s[k]; });
+  const a = await api("/api/ceo/audit");
+  $("#auditList").innerHTML = (a.auditLogs || []).length
+    ? a.auditLogs.map((x) => `<p><b>${x.action}</b><span>${fmt(x.created_at)}</span></p>`).join("")
+    : `<p><b>Hali audit log yo‘q</b><span>—</span></p>`;
+}
+
+async function openPage(p) {
+  state.currentPage = p;
+  $$(".ceo-page").forEach((x) => x.classList.toggle("active", x.dataset.view === p));
+  $$(".ceo-nav button").forEach((x) => x.classList.toggle("active", x.dataset.page === p));
+  $("#pageTitle").textContent = titles[p] || titles.dashboard;
+  history.replaceState(null, "", p === "dashboard" ? "/ceo/dashboard" : `/ceo/${p === "demo" ? "demo-requests" : p}`);
+  try {
+    if (p === "dashboard") await loadDashboard();
+    if (p === "demo") await loadDemo();
+    if (p === "centers") await loadCenters();
+    if (p === "tariffs") await loadTariffs();
+    if (p === "payments") await loadPayments();
+    if (p === "roles") renderRoles();
+    if (p === "settings") await loadSettings();
+  } catch (e) { toast(e.message); }
+}
+
+function showLogin() {
+  document.body.classList.add("ceo-locked");
+  $("#ceoLoginPage").hidden = false;
+  $("#ceoApp").hidden = true;
+}
+
+async function showApp() {
+  document.body.classList.remove("ceo-locked");
+  $("#ceoLoginPage").hidden = true;
+  $("#ceoApp").hidden = false;
+  const u = JSON.parse(localStorage.getItem(USER) || "{}");
+  if (u.email) {
+    $(".ceo-profile strong").textContent = u.role || "CEO";
+    $(".ceo-profile span").textContent = u.email;
+  }
+  const path = location.pathname;
+  let p = "dashboard";
+  if (path.includes("demo")) p = "demo";
+  if (path.includes("centers")) p = "centers";
+  if (path.includes("tariffs")) p = "tariffs";
+  if (path.includes("payments")) p = "payments";
+  if (path.includes("roles")) p = "roles";
+  if (path.includes("settings")) p = "settings";
+  await openPage(p);
+}
+
+async function login() {
+  const d = await api("/api/ceo/login", {
+    method: "POST",
+    body: JSON.stringify({ email: $("#ceoEmail").value, password: $("#ceoPassword").value }),
+  });
+  localStorage.setItem(TOKEN, d.token);
+  localStorage.setItem(USER, JSON.stringify(d.user));
+  await showApp();
+}
+
+function logout(red = true) {
+  localStorage.removeItem(TOKEN);
+  localStorage.removeItem(USER);
+  if (red) history.replaceState(null, "", "/ceo/login");
+  showLogin();
+}
+
+function openDemoModal(r) {
+  $("#modalBody").innerHTML = `
+    <div class="detail-list">
+      <p><span>Ism</span>${r.name}</p>
+      <p><span>Markaz</span>${r.center}</p>
+      <p><span>Telefon</span>${r.phone}</p>
+      <p><span>To‘lov rejimi</span>${r.payment || "-"}</p>
+      <p><span>Status</span>${r.status}</p>
+      <p><span>Menejer</span>${r.manager || "-"}</p>
+      <p><span>Kelgan vaqt</span>${fmt(r.createdAt)}</p>
+      <label>Menejer
+        <input id="modalManager" value="${r.manager === "Tayinlanmagan" ? "" : (r.manager || "")}" placeholder="Masalan: Sales manager">
+      </label>
+      <label>Izoh
+        <textarea id="modalNote" placeholder="Qo‘shimcha izoh">${r.note || ""}</textarea>
+      </label>
+      <div class="modal-actions">
+        <button class="primary-action" data-convert="${r.id}">O‘quv markazga aylantirish</button>
+        <button class="secondary-action" data-set-status="Bog‘lanildi" data-id="${r.id}">Bog‘lanildi</button>
+        <button class="secondary-action" data-set-status="Demo belgilandi" data-id="${r.id}">Demo belgilandi</button>
+        <button class="danger-action" data-set-status="Rad etildi" data-id="${r.id}">Rad etildi</button>
+      </div>
+    </div>`;
+  $("#demoModal").hidden = false;
+}
+
+async function convertDemo(id) {
+  const d = await api(`/api/ceo/demo-requests/${id}/convert-to-center`, { method: "POST" });
+  $("#demoModal").hidden = true;
+  toast(d.alreadyConverted ? "Bu so‘rov avval markazga aylantirilgan" : "O‘quv markaz yaratildi");
+  await openPage("centers");
+}
+
+async function updateDemo(id, status) {
+  await api(`/api/ceo/demo-requests/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status,
+      manager: $("#modalManager")?.value || undefined,
+      note: $("#modalNote")?.value || undefined,
+    }),
+  });
+  $("#demoModal").hidden = true;
+  toast("Demo so‘rov yangilandi");
+  await openPage(state.currentPage);
+}
+
+async function updateCenterStatus(id, status) {
+  await api(`/api/ceo/centers/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+  toast("Markaz statusi yangilandi");
+  await loadCenters();
+}
+
+async function saveSettings() {
+  await api("/api/ceo/settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      platform_name: $("#settingPlatformName")?.value,
+      call_center_phone: $("#settingCallPhone")?.value,
+      sales_telegram: $("#settingSalesTelegram")?.value,
+      support_telegram: $("#settingSupportTelegram")?.value,
+      default_trial_days: $("#settingTrialDays")?.value,
+      default_language: $("#settingLang")?.value,
+    }),
+  });
+  toast("Sozlamalar saqlandi");
+  await loadSettings();
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  renderIcons();
+
+  $("#ceoLoginForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    login().catch((err) => toast(err.message));
+  });
+
+  $("#ceoLogout")?.addEventListener("click", () => logout(true));
+  $("#saveSettings")?.addEventListener("click", (e) => { e.preventDefault(); saveSettings().catch((err) => toast(err.message)); });
+  $("#demoSearch")?.addEventListener("input", () => loadDemo().catch((err) => toast(err.message)));
+  $("#centerSearch")?.addEventListener("input", () => loadCenters().catch((err) => toast(err.message)));
+
+  $$("[data-page]").forEach((b) => b.addEventListener("click", () => openPage(b.dataset.page)));
+  $$("[data-page-jump]").forEach((b) => b.addEventListener("click", () => openPage(b.dataset.pageJump)));
+  $$("[data-close-modal]").forEach((x) => x.addEventListener("click", () => ($("#demoModal").hidden = true)));
+
+  $$(".filter").forEach((f) => f.addEventListener("click", () => {
+    $$(".filter").forEach((x) => x.classList.remove("active"));
+    f.classList.add("active");
+    loadDemo().catch((err) => toast(err.message));
+  }));
+
+  document.addEventListener("click", (e) => {
+    const detail = e.target.closest("[data-detail]");
+    if (detail) {
+      const r = state.demo.find((x) => x.id === detail.dataset.detail) ||
+        (state.dashboard?.recentDemoRequests || []).find((x) => x.id === detail.dataset.detail);
+      if (r) openDemoModal(r);
+    }
+
+    const convert = e.target.closest("[data-convert]");
+    if (convert) convertDemo(convert.dataset.convert).catch((err) => toast(err.message));
+
+    const st = e.target.closest("[data-set-status]");
+    if (st) updateDemo(st.dataset.id, st.dataset.setStatus).catch((err) => toast(err.message));
+
+    const cs = e.target.closest("[data-center-status]");
+    if (cs) updateCenterStatus(cs.dataset.centerStatus, cs.dataset.status).catch((err) => toast(err.message));
+  });
+
+  setTimeout(() => $("#ceoLoader")?.classList.add("hide"), 450);
+
+  if (localStorage.getItem(TOKEN)) {
+    try {
+      await api("/api/ceo/me");
+      await showApp();
+    } catch {
+      logout(false);
+    }
+  } else {
+    showLogin();
+  }
+
+  setInterval(() => {
+    if (localStorage.getItem(TOKEN) && ["dashboard", "demo"].includes(state.currentPage)) {
+      openPage(state.currentPage);
+    }
+  }, 7000);
+});
