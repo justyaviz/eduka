@@ -7,55 +7,27 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/app/app.css">
+  <link rel="stylesheet" href="/app/app.css?v=crm-rebuild-1">
 </head>
 <body>
-  <div class="app-loader" id="appLoader"><span></span><span></span><span></span></div>
+  <div class="boot-loader" id="bootLoader"><span></span><span></span><span></span></div>
 
-  <main class="login-page" id="appLoginPage" hidden>
-    <section class="login-card">
-      <div class="login-brand">
-        <span class="brand-icon" data-icon="arrow-up-right"></span>
-        <strong>EDUKA</strong>
-      </div>
-      <form id="appLoginForm" class="login-form">
-        <span class="login-chip">O‘quv markaz paneli</span>
-        <h1>CRM panelga kirish</h1>
-        <p>O‘quvchilar, guruhlar, to‘lovlar va davomatni yagona platformada boshqaring.</p>
-        <label>Email / Login <b>*</b><input id="appEmail" type="text" placeholder="admin+markaz@eduka.uz" required></label>
-        <label>Parol <b>*</b><input id="appPassword" type="password" placeholder="Parol" required></label>
-        <label class="subdomain-label">Subdomain<input id="appSubdomain" placeholder="markaz.eduka.uz"></label>
-        <button type="submit">Kirish</button>
-      </form>
-      <div class="login-visual">
-        <div class="visual-window">
-          <div class="window-dots"><i></i><i></i><i></i></div>
-          <h2>EDUKA Platform</h2>
-          <div class="visual-grid"><span></span><span></span><span></span></div>
-          <div class="visual-line"></div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <main class="crm-shell" id="appShell" hidden>
-    <aside class="mini-sidebar">
-      <div class="side-logo">
-        <span class="brand-icon" data-icon="arrow-up-right"></span>
+  <main class="crm-shell">
+    <aside class="sidebar">
+      <div class="side-top">
+        <div class="logo-mark" data-icon="arrow-up-right"></div>
+        <button class="quick-add" id="quickAddBtn" title="Tez qo‘shish" data-icon="plus"></button>
       </div>
 
-      <button class="quick-plus" id="quickPlus" aria-label="Tez qo‘shish">
-        <span data-icon="plus"></span>
-      </button>
-
-      <div class="quick-menu" id="quickMenu" hidden>
-        <button data-quick="student"><span data-icon="user-plus"></span> Yangi talaba</button>
-        <button data-quick="teacher"><span data-icon="teacher"></span> Yangi o‘qituvchi</button>
-        <button data-quick="group"><span data-icon="layers"></span> Yangi guruh</button>
-        <button data-quick="payment"><span data-icon="wallet"></span> To‘lov</button>
+      <div class="quick-pop" id="quickPop" hidden>
+        <button data-open-drawer="student"><span data-icon="user-plus"></span> Yangi talaba</button>
+        <button data-open-drawer="teacher"><span data-icon="teacher"></span> Yangi o‘qituvchi</button>
+        <button data-open-drawer="group"><span data-icon="layers"></span> Yangi guruh</button>
+        <button data-open-drawer="payment"><span data-icon="wallet"></span> To‘lov</button>
       </div>
 
-      <nav class="crm-nav">
+      <nav class="side-nav" id="sideNav">
+        <button data-page="dashboard" class="active"><span data-icon="home"></span><em>Dashboard</em></button>
         <button data-page="leads"><span data-icon="download"></span><em>Lidlar</em></button>
         <button data-page="teachers"><span data-icon="teacher"></span><em>O‘qituvchilar</em></button>
         <button data-page="groups"><span data-icon="layers"></span><em>Guruhlar</em></button>
@@ -65,179 +37,73 @@
         <button data-page="attendance"><span data-icon="calendar"></span><em>Davomat</em></button>
         <button data-page="teacher-attendance"><span data-icon="calendar-check"></span><em>Ustozlar davomati</em></button>
         <button data-page="finance"><span data-icon="coin"></span><em>Moliya</em></button>
+        <button data-page="reports"><span data-icon="chart"></span><em>Hisobotlar</em></button>
+        <button data-page="settings"><span data-icon="settings"></span><em>Sozlamalar</em></button>
       </nav>
     </aside>
 
-    <section class="crm-main">
-      <header class="crm-topbar">
-        <div class="top-left">
-          <strong id="centerTitle">EDUKA CRM</strong>
-          <small id="centerSubtitle">O‘quv markaz boshqaruvi</small>
+    <section class="main">
+      <header class="topbar">
+        <div class="brand">
+          <strong>EDUKA CRM</strong>
+          <small>O‘quv markaz boshqaruvi</small>
         </div>
 
-        <div class="global-search">
+        <label class="search">
           <span data-icon="search"></span>
-          <input placeholder="Qidiruv">
+          <input id="globalSearch" placeholder="Qidiruv">
+        </label>
+
+        <div class="top-actions">
+          <button class="lang" id="langBtn">UZ</button>
+          <button title="Fullscreen" data-icon="maximize"></button>
+          <button title="Yordam" data-icon="help"></button>
+          <button title="Soat" data-icon="clock"></button>
+          <button title="Bildirishnoma" data-icon="bell"></button>
+          <button class="profile" id="profileBtn"><span class="avatar"></span><b id="profileName">YAHYOBEK</b></button>
         </div>
 
-        <div class="top-icons">
-          <button class="language-btn" id="langBtn">UZ</button>
-          <div class="lang-menu" id="langMenu" hidden>
-            <button>en - English</button>
-            <button>ru - Русский</button>
-            <button>uz - O‘zbekcha</button>
-          </div>
+        <div class="menu-pop lang-pop" id="langPop" hidden>
+          <button>uz - O‘zbekcha</button>
+          <button>ru - Русский</button>
+          <button>en - English</button>
+        </div>
 
-          <button title="Fullscreen"><span data-icon="maximize"></span></button>
-          <button title="Help"><span data-icon="help"></span></button>
-          <button title="Time"><span data-icon="clock"></span></button>
-          <button title="Notifications"><span data-icon="bell"></span></button>
-
-          <button class="profile-btn" id="profileBtn">
-            <span class="avatar-mini"></span>
-            <b id="userName">ADMIN</b>
-          </button>
-
-          <div class="profile-menu" id="profileMenu" hidden>
-            <button>Hisob qaydnomasi</button>
-            <button id="appLogout">Chiqish</button>
-          </div>
+        <div class="menu-pop profile-pop" id="profilePop" hidden>
+          <button>Hisob qaydnomasi</button>
+          <button id="logoutBtn">Chiqish</button>
         </div>
       </header>
 
-      <div class="license-banner">
+      <div class="license">
         <span data-icon="calendar"></span>
         <b>Litsenziyaning platformaga amal qilish muddati:</b>
-        <strong id="licenseDate">03.06.2026 - 23:59</strong>
+        <strong>03.06.2026 - 23:59</strong>
         <em>7 kundan kam vaqt qoldi</em>
         <button>Batafsil</button>
-        <button class="pay">To‘lash</button>
+        <button class="primary">To‘lash</button>
       </div>
 
-      <section class="page active" data-view="dashboard">
-        <div class="stat-strip">
-          <article><span data-icon="user-check"></span><p>Faol lidlar</p><b id="dashLeads">0</b></article>
-          <article><span data-icon="graduation"></span><p>Faol talabalar</p><b id="dashStudents">0</b></article>
-          <article><span data-icon="layers"></span><p>Guruhlar</p><b id="dashGroups">0</b></article>
-          <article><span data-icon="alert"></span><p>Qarzdorlar</p><b>0</b></article>
-          <article><span data-icon="presentation"></span><p>Sinov darsida</p><b>0</b></article>
-          <article><span data-icon="handshake"></span><p>Joriy oyda to‘laganlar</p><b id="dashPaid">0</b></article>
-          <article><span data-icon="user-x"></span><p>Faol guruhni tark etganlar</p><b>0</b></article>
-          <article><span data-icon="users"></span><p>Sinov muddatidan keyin ketdi</p><b>0</b></article>
-        </div>
+      <section class="content" id="content"></section>
 
-        <div class="empty-wide">Ko‘rsatiladigan ma'lumotlar yo‘q</div>
-
-        <section class="schedule-panel">
-          <div class="tabs-line">
-            <button class="active">Toq kunlar</button>
-            <button>Juft kunlar</button>
-            <button>Boshqa</button>
-            <h3>Jadval</h3>
-            <span>Gorizontal <i></i></span>
-          </div>
-          <div class="schedule-placeholder"></div>
-        </section>
-      </section>
-
-      <section class="page" data-view="leads">
-        <div class="filters-row long">
-          <input placeholder="Ism yoki telefon orqali qidirish">
-          <select><option>Bo‘lim</option></select>
-          <select><option>Kurslar bo‘yicha</option></select>
-          <select><option>Taglar</option></select>
-          <select><option>Mijoz manbalari</option></select>
-          <select><option>Xodimlar tomonidan</option></select>
-          <select><option>Vazifa</option></select>
-          <input placeholder="Sanadan boshlab - Sana bo‘yicha">
-          <button><span data-icon="settings"></span> Filtrlar</button>
-          <button><span data-icon="refresh"></span></button>
-          <button>...</button>
-        </div>
-        <div class="kanban" id="leadsKanban"></div>
-      </section>
-
-      <section class="page" data-view="teachers">
-        <div class="section-head">
-          <h1>O‘qituvchilar <small>Miqdor — <b id="teacherCount">0</b></small></h1>
-          <div><button class="orange" data-open="teacher">Yangisini qo‘shish</button><button class="outline">Import</button></div>
-        </div>
-        <div class="green-notice"><span data-icon="check-circle"></span> Diqqat! CEO profili orqali o‘qituvchini boshqa filialga biriktirishingiz mumkin.</div>
-        <div class="table-wrap"><table id="teachersTable"></table></div>
-      </section>
-
-      <section class="page" data-view="groups">
-        <div class="section-head"><h1>Guruhlar <small>Miqdor — <b id="groupCount">0</b></small></h1><button class="orange" data-open="group">Yangisini qo‘shish</button></div>
-        <div class="filters-row">
-          <select><option>Faol guruhlar</option></select><select><option>O‘qituvchi</option></select><select><option>Kurslar bo‘yicha</option></select><select><option>Kunlar</option></select><select><option>Taglar</option></select><input placeholder="Boshlanish sanasi"><input placeholder="Tugash sanasi"><button>×</button>
-        </div>
-        <div class="table-wrap"><table id="groupsTable"></table></div>
-      </section>
-
-      <section class="page" data-view="students">
-        <div class="section-head"><h1>Talabalar <small>Miqdor — <b id="studentCount">0</b></small></h1><button class="orange" data-open="student">Yangisini qo‘shish</button></div>
-        <div class="filters-row long">
-          <input id="studentSearch" placeholder="Ism yoki telefon orqali qidirish">
-          <select><option>Kurslar</option></select><select><option>Talaba holati</option></select><select><option>Moliyaviy holati</option></select><select><option>Taglar bo‘yicha</option></select><input placeholder="Qo‘shimcha ID"><input placeholder="Guruhlar soni"><input placeholder="Boshlanish sanasi"><input placeholder="Tugash sanasi">
-          <button><span data-icon="settings"></span> Filtrlar</button><button>Ustunlar</button>
-        </div>
-        <div class="table-wrap"><table id="studentsTable"></table></div>
-      </section>
-
-      <section class="page" data-view="reminders">
-        <div class="section-head"><h1>Eslatmalar</h1><button class="blue" data-open="reminder"><span data-icon="plus"></span> Qo‘shish</button></div>
-        <div class="filters-row">
-          <select><option>Aktiv</option></select><select><option>Xodimni tanlang</option></select><select><option>Tag tanlang</option></select><input placeholder="Sanani tanlang"><input placeholder="Sanani tanlang">
-        </div>
-        <div class="reminder-columns" id="reminderColumns"></div>
-      </section>
-
-      <section class="page" data-view="attendance">
-        <h1>Davomat hisobotlari <small>Miqdor — <b id="attendanceCount">0</b></small></h1>
-        <section class="panel-block">
-          <div class="filters-row long"><input id="attendanceDate" type="date"><input placeholder="Ism"><input placeholder="Telefon"><select><option>Faol</option></select><select><option>Guruh</option></select><select><option>O‘qituvchi</option></select><select><option>Davomat</option></select><button class="blue" id="refreshAttendance">Filtr</button><button>×</button></div>
-          <div class="table-wrap"><table id="attendanceTable"></table></div>
-        </section>
-      </section>
-
-      <section class="page" data-view="teacher-attendance"><h1>Ustozlar davomati</h1><section class="panel-block"><div class="empty-wide small">Bo‘sh</div></section></section>
-      <section class="page" data-view="rating"><h1>Reyting</h1><section class="panel-block"><div class="empty-wide small">Ko‘rsatiladigan ma'lumotlar yo‘q</div></section></section>
-
-      <section class="page" data-view="finance">
-        <div class="finance-layout">
-          <aside class="finance-menu">
-            <button class="active" data-extra-page="finance"><span data-icon="coin"></span> Barcha to‘lovlar</button>
-            <button data-extra-page="finance-withdraw"><span data-icon="wallet"></span> Yechib olish</button>
-            <button data-extra-page="finance-expenses"><span data-icon="pie"></span> Xarajatlar</button>
-            <button data-extra-page="salary"><span data-icon="receipt"></span> Ish haqi</button>
-            <button data-extra-page="debtors"><span data-icon="alert"></span> Qarzdorlar</button>
-          </aside>
-          <section class="finance-content">
-            <h1>Barcha to‘lovlar</h1>
-            <div class="finance-cards">
-              <article><h2>To‘lovlar miqdori: <b id="financeIncome">0 UZS</b></h2><p>01.05.2026 — 31.05.2026</p></article>
-              <article><h2>Sof foyda miqdori: <b id="financeProfit">0 UZS</b></h2><p>01.05.2026 — 31.05.2026</p><small>Details ›</small></article>
-              <div class="empty-box">Ko‘rsatiladigan ma'lumotlar yo‘q</div>
-            </div>
-            <div class="filters-row long"><input placeholder="Sanadan boshlab"><input placeholder="Sana bo‘yicha"><input placeholder="Ism yoki Telefon"><select><option>Guruhni tanlash</option></select><select><option>Kurs</option></select><select><option>O‘qituvchi</option></select><select><option>To‘lov turi</option></select><input placeholder="Sum"><button class="orange">Filtr</button></div>
-            <div class="table-wrap"><table id="financeTable"></table></div>
-          </section>
-        </div>
-      </section>
-
-      <footer class="crm-footer"><span><span data-icon="help"></span> Texnik yordam</span><span>Video darsliklar</span><span>To‘lov rejimi: Oylik</span><strong>EDUKA</strong></footer>
+      <footer class="footer">
+        <span><span data-icon="help"></span> Texnik yordam</span>
+        <span><span data-icon="play"></span> Video darsliklar</span>
+        <span><span data-icon="info"></span> To‘lov rejimi: Oylik</span>
+        <strong>EDUKA</strong>
+      </footer>
     </section>
-
-    <button class="floating-calendar"><span data-icon="calendar"></span></button>
   </main>
 
-  <div class="drawer-overlay" id="drawerOverlay" hidden></div>
+  <button class="floating-calendar" data-icon="calendar"></button>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
   <aside class="drawer" id="drawer" hidden>
     <button class="drawer-close" id="drawerClose">×</button>
     <h2 id="drawerTitle">Qo‘shish</h2>
     <div id="drawerBody"></div>
   </aside>
 
-  <script src="/app/app.js"></script>
+  <script src="/app/app.js?v=crm-rebuild-1"></script>
 </body>
 </html>
