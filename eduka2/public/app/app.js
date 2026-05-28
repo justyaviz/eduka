@@ -390,3 +390,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+
+/* ===== EDUKA PHASE 3.3 TENANT NOT FOUND UI ===== */
+function showTenantNotFound(status) {
+  document.body.classList.add("tenant-locked");
+  let screen = document.getElementById("tenantNotFoundScreen");
+  if (!screen) {
+    document.body.insertAdjacentHTML("beforeend", `
+      <div id="tenantNotFoundScreen" class="tenant-notfound-screen">
+        <div class="tenant-notfound-card">
+          <div class="login-logo"><span data-icon="alert-triangle"></span><b>EDUKA</b></div>
+          <span class="login-badge error">Subdomain topilmadi</span>
+          <h1>O‘quv markaz topilmadi</h1>
+          <p>
+            Siz kiritgan <b id="tenantMissingName"></b> subdomaini EDUKA CEO panelida ro‘yxatdan o‘tmagan.
+            Iltimos, linkni tekshiring yoki qo‘llab-quvvatlash bilan bog‘laning.
+          </p>
+          <div class="support-actions">
+            <a href="tel:+998998939000">+998 99 893 90 00</a>
+            <a href="https://t.me/eduka_sales" target="_blank">Telegram support</a>
+          </div>
+        </div>
+      </div>
+    `);
+    screen = document.getElementById("tenantNotFoundScreen");
+  }
+  document.getElementById("tenantMissingName").textContent = status?.tenant || location.hostname;
+  renderIcons();
+}
+
+const __oldInstallTenantLoginGuard = typeof installTenantLoginGuard === "function" ? installTenantLoginGuard : null;
+installTenantLoginGuard = async function() {
+  const status = await tenantStatus();
+
+  if (!status || status.ok === false) {
+    if (status && status.code === "TENANT_NOT_FOUND") {
+      showTenantNotFound(status);
+      return false;
+    }
+    toast((status && (status.message || status.error || status.realError)) || "Tenant tekshiruv xatosi", false);
+    return false;
+  }
+
+  if (status.loginRequired) {
+    showTenantLogin(status);
+    return false;
+  }
+
+  hideTenantLogin();
+  return true;
+};

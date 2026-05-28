@@ -81,3 +81,15 @@ h1{font-size:28px;line-height:1.15;margin:10px 0 20px;letter-spacing:-.04em}h1 s
 .tenant-login-card button{height:54px;border:0;border-radius:14px;background:linear-gradient(135deg,#07145c,#1455ff);color:#fff;font-weight:950;font-size:16px;cursor:pointer}
 .tenant-login-card small{display:block;color:#7b89a3;text-align:center;margin-top:14px}
 body.tenant-locked .app-shell, body.tenant-locked #app, body.tenant-locked main{filter:blur(2px);pointer-events:none}
+
+
+/* ===== EDUKA PHASE 3.3 TENANT NOT FOUND UI ===== */
+.tenant-notfound-screen{position:fixed;inset:0;z-index:10001;background:linear-gradient(135deg,#f8fbff,#eef4ff);display:grid;place-items:center;padding:24px}
+.tenant-notfound-card{width:min(560px,100%);background:#fff;border:1px solid #e4ebf6;border-radius:28px;box-shadow:0 32px 80px rgba(6,18,62,.14);padding:38px;text-align:left}
+.login-badge.error{background:#fff1f2;color:#e11d48}
+.tenant-notfound-card h1{font-size:36px;line-height:1.05;margin:0 0 14px;color:#071137}
+.tenant-notfound-card p{font-size:16px;line-height:1.7;color:#5c6a86;margin:0 0 24px}
+.support-actions{display:flex;gap:12px;flex-wrap:wrap}
+.support-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;font-weight:900}
+.support-actions a:first-child{background:#1455ff;color:#fff}
+.support-actions a:last-child{background:#eef4ff;color:#1455ff}

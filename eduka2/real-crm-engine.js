@@ -482,6 +482,101 @@ async function phase32Auth(req) {
   return q.rows[0] || null;
 }
 
+
+/* ===== EDUKA PHASE 3.3 STRICT TENANT ISOLATION ===== */
+function phase33IsRootTenant(tenant) {
+  return tenant === "main" || tenant === "www" || !tenant;
+}
+
+async function phase33FindOrganizationByTenant(tenant) {
+  if (phase33IsRootTenant(tenant)) return null;
+  const q = await realCrmQuery(`
+    SELECT *
+    FROM organizations
+    WHERE lower(COALESCE(subdomain, name)) = lower($1)
+       OR lower(name) = lower($1)
+    LIMIT 1
+  `, [tenant]);
+  return q.rows[0] || null;
+}
+
+async function phase33RequireExistingTenant(req, res, next) {
+  try {
+    await ensurePhase32TenantSchema();
+    const tenant = phase32Subdomain(req);
+
+    if (phase33IsRootTenant(tenant)) {
+      req.edukaTenant = "main";
+      return next();
+    }
+
+    const org = await phase33FindOrganizationByTenant(tenant);
+
+    if (!org || String(org.status || "active") !== "active") {
+      return res.status(404).json({
+        ok: false,
+        code: "TENANT_NOT_FOUND",
+        tenant,
+        host: phase32Host(req),
+        message: "O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
+        support: {
+          phone: "+998 99 893 90 00",
+          telegram: "https://t.me/eduka_sales"
+        }
+      });
+    }
+
+    req.edukaTenant = tenant;
+    req.edukaOrganization = org;
+    return next();
+  } catch (e) {
+    return phase3Err(res, e, "Tenant check failed");
+  }
+}
+
+async function phase33RequireTenantAuth(req, res, next) {
+  try {
+    await ensurePhase32TenantSchema();
+    const tenant = phase32Subdomain(req);
+
+    if (phase33IsRootTenant(tenant)) {
+      req.edukaTenant = "main";
+      return next();
+    }
+
+    const org = await phase33FindOrganizationByTenant(tenant);
+    if (!org || String(org.status || "active") !== "active") {
+      return res.status(404).json({
+        ok: false,
+        code: "TENANT_NOT_FOUND",
+        tenant,
+        message: "O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
+        support: {
+          phone: "+998 99 893 90 00",
+          telegram: "https://t.me/eduka_sales"
+        }
+      });
+    }
+
+    const session = await phase32Auth(req);
+    if (!session) {
+      return res.status(401).json({
+        ok: false,
+        code: "LOGIN_REQUIRED",
+        tenant,
+        message: "CRM panelga kirish uchun login qiling."
+      });
+    }
+
+    req.edukaTenant = tenant;
+    req.edukaOrganization = org;
+    req.edukaUser = session;
+    return next();
+  } catch (e) {
+    return phase3Err(res, e, "Tenant auth failed");
+  }
+}
+
 function installRealCrmEngine(app) {
   if (!app || app.__realCrmEngineInstalled) return;
   app.__realCrmEngineInstalled = true;
@@ -1552,27 +1647,72 @@ function installRealCrmEngine(app) {
   });
 
 
-  /* ===== EDUKA PHASE 3.2 TENANT LOGIN ROUTES ===== */
+
+
+
+  /* ===== EDUKA PHASE 3.3 STRICT TENANT ROUTES ===== */
 
   app.get("/api/tenant/status", async (req, res) => {
     try {
-      const data = await phase32EnsureTenant(req);
+      await ensurePhase32TenantSchema();
+      const tenant = phase32Subdomain(req);
+      const host = phase32Host(req);
+
+      if (phase33IsRootTenant(tenant)) {
+        return res.json({
+          ok: true,
+          host,
+          tenant: "main",
+          isRoot: true,
+          exists: true,
+          loginRequired: false,
+          authenticated: true,
+          organization: null,
+          user: null
+        });
+      }
+
+      const org = await phase33FindOrganizationByTenant(tenant);
+      if (!org || String(org.status || "active") !== "active") {
+        return res.status(404).json({
+          ok: false,
+          code: "TENANT_NOT_FOUND",
+          host,
+          tenant,
+          exists: false,
+          loginRequired: false,
+          message: "O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
+          support: {
+            phone: "+998 99 893 90 00",
+            telegram: "https://t.me/eduka_sales"
+          }
+        });
+      }
+
       const session = await phase32Auth(req);
-      res.json({
-        ok:true,
-        host: phase32Host(req),
-        tenant: data.tenant,
-        isRoot: data.tenant === "main",
-        loginRequired: data.tenant !== "main" && !session,
+
+      return res.json({
+        ok: true,
+        host,
+        tenant,
+        isRoot: false,
+        exists: true,
+        loginRequired: !session,
         authenticated: !!session,
-        organization: data.organization ? {
-          subdomain: data.organization.subdomain || data.tenant,
-          name: data.organization.name || data.tenant,
-          ownerName: data.organization.owner_name || "",
-          phone: data.organization.phone || "",
-          email: data.organization.email || ""
-        } : null,
-        user: session ? { name: session.name, email: session.email, phone: session.phone, role: session.role } : null
+        organization: {
+          id: org.id,
+          subdomain: org.subdomain || tenant,
+          name: org.name || tenant,
+          ownerName: org.owner_name || "",
+          phone: org.phone || "",
+          email: org.email || ""
+        },
+        user: session ? {
+          name: session.name,
+          email: session.email,
+          phone: session.phone,
+          role: session.role
+        } : null
       });
     } catch(e) {
       phase3Err(res, e, "Tenant status failed");
@@ -1581,30 +1721,47 @@ function installRealCrmEngine(app) {
 
   app.post("/api/tenant/login", async (req, res) => {
     try {
-      const { tenant } = await phase32EnsureTenant(req);
+      await ensurePhase32TenantSchema();
+      const tenant = phase32Subdomain(req);
+
+      if (phase33IsRootTenant(tenant)) {
+        return res.status(400).json({ ok:false, code:"ROOT_LOGIN_DISABLED", error:"Root domain uchun markaz login kerak emas." });
+      }
+
+      const org = await phase33FindOrganizationByTenant(tenant);
+      if (!org || String(org.status || "active") !== "active") {
+        return res.status(404).json({
+          ok:false,
+          code:"TENANT_NOT_FOUND",
+          tenant,
+          error:"O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
+          support:{ phone:"+998 99 893 90 00", telegram:"https://t.me/eduka_sales" }
+        });
+      }
+
       const login = phase3Text(req.body.email || req.body.phone || req.body.login);
       const password = phase3Text(req.body.password);
       if (!login || !password) return res.status(400).json({ ok:false, error:"Login yoki parol kiritilmagan" });
 
-      const q = await realCrmQuery(
-        `SELECT * FROM crm_tenant_admins
-         WHERE tenant=$1 AND status='active'
-           AND (lower(email)=lower($2) OR phone=$2 OR lower(name)=lower($2))
-           AND password=$3
-         LIMIT 1`,
-        [tenant, login, password]
-      );
+      const q = await realCrmQuery(`
+        SELECT *
+        FROM crm_tenant_admins
+        WHERE tenant=$1
+          AND status='active'
+          AND (lower(email)=lower($2) OR phone=$2 OR lower(name)=lower($2))
+          AND password=$3
+        LIMIT 1
+      `, [tenant, login, password]);
 
       if (!q.rows[0]) {
-        return res.status(401).json({ ok:false, error:"Login yoki parol xato", tenant });
+        return res.status(401).json({ ok:false, code:"BAD_CREDENTIALS", error:"Login yoki parol xato", tenant });
       }
 
       const token = phase32Token();
-      await realCrmQuery(
-        `INSERT INTO crm_sessions(token, tenant, admin_id, expires_at)
-         VALUES($1,$2,$3,NOW()+INTERVAL '30 days')`,
-        [token, tenant, q.rows[0].id]
-      );
+      await realCrmQuery(`
+        INSERT INTO crm_sessions(token, tenant, admin_id, expires_at)
+        VALUES($1,$2,$3,NOW()+INTERVAL '30 days')
+      `, [token, tenant, q.rows[0].id]);
 
       res.json({
         ok:true,
@@ -1623,19 +1780,10 @@ function installRealCrmEngine(app) {
     }
   });
 
-  app.post("/api/tenant/logout", async (req, res) => {
-    try {
-      const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
-      if (token) await realCrmQuery(`DELETE FROM crm_sessions WHERE token=$1`, [token]);
-      res.json({ ok:true });
-    } catch(e) {
-      res.json({ ok:true });
-    }
-  });
-
   app.post("/api/ceo/create-center-admin", async (req, res) => {
     try {
       await ensurePhase32TenantSchema();
+
       const subdomain = phase3Text(req.body.subdomain).toLowerCase().replace(/[^a-z0-9-]/g, "");
       if (!subdomain) return res.status(400).json({ ok:false, error:"Subdomain kiritilmagan" });
 
@@ -1643,36 +1791,61 @@ function installRealCrmEngine(app) {
       const password = phase3Text(req.body.password) || ("eduka" + Math.floor(100000 + Math.random()*900000));
       const phone = phase3Text(req.body.phone);
       const ownerName = phase3Text(req.body.ownerName || req.body.name) || "Admin";
+      const centerName = phase3Text(req.body.centerName || req.body.organizationName || req.body.name) || subdomain;
 
-      await realCrmQuery(
-        `INSERT INTO organizations(name, subdomain, owner_name, phone, email, admin_password, status)
-         VALUES($1,$1,$2,$3,$4,$5,'active')
-         ON CONFLICT DO NOTHING`,
-        [subdomain, ownerName, phone, email, password]
-      ).catch(async () => {
-        await realCrmQuery(
-          `UPDATE organizations SET owner_name=$2, phone=$3, email=$4, admin_password=$5, status='active'
-           WHERE subdomain=$1 OR lower(name)=lower($1)`,
-          [subdomain, ownerName, phone, email, password]
-        );
-      });
+      const existing = await realCrmQuery(`
+        SELECT id FROM organizations
+        WHERE lower(COALESCE(subdomain, name))=lower($1) OR lower(name)=lower($1)
+        LIMIT 1
+      `, [subdomain]);
 
-      await realCrmQuery(
-        `INSERT INTO crm_tenant_admins(tenant, name, phone, email, password, role, status)
-         VALUES($1,$2,$3,$4,$5,'admin','active')`,
-        [subdomain, ownerName, phone, email, password]
-      ).catch(async () => {
-        await realCrmQuery(
-          `UPDATE crm_tenant_admins SET name=$2, phone=$3, password=$5, status='active', updated_at=NOW()
-           WHERE tenant=$1 AND email=$4`,
-          [subdomain, ownerName, phone, email, password]
-        );
-      });
+      let org;
+      if (existing.rows[0]) {
+        const updated = await realCrmQuery(`
+          UPDATE organizations
+          SET name=$2, subdomain=$1, owner_name=$3, phone=$4, email=$5, admin_password=$6, status='active'
+          WHERE id=$7
+          RETURNING *
+        `, [subdomain, centerName, ownerName, phone, email, password, existing.rows[0].id]);
+        org = updated.rows[0];
+      } else {
+        const created = await realCrmQuery(`
+          INSERT INTO organizations(name, subdomain, owner_name, phone, email, admin_password, status)
+          VALUES($1,$2,$3,$4,$5,$6,'active')
+          RETURNING *
+        `, [centerName, subdomain, ownerName, phone, email, password]);
+        org = created.rows[0];
+      }
+
+      const adminExists = await realCrmQuery(`
+        SELECT id FROM crm_tenant_admins WHERE tenant=$1 AND lower(email)=lower($2) LIMIT 1
+      `, [subdomain, email]);
+
+      if (adminExists.rows[0]) {
+        await realCrmQuery(`
+          UPDATE crm_tenant_admins
+          SET name=$2, phone=$3, password=$4, role='admin', status='active', updated_at=NOW()
+          WHERE id=$5
+        `, [subdomain, ownerName, phone, password, adminExists.rows[0].id]);
+      } else {
+        await realCrmQuery(`
+          INSERT INTO crm_tenant_admins(tenant, name, phone, email, password, role, status)
+          VALUES($1,$2,$3,$4,$5,'admin','active')
+        `, [subdomain, ownerName, phone, email, password]);
+      }
 
       const base = String(process.env.BASE_DOMAIN || "eduka.uz").replace(/^https?:\/\//, "").replace(/\/$/, "");
       res.json({
         ok:true,
-        subdomain,
+        message:"O‘quv markaz yaratildi",
+        organization: {
+          id: org.id,
+          name: org.name,
+          subdomain: org.subdomain,
+          ownerName: org.owner_name,
+          phone: org.phone,
+          email: org.email
+        },
         url:`https://${subdomain}.${base}`,
         login: email,
         password
@@ -1680,6 +1853,20 @@ function installRealCrmEngine(app) {
     } catch(e) {
       phase3Err(res, e, "Create center admin failed");
     }
+  });
+
+  app.get("/api/tenant/not-found-info", (req, res) => {
+    const tenant = phase32Subdomain(req);
+    res.status(404).json({
+      ok:false,
+      code:"TENANT_NOT_FOUND",
+      tenant,
+      message:"O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
+      support:{
+        phone:"+998 99 893 90 00",
+        telegram:"https://t.me/eduka_sales"
+      }
+    });
   });
 
 }
