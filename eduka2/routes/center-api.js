@@ -330,4 +330,168 @@ router.get("/activity", requireCenterAuth, async (req, res) => {
   }
 });
 
+
+// ===== PHASE 3 MODME-LIKE CENTER UI API =====
+
+function teacherMap(r) {
+  return {
+    id: r.id,
+    fullName: r.full_name,
+    phone: r.phone,
+    subject: r.subject,
+    status: r.status,
+    createdAt: r.created_at,
+  };
+}
+
+function leadMap(r) {
+  return {
+    id: r.id,
+    fullName: r.full_name,
+    phone: r.phone,
+    source: r.source,
+    status: r.status,
+    note: r.note,
+    createdAt: r.created_at,
+  };
+}
+
+function reminderMap(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    note: r.note,
+    tag: r.tag,
+    assignedTo: r.assigned_to,
+    remindAt: r.remind_at,
+    status: r.status,
+    createdAt: r.created_at,
+  };
+}
+
+router.get("/teachers", requireCenterAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM teachers WHERE center_id=$1 ORDER BY created_at DESC`, [req.centerUser.centerId]);
+    res.json({ ok: true, teachers: result.rows.map(teacherMap) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Teachers server error", realError: error.message });
+  }
+});
+
+router.post("/teachers", requireCenterAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!b.fullName) return res.status(400).json({ ok: false, error: "O‘qituvchi ismi kerak" });
+    const result = await pool.query(
+      `INSERT INTO teachers (center_id, full_name, phone, subject, status)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [req.centerUser.centerId, b.fullName, b.phone || null, b.subject || null, b.status || "active"]
+    );
+    await activity(req.centerUser.centerId, req.centerUser.id, "O‘qituvchi qo‘shildi", "teachers", { teacherId: result.rows[0].id });
+    res.status(201).json({ ok: true, teacher: teacherMap(result.rows[0]) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Create teacher server error", realError: error.message });
+  }
+});
+
+router.get("/leads", requireCenterAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM leads WHERE center_id=$1 ORDER BY created_at DESC`, [req.centerUser.centerId]);
+    res.json({ ok: true, leads: result.rows.map(leadMap) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Leads server error", realError: error.message });
+  }
+});
+
+router.post("/leads", requireCenterAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const result = await pool.query(
+      `INSERT INTO leads (center_id, full_name, phone, source, status, note)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [req.centerUser.centerId, b.fullName || null, b.phone || null, b.source || "Manual", b.status || "LEADS", b.note || null]
+    );
+    await activity(req.centerUser.centerId, req.centerUser.id, "Lid qo‘shildi", "leads", { leadId: result.rows[0].id });
+    res.status(201).json({ ok: true, lead: leadMap(result.rows[0]) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Create lead server error", realError: error.message });
+  }
+});
+
+router.patch("/leads/:id", requireCenterAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const result = await pool.query(
+      `UPDATE leads SET
+       full_name=COALESCE($3, full_name),
+       phone=COALESCE($4, phone),
+       source=COALESCE($5, source),
+       status=COALESCE($6, status),
+       note=COALESCE($7, note),
+       updated_at=NOW()
+       WHERE id=$1 AND center_id=$2 RETURNING *`,
+      [req.params.id, req.centerUser.centerId, b.fullName || null, b.phone || null, b.source || null, b.status || null, b.note || null]
+    );
+    if (!result.rows[0]) return res.status(404).json({ ok: false, error: "Lead not found" });
+    res.json({ ok: true, lead: leadMap(result.rows[0]) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Update lead server error", realError: error.message });
+  }
+});
+
+router.get("/reminders", requireCenterAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM reminders WHERE center_id=$1 ORDER BY remind_at ASC NULLS LAST, created_at DESC`, [req.centerUser.centerId]);
+    res.json({ ok: true, reminders: result.rows.map(reminderMap) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Reminders server error", realError: error.message });
+  }
+});
+
+router.post("/reminders", requireCenterAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!b.title) return res.status(400).json({ ok: false, error: "Sarlavha kerak" });
+    const result = await pool.query(
+      `INSERT INTO reminders (center_id, title, note, tag, assigned_to, remind_at, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [req.centerUser.centerId, b.title, b.note || null, b.tag || null, b.assignedTo || null, b.remindAt || null, b.status || "active"]
+    );
+    await activity(req.centerUser.centerId, req.centerUser.id, "Eslatma yaratildi", "reminders", { reminderId: result.rows[0].id });
+    res.status(201).json({ ok: true, reminder: reminderMap(result.rows[0]) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Create reminder server error", realError: error.message });
+  }
+});
+
+router.get("/finance/summary", requireCenterAuth, async (req, res) => {
+  try {
+    const centerId = req.centerUser.centerId;
+    const [income, expenses, payments] = await Promise.all([
+      pool.query(`SELECT COALESCE(SUM(amount),0)::numeric AS total FROM center_payments WHERE center_id=$1 AND status='paid'`, [centerId]),
+      pool.query(`SELECT COALESCE(SUM(amount),0)::numeric AS total FROM center_expenses WHERE center_id=$1`, [centerId]),
+      pool.query(`SELECT * FROM center_payments WHERE center_id=$1 ORDER BY paid_at DESC LIMIT 100`, [centerId]),
+    ]);
+    res.json({
+      ok: true,
+      income: Number(income.rows[0].total || 0),
+      expenses: Number(expenses.rows[0].total || 0),
+      profit: Number(income.rows[0].total || 0) - Number(expenses.rows[0].total || 0),
+      payments: payments.rows.map(paymentMap),
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Finance server error", realError: error.message });
+  }
+});
+
+router.get("/license", requireCenterAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT name, status, trial_ends_at, next_payment_date, tariff FROM centers WHERE id=$1 LIMIT 1`, [req.centerUser.centerId]);
+    res.json({ ok: true, license: result.rows[0] || null });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "License server error", realError: error.message });
+  }
+});
+
+
 module.exports = router;

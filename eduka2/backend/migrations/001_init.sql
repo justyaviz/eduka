@@ -282,3 +282,59 @@ CREATE TABLE IF NOT EXISTS center_activity_logs (
   details JSONB DEFAULT '{}',
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+
+
+-- ===== PHASE 3 MODME-LIKE CENTER CRM UI TABLES =====
+CREATE TABLE IF NOT EXISTS teachers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  full_name VARCHAR(160) NOT NULL,
+  phone VARCHAR(50),
+  subject VARCHAR(160),
+  status VARCHAR(40) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS leads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  full_name VARCHAR(160),
+  phone VARCHAR(50),
+  source VARCHAR(80),
+  status VARCHAR(50) DEFAULT 'LEADS',
+  note TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reminders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  title VARCHAR(180) NOT NULL,
+  note TEXT,
+  tag VARCHAR(80),
+  assigned_to VARCHAR(160),
+  remind_at TIMESTAMP,
+  status VARCHAR(50) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS center_expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  title VARCHAR(180) NOT NULL,
+  amount NUMERIC(14,2) DEFAULT 0,
+  category VARCHAR(80),
+  spent_at TIMESTAMP DEFAULT NOW(),
+  note TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS days_text VARCHAR(160);
+ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS room_name VARCHAR(100);
+ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS started_at DATE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gender VARCHAR(20);
+ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT;
