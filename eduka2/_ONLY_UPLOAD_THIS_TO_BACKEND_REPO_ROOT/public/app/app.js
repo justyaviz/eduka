@@ -441,3 +441,45 @@ installTenantLoginGuard = async function() {
   hideTenantLogin();
   return true;
 };
+
+
+/* ===== EDUKA PHASE 3.4 FRONTEND HARD TENANT CHECK ===== */
+tenantStatus = async function() {
+  try {
+    const token = localStorage.getItem("eduka_center_token") || "";
+    const r = await fetch("/api/tenant/status?t=" + Date.now(), {
+      cache:"no-store",
+      headers: token ? { Authorization:"Bearer " + token } : {}
+    });
+    let d;
+    try { d = await r.json(); } catch(e) { d = { ok:false, error:"Tenant status JSON emas", status:r.status }; }
+    if (d && d.code === "TENANT_NOT_FOUND") {
+      localStorage.removeItem("eduka_center_token");
+      localStorage.removeItem("eduka_tenant");
+    }
+    return d;
+  } catch(e) {
+    return { ok:false, error:e.message };
+  }
+};
+
+installTenantLoginGuard = async function() {
+  const status = await tenantStatus();
+
+  if (!status || status.ok === false) {
+    if (status && status.code === "TENANT_NOT_FOUND") {
+      showTenantNotFound(status);
+      return false;
+    }
+    toast((status && (status.message || status.error || status.realError)) || "Tenant tekshiruv xatosi", false);
+    return false;
+  }
+
+  if (status.loginRequired) {
+    showTenantLogin(status);
+    return false;
+  }
+
+  hideTenantLogin();
+  return true;
+};

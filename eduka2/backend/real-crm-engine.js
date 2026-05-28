@@ -577,7 +577,171 @@ async function phase33RequireTenantAuth(req, res, next) {
   }
 }
 
+
+/* ===== EDUKA PHASE 3.4 HARD TENANT GATE ===== */
+async function phase34EnsureTenantFlags() {
+  await ensurePhase32TenantSchema();
+  await realCrmQuery(`
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS created_by_ceo BOOLEAN DEFAULT FALSE;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    CREATE INDEX IF NOT EXISTS idx_organizations_strict_subdomain
+      ON organizations(lower(COALESCE(subdomain, name)));
+  `);
+}
+
+async function phase34FindApprovedOrganization(tenant) {
+  if (phase33IsRootTenant(tenant)) return null;
+  await phase34EnsureTenantFlags();
+
+  const q = await realCrmQuery(`
+    SELECT *
+    FROM organizations
+    WHERE (
+      lower(COALESCE(subdomain, name)) = lower($1)
+      OR lower(name) = lower($1)
+    )
+    AND COALESCE(status, 'active') = 'active'
+    AND COALESCE(created_by_ceo, FALSE) = TRUE
+    AND deleted_at IS NULL
+    LIMIT 1
+  `, [tenant]);
+
+  return q.rows[0] || null;
+}
+
+function phase34TenantNotFoundPayload(req) {
+  const tenant = phase32Subdomain(req);
+  return {
+    ok: false,
+    code: "TENANT_NOT_FOUND",
+    tenant,
+    host: phase32Host(req),
+    message: "O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
+    support: {
+      phone: "+998 99 893 90 00",
+      telegram: "https://t.me/eduka_sales"
+    }
+  };
+}
+
+function phase34TenantNotFoundHtml(req) {
+  const data = phase34TenantNotFoundPayload(req);
+  return `<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>O‘quv markaz topilmadi — EDUKA</title>
+<style>
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,Arial,sans-serif;background:linear-gradient(135deg,#f7fbff,#eef4ff);color:#071137;min-height:100vh;display:grid;place-items:center;padding:24px}
+  .card{width:min(560px,100%);background:#fff;border:1px solid #e4ebf6;border-radius:28px;box-shadow:0 30px 90px rgba(6,18,62,.14);padding:38px}
+  .logo{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:950;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#1455ff;color:#fff;display:grid;place-items:center;font-weight:950}
+  .badge{display:inline-flex;background:#fff1f2;color:#e11d48;border-radius:999px;padding:8px 14px;font-weight:900;margin-bottom:18px}
+  h1{font-size:36px;line-height:1.05;margin:0 0 14px}
+  p{font-size:16px;line-height:1.7;color:#5c6a86;margin:0 0 24px}
+  b{color:#071137}
+  .actions{display:flex;gap:12px;flex-wrap:wrap}
+  a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;font-weight:900}
+  a.primary{background:#1455ff;color:#fff}
+  a.secondary{background:#eef4ff;color:#1455ff}
+  .host{margin-top:18px;color:#7b89a3;font-size:13px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><div class="mark">↗</div><span>EDUKA</span></div>
+    <span class="badge">Subdomain topilmadi</span>
+    <h1>O‘quv markaz topilmadi</h1>
+    <p><b>${data.tenant}.eduka.uz</b> subdomaini EDUKA CEO panelida tasdiqlanmagan. Linkni tekshiring yoki EDUKA admini bilan bog‘laning.</p>
+    <div class="actions">
+      <a class="primary" href="tel:+998998939000">+998 99 893 90 00</a>
+      <a class="secondary" href="https://t.me/eduka_sales" target="_blank">Telegram support</a>
+    </div>
+    <div class="host">Host: ${data.host}</div>
+  </div>
+</body>
+</html>`;
+}
+
+async function phase34RequireApprovedTenant(req, res, next) {
+  try {
+    const tenant = phase32Subdomain(req);
+    if (phase33IsRootTenant(tenant)) {
+      req.edukaTenant = "main";
+      return next();
+    }
+
+    const org = await phase34FindApprovedOrganization(tenant);
+    if (!org) {
+      return res.status(404).json(phase34TenantNotFoundPayload(req));
+    }
+
+    req.edukaTenant = tenant;
+    req.edukaOrganization = org;
+    return next();
+  } catch(e) {
+    return phase3Err(res, e, "Hard tenant check failed");
+  }
+}
+
+async function phase34RequireApprovedTenantAuth(req, res, next) {
+  try {
+    const tenant = phase32Subdomain(req);
+    if (phase33IsRootTenant(tenant)) {
+      req.edukaTenant = "main";
+      return next();
+    }
+
+    const org = await phase34FindApprovedOrganization(tenant);
+    if (!org) {
+      return res.status(404).json(phase34TenantNotFoundPayload(req));
+    }
+
+    const session = await phase32Auth(req);
+    if (!session) {
+      return res.status(401).json({
+        ok:false,
+        code:"LOGIN_REQUIRED",
+        tenant,
+        message:"CRM panelga kirish uchun login qiling."
+      });
+    }
+
+    req.edukaTenant = tenant;
+    req.edukaOrganization = org;
+    req.edukaUser = session;
+    return next();
+  } catch(e) {
+    return phase3Err(res, e, "Hard tenant auth failed");
+  }
+}
+
+async function phase34PageGate(req, res, next) {
+  try {
+    if (req.method !== "GET") return next();
+    if (req.path.startsWith("/api/")) return next();
+    if (req.path.startsWith("/assets/") || req.path.startsWith("/app.") || req.path.includes(".")) return next();
+
+    const tenant = phase32Subdomain(req);
+    if (phase33IsRootTenant(tenant)) return next();
+
+    const org = await phase34FindApprovedOrganization(tenant);
+    if (!org) {
+      return res.status(404).send(phase34TenantNotFoundHtml(req));
+    }
+
+    return next();
+  } catch(e) {
+    return next();
+  }
+}
+
 function installRealCrmEngine(app) {
+  app.use(phase34PageGate);
+  app.use('/api/app', phase34RequireApprovedTenantAuth);
+
   if (!app || app.__realCrmEngineInstalled) return;
   app.__realCrmEngineInstalled = true;
 
@@ -1650,68 +1814,57 @@ function installRealCrmEngine(app) {
 
 
 
-  /* ===== EDUKA PHASE 3.3 STRICT TENANT ROUTES ===== */
 
+
+
+  /* ===== EDUKA PHASE 3.4 HARD TENANT STATUS/CREATE ROUTES ===== */
   app.get("/api/tenant/status", async (req, res) => {
     try {
-      await ensurePhase32TenantSchema();
+      await phase34EnsureTenantFlags();
       const tenant = phase32Subdomain(req);
       const host = phase32Host(req);
 
       if (phase33IsRootTenant(tenant)) {
         return res.json({
-          ok: true,
+          ok:true,
           host,
-          tenant: "main",
-          isRoot: true,
-          exists: true,
-          loginRequired: false,
-          authenticated: true,
-          organization: null,
-          user: null
+          tenant:"main",
+          isRoot:true,
+          exists:true,
+          approved:true,
+          loginRequired:false,
+          authenticated:true
         });
       }
 
-      const org = await phase33FindOrganizationByTenant(tenant);
-      if (!org || String(org.status || "active") !== "active") {
-        return res.status(404).json({
-          ok: false,
-          code: "TENANT_NOT_FOUND",
-          host,
-          tenant,
-          exists: false,
-          loginRequired: false,
-          message: "O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
-          support: {
-            phone: "+998 99 893 90 00",
-            telegram: "https://t.me/eduka_sales"
-          }
-        });
+      const org = await phase34FindApprovedOrganization(tenant);
+      if (!org) {
+        return res.status(404).json(phase34TenantNotFoundPayload(req));
       }
 
       const session = await phase32Auth(req);
-
       return res.json({
-        ok: true,
+        ok:true,
         host,
         tenant,
-        isRoot: false,
-        exists: true,
-        loginRequired: !session,
-        authenticated: !!session,
-        organization: {
-          id: org.id,
-          subdomain: org.subdomain || tenant,
-          name: org.name || tenant,
-          ownerName: org.owner_name || "",
-          phone: org.phone || "",
-          email: org.email || ""
+        isRoot:false,
+        exists:true,
+        approved:true,
+        loginRequired:!session,
+        authenticated:!!session,
+        organization:{
+          id:org.id,
+          name:org.name,
+          subdomain:org.subdomain || tenant,
+          ownerName:org.owner_name || "",
+          phone:org.phone || "",
+          email:org.email || ""
         },
         user: session ? {
-          name: session.name,
-          email: session.email,
-          phone: session.phone,
-          role: session.role
+          name:session.name,
+          email:session.email,
+          phone:session.phone,
+          role:session.role
         } : null
       });
     } catch(e) {
@@ -1721,27 +1874,23 @@ function installRealCrmEngine(app) {
 
   app.post("/api/tenant/login", async (req, res) => {
     try {
-      await ensurePhase32TenantSchema();
+      await phase34EnsureTenantFlags();
       const tenant = phase32Subdomain(req);
 
       if (phase33IsRootTenant(tenant)) {
         return res.status(400).json({ ok:false, code:"ROOT_LOGIN_DISABLED", error:"Root domain uchun markaz login kerak emas." });
       }
 
-      const org = await phase33FindOrganizationByTenant(tenant);
-      if (!org || String(org.status || "active") !== "active") {
-        return res.status(404).json({
-          ok:false,
-          code:"TENANT_NOT_FOUND",
-          tenant,
-          error:"O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
-          support:{ phone:"+998 99 893 90 00", telegram:"https://t.me/eduka_sales" }
-        });
+      const org = await phase34FindApprovedOrganization(tenant);
+      if (!org) {
+        return res.status(404).json(phase34TenantNotFoundPayload(req));
       }
 
       const login = phase3Text(req.body.email || req.body.phone || req.body.login);
       const password = phase3Text(req.body.password);
-      if (!login || !password) return res.status(400).json({ ok:false, error:"Login yoki parol kiritilmagan" });
+      if (!login || !password) {
+        return res.status(400).json({ ok:false, error:"Login yoki parol kiritilmagan" });
+      }
 
       const q = await realCrmQuery(`
         SELECT *
@@ -1763,7 +1912,7 @@ function installRealCrmEngine(app) {
         VALUES($1,$2,$3,NOW()+INTERVAL '30 days')
       `, [token, tenant, q.rows[0].id]);
 
-      res.json({
+      return res.json({
         ok:true,
         token,
         tenant,
@@ -1782,7 +1931,7 @@ function installRealCrmEngine(app) {
 
   app.post("/api/ceo/create-center-admin", async (req, res) => {
     try {
-      await ensurePhase32TenantSchema();
+      await phase34EnsureTenantFlags();
 
       const subdomain = phase3Text(req.body.subdomain).toLowerCase().replace(/[^a-z0-9-]/g, "");
       if (!subdomain) return res.status(400).json({ ok:false, error:"Subdomain kiritilmagan" });
@@ -1803,15 +1952,16 @@ function installRealCrmEngine(app) {
       if (existing.rows[0]) {
         const updated = await realCrmQuery(`
           UPDATE organizations
-          SET name=$2, subdomain=$1, owner_name=$3, phone=$4, email=$5, admin_password=$6, status='active'
+          SET name=$2, subdomain=$1, owner_name=$3, phone=$4, email=$5,
+              admin_password=$6, status='active', created_by_ceo=TRUE, approved_at=COALESCE(approved_at, NOW()), deleted_at=NULL
           WHERE id=$7
           RETURNING *
         `, [subdomain, centerName, ownerName, phone, email, password, existing.rows[0].id]);
         org = updated.rows[0];
       } else {
         const created = await realCrmQuery(`
-          INSERT INTO organizations(name, subdomain, owner_name, phone, email, admin_password, status)
-          VALUES($1,$2,$3,$4,$5,$6,'active')
+          INSERT INTO organizations(name, subdomain, owner_name, phone, email, admin_password, status, created_by_ceo, approved_at)
+          VALUES($1,$2,$3,$4,$5,$6,'active',TRUE,NOW())
           RETURNING *
         `, [centerName, subdomain, ownerName, phone, email, password]);
         org = created.rows[0];
@@ -1835,38 +1985,22 @@ function installRealCrmEngine(app) {
       }
 
       const base = String(process.env.BASE_DOMAIN || "eduka.uz").replace(/^https?:\/\//, "").replace(/\/$/, "");
-      res.json({
+      return res.json({
         ok:true,
         message:"O‘quv markaz yaratildi",
-        organization: {
-          id: org.id,
-          name: org.name,
-          subdomain: org.subdomain,
-          ownerName: org.owner_name,
-          phone: org.phone,
-          email: org.email
-        },
         url:`https://${subdomain}.${base}`,
-        login: email,
-        password
+        login:email,
+        password,
+        organization:{
+          id:org.id,
+          name:org.name,
+          subdomain:org.subdomain,
+          createdByCeo:org.created_by_ceo
+        }
       });
     } catch(e) {
       phase3Err(res, e, "Create center admin failed");
     }
-  });
-
-  app.get("/api/tenant/not-found-info", (req, res) => {
-    const tenant = phase32Subdomain(req);
-    res.status(404).json({
-      ok:false,
-      code:"TENANT_NOT_FOUND",
-      tenant,
-      message:"O‘quv markaz topilmadi. Iltimos, EDUKA admini bilan bog‘laning.",
-      support:{
-        phone:"+998 99 893 90 00",
-        telegram:"https://t.me/eduka_sales"
-      }
-    });
   });
 
 }
