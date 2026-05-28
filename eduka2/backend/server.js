@@ -51,7 +51,9 @@ app.get("/api/server-status", (req, res) => {
 
 try {
   const apiRoutes = require("./routes/api");
+const centerRoutes = require("./routes/center-api");
   app.use("/api", apiRoutes);
+app.use("/api/app", centerRoutes);
 } catch (error) {
   dbError = error;
   console.error("❌ API routes load error:", error.message);
@@ -108,12 +110,17 @@ app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", 
   sendPage(res, "ceo.html");
 });
 
+app.get(["/app", "/app/", "/app/login", "/app/dashboard", "/app/students", "/app/groups", "/app/payments", "/app/attendance", "/app/reports", "/app/settings"], (req, res) => {
+  sendPage(res, "app.html");
+});
+
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
 
   if (req.path.startsWith("/ceo")) return sendPage(res, "ceo.html");
+  if (req.path.startsWith("/app")) return sendPage(res, "app.html");
   if (req.path.includes("gamification")) return sendPage(res, "gamification.html");
   if (req.path.includes("prices")) return sendPage(res, "prices.html");
   if (req.path.includes("vacancies")) return sendPage(res, "vacancies.html");

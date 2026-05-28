@@ -192,3 +192,93 @@ VALUES
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value,
   updated_at = NOW();
+
+
+-- ===== PHASE 2 CENTER CRM CORE =====
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS center_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  full_name VARCHAR(120) NOT NULL,
+  email VARCHAR(160) NOT NULL,
+  password_hash TEXT NOT NULL,
+  role VARCHAR(50) DEFAULT 'director',
+  status VARCHAR(30) DEFAULT 'active',
+  last_login_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(center_id, email)
+);
+
+CREATE TABLE IF NOT EXISTS students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  full_name VARCHAR(160) NOT NULL,
+  phone VARCHAR(50),
+  parent_phone VARCHAR(50),
+  birth_date DATE,
+  status VARCHAR(40) DEFAULT 'active',
+  balance NUMERIC(14,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS study_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  name VARCHAR(160) NOT NULL,
+  course_name VARCHAR(160),
+  teacher_name VARCHAR(160),
+  schedule_text VARCHAR(200),
+  monthly_price NUMERIC(14,2) DEFAULT 0,
+  status VARCHAR(40) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS group_students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  group_id UUID REFERENCES study_groups(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+  status VARCHAR(40) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(group_id, student_id)
+);
+
+CREATE TABLE IF NOT EXISTS center_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(id) ON DELETE SET NULL,
+  student_name VARCHAR(160),
+  amount NUMERIC(14,2) DEFAULT 0,
+  payment_type VARCHAR(50) DEFAULT 'cash',
+  status VARCHAR(40) DEFAULT 'paid',
+  note TEXT,
+  paid_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS attendance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  group_id UUID REFERENCES study_groups(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+  lesson_date DATE DEFAULT CURRENT_DATE,
+  status VARCHAR(40) DEFAULT 'present',
+  note TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(group_id, student_id, lesson_date)
+);
+
+CREATE TABLE IF NOT EXISTS center_activity_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES center_users(id) ON DELETE SET NULL,
+  action VARCHAR(180) NOT NULL,
+  module VARCHAR(80),
+  details JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW()
+);

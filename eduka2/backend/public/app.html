@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EDUKA Center CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <div class="app-loader" id="appLoader"><span></span><span></span><span></span></div>
+
+  <main class="login-page" id="appLoginPage" hidden>
+    <section class="login-card">
+      <div class="brand"><img src="/assets/logo-icon.png" onerror="this.style.display='none'"><strong>EDUKA CRM</strong></div>
+      <span>O‘quv markaz paneli</span>
+      <h1>Markazingiz CRM paneliga kiring</h1>
+      <p>O‘quvchilar, guruhlar, to‘lovlar va davomatni bitta joydan boshqaring.</p>
+      <form id="appLoginForm">
+        <label>Email<input id="appEmail" type="email" placeholder="admin+markaz@eduka.uz" required></label>
+        <label>Parol<input id="appPassword" type="password" placeholder="Parol" required></label>
+        <label>Subdomain <small>ixtiyoriy</small><input id="appSubdomain" placeholder="markaz.eduka.uz"></label>
+        <button>Kirish</button>
+      </form>
+    </section>
+  </main>
+
+  <main class="app-shell" id="appShell" hidden>
+    <aside class="sidebar">
+      <div class="brand"><img src="/assets/logo-icon.png" onerror="this.style.display='none'"><strong>EDUKA</strong></div>
+      <div class="center-name" id="centerName">Center CRM</div>
+      <nav>
+        <button class="active" data-page="dashboard">Dashboard</button>
+        <button data-page="students">O‘quvchilar</button>
+        <button data-page="groups">Guruhlar</button>
+        <button data-page="payments">To‘lovlar</button>
+        <button data-page="attendance">Davomat</button>
+        <button data-page="reports">Hisobotlar</button>
+        <button data-page="settings">Sozlamalar</button>
+      </nav>
+      <button id="appLogout" class="logout">Chiqish</button>
+    </aside>
+
+    <section class="main">
+      <header>
+        <div><p id="pageHint">Center CRM</p><h1 id="pageTitle">Dashboard</h1></div>
+        <div class="profile"><strong id="userName">Admin</strong><span id="userRole">director</span></div>
+      </header>
+
+      <section class="page active" data-view="dashboard">
+        <div class="stats">
+          <article><span>O‘quvchilar</span><h2 id="statStudents">0</h2></article>
+          <article><span>Guruhlar</span><h2 id="statGroups">0</h2></article>
+          <article><span>Oylik tushum</span><h2 id="statPayments">0</h2></article>
+          <article><span>Bugungi davomat</span><h2 id="statAttendance">0</h2></article>
+        </div>
+        <section class="panel"><h2>Oxirgi faoliyatlar</h2><div id="activityList" class="activity"></div></section>
+      </section>
+
+      <section class="page" data-view="students">
+        <div class="toolbar"><input id="studentSearch" placeholder="O‘quvchi qidirish"><button id="openStudentForm">+ O‘quvchi</button></div>
+        <section class="panel"><table id="studentsTable"></table></section>
+      </section>
+
+      <section class="page" data-view="groups">
+        <div class="toolbar"><button id="openGroupForm">+ Guruh</button></div>
+        <div id="groupsGrid" class="grid"></div>
+      </section>
+
+      <section class="page" data-view="payments">
+        <div class="toolbar"><button id="openPaymentForm">+ To‘lov</button></div>
+        <section class="panel"><table id="paymentsTable"></table></section>
+      </section>
+
+      <section class="page" data-view="attendance">
+        <div class="toolbar"><input id="attendanceDate" type="date"><button id="refreshAttendance">Yangilash</button></div>
+        <section class="panel"><div id="attendanceList" class="attendance-list"></div></section>
+      </section>
+
+      <section class="page" data-view="reports">
+        <section class="panel"><h2>Hisobotlar</h2><p>Bu bo‘limda keyingi bosqichda to‘liq grafiklar, qarzdorlik va guruh kesimidagi hisobotlar bo‘ladi.</p></section>
+      </section>
+
+      <section class="page" data-view="settings">
+        <section class="panel"><h2>Markaz sozlamalari</h2><p>Markaz profili, xodimlar va ruxsatlar keyingi bosqichda qo‘shiladi.</p></section>
+      </section>
+    </section>
+  </main>
+
+  <div class="modal" id="appModal" hidden>
+    <div class="modal-card">
+      <button class="close" data-close>×</button>
+      <h2 id="modalTitle">Qo‘shish</h2>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="/app/app.js"></script>
+</body>
+</html>

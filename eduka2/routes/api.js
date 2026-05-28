@@ -463,7 +463,21 @@ router.post("/ceo/demo-requests/:id/convert-to-center", requireCeoAuth, async (r
 
     const center = centerResult.rows[0];
 
-    await client.query(
+    
+    const adminEmail = `admin+${base}@eduka.uz`;
+    const adminPassword = Math.random().toString(36).slice(2, 8).toUpperCase() + "ed";
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+
+    const centerUserResult = await client.query(
+      `INSERT INTO center_users (center_id, full_name, email, password_hash, role, status)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (center_id, email)
+       DO UPDATE SET password_hash=EXCLUDED.password_hash, status='active', updated_at=NOW()
+       RETURNING id, full_name, email, role`,
+      [center.id, demo.name || "Center Admin", adminEmail, passwordHash, "director", "active"]
+    );
+
+await client.query(
       `UPDATE demo_requests
        SET status = 'Mijoz bo‘ldi',
            converted_center_id = $2,
@@ -499,10 +513,10 @@ router.post("/ceo/demo-requests/:id/convert-to-center", requireCeoAuth, async (r
       `<b>Egasi:</b> ${center.owner_name}\n` +
       `<b>Telefon:</b> ${center.owner_phone}\n` +
       `<b>Tarif:</b> ${center.tariff}\n` +
-      `<b>Status:</b> Trial`
+      `<b>Status:</b> Trial\n<b>Admin login:</b> ${typeof adminEmail !== "undefined" ? adminEmail : "-"}\n<b>Parol:</b> ${typeof adminPassword !== "undefined" ? adminPassword : "-"}`
     );
 
-    return res.json({ ok: true, center: centerMap(center) });
+    return res.json({ ok: true, center: centerMap(center), centerAdmin: typeof centerUserResult !== "undefined" ? { email: centerUserResult.rows[0].email, password: adminPassword } : null });
   } catch (error) {
     await client.query("ROLLBACK");
     return res.status(500).json({ ok: false, error: "Convert server error", realError: error.message });
