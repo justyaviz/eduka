@@ -1,3 +1,4 @@
+let __phase37Gate = null; try { __phase37Gate = require("./hard-page-gate"); } catch(e) { __phase37Gate = null; }
 
 /* ===== EDUKA REAL CRM ENGINE PHASE 1 ===== */
 const expressRealCrm = (() => {
@@ -594,6 +595,14 @@ async function phase34FindApprovedOrganization(tenant) {
   if (phase33IsRootTenant(tenant)) return null;
   await phase34EnsureTenantFlags();
 
+  // Phase 3.7: CEO panelda bor markaz ochiladi. Status/created_by_ceo eski ma’lumotlarda turlicha bo‘lishi mumkin.
+  try {
+    if (__phase37Gate && typeof __phase37Gate.phase37FindCenterRecord === "function") {
+      const found = await __phase37Gate.phase37FindCenterRecord(tenant);
+      if (found) return found;
+    }
+  } catch(e) {}
+
   const q = await realCrmQuery(`
     SELECT *
     FROM organizations
@@ -601,15 +610,7 @@ async function phase34FindApprovedOrganization(tenant) {
       lower(COALESCE(subdomain, name)) = lower($1)
       OR lower(name) = lower($1)
     )
-    AND COALESCE(status, 'active') = 'active'
-    AND deleted_at IS NULL
-    AND (
-      COALESCE(created_by_ceo, FALSE) = TRUE
-      OR COALESCE(admin_password, '') <> ''
-      OR COALESCE(email, '') <> ''
-      OR COALESCE(phone, '') <> ''
-      OR COALESCE(owner_name, '') <> ''
-    )
+    AND (deleted_at IS NULL OR deleted_at IS NULL)
     LIMIT 1
   `, [tenant]);
 
@@ -2043,6 +2044,40 @@ function installRealCrmEngine(app) {
       });
     } catch(e) {
       phase3Err(res, e, "Approve existing center failed");
+    }
+  });
+
+
+  /* ===== EDUKA PHASE 3.7 CENTER DEBUG ===== */
+  app.get("/api/debug/tenant-center", async (req, res) => {
+    try {
+      const tenant = phase32Subdomain(req);
+      let found = null;
+      try {
+        if (__phase37Gate && typeof __phase37Gate.phase37FindCenterRecord === "function") {
+          found = await __phase37Gate.phase37FindCenterRecord(tenant);
+        }
+      } catch(e) {
+        return res.status(500).json({ ok:false, tenant, error:e.message });
+      }
+      res.json({
+        ok: !!found,
+        tenant,
+        found: !!found,
+        sourceTable: found ? found.__source_table : null,
+        record: found ? {
+          id: found.id,
+          name: found.name,
+          subdomain: found.subdomain,
+          domain: found.domain,
+          status: found.status,
+          phone: found.phone,
+          email: found.email,
+          owner_name: found.owner_name
+        } : null
+      });
+    } catch(e) {
+      phase3Err(res, e, "Tenant center debug failed");
     }
   });
 

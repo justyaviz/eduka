@@ -524,3 +524,8 @@ async function phase35FrontendHardCheck(){
   document.documentElement.classList.remove("tenant-pending");
   return true;
 }
+
+
+/* ===== EDUKA PHASE 3.7 FRONTEND: CEO CENTERS ARE VALID =====
+   Tenant status backend endi CEO paneldagi mavjud markazlarni valid deb oladi.
+*/

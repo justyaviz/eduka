@@ -1,9 +1,11 @@
 
-/* ===== EDUKA PHASE 3.5 HARD PAGE GATE BEFORE CRM HTML =====
-   Maqsad: CEO yaratmagan subdomainlarda CRM HTML umuman ochilmasin.
+/* ===== EDUKA PHASE 3.7 HARD PAGE GATE — CEO CENTERS OPEN, UNKNOWN CLOSED =====
+   Maqsad:
+   - CEO panelda bor o‘quv markazlar ochiladi.
+   - Random/yo‘q subdomainlarda CRM HTML umuman ko‘rinmaydi.
+   - Oldingi created_by_ceo/status=active sharti olib tashlandi, chunki eski CEO markazlarda bu maydonlar boshqacha bo‘lishi mumkin.
 */
-const path = require("path");
-const fs = require("fs");
+const { Pool } = require("pg");
 
 function phase35Host(req) {
   return String(req.headers["x-forwarded-host"] || req.headers.host || "").split(":")[0].toLowerCase();
@@ -67,7 +69,7 @@ function phase35NotFoundHtml(req) {
     <div class="logo"><div class="mark">↗</div><span>EDUKA</span></div>
     <span class="badge">Subdomain topilmadi</span>
     <h1>O‘quv markaz topilmadi</h1>
-    <p><b>${tenant}.eduka.uz</b> subdomaini EDUKA CEO panelida yaratilmagan yoki tasdiqlanmagan. Linkni tekshiring yoki EDUKA admini bilan bog‘laning.</p>
+    <p><b>${tenant}.eduka.uz</b> subdomaini EDUKA CEO panelidagi o‘quv markazlar ro‘yxatida topilmadi. Linkni tekshiring yoki EDUKA admini bilan bog‘laning.</p>
     <div class="actions">
       <a class="primary" href="tel:+998998939000">+998 99 893 90 00</a>
       <a class="secondary" href="https://t.me/eduka_sales" target="_blank">Telegram support</a>
@@ -78,14 +80,12 @@ function phase35NotFoundHtml(req) {
 </html>`;
 }
 
-async function phase35DbQuery(sql, params) {
-  const { Pool } = require("pg");
-  const url =
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRIVATE_URL ||
-    process.env.PG_URL;
+function phase35DbUrl() {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRIVATE_URL || process.env.PG_URL;
+}
 
+async function phase35DbQuery(sql, params) {
+  const url = phase35DbUrl();
   if (!url) throw new Error("DATABASE_URL topilmadi");
 
   if (!global.__edukaPhase35Pool) {
@@ -97,31 +97,89 @@ async function phase35DbQuery(sql, params) {
   return global.__edukaPhase35Pool.query(sql, params || []);
 }
 
+async function phase37TableExists(tableName) {
+  try {
+    const q = await phase35DbQuery(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1 LIMIT 1`,
+      [tableName]
+    );
+    return !!q.rows[0];
+  } catch(e) {
+    return false;
+  }
+}
+
+async function phase37Columns(tableName) {
+  const q = await phase35DbQuery(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`,
+    [tableName]
+  );
+  return new Set(q.rows.map(r => r.column_name));
+}
+
+function phase37CandidateConditions(cols, paramIndex) {
+  const p = `$${paramIndex}`;
+  const cond = [];
+
+  // Eng asosiy: CEO kartada ko‘rinayotgan subdomain shu joylardan birida saqlangan bo‘lishi mumkin.
+  for (const c of ["subdomain", "slug", "tenant", "tenant_slug", "domain", "host", "name"]) {
+    if (cols.has(c)) {
+      if (c === "domain" || c === "host") {
+        cond.push(`lower(${c}) = lower(${p})`);
+        cond.push(`lower(${c}) = lower(${p} || '.eduka.uz')`);
+      } else {
+        cond.push(`lower(${c}) = lower(${p})`);
+      }
+    }
+  }
+
+  return cond.length ? "(" + cond.join(" OR ") + ")" : null;
+}
+
+function phase37NotDeletedCondition(cols) {
+  const parts = [];
+  if (cols.has("deleted_at")) parts.push("deleted_at IS NULL");
+  if (cols.has("is_deleted")) parts.push("COALESCE(is_deleted, FALSE) = FALSE");
+  if (cols.has("archived_at")) parts.push("archived_at IS NULL");
+  return parts.length ? parts.join(" AND ") : "TRUE";
+}
+
+async function phase37FindCenterRecord(tenant) {
+  // Avval organizations: CEO paneldagi O‘quv markazlar odatda shu yerda.
+  for (const table of ["organizations", "centers", "education_centers", "crm_centers"]) {
+    if (!(await phase37TableExists(table))) continue;
+
+    const cols = await phase37Columns(table);
+    const match = phase37CandidateConditions(cols, 1);
+    if (!match) continue;
+
+    const notDeleted = phase37NotDeletedCondition(cols);
+
+    const q = await phase35DbQuery(
+      `SELECT *, '${table}' AS __source_table
+       FROM ${table}
+       WHERE ${match}
+         AND ${notDeleted}
+       LIMIT 1`,
+      [tenant]
+    );
+
+    if (q.rows[0]) return q.rows[0];
+  }
+
+  return null;
+}
+
 async function phase35TenantExists(req) {
   if (phase35IsRoot(req)) return true;
-
   const tenant = phase35Subdomain(req);
+  const row = await phase37FindCenterRecord(tenant);
+  return !!row;
+}
 
-  const q = await phase35DbQuery(`
-    SELECT id
-    FROM organizations
-    WHERE (
-      lower(COALESCE(subdomain, name)) = lower($1)
-      OR lower(name) = lower($1)
-    )
-    AND COALESCE(status, 'active') = 'active'
-    AND deleted_at IS NULL
-    AND (
-      COALESCE(created_by_ceo, FALSE) = TRUE
-      OR COALESCE(admin_password, '') <> ''
-      OR COALESCE(email, '') <> ''
-      OR COALESCE(phone, '') <> ''
-      OR COALESCE(owner_name, '') <> ''
-    )
-    LIMIT 1
-  `, [tenant]);
-
-  return !!q.rows[0];
+async function phase37GetTenantRecord(req) {
+  if (phase35IsRoot(req)) return null;
+  return phase37FindCenterRecord(phase35Subdomain(req));
 }
 
 function installPhase35HardPageGate(app) {
@@ -130,14 +188,12 @@ function installPhase35HardPageGate(app) {
     try {
       if (req.method !== "GET") return next();
 
-      const p = req.path || "/";
+      if (phase35IsRoot(req)) return next();
 
-      // API json qaytaradi, HTML emas.
-      if (p.startsWith("/api/")) {
-        if (phase35IsRoot(req)) return next();
+      const ok = await phase35TenantExists(req);
 
-        const ok = await phase35TenantExists(req);
-        if (!ok) {
+      if (!ok) {
+        if ((req.path || "").startsWith("/api/")) {
           return res.status(404).json({
             ok:false,
             code:"TENANT_NOT_FOUND",
@@ -147,20 +203,12 @@ function installPhase35HardPageGate(app) {
             support:{ phone:"+998 99 893 90 00", telegram:"https://t.me/eduka_sales" }
           });
         }
-        return next();
-      }
-
-      // Asset fayllar uchun ham unknown tenantda hech narsa bermaymiz.
-      if (!phase35IsRoot(req)) {
-        const ok = await phase35TenantExists(req);
-        if (!ok) {
-          return res.status(404).send(phase35NotFoundHtml(req));
-        }
+        return res.status(404).send(phase35NotFoundHtml(req));
       }
 
       return next();
     } catch (e) {
-      // DB ishlamasa ham random subdomain CRM ochilmasin.
+      // Xavfsizlik: DB xato bo‘lsa random subdomain CRM ochilmasin.
       if (!phase35IsRoot(req)) {
         return res.status(404).send(phase35NotFoundHtml(req));
       }
@@ -174,5 +222,7 @@ module.exports = {
   phase35Subdomain,
   phase35Host,
   phase35TenantExists,
-  phase35NotFoundHtml
+  phase35NotFoundHtml,
+  phase37GetTenantRecord,
+  phase37FindCenterRecord
 };
