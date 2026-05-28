@@ -42,6 +42,9 @@ app.get("/api/server-status", (req, res) => {
     dbStarted,
     dbError: dbError ? dbError.message : null,
     databaseUrlExists: !!process.env.DATABASE_URL,
+    postgresUrlExists: !!process.env.POSTGRES_URL,
+    postgresPrivateUrlExists: !!process.env.POSTGRES_PRIVATE_URL,
+    pgHostExists: !!process.env.PGHOST,
     nodeEnv: process.env.NODE_ENV || null,
   });
 });

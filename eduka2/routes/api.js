@@ -88,16 +88,14 @@ async function audit({ user, action, module, details, req }) {
 
 router.get("/debug/db", async (req, res) => {
   try {
-    if (!process.env.DATABASE_URL) {
-      return res.status(500).json({ ok: false, error: "DATABASE_URL missing" });
-    }
-
     const result = await pool.query("SELECT NOW() AS now");
     const users = await pool.query("SELECT email, role, status FROM ceo_users ORDER BY created_at DESC LIMIT 5").catch((e) => ({ error: e.message, rows: [] }));
 
     return res.json({
       ok: true,
       postgres: true,
+      active: pool.getActiveInfo ? pool.getActiveInfo() : null,
+      candidates: pool.getCandidatesInfo ? pool.getCandidatesInfo() : [],
       now: result.rows[0].now,
       ceoUsers: users.rows,
       ceoUsersError: users.error || null,
@@ -106,9 +104,12 @@ router.get("/debug/db", async (req, res) => {
     return res.status(500).json({
       ok: false,
       error: "DB debug failed",
+      active: pool.getActiveInfo ? pool.getActiveInfo() : null,
+      candidates: pool.getCandidatesInfo ? pool.getCandidatesInfo() : [],
       realError: error.message,
       code: error.code || null,
       detail: error.detail || null,
+      candidateErrors: error.candidates || null,
     });
   }
 });
