@@ -20,16 +20,11 @@ function normalizeHost(host) {
     .trim();
 }
 
-function isRootDomain(host) {
-  const h = normalizeHost(host);
-  return h === "eduka.uz" || h === "www.eduka.uz" || h === "localhost" || h === "127.0.0.1";
-}
-
 function isEdukaSubdomain(host) {
   const h = normalizeHost(host);
   if (!h.endsWith(".eduka.uz")) return false;
-  if (h === "www.eduka.uz") return false;
   if (h === "eduka.uz") return false;
+  if (h === "www.eduka.uz") return false;
   return true;
 }
 
@@ -37,6 +32,24 @@ function getTenantSubdomain(host) {
   const h = normalizeHost(host);
   if (!isEdukaSubdomain(h)) return null;
   return h.replace(".eduka.uz", "");
+}
+
+function sendPage(res, fileName) {
+  const filePath = path.join(publicDir, fileName);
+  if (fs.existsSync(filePath)) return res.sendFile(filePath);
+
+  const fallback = path.join(publicDir, "index.html");
+  if (fs.existsSync(fallback)) return res.sendFile(fallback);
+
+  return res.status(200).send(`<!doctype html>
+  <html lang="uz">
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EDUKA</title></head>
+    <body style="font-family:Arial,sans-serif;padding:40px">
+      <h1>EDUKA server online</h1>
+      <p>Missing public file: ${fileName}</p>
+      <p>Health: /api/health</p>
+    </body>
+  </html>`);
 }
 
 app.disable("x-powered-by");
@@ -93,6 +106,44 @@ try {
   });
 }
 
+/*
+  CRITICAL FIX:
+  express.static() index.html ni avtomatik berib yubormasligi uchun
+  tenant root routing static'dan OLDIN turadi.
+*/
+app.get("/", (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  return sendPage(res, "index.html");
+});
+
+app.get(["/uz", "/index.html"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  return sendPage(res, "index.html");
+});
+
+app.get(["/gamification", "/uz/gamification"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  return sendPage(res, "gamification.html");
+});
+
+app.get(["/prices", "/uz/prices"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  return sendPage(res, "prices.html");
+});
+
+app.get(["/vacancies", "/uz/vacancies"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  return sendPage(res, "vacancies.html");
+});
+
+app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", "/ceo/centers", "/ceo/tariffs", "/ceo/payments", "/ceo/roles", "/ceo/settings"], (req, res) => {
+  sendPage(res, "ceo.html");
+});
+
+app.get(["/app", "/app/", "/app/login", "/app/dashboard", "/app/students", "/app/groups", "/app/payments", "/app/attendance", "/app/reports", "/app/settings"], (req, res) => {
+  sendPage(res, "app.html");
+});
+
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").send("User-agent: *\nAllow: /\nSitemap: https://eduka.uz/sitemap.xml\n");
 });
@@ -104,71 +155,16 @@ app.get("/sitemap.xml", (req, res) => {
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
 });
 
+/*
+  Static assets:
+  index:false bo'lmasa / so'rovida public/index.html avtomatik chiqib ketadi.
+*/
 app.use(express.static(publicDir, {
   extensions: ["html"],
   maxAge: "1h",
   fallthrough: true,
+  index: false,
 }));
-
-function sendPage(res, fileName) {
-  const filePath = path.join(publicDir, fileName);
-  if (fs.existsSync(filePath)) return res.sendFile(filePath);
-
-  const fallback = path.join(publicDir, "index.html");
-  if (fs.existsSync(fallback)) return res.sendFile(fallback);
-
-  return res.status(200).send(`<!doctype html>
-  <html lang="uz">
-    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EDUKA</title></head>
-    <body style="font-family:Arial,sans-serif;padding:40px">
-      <h1>EDUKA server online</h1>
-      <p>Missing public file: ${fileName}</p>
-      <p>Health: /api/health</p>
-    </body>
-  </html>`);
-}
-
-/*
-  MUHIM:
-  Agar host markaz.eduka.uz kabi subdomain bo'lsa,
-  landing emas, Center CRM app ochiladi.
-*/
-app.get("/", (req, res) => {
-  if (isEdukaSubdomain(req.headers.host)) {
-    return sendPage(res, "app.html");
-  }
-  return sendPage(res, "index.html");
-});
-
-app.get(["/uz", "/index.html"], (req, res) => {
-  if (isEdukaSubdomain(req.headers.host)) {
-    return sendPage(res, "app.html");
-  }
-  return sendPage(res, "index.html");
-});
-
-app.get(["/gamification", "/uz/gamification"], (req, res) => {
-  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
-  sendPage(res, "gamification.html");
-});
-
-app.get(["/prices", "/uz/prices"], (req, res) => {
-  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
-  sendPage(res, "prices.html");
-});
-
-app.get(["/vacancies", "/uz/vacancies"], (req, res) => {
-  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
-  sendPage(res, "vacancies.html");
-});
-
-app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", "/ceo/centers", "/ceo/tariffs", "/ceo/payments", "/ceo/roles", "/ceo/settings"], (req, res) => {
-  sendPage(res, "ceo.html");
-});
-
-app.get(["/app", "/app/", "/app/login", "/app/dashboard", "/app/students", "/app/groups", "/app/payments", "/app/attendance", "/app/reports", "/app/settings"], (req, res) => {
-  sendPage(res, "app.html");
-});
 
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ ok: false, error: "Not found" });
