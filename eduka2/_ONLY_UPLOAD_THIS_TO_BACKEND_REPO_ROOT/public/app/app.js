@@ -265,9 +265,13 @@ function bind(){
  const qp=$("#quickPop"); if(qp&&!qp.querySelector('[data-open-drawer="course"]')) qp.insertAdjacentHTML("beforeend",`<button data-open-drawer="course"><span data-icon="presentation"></span> Yangi kurs</button><button data-open-drawer="room"><span data-icon="room"></span> Yangi xona</button><button data-open-drawer="reminder"><span data-icon="bell"></span> Eslatma</button>`);
 }
 document.addEventListener("DOMContentLoaded",async()=>{
- renderIcons(); bind(); await loadData();
- const p=location.pathname.replace("/app/","").replace(/^\/+|\/+$/g,"")||"dashboard";
- go(p==="app"?"dashboard":p,false);
+ renderIcons(); bind();
+ const allowed = await installTenantLoginGuard();
+ if (allowed) {
+   await loadData();
+   const p=location.pathname.replace("/app/","").replace(/^\/+|\/+$/g,"")||"dashboard";
+   go(p==="app"?"dashboard":p,false);
+ }
  setTimeout(()=>$("#bootLoader")?.classList.add("hide"),250);
 });
 
@@ -292,4 +296,97 @@ async function reloadAndRenderAfterSave(pageOverride) {
 }
 document.addEventListener("DOMContentLoaded", () => {
   setTimeout(crmSaveDebug, 1200);
+});
+
+
+/* ===== EDUKA PHASE 3.2 TENANT LOGIN FRONTEND ===== */
+async function tenantStatus() {
+  try {
+    const token = localStorage.getItem("eduka_center_token") || "";
+    const r = await fetch("/api/tenant/status", { headers: token ? { Authorization:"Bearer " + token } : {} });
+    return await r.json();
+  } catch(e) {
+    return { ok:false, error:e.message };
+  }
+}
+function showTenantLogin(status) {
+  let screen = document.getElementById("tenantLoginScreen");
+  if (!screen) {
+    document.body.insertAdjacentHTML("beforeend", `
+<div id="tenantLoginScreen" class="tenant-login-screen" hidden>
+  <div class="tenant-login-card">
+    <div class="login-logo"><span data-icon="arrow-up-right"></span><b>EDUKA</b></div>
+    <span class="login-badge">O‘quv markaz CRM</span>
+    <h1>CRM panelga kirish</h1>
+    <p id="tenantLoginInfo">Subdomain uchun login qiling.</p>
+    <form id="tenantLoginForm">
+      <label>Login / Email / Telefon
+        <input id="tenantLoginEmail" autocomplete="username" placeholder="Login">
+      </label>
+      <label>Parol
+        <input id="tenantLoginPassword" type="password" autocomplete="current-password" placeholder="Parol">
+      </label>
+      <button type="submit">CRM panelga kirish</button>
+    </form>
+    <small id="tenantLoginHint"></small>
+  </div>
+</div>
+`);
+    screen = document.getElementById("tenantLoginScreen");
+  }
+  document.body.classList.add("tenant-locked");
+  screen.hidden = false;
+  document.getElementById("tenantLoginInfo").textContent = `${status.tenant || "markaz"} subdomaini uchun login qiling.`;
+  document.getElementById("tenantLoginHint").textContent = "Telegramga yuborilgan login va parolni kiriting.";
+  renderIcons();
+}
+function hideTenantLogin() {
+  const screen = document.getElementById("tenantLoginScreen");
+  if (screen) screen.hidden = true;
+  document.body.classList.remove("tenant-locked");
+}
+async function installTenantLoginGuard() {
+  const status = await tenantStatus();
+  if (status && status.loginRequired) {
+    showTenantLogin(status);
+    return false;
+  }
+  hideTenantLogin();
+  return true;
+}
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.addEventListener("submit", async (e) => {
+    const form = e.target.closest("#tenantLoginForm");
+    if (!form) return;
+    e.preventDefault();
+    const email = document.getElementById("tenantLoginEmail").value.trim();
+    const password = document.getElementById("tenantLoginPassword").value.trim();
+    const btn = form.querySelector("button");
+    btn.disabled = true;
+    btn.textContent = "Tekshirilmoqda...";
+    try {
+      const r = await fetch("/api/tenant/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ email, password })
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        toast(d.realError || d.error || "Login xato", false);
+        btn.disabled = false;
+        btn.textContent = "CRM panelga kirish";
+        return;
+      }
+      localStorage.setItem("eduka_center_token", d.token);
+      localStorage.setItem("eduka_tenant", d.tenant);
+      hideTenantLogin();
+      toast("Kirish muvaffaqiyatli!");
+      await loadData();
+      go("dashboard", false);
+    } catch(err) {
+      toast(err.message, false);
+      btn.disabled = false;
+      btn.textContent = "CRM panelga kirish";
+    }
+  });
 });

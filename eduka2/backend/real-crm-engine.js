@@ -369,6 +369,119 @@ function phase3Err(res, e, label = "Server error") {
   });
 }
 
+
+/* ===== EDUKA PHASE 3.2 TENANT LOGIN + SUBDOMAIN ISOLATION FIX ===== */
+function phase32Host(req) {
+  return String(req.headers["x-forwarded-host"] || req.headers.host || "").split(":")[0].toLowerCase();
+}
+function phase32Subdomain(req) {
+  const host = phase32Host(req);
+  const root = String(process.env.BASE_DOMAIN || "eduka.uz").toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "");
+  if (host === root || host === "www." + root || host.includes("localhost") || host.includes("railway.app")) return "main";
+  if (host.endsWith("." + root)) return host.slice(0, -("." + root).length).split(".")[0] || "main";
+  return host.split(".")[0] || "main";
+}
+function phase32Token() {
+  return "tok_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+async function ensurePhase32TenantSchema() {
+  await ensureRealCrmPhase3Schema();
+  await realCrmQuery(`
+    CREATE TABLE IF NOT EXISTS crm_tenant_admins (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant TEXT NOT NULL,
+      name TEXT,
+      phone TEXT,
+      email TEXT,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_crm_tenant_admins_tenant_email
+      ON crm_tenant_admins(tenant, COALESCE(email, ''));
+
+    CREATE TABLE IF NOT EXISTS crm_sessions (
+      token TEXT PRIMARY KEY,
+      tenant TEXT NOT NULL,
+      admin_id UUID,
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subdomain TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS owner_name TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS admin_password TEXT;
+    ALTER TABLE organizations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+  `);
+}
+async function phase32EnsureTenant(req, extra = {}) {
+  const tenant = phase32Subdomain(req);
+  await ensurePhase32TenantSchema();
+
+  if (tenant === "main") return { tenant, organization:null };
+
+  let org = await realCrmQuery(
+    `SELECT * FROM organizations WHERE subdomain=$1 OR lower(name)=lower($1) LIMIT 1`,
+    [tenant]
+  );
+
+  if (!org.rows[0]) {
+    org = await realCrmQuery(
+      `INSERT INTO organizations(name, subdomain, owner_name, phone, email, admin_password, status)
+       VALUES($1,$1,$2,$3,$4,$5,'active')
+       RETURNING *`,
+      [
+        tenant,
+        extra.ownerName || "Admin",
+        extra.phone || "",
+        extra.email || ("admin@" + tenant + ".eduka.uz"),
+        extra.password || "admin123"
+      ]
+    );
+  }
+
+  const o = org.rows[0];
+  const email = o.email || ("admin@" + tenant + ".eduka.uz");
+  const password = o.admin_password || extra.password || "admin123";
+
+  await realCrmQuery(
+    `INSERT INTO crm_tenant_admins(tenant, name, phone, email, password, role, status)
+     VALUES($1,$2,$3,$4,$5,'admin','active')
+     ON CONFLICT(tenant, COALESCE(email, '')) DO NOTHING`,
+    [tenant, o.owner_name || "Admin", o.phone || "", email, password]
+  ).catch(async () => {
+    const exists = await realCrmQuery(`SELECT id FROM crm_tenant_admins WHERE tenant=$1 AND email=$2`, [tenant, email]);
+    if (!exists.rows[0]) {
+      await realCrmQuery(
+        `INSERT INTO crm_tenant_admins(tenant, name, phone, email, password, role, status)
+         VALUES($1,$2,$3,$4,$5,'admin','active')`,
+        [tenant, o.owner_name || "Admin", o.phone || "", email, password]
+      );
+    }
+  });
+
+  return { tenant, organization:o };
+}
+async function phase32Auth(req) {
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  const tenant = phase32Subdomain(req);
+  if (!token) return null;
+  const q = await realCrmQuery(
+    `SELECT s.token, s.tenant, a.id AS admin_id, a.name, a.email, a.phone, a.role
+     FROM crm_sessions s
+     LEFT JOIN crm_tenant_admins a ON a.id=s.admin_id
+     WHERE s.token=$1 AND s.tenant=$2 AND s.expires_at > NOW()
+     LIMIT 1`,
+    [token, tenant]
+  );
+  return q.rows[0] || null;
+}
+
 function installRealCrmEngine(app) {
   if (!app || app.__realCrmEngineInstalled) return;
   app.__realCrmEngineInstalled = true;
@@ -1436,6 +1549,137 @@ function installRealCrmEngine(app) {
       await logRealCrm(tenant, "create", "payment", q.rows[0].id, req.body);
       phase3Ok(res, { payment:q.rows[0] });
     } catch(e) { phase3Err(res, e, "Payment save failed"); }
+  });
+
+
+  /* ===== EDUKA PHASE 3.2 TENANT LOGIN ROUTES ===== */
+
+  app.get("/api/tenant/status", async (req, res) => {
+    try {
+      const data = await phase32EnsureTenant(req);
+      const session = await phase32Auth(req);
+      res.json({
+        ok:true,
+        host: phase32Host(req),
+        tenant: data.tenant,
+        isRoot: data.tenant === "main",
+        loginRequired: data.tenant !== "main" && !session,
+        authenticated: !!session,
+        organization: data.organization ? {
+          subdomain: data.organization.subdomain || data.tenant,
+          name: data.organization.name || data.tenant,
+          ownerName: data.organization.owner_name || "",
+          phone: data.organization.phone || "",
+          email: data.organization.email || ""
+        } : null,
+        user: session ? { name: session.name, email: session.email, phone: session.phone, role: session.role } : null
+      });
+    } catch(e) {
+      phase3Err(res, e, "Tenant status failed");
+    }
+  });
+
+  app.post("/api/tenant/login", async (req, res) => {
+    try {
+      const { tenant } = await phase32EnsureTenant(req);
+      const login = phase3Text(req.body.email || req.body.phone || req.body.login);
+      const password = phase3Text(req.body.password);
+      if (!login || !password) return res.status(400).json({ ok:false, error:"Login yoki parol kiritilmagan" });
+
+      const q = await realCrmQuery(
+        `SELECT * FROM crm_tenant_admins
+         WHERE tenant=$1 AND status='active'
+           AND (lower(email)=lower($2) OR phone=$2 OR lower(name)=lower($2))
+           AND password=$3
+         LIMIT 1`,
+        [tenant, login, password]
+      );
+
+      if (!q.rows[0]) {
+        return res.status(401).json({ ok:false, error:"Login yoki parol xato", tenant });
+      }
+
+      const token = phase32Token();
+      await realCrmQuery(
+        `INSERT INTO crm_sessions(token, tenant, admin_id, expires_at)
+         VALUES($1,$2,$3,NOW()+INTERVAL '30 days')`,
+        [token, tenant, q.rows[0].id]
+      );
+
+      res.json({
+        ok:true,
+        token,
+        tenant,
+        user:{
+          id:q.rows[0].id,
+          name:q.rows[0].name,
+          email:q.rows[0].email,
+          phone:q.rows[0].phone,
+          role:q.rows[0].role
+        }
+      });
+    } catch(e) {
+      phase3Err(res, e, "Tenant login failed");
+    }
+  });
+
+  app.post("/api/tenant/logout", async (req, res) => {
+    try {
+      const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+      if (token) await realCrmQuery(`DELETE FROM crm_sessions WHERE token=$1`, [token]);
+      res.json({ ok:true });
+    } catch(e) {
+      res.json({ ok:true });
+    }
+  });
+
+  app.post("/api/ceo/create-center-admin", async (req, res) => {
+    try {
+      await ensurePhase32TenantSchema();
+      const subdomain = phase3Text(req.body.subdomain).toLowerCase().replace(/[^a-z0-9-]/g, "");
+      if (!subdomain) return res.status(400).json({ ok:false, error:"Subdomain kiritilmagan" });
+
+      const email = phase3Text(req.body.email) || ("admin@" + subdomain + ".eduka.uz");
+      const password = phase3Text(req.body.password) || ("eduka" + Math.floor(100000 + Math.random()*900000));
+      const phone = phase3Text(req.body.phone);
+      const ownerName = phase3Text(req.body.ownerName || req.body.name) || "Admin";
+
+      await realCrmQuery(
+        `INSERT INTO organizations(name, subdomain, owner_name, phone, email, admin_password, status)
+         VALUES($1,$1,$2,$3,$4,$5,'active')
+         ON CONFLICT DO NOTHING`,
+        [subdomain, ownerName, phone, email, password]
+      ).catch(async () => {
+        await realCrmQuery(
+          `UPDATE organizations SET owner_name=$2, phone=$3, email=$4, admin_password=$5, status='active'
+           WHERE subdomain=$1 OR lower(name)=lower($1)`,
+          [subdomain, ownerName, phone, email, password]
+        );
+      });
+
+      await realCrmQuery(
+        `INSERT INTO crm_tenant_admins(tenant, name, phone, email, password, role, status)
+         VALUES($1,$2,$3,$4,$5,'admin','active')`,
+        [subdomain, ownerName, phone, email, password]
+      ).catch(async () => {
+        await realCrmQuery(
+          `UPDATE crm_tenant_admins SET name=$2, phone=$3, password=$5, status='active', updated_at=NOW()
+           WHERE tenant=$1 AND email=$4`,
+          [subdomain, ownerName, phone, email, password]
+        );
+      });
+
+      const base = String(process.env.BASE_DOMAIN || "eduka.uz").replace(/^https?:\/\//, "").replace(/\/$/, "");
+      res.json({
+        ok:true,
+        subdomain,
+        url:`https://${subdomain}.${base}`,
+        login: email,
+        password
+      });
+    } catch(e) {
+      phase3Err(res, e, "Create center admin failed");
+    }
   });
 
 }

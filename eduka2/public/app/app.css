@@ -65,3 +65,19 @@ h1{font-size:28px;line-height:1.15;margin:10px 0 20px;letter-spacing:-.04em}h1 s
 .detail-tabs button.active{color:#f97316;border-top:4px solid #f97316;background:#fff8f1}
 .menu-dots{font-size:24px;color:#f97316}
 @media(max-width:1100px){.group-detail-grid{grid-template-columns:1fr}.course-grid{grid-template-columns:1fr}}
+
+
+/* ===== EDUKA PHASE 3.2 TENANT LOGIN UI ===== */
+.tenant-login-screen{position:fixed;inset:0;z-index:10000;background:linear-gradient(135deg,#f7fbff,#eef4ff);display:grid;place-items:center;padding:24px}
+.tenant-login-card{width:min(460px,100%);background:#fff;border:1px solid #e4ebf6;border-radius:28px;box-shadow:0 32px 80px rgba(6,18,62,.12);padding:34px}
+.login-logo{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:950;color:#071137;margin-bottom:22px}
+.login-logo span{width:36px;height:36px;background:#1455ff;color:#fff;border-radius:10px;padding:8px}
+.login-badge{display:inline-flex;background:#eef4ff;color:#1455ff;border-radius:999px;padding:8px 14px;font-weight:900;margin-bottom:18px}
+.tenant-login-card h1{font-size:34px;line-height:1.05;margin:0 0 12px;color:#071137}
+.tenant-login-card p{color:#5c6a86;margin:0 0 24px;line-height:1.6}
+.tenant-login-card form{display:grid;gap:14px}
+.tenant-login-card label{display:grid;gap:8px;color:#071137;font-weight:800}
+.tenant-login-card input{height:52px;border:1px solid #d9e3f3;border-radius:12px;padding:0 14px;font:inherit}
+.tenant-login-card button{height:54px;border:0;border-radius:14px;background:linear-gradient(135deg,#07145c,#1455ff);color:#fff;font-weight:950;font-size:16px;cursor:pointer}
+.tenant-login-card small{display:block;color:#7b89a3;text-align:center;margin-top:14px}
+body.tenant-locked .app-shell, body.tenant-locked #app, body.tenant-locked main{filter:blur(2px);pointer-events:none}
