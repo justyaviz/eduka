@@ -1,6 +1,6 @@
 {
-  "name": "eduka-real-backend-api",
-  "version": "2.2.0",
+  "name": "eduka-fixed-real-api",
+  "version": "2.3.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -9,7 +9,7 @@
     "start:safe": "node server.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed-ceo": "node scripts/create-ceo.js",
-    "db:setup": "npm run db:migrate && npm run db:seed-ceo"
+    "db:setup": "node scripts/migrate.js && node scripts/create-ceo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

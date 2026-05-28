@@ -1,12 +1,15 @@
 require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
+const { initDatabase } = require("../utils/init-db");
 const pool = require("../db");
 
-async function migrate() {
-  const sql = fs.readFileSync(path.join(__dirname, "..", "migrations", "001_init.sql"), "utf8");
-  await pool.query(sql);
-  console.log("Migration completed");
-  await pool.end();
-}
-migrate().catch((error)=>{ console.error(error); process.exit(1); });
+initDatabase()
+  .then(async (result) => {
+    console.log(result);
+    await pool.end();
+    process.exit(result.ok ? 0 : 1);
+  })
+  .catch(async (error) => {
+    console.error(error);
+    await pool.end();
+    process.exit(1);
+  });
