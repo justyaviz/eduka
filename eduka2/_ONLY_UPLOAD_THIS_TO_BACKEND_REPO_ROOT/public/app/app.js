@@ -234,7 +234,7 @@ function openDrawer(type,opts={}){
   if(type==="attachStudent") r=await API.post(`/api/app/groups-v2/${groupId}/students`,{studentId:val("f_student"),joinedAt:val("f_joined")});
   if(type==="payment") r=await API.post("/api/app/payments",{studentId:val("f_student"),groupId:val("f_group"),amount:val("f_amount"),paymentType:val("f_type"),note:val("f_note")});
   if(type==="reminder") r=await API.post("/api/app/reminders",{title:val("f_title"),note:val("f_note"),dueAt:val("f_due")});
-  if(!r.ok){toast(r.error||"Xatolik",false);return}
+  if(!r.ok){console.error("SAVE_ERROR", r);toast(r.realError||r.error||r.detail||"Saqlashda xatolik",false);return}
   closeDrawer(); toast("Muvaffaqiyatli yakunlandi!");
   await loadData();
   if(type==="attachStudent"&&groupId) await openGroup(groupId); else go(state.page);
@@ -269,4 +269,27 @@ document.addEventListener("DOMContentLoaded",async()=>{
  const p=location.pathname.replace("/app/","").replace(/^\/+|\/+$/g,"")||"dashboard";
  go(p==="app"?"dashboard":p,false);
  setTimeout(()=>$("#bootLoader")?.classList.add("hide"),250);
+});
+
+/* ===== EDUKA PHASE 3 FRONTEND SAVE DIAGNOSTICS ===== */
+async function crmSaveDebug() {
+  const d = await API.get("/api/app/save-health", null);
+  if (!d || d.ok === false) {
+    toast((d && (d.realError || d.error)) || "Database save-health ishlamadi", false);
+    console.error("SAVE_HEALTH_ERROR", d);
+    return d;
+  }
+  console.log("SAVE_HEALTH_OK", d);
+  return d;
+}
+async function reloadAndRenderAfterSave(pageOverride) {
+  await loadData();
+  if (state.page === "group-detail" && state.selectedGroupId) {
+    await openGroup(state.selectedGroupId);
+  } else {
+    go(pageOverride || state.page, false);
+  }
+}
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(crmSaveDebug, 1200);
 });

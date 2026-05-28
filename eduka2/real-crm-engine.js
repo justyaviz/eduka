@@ -274,6 +274,101 @@ function phase2CleanDate(v) {
   return s ? s.slice(0, 10) : null;
 }
 
+
+/* ===== EDUKA REAL CRM ENGINE PHASE 3 SAVE FIX ===== */
+async function ensureRealCrmPhase3Schema() {
+  if (typeof ensureRealCrmPhase2Schema === "function") {
+    await ensureRealCrmPhase2Schema();
+  } else {
+    await ensureRealCrmSchema();
+  }
+
+  await realCrmQuery(`
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+    ALTER TABLE crm_students ADD COLUMN IF NOT EXISTS birth_date DATE;
+    ALTER TABLE crm_students ADD COLUMN IF NOT EXISTS gender TEXT;
+    ALTER TABLE crm_students ADD COLUMN IF NOT EXISTS note TEXT;
+    ALTER TABLE crm_students ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 0;
+    ALTER TABLE crm_students ADD COLUMN IF NOT EXISTS photo_url TEXT;
+
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS birth_date DATE;
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS gender TEXT;
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+    ALTER TABLE crm_courses ADD COLUMN IF NOT EXISTS code TEXT;
+    ALTER TABLE crm_courses ADD COLUMN IF NOT EXISTS lesson_duration TEXT DEFAULT '90 daqiqa';
+    ALTER TABLE crm_courses ADD COLUMN IF NOT EXISTS note TEXT;
+
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS room_id UUID;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS room TEXT;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS days TEXT;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS lesson_time TEXT;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS lesson_duration TEXT;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS start_date DATE;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS end_date DATE;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+
+    CREATE TABLE IF NOT EXISTS crm_rooms (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant TEXT NOT NULL DEFAULT 'main',
+      name TEXT NOT NULL,
+      capacity INT NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS crm_group_students (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant TEXT NOT NULL DEFAULT 'main',
+      group_id UUID NOT NULL,
+      student_id UUID NOT NULL,
+      joined_at DATE DEFAULT CURRENT_DATE,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_crm_group_students_group_student
+      ON crm_group_students(group_id, student_id);
+
+    CREATE INDEX IF NOT EXISTS idx_crm_students_tenant ON crm_students(tenant);
+    CREATE INDEX IF NOT EXISTS idx_crm_teachers_tenant ON crm_teachers(tenant);
+    CREATE INDEX IF NOT EXISTS idx_crm_courses_tenant ON crm_courses(tenant);
+    CREATE INDEX IF NOT EXISTS idx_crm_groups_tenant ON crm_groups(tenant);
+    CREATE INDEX IF NOT EXISTS idx_crm_rooms_tenant ON crm_rooms(tenant);
+    CREATE INDEX IF NOT EXISTS idx_crm_group_students_tenant ON crm_group_students(tenant);
+  `);
+}
+
+function phase3Text(v) {
+  return String(v ?? "").trim();
+}
+function phase3Num(v) {
+  const n = Number(String(v ?? "0").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+function phase3Date(v) {
+  const s = phase3Text(v);
+  if (!s) return null;
+  return s.slice(0, 10);
+}
+function phase3Ok(res, payload) {
+  return res.json({ ok: true, ...payload });
+}
+function phase3Err(res, e, label = "Server error") {
+  console.error("[EDUKA CRM PHASE3]", label, e);
+  return res.status(500).json({
+    ok: false,
+    error: label,
+    realError: e.message,
+    code: e.code || null,
+    detail: e.detail || null
+  });
+}
+
 function installRealCrmEngine(app) {
   if (!app || app.__realCrmEngineInstalled) return;
   app.__realCrmEngineInstalled = true;
@@ -973,6 +1068,374 @@ function installRealCrmEngine(app) {
       );
       res.json({ ok:true });
     } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+
+  /* ===== EDUKA REAL CRM ENGINE PHASE 3 REAL SAVE ROUTES ===== */
+
+  app.get("/api/app/save-health", async (req, res) => {
+    try {
+      await ensureRealCrmPhase3Schema();
+      const tenant = realCrmTenantFromReq(req);
+      const counts = await realCrmQuery(`
+        SELECT
+          (SELECT COUNT(*)::int FROM crm_students WHERE tenant=$1) AS students,
+          (SELECT COUNT(*)::int FROM crm_teachers WHERE tenant=$1) AS teachers,
+          (SELECT COUNT(*)::int FROM crm_courses WHERE tenant=$1) AS courses,
+          (SELECT COUNT(*)::int FROM crm_rooms WHERE tenant=$1) AS rooms,
+          (SELECT COUNT(*)::int FROM crm_groups WHERE tenant=$1) AS groups,
+          (SELECT COUNT(*)::int FROM crm_group_students WHERE tenant=$1 AND status='active') AS group_students
+      `, [tenant]);
+      res.json({ ok:true, dbReady:true, tenant, counts: counts.rows[0] });
+    } catch(e) {
+      phase3Err(res, e, "Save health failed");
+    }
+  });
+
+  app.post("/api/app/students", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const name = phase3Text(req.body.name);
+      if (!name) return res.status(400).json({ ok:false, error:"Talaba ismi kiritilmagan" });
+
+      const q = await realCrmQuery(`
+        INSERT INTO crm_students(tenant, name, phone, birth_date, gender, note, balance, status)
+        VALUES($1,$2,$3,$4,$5,$6,0,'active')
+        RETURNING id, name, phone, birth_date AS "birthDate", gender, note, balance, status, created_at AS "createdAt"
+      `, [
+        tenant,
+        name,
+        phase3Text(req.body.phone),
+        phase3Date(req.body.birthDate),
+        phase3Text(req.body.gender),
+        phase3Text(req.body.note)
+      ]);
+
+      if (req.body.groupId) {
+        await realCrmQuery(`
+          INSERT INTO crm_group_students(tenant, group_id, student_id, joined_at, status)
+          VALUES($1,$2,$3,CURRENT_DATE,'active')
+          ON CONFLICT(group_id, student_id)
+          DO UPDATE SET status='active', updated_at=NOW()
+        `, [tenant, req.body.groupId, q.rows[0].id]);
+      }
+
+      await logRealCrm(tenant, "create", "student", q.rows[0].id, req.body);
+      phase3Ok(res, { student:q.rows[0] });
+    } catch(e) { phase3Err(res, e, "Student save failed"); }
+  });
+
+  app.get("/api/app/students", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const q = await realCrmQuery(`
+        SELECT s.id, s.name, s.phone, s.birth_date AS "birthDate", s.gender, s.note, s.balance, s.status,
+               COALESCE(COUNT(gs.group_id),0)::int AS "groupCount",
+               STRING_AGG(g.name, ', ') AS "groupName"
+        FROM crm_students s
+        LEFT JOIN crm_group_students gs ON gs.student_id=s.id AND gs.status='active'
+        LEFT JOIN crm_groups g ON g.id=gs.group_id
+        WHERE s.tenant=$1 AND COALESCE(s.status,'active') <> 'deleted'
+        GROUP BY s.id
+        ORDER BY s.created_at DESC
+      `, [tenant]);
+      res.json({ ok:true, students:q.rows });
+    } catch(e) { phase3Err(res, e, "Students load failed"); }
+  });
+
+  app.put("/api/app/students/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const q = await realCrmQuery(`
+        UPDATE crm_students
+        SET name=$1, phone=$2, birth_date=$3, gender=$4, note=$5, updated_at=NOW()
+        WHERE id=$6 AND tenant=$7
+        RETURNING id, name, phone, birth_date AS "birthDate", gender, note, balance, status
+      `, [
+        phase3Text(req.body.name),
+        phase3Text(req.body.phone),
+        phase3Date(req.body.birthDate),
+        phase3Text(req.body.gender),
+        phase3Text(req.body.note),
+        req.params.id,
+        tenant
+      ]);
+      phase3Ok(res, { student:q.rows[0] || null });
+    } catch(e) { phase3Err(res, e, "Student update failed"); }
+  });
+
+  app.delete("/api/app/students/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      await realCrmQuery(`UPDATE crm_students SET status='deleted', updated_at=NOW() WHERE id=$1 AND tenant=$2`, [req.params.id, tenant]);
+      res.json({ ok:true });
+    } catch(e) { phase3Err(res, e, "Student delete failed"); }
+  });
+
+  app.post("/api/app/teachers-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const name = phase3Text(req.body.name);
+      if (!name) return res.status(400).json({ ok:false, error:"O‘qituvchi ismi kiritilmagan" });
+      const q = await realCrmQuery(`
+        INSERT INTO crm_teachers(tenant, name, phone, subject, salary, birth_date, gender, photo_url, password_hash, status)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'active')
+        RETURNING id, name, phone, subject, salary, birth_date AS "birthDate", gender, photo_url AS "photoUrl", status, created_at AS "createdAt"
+      `, [
+        tenant, name, phase3Text(req.body.phone), phase3Text(req.body.subject), phase3Num(req.body.salary),
+        phase3Date(req.body.birthDate), phase3Text(req.body.gender), phase3Text(req.body.photoUrl),
+        phase3Text(req.body.password) ? ("plain:" + phase3Text(req.body.password)) : null
+      ]);
+      await logRealCrm(tenant, "create", "teacher", q.rows[0].id, req.body);
+      phase3Ok(res, { teacher:q.rows[0] });
+    } catch(e) { phase3Err(res, e, "Teacher save failed"); }
+  });
+
+  app.get("/api/app/teachers", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const q = await realCrmQuery(`
+        SELECT t.id, t.name, t.phone, t.subject, t.salary, t.birth_date AS "birthDate", t.gender, t.photo_url AS "photoUrl", t.status,
+               COUNT(g.id)::int AS "groupCount"
+        FROM crm_teachers t
+        LEFT JOIN crm_groups g ON g.teacher_id=t.id AND COALESCE(g.status,'active') <> 'deleted'
+        WHERE t.tenant=$1 AND COALESCE(t.status,'active') <> 'deleted'
+        GROUP BY t.id
+        ORDER BY t.created_at DESC
+      `, [tenant]);
+      res.json({ ok:true, teachers:q.rows });
+    } catch(e) { phase3Err(res, e, "Teachers load failed"); }
+  });
+
+  app.post("/api/app/courses-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const name = phase3Text(req.body.name);
+      if (!name) return res.status(400).json({ ok:false, error:"Kurs nomi kiritilmagan" });
+      const q = await realCrmQuery(`
+        INSERT INTO crm_courses(tenant, name, code, price, duration_months, lesson_duration, note, status)
+        VALUES($1,$2,$3,$4,$5,$6,$7,'active')
+        RETURNING id, name, code, price, duration_months AS "durationMonths", lesson_duration AS "lessonDuration", note, status, created_at AS "createdAt"
+      `, [
+        tenant, name, phase3Text(req.body.code), phase3Num(req.body.price),
+        Number(req.body.durationMonths || 1), phase3Text(req.body.lessonDuration) || "90 daqiqa",
+        phase3Text(req.body.note)
+      ]);
+      await logRealCrm(tenant, "create", "course", q.rows[0].id, req.body);
+      phase3Ok(res, { course:q.rows[0] });
+    } catch(e) { phase3Err(res, e, "Course save failed"); }
+  });
+
+  app.get("/api/app/courses-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const q = await realCrmQuery(`
+        SELECT c.id, c.name, c.code, c.price, c.duration_months AS "durationMonths",
+               c.lesson_duration AS "lessonDuration", c.note, c.status, c.created_at AS "createdAt",
+               COUNT(g.id)::int AS "groupCount"
+        FROM crm_courses c
+        LEFT JOIN crm_groups g ON g.course_id=c.id AND COALESCE(g.status,'active') <> 'deleted'
+        WHERE c.tenant=$1 AND COALESCE(c.status,'active') <> 'deleted'
+        GROUP BY c.id
+        ORDER BY c.created_at DESC
+      `, [tenant]);
+      res.json({ ok:true, courses:q.rows });
+    } catch(e) { phase3Err(res, e, "Courses load failed"); }
+  });
+
+  app.post("/api/app/rooms", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const name = phase3Text(req.body.name);
+      if (!name) return res.status(400).json({ ok:false, error:"Xona nomi kiritilmagan" });
+      const q = await realCrmQuery(`
+        INSERT INTO crm_rooms(tenant, name, capacity, status)
+        VALUES($1,$2,$3,'active')
+        RETURNING id, name, capacity, status, created_at AS "createdAt"
+      `, [tenant, name, Number(req.body.capacity || 0)]);
+      await logRealCrm(tenant, "create", "room", q.rows[0].id, req.body);
+      phase3Ok(res, { room:q.rows[0] });
+    } catch(e) { phase3Err(res, e, "Room save failed"); }
+  });
+
+  app.get("/api/app/rooms", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const q = await realCrmQuery(`
+        SELECT id, name, capacity, status, created_at AS "createdAt"
+        FROM crm_rooms
+        WHERE tenant=$1 AND COALESCE(status,'active') <> 'deleted'
+        ORDER BY created_at DESC
+      `, [tenant]);
+      res.json({ ok:true, rooms:q.rows });
+    } catch(e) { phase3Err(res, e, "Rooms load failed"); }
+  });
+
+  app.delete("/api/app/rooms/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      await realCrmQuery(`UPDATE crm_rooms SET status='deleted', updated_at=NOW() WHERE id=$1 AND tenant=$2`, [req.params.id, tenant]);
+      res.json({ ok:true });
+    } catch(e) { phase3Err(res, e, "Room delete failed"); }
+  });
+
+  app.post("/api/app/groups-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const name = phase3Text(req.body.name);
+      if (!name) return res.status(400).json({ ok:false, error:"Guruh nomi kiritilmagan" });
+
+      let roomName = phase3Text(req.body.roomName);
+      if (!roomName && req.body.roomId) {
+        const rq = await realCrmQuery(`SELECT name FROM crm_rooms WHERE id=$1 AND tenant=$2`, [req.body.roomId, tenant]);
+        roomName = rq.rows[0]?.name || "";
+      }
+
+      const q = await realCrmQuery(`
+        INSERT INTO crm_groups(tenant, name, course_id, teacher_id, room_id, room, days, lesson_time, lesson_duration, start_date, end_date, status)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active')
+        RETURNING id, name, course_id AS "courseId", teacher_id AS "teacherId", room_id AS "roomId", room, days,
+                  lesson_time AS "lessonTime", lesson_duration AS "lessonDuration", start_date AS "startDate", end_date AS "endDate", status
+      `, [
+        tenant, name, req.body.courseId || null, req.body.teacherId || null, req.body.roomId || null, roomName,
+        phase3Text(req.body.days), phase3Text(req.body.lessonTime), phase3Text(req.body.lessonDuration),
+        phase3Date(req.body.startDate), phase3Date(req.body.endDate)
+      ]);
+
+      await logRealCrm(tenant, "create", "group", q.rows[0].id, req.body);
+      phase3Ok(res, { group:q.rows[0] });
+    } catch(e) { phase3Err(res, e, "Group save failed"); }
+  });
+
+  app.get("/api/app/groups-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const q = await realCrmQuery(`
+        SELECT g.id, g.name, g.room, g.days, g.lesson_time AS "lessonTime",
+               g.lesson_duration AS "lessonDuration", g.start_date AS "startDate", g.end_date AS "endDate",
+               g.status,
+               c.id AS "courseId", c.name AS course, c.price AS "coursePrice", c.duration_months AS "courseDurationMonths",
+               c.lesson_duration AS "courseLessonDuration",
+               t.id AS "teacherId", t.name AS "teacherName",
+               r.id AS "roomId", r.name AS "roomName", r.capacity AS "roomCapacity",
+               COUNT(gs.student_id)::int AS "studentCount",
+               g.created_at AS "createdAt"
+        FROM crm_groups g
+        LEFT JOIN crm_courses c ON c.id=g.course_id
+        LEFT JOIN crm_teachers t ON t.id=g.teacher_id
+        LEFT JOIN crm_rooms r ON r.id=g.room_id
+        LEFT JOIN crm_group_students gs ON gs.group_id=g.id AND gs.status='active'
+        WHERE g.tenant=$1 AND COALESCE(g.status,'active') <> 'deleted'
+        GROUP BY g.id, c.id, t.id, r.id
+        ORDER BY g.created_at DESC
+      `, [tenant]);
+      res.json({ ok:true, groups:q.rows });
+    } catch(e) { phase3Err(res, e, "Groups load failed"); }
+  });
+
+  app.get("/api/app/groups-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const g = await realCrmQuery(`
+        SELECT g.id, g.name, g.room, g.days, g.lesson_time AS "lessonTime",
+               g.lesson_duration AS "lessonDuration", g.start_date AS "startDate", g.end_date AS "endDate",
+               g.status,
+               c.id AS "courseId", c.name AS course, c.price AS "coursePrice", c.duration_months AS "courseDurationMonths",
+               c.lesson_duration AS "courseLessonDuration",
+               t.id AS "teacherId", t.name AS "teacherName",
+               r.id AS "roomId", r.name AS "roomName", r.capacity AS "roomCapacity",
+               g.created_at AS "createdAt"
+        FROM crm_groups g
+        LEFT JOIN crm_courses c ON c.id=g.course_id
+        LEFT JOIN crm_teachers t ON t.id=g.teacher_id
+        LEFT JOIN crm_rooms r ON r.id=g.room_id
+        WHERE g.tenant=$1 AND g.id=$2
+      `, [tenant, req.params.id]);
+
+      const students = await realCrmQuery(`
+        SELECT s.id, s.name, s.phone, gs.joined_at AS "joinedAt", gs.status
+        FROM crm_group_students gs
+        JOIN crm_students s ON s.id=gs.student_id
+        WHERE gs.tenant=$1 AND gs.group_id=$2 AND gs.status='active'
+        ORDER BY s.name
+      `, [tenant, req.params.id]);
+
+      res.json({ ok:true, group:g.rows[0] || null, students:students.rows });
+    } catch(e) { phase3Err(res, e, "Group detail load failed"); }
+  });
+
+  app.post("/api/app/groups-v2/:id/students", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      if (!req.body.studentId) return res.status(400).json({ ok:false, error:"Talaba tanlanmagan" });
+
+      await realCrmQuery(`
+        INSERT INTO crm_group_students(tenant, group_id, student_id, joined_at, status)
+        VALUES($1,$2,$3,$4,'active')
+        ON CONFLICT(group_id, student_id)
+        DO UPDATE SET status='active', joined_at=EXCLUDED.joined_at, updated_at=NOW()
+      `, [tenant, req.params.id, req.body.studentId, phase3Date(req.body.joinedAt) || new Date().toISOString().slice(0,10)]);
+
+      await logRealCrm(tenant, "attach", "group_student", req.params.id, req.body);
+      res.json({ ok:true });
+    } catch(e) { phase3Err(res, e, "Attach student to group failed"); }
+  });
+
+  app.delete("/api/app/groups-v2/:groupId/students/:studentId", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      await realCrmQuery(`
+        UPDATE crm_group_students SET status='removed', updated_at=NOW()
+        WHERE tenant=$1 AND group_id=$2 AND student_id=$3
+      `, [tenant, req.params.groupId, req.params.studentId]);
+      res.json({ ok:true });
+    } catch(e) { phase3Err(res, e, "Remove student from group failed"); }
+  });
+
+  app.post("/api/app/payments", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase3Schema();
+      const amount = phase3Num(req.body.amount);
+      if (!amount) return res.status(400).json({ ok:false, error:"To‘lov summasi kiritilmagan" });
+
+      const q = await realCrmQuery(`
+        INSERT INTO crm_payments(tenant, student_id, group_id, amount, payment_type, note, paid_at, status)
+        VALUES($1,$2,$3,$4,$5,$6,NOW(),'paid')
+        RETURNING id, student_id AS "studentId", group_id AS "groupId", amount, payment_type AS "paymentType", note, paid_at AS "paidAt", status
+      `, [
+        tenant,
+        req.body.studentId || null,
+        req.body.groupId || null,
+        amount,
+        phase3Text(req.body.paymentType) || "cash",
+        phase3Text(req.body.note)
+      ]);
+
+      await realCrmQuery(`
+        UPDATE crm_students SET balance = COALESCE(balance,0) - $1, updated_at=NOW()
+        WHERE id=$2 AND tenant=$3
+      `, [amount, req.body.studentId, tenant]);
+
+      await logRealCrm(tenant, "create", "payment", q.rows[0].id, req.body);
+      phase3Ok(res, { payment:q.rows[0] });
+    } catch(e) { phase3Err(res, e, "Payment save failed"); }
   });
 
 }
