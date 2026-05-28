@@ -1,3 +1,18 @@
+
+/* EDUKA tenant host auto-fill patch */
+(function(){
+  const host = location.hostname;
+  const isTenant = host.endsWith(".eduka.uz") && host !== "www.eduka.uz" && host !== "eduka.uz";
+  window.EDUKA_TENANT_HOST = isTenant ? host : "";
+  document.addEventListener("DOMContentLoaded", function(){
+    const input = document.querySelector("#appSubdomain");
+    if (input && window.EDUKA_TENANT_HOST) {
+      input.value = window.EDUKA_TENANT_HOST;
+      input.closest("label")?.classList.add("auto-filled");
+    }
+  });
+})();
+
 const TOKEN="eduka_center_token", USER="eduka_center_user", CENTER="eduka_center_info";
 let state={students:[],groups:[],payments:[],page:"dashboard"};
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));

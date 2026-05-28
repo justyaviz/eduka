@@ -13,14 +13,36 @@ let dbReady = false;
 let dbError = null;
 let dbStarted = false;
 
+function normalizeHost(host) {
+  return String(host || "")
+    .split(":")[0]
+    .toLowerCase()
+    .trim();
+}
+
+function isRootDomain(host) {
+  const h = normalizeHost(host);
+  return h === "eduka.uz" || h === "www.eduka.uz" || h === "localhost" || h === "127.0.0.1";
+}
+
+function isEdukaSubdomain(host) {
+  const h = normalizeHost(host);
+  if (!h.endsWith(".eduka.uz")) return false;
+  if (h === "www.eduka.uz") return false;
+  if (h === "eduka.uz") return false;
+  return true;
+}
+
+function getTenantSubdomain(host) {
+  const h = normalizeHost(host);
+  if (!isEdukaSubdomain(h)) return null;
+  return h.replace(".eduka.uz", "");
+}
+
 app.disable("x-powered-by");
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-/*
-  Railway healthcheck uchun bu endpoint DOIM 200 qaytaradi.
-  Aks holda DATABASE_URL yoki Postgres vaqtincha tayyor bo'lmasa ham deploy failed bo'lib qoladi.
-*/
 app.get(["/api/health", "/health", "/healthz"], (req, res) => {
   res.status(200).json({
     ok: true,
@@ -30,6 +52,8 @@ app.get(["/api/health", "/health", "/healthz"], (req, res) => {
     dbReady,
     dbStarted,
     dbError: dbError ? dbError.message : null,
+    host: normalizeHost(req.headers.host),
+    tenantSubdomain: getTenantSubdomain(req.headers.host),
     publicExists: fs.existsSync(publicDir),
     timestamp: new Date().toISOString(),
   });
@@ -46,14 +70,16 @@ app.get("/api/server-status", (req, res) => {
     postgresPrivateUrlExists: !!process.env.POSTGRES_PRIVATE_URL,
     pgHostExists: !!process.env.PGHOST,
     nodeEnv: process.env.NODE_ENV || null,
+    host: normalizeHost(req.headers.host),
+    tenantSubdomain: getTenantSubdomain(req.headers.host),
   });
 });
 
 try {
   const apiRoutes = require("./routes/api");
-const centerRoutes = require("./routes/center-api");
+  const centerRoutes = require("./routes/center-api");
   app.use("/api", apiRoutes);
-app.use("/api/app", centerRoutes);
+  app.use("/api/app", centerRoutes);
 } catch (error) {
   dbError = error;
   console.error("❌ API routes load error:", error.message);
@@ -72,7 +98,7 @@ app.get("/robots.txt", (req, res) => {
 });
 
 app.get("/sitemap.xml", (req, res) => {
-  const urls = ["/", "/prices", "/gamification", "/vacancies", "/ceo"].map((urlPath) => {
+  const urls = ["/", "/prices", "/gamification", "/vacancies", "/ceo", "/app/login"].map((urlPath) => {
     return `<url><loc>https://eduka.uz${urlPath}</loc><changefreq>weekly</changefreq><priority>${urlPath === "/" ? "1.0" : "0.8"}</priority></url>`;
   }).join("");
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
@@ -102,10 +128,40 @@ function sendPage(res, fileName) {
   </html>`);
 }
 
-app.get(["/", "/uz", "/index.html"], (req, res) => sendPage(res, "index.html"));
-app.get(["/gamification", "/uz/gamification"], (req, res) => sendPage(res, "gamification.html"));
-app.get(["/prices", "/uz/prices"], (req, res) => sendPage(res, "prices.html"));
-app.get(["/vacancies", "/uz/vacancies"], (req, res) => sendPage(res, "vacancies.html"));
+/*
+  MUHIM:
+  Agar host markaz.eduka.uz kabi subdomain bo'lsa,
+  landing emas, Center CRM app ochiladi.
+*/
+app.get("/", (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) {
+    return sendPage(res, "app.html");
+  }
+  return sendPage(res, "index.html");
+});
+
+app.get(["/uz", "/index.html"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) {
+    return sendPage(res, "app.html");
+  }
+  return sendPage(res, "index.html");
+});
+
+app.get(["/gamification", "/uz/gamification"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  sendPage(res, "gamification.html");
+});
+
+app.get(["/prices", "/uz/prices"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  sendPage(res, "prices.html");
+});
+
+app.get(["/vacancies", "/uz/vacancies"], (req, res) => {
+  if (isEdukaSubdomain(req.headers.host)) return sendPage(res, "app.html");
+  sendPage(res, "vacancies.html");
+});
+
 app.get(["/ceo", "/ceo/", "/ceo/login", "/ceo/dashboard", "/ceo/demo-requests", "/ceo/centers", "/ceo/tariffs", "/ceo/payments", "/ceo/roles", "/ceo/settings"], (req, res) => {
   sendPage(res, "ceo.html");
 });
@@ -115,12 +171,14 @@ app.get(["/app", "/app/", "/app/login", "/app/dashboard", "/app/students", "/app
 });
 
 app.get("*", (req, res) => {
-  if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ ok: false, error: "Not found" });
-  }
-
+  if (req.path.startsWith("/api/")) return res.status(404).json({ ok: false, error: "Not found" });
   if (req.path.startsWith("/ceo")) return sendPage(res, "ceo.html");
   if (req.path.startsWith("/app")) return sendPage(res, "app.html");
+
+  if (isEdukaSubdomain(req.headers.host)) {
+    return sendPage(res, "app.html");
+  }
+
   if (req.path.includes("gamification")) return sendPage(res, "gamification.html");
   if (req.path.includes("prices")) return sendPage(res, "prices.html");
   if (req.path.includes("vacancies")) return sendPage(res, "vacancies.html");
@@ -132,10 +190,6 @@ app.listen(PORT, HOST, () => {
   console.log(`✅ EDUKA running on ${HOST}:${PORT}`);
   console.log(`✅ Healthcheck ready: /api/health`);
 
-  /*
-    Database setup server ishga tushgandan keyin background'da bo'ladi.
-    Shuning uchun Railway healthcheck service unavailable bermaydi.
-  */
   setTimeout(async () => {
     try {
       dbStarted = true;
