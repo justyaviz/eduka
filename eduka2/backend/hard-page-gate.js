@@ -1,9 +1,9 @@
 
-/* ===== EDUKA PHASE 3.7 HARD PAGE GATE — CEO CENTERS OPEN, UNKNOWN CLOSED =====
-   Maqsad:
-   - CEO panelda bor o‘quv markazlar ochiladi.
-   - Random/yo‘q subdomainlarda CRM HTML umuman ko‘rinmaydi.
-   - Oldingi created_by_ceo/status=active sharti olib tashlandi, chunki eski CEO markazlarda bu maydonlar boshqacha bo‘lishi mumkin.
+/* ===== EDUKA PHASE 3.8 HARD PAGE GATE — SLUG NAME FIX =====
+   CEO’da bor markazlar ochiladi:
+   - subdomain ustuni bo‘lsa: ilm-chashmalari
+   - faqat name bo‘lsa: "ILM CHASHMALARI" -> ilm-chashmalari qilib solishtiradi
+   Random subdomainlar yopiq qoladi.
 */
 const { Pool } = require("pg");
 
@@ -36,6 +36,17 @@ function phase35Subdomain(req) {
 function phase35IsRoot(req) {
   const t = phase35Subdomain(req);
   return !t || t === "main" || t === "www";
+}
+
+function phase38Slug(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['‘’`ʻʼ]/g, "")
+    .replace(/&/g, " va ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function phase35NotFoundHtml(req) {
@@ -117,25 +128,6 @@ async function phase37Columns(tableName) {
   return new Set(q.rows.map(r => r.column_name));
 }
 
-function phase37CandidateConditions(cols, paramIndex) {
-  const p = `$${paramIndex}`;
-  const cond = [];
-
-  // Eng asosiy: CEO kartada ko‘rinayotgan subdomain shu joylardan birida saqlangan bo‘lishi mumkin.
-  for (const c of ["subdomain", "slug", "tenant", "tenant_slug", "domain", "host", "name"]) {
-    if (cols.has(c)) {
-      if (c === "domain" || c === "host") {
-        cond.push(`lower(${c}) = lower(${p})`);
-        cond.push(`lower(${c}) = lower(${p} || '.eduka.uz')`);
-      } else {
-        cond.push(`lower(${c}) = lower(${p})`);
-      }
-    }
-  }
-
-  return cond.length ? "(" + cond.join(" OR ") + ")" : null;
-}
-
 function phase37NotDeletedCondition(cols) {
   const parts = [];
   if (cols.has("deleted_at")) parts.push("deleted_at IS NULL");
@@ -144,27 +136,74 @@ function phase37NotDeletedCondition(cols) {
   return parts.length ? parts.join(" AND ") : "TRUE";
 }
 
+async function phase38FindByDirectColumns(table, cols, tenant) {
+  const cond = [];
+  for (const c of ["subdomain", "slug", "tenant", "tenant_slug"]) {
+    if (cols.has(c)) cond.push(`lower(${c}) = lower($1)`);
+  }
+  for (const c of ["domain", "host"]) {
+    if (cols.has(c)) {
+      cond.push(`lower(${c}) = lower($1)`);
+      cond.push(`lower(${c}) = lower($1 || '.eduka.uz')`);
+    }
+  }
+  if (!cond.length) return null;
+
+  const q = await phase35DbQuery(
+    `SELECT *, '${table}' AS __source_table
+     FROM ${table}
+     WHERE (${cond.join(" OR ")})
+       AND ${phase37NotDeletedCondition(cols)}
+     LIMIT 1`,
+    [tenant]
+  );
+  return q.rows[0] || null;
+}
+
+async function phase38FindByNameSlug(table, cols, tenant) {
+  if (!cols.has("name")) return null;
+
+  // SQL ichida faqat nomlarni olib, JS slug bilan 100% aniq solishtiramiz.
+  const q = await phase35DbQuery(
+    `SELECT *, '${table}' AS __source_table
+     FROM ${table}
+     WHERE ${phase37NotDeletedCondition(cols)}
+     ORDER BY id DESC
+     LIMIT 500`,
+    []
+  );
+
+  const wanted = phase38Slug(tenant);
+
+  for (const row of q.rows) {
+    const possible = [
+      row.name,
+      row.center_name,
+      row.organization_name,
+      row.title,
+      row.subdomain,
+      row.slug
+    ];
+    for (const v of possible) {
+      if (phase38Slug(v) === wanted) return row;
+    }
+  }
+
+  return null;
+}
+
 async function phase37FindCenterRecord(tenant) {
-  // Avval organizations: CEO paneldagi O‘quv markazlar odatda shu yerda.
-  for (const table of ["organizations", "centers", "education_centers", "crm_centers"]) {
+  const tables = ["organizations", "centers", "education_centers", "crm_centers", "schools", "tenants"];
+
+  for (const table of tables) {
     if (!(await phase37TableExists(table))) continue;
-
     const cols = await phase37Columns(table);
-    const match = phase37CandidateConditions(cols, 1);
-    if (!match) continue;
 
-    const notDeleted = phase37NotDeletedCondition(cols);
+    const direct = await phase38FindByDirectColumns(table, cols, tenant);
+    if (direct) return direct;
 
-    const q = await phase35DbQuery(
-      `SELECT *, '${table}' AS __source_table
-       FROM ${table}
-       WHERE ${match}
-         AND ${notDeleted}
-       LIMIT 1`,
-      [tenant]
-    );
-
-    if (q.rows[0]) return q.rows[0];
+    const byName = await phase38FindByNameSlug(table, cols, tenant);
+    if (byName) return byName;
   }
 
   return null;
@@ -183,11 +222,9 @@ async function phase37GetTenantRecord(req) {
 }
 
 function installPhase35HardPageGate(app) {
-  // Bu middleware static/app fallbackdan OLDIN chaqirilishi kerak.
   app.use(async (req, res, next) => {
     try {
       if (req.method !== "GET") return next();
-
       if (phase35IsRoot(req)) return next();
 
       const ok = await phase35TenantExists(req);
@@ -208,7 +245,6 @@ function installPhase35HardPageGate(app) {
 
       return next();
     } catch (e) {
-      // Xavfsizlik: DB xato bo‘lsa random subdomain CRM ochilmasin.
       if (!phase35IsRoot(req)) {
         return res.status(404).send(phase35NotFoundHtml(req));
       }
@@ -224,5 +260,6 @@ module.exports = {
   phase35TenantExists,
   phase35NotFoundHtml,
   phase37GetTenantRecord,
-  phase37FindCenterRecord
+  phase37FindCenterRecord,
+  phase38Slug
 };

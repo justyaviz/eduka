@@ -595,7 +595,6 @@ async function phase34FindApprovedOrganization(tenant) {
   if (phase33IsRootTenant(tenant)) return null;
   await phase34EnsureTenantFlags();
 
-  // Phase 3.7: CEO panelda bor markaz ochiladi. Status/created_by_ceo eski ma’lumotlarda turlicha bo‘lishi mumkin.
   try {
     if (__phase37Gate && typeof __phase37Gate.phase37FindCenterRecord === "function") {
       const found = await __phase37Gate.phase37FindCenterRecord(tenant);
@@ -609,8 +608,8 @@ async function phase34FindApprovedOrganization(tenant) {
     WHERE (
       lower(COALESCE(subdomain, name)) = lower($1)
       OR lower(name) = lower($1)
+      OR regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g') = lower($1)
     )
-    AND (deleted_at IS NULL OR deleted_at IS NULL)
     LIMIT 1
   `, [tenant]);
 
@@ -2078,6 +2077,41 @@ function installRealCrmEngine(app) {
       });
     } catch(e) {
       phase3Err(res, e, "Tenant center debug failed");
+    }
+  });
+
+
+  /* ===== EDUKA PHASE 3.8 CENTER DEBUG SLUG ===== */
+  app.get("/api/debug/tenant-center-v38", async (req, res) => {
+    try {
+      const tenant = phase32Subdomain(req);
+      let found = null;
+      try {
+        if (__phase37Gate && typeof __phase37Gate.phase37FindCenterRecord === "function") {
+          found = await __phase37Gate.phase37FindCenterRecord(tenant);
+        }
+      } catch(e) {
+        return res.status(500).json({ ok:false, tenant, error:e.message });
+      }
+      res.json({
+        ok: !!found,
+        tenant,
+        slug: __phase37Gate && __phase37Gate.phase38Slug ? __phase37Gate.phase38Slug(tenant) : tenant,
+        found: !!found,
+        sourceTable: found ? found.__source_table : null,
+        record: found ? {
+          id: found.id,
+          name: found.name,
+          subdomain: found.subdomain,
+          domain: found.domain,
+          status: found.status,
+          phone: found.phone,
+          email: found.email,
+          owner_name: found.owner_name
+        } : null
+      });
+    } catch(e) {
+      phase3Err(res, e, "Tenant center debug v38 failed");
     }
   });
 
