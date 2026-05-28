@@ -23,3 +23,56 @@
 .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.50);z-index:200}.drawer{position:fixed;right:0;top:0;bottom:0;width:380px;background:#fff;z-index:210;box-shadow:-12px 0 30px rgba(0,0,0,.20);padding:22px 18px;overflow:auto}.drawer h2{font-size:18px;margin:0 0 22px}.drawer-close{position:absolute;right:18px;top:15px;background:#fff;border:0;font-size:26px;color:#999}.drawer-form{display:grid;gap:16px}.drawer-form label{display:grid;gap:8px;color:#555;font-size:13px}.drawer-form input,.drawer-form select,.drawer-form textarea{height:42px;border:1px solid #d9e1ec;border-radius:4px;padding:0 10px}.drawer-form textarea{height:78px;padding-top:10px}.radio-row{display:flex;gap:18px}.drawer-form button{width:96px;height:42px;border:0;border-radius:22px;background:#1455ff;color:#fff;font-weight:800}.contact-icons{display:flex;gap:8px;flex-wrap:wrap}.contact-icons span{width:32px;height:32px;border-radius:50%;border:1px solid #1455ff;color:#1455ff;display:grid;place-items:center}
 
 @media(max-width:1250px){.stat-strip{grid-template-columns:repeat(4,1fr)}.crm-topbar{grid-template-columns:180px 1fr 280px}.top-icons button:not(.language-btn):not(.profile-btn){display:none}.finance-layout{grid-template-columns:1fr}.finance-menu{display:flex;min-height:auto;overflow:auto}.finance-cards{grid-template-columns:1fr}.kanban{grid-template-columns:repeat(3,300px)}}@media(max-width:800px){.mini-sidebar{width:88px}.crm-main{margin-left:88px}.crm-footer{left:88px}.crm-topbar{grid-template-columns:1fr;padding:14px;height:auto}.global-search,.top-icons{display:none}.stat-strip,.reminder-columns{grid-template-columns:1fr}.drawer{width:min(380px,100%)}}
+
+/* ===== PROFESSIONAL OUTLINE SVG ICON FIX ===== */
+[data-icon] svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+[data-icon] svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+[data-icon] svg path,
+[data-icon] svg circle,
+[data-icon] svg rect,
+[data-icon] svg line,
+[data-icon] svg polyline,
+[data-icon] svg polygon,
+[data-icon] svg ellipse {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.75 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.brand-icon svg path,
+.brand-icon svg circle,
+.brand-icon svg rect {
+  stroke: #ffffff !important;
+}
+
+.crm-nav button [data-icon] {
+  color: #071137;
+}
+
+.crm-nav button.active [data-icon],
+.crm-nav button:hover [data-icon] {
+  color: #1455ff;
+}
+
+.lead-card [data-icon],
+.lead-card svg,
+.lead-card svg * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icon visual polish */
+.crm-nav button [data-icon] { width: 28px !important; height: 28px !important; }
+.top-icons>button [data-icon] { width: 18px !important; height: 18px !important; }
+.stat-strip article [data-icon] { width: 36px !important; height: 36px !important; }
+.quick-plus [data-icon] { width: 18px !important; height: 18px !important; }
