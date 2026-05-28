@@ -237,6 +237,43 @@ async function ensureCenter(tenant, name) {
   );
 }
 
+
+/* ===== EDUKA REAL CRM ENGINE PHASE 2 HELPERS ===== */
+async function ensureRealCrmPhase2Schema() {
+  await ensureRealCrmSchema();
+  await realCrmQuery(`
+    ALTER TABLE crm_courses ADD COLUMN IF NOT EXISTS code TEXT;
+    ALTER TABLE crm_courses ADD COLUMN IF NOT EXISTS lesson_duration TEXT DEFAULT '90 daqiqa';
+    ALTER TABLE crm_courses ADD COLUMN IF NOT EXISTS note TEXT;
+
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS birth_date DATE;
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS gender TEXT;
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    ALTER TABLE crm_teachers ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS room_id UUID;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS end_date DATE;
+    ALTER TABLE crm_groups ADD COLUMN IF NOT EXISTS lesson_duration TEXT;
+
+    CREATE TABLE IF NOT EXISTS crm_rooms (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant TEXT NOT NULL DEFAULT 'main',
+      name TEXT NOT NULL,
+      capacity INT NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_crm_rooms_tenant ON crm_rooms(tenant);
+  `);
+}
+
+function phase2CleanDate(v) {
+  const s = cleanText(v);
+  return s ? s.slice(0, 10) : null;
+}
+
 function installRealCrmEngine(app) {
   if (!app || app.__realCrmEngineInstalled) return;
   app.__realCrmEngineInstalled = true;
@@ -591,6 +628,353 @@ function installRealCrmEngine(app) {
       res.json({ ok: true, reminder: q.rows[0] });
     } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
   });
+
+  /* ===== EDUKA REAL CRM ENGINE PHASE 2 ROUTES ===== */
+
+  app.get("/api/app/rooms", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `SELECT id, name, capacity, status, created_at AS "createdAt"
+         FROM crm_rooms WHERE tenant=$1 ORDER BY created_at DESC`,
+        [tenant]
+      );
+      res.json({ ok: true, rooms: q.rows });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.post("/api/app/rooms", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `INSERT INTO crm_rooms(tenant, name, capacity, status)
+         VALUES($1,$2,$3,'active') RETURNING id, name, capacity, status, created_at AS "createdAt"`,
+        [tenant, cleanText(req.body.name) || "Yangi xona", Number(req.body.capacity || 0)]
+      );
+      await logRealCrm(tenant, "create", "room", q.rows[0].id, req.body);
+      res.json({ ok:true, room:q.rows[0] });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.put("/api/app/rooms/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `UPDATE crm_rooms SET name=$1, capacity=$2, updated_at=NOW()
+         WHERE id=$3 AND tenant=$4
+         RETURNING id, name, capacity, status, created_at AS "createdAt"`,
+        [cleanText(req.body.name) || "Xona", Number(req.body.capacity || 0), req.params.id, tenant]
+      );
+      res.json({ ok:true, room:q.rows[0] || null });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.delete("/api/app/rooms/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      await realCrmQuery(`DELETE FROM crm_rooms WHERE id=$1 AND tenant=$2`, [req.params.id, tenant]);
+      res.json({ ok:true });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.get("/api/app/courses-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `SELECT c.id, c.name, c.code, c.price, c.lesson_duration AS "lessonDuration",
+                c.duration_months AS "durationMonths", c.note, c.status, c.created_at AS "createdAt",
+                COUNT(g.id)::int AS "groupCount"
+         FROM crm_courses c
+         LEFT JOIN crm_groups g ON g.course_id=c.id AND g.tenant=c.tenant
+         WHERE c.tenant=$1
+         GROUP BY c.id
+         ORDER BY c.created_at DESC`,
+        [tenant]
+      );
+      res.json({ ok:true, courses:q.rows });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.post("/api/app/courses-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `INSERT INTO crm_courses(tenant, name, code, price, lesson_duration, duration_months, note, status)
+         VALUES($1,$2,$3,$4,$5,$6,$7,'active')
+         RETURNING id, name, code, price, lesson_duration AS "lessonDuration", duration_months AS "durationMonths", note, status, created_at AS "createdAt"`,
+        [
+          tenant,
+          cleanText(req.body.name) || "Yangi kurs",
+          cleanText(req.body.code),
+          num(req.body.price),
+          cleanText(req.body.lessonDuration) || "90 daqiqa",
+          Number(req.body.durationMonths || 1),
+          cleanText(req.body.note)
+        ]
+      );
+      await logRealCrm(tenant, "create", "course", q.rows[0].id, req.body);
+      res.json({ ok:true, course:q.rows[0] });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.put("/api/app/courses-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `UPDATE crm_courses
+         SET name=$1, code=$2, price=$3, lesson_duration=$4, duration_months=$5, note=$6, updated_at=NOW()
+         WHERE id=$7 AND tenant=$8
+         RETURNING id, name, code, price, lesson_duration AS "lessonDuration", duration_months AS "durationMonths", note, status, created_at AS "createdAt"`,
+        [
+          cleanText(req.body.name) || "Kurs",
+          cleanText(req.body.code),
+          num(req.body.price),
+          cleanText(req.body.lessonDuration) || "90 daqiqa",
+          Number(req.body.durationMonths || 1),
+          cleanText(req.body.note),
+          req.params.id,
+          tenant
+        ]
+      );
+      res.json({ ok:true, course:q.rows[0] || null });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.delete("/api/app/courses-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      await realCrmQuery(`DELETE FROM crm_courses WHERE id=$1 AND tenant=$2`, [req.params.id, tenant]);
+      res.json({ ok:true });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.post("/api/app/teachers-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `INSERT INTO crm_teachers(tenant, name, phone, subject, salary, birth_date, gender, photo_url, password_hash, status)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'active')
+         RETURNING id, name, phone, subject, salary, birth_date AS "birthDate", gender, photo_url AS "photoUrl", status, created_at AS "createdAt"`,
+        [
+          tenant,
+          cleanText(req.body.name) || "Yangi o‘qituvchi",
+          cleanText(req.body.phone),
+          cleanText(req.body.subject),
+          num(req.body.salary),
+          phase2CleanDate(req.body.birthDate),
+          cleanText(req.body.gender),
+          cleanText(req.body.photoUrl),
+          cleanText(req.body.password) ? ("plain:" + cleanText(req.body.password)) : null
+        ]
+      );
+      await logRealCrm(tenant, "create", "teacher", q.rows[0].id, req.body);
+      res.json({ ok:true, teacher:q.rows[0] });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.put("/api/app/teachers-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `UPDATE crm_teachers
+         SET name=$1, phone=$2, subject=$3, salary=$4, birth_date=$5, gender=$6, photo_url=$7, updated_at=NOW()
+         WHERE id=$8 AND tenant=$9
+         RETURNING id, name, phone, subject, salary, birth_date AS "birthDate", gender, photo_url AS "photoUrl", status`,
+        [cleanText(req.body.name), cleanText(req.body.phone), cleanText(req.body.subject), num(req.body.salary), phase2CleanDate(req.body.birthDate), cleanText(req.body.gender), cleanText(req.body.photoUrl), req.params.id, tenant]
+      );
+      res.json({ ok:true, teacher:q.rows[0] || null });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.delete("/api/app/teachers/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      await realCrmQuery(`UPDATE crm_teachers SET status='deleted', updated_at=NOW() WHERE id=$1 AND tenant=$2`, [req.params.id, tenant]);
+      res.json({ ok:true });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.get("/api/app/groups-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `SELECT g.id, g.name, g.room, g.days, g.lesson_time AS "lessonTime",
+                g.lesson_duration AS "lessonDuration", g.start_date AS "startDate", g.end_date AS "endDate",
+                g.status, c.id AS "courseId", c.name AS course, c.price AS "coursePrice",
+                c.lesson_duration AS "courseLessonDuration", c.duration_months AS "courseDurationMonths",
+                t.id AS "teacherId", t.name AS "teacherName",
+                r.id AS "roomId", r.name AS "roomName", r.capacity AS "roomCapacity",
+                COUNT(gs.student_id)::int AS "studentCount",
+                g.created_at AS "createdAt"
+         FROM crm_groups g
+         LEFT JOIN crm_courses c ON c.id=g.course_id
+         LEFT JOIN crm_teachers t ON t.id=g.teacher_id
+         LEFT JOIN crm_rooms r ON r.id=g.room_id
+         LEFT JOIN crm_group_students gs ON gs.group_id=g.id AND gs.status='active'
+         WHERE g.tenant=$1
+         GROUP BY g.id, c.id, c.name, c.price, c.lesson_duration, c.duration_months, t.id, t.name, r.id, r.name, r.capacity
+         ORDER BY g.created_at DESC`,
+        [tenant]
+      );
+      res.json({ ok:true, groups:q.rows });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.post("/api/app/groups-v2", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const roomName = cleanText(req.body.roomName) || null;
+      const q = await realCrmQuery(
+        `INSERT INTO crm_groups(tenant, name, course_id, teacher_id, room_id, room, days, lesson_time, lesson_duration, start_date, end_date, status)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active') RETURNING *`,
+        [
+          tenant,
+          cleanText(req.body.name) || "Yangi guruh",
+          req.body.courseId || null,
+          req.body.teacherId || null,
+          req.body.roomId || null,
+          roomName,
+          cleanText(req.body.days),
+          cleanText(req.body.lessonTime),
+          cleanText(req.body.lessonDuration),
+          phase2CleanDate(req.body.startDate),
+          phase2CleanDate(req.body.endDate)
+        ]
+      );
+      await logRealCrm(tenant, "create", "group", q.rows[0].id, req.body);
+      res.json({ ok:true, group:q.rows[0] });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.get("/api/app/groups-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const group = await realCrmQuery(
+        `SELECT g.id, g.name, g.room, g.days, g.lesson_time AS "lessonTime",
+                g.lesson_duration AS "lessonDuration", g.start_date AS "startDate", g.end_date AS "endDate",
+                g.status, c.id AS "courseId", c.name AS course, c.price AS "coursePrice",
+                c.lesson_duration AS "courseLessonDuration", c.duration_months AS "courseDurationMonths",
+                t.id AS "teacherId", t.name AS "teacherName",
+                r.id AS "roomId", r.name AS "roomName", r.capacity AS "roomCapacity",
+                g.created_at AS "createdAt"
+         FROM crm_groups g
+         LEFT JOIN crm_courses c ON c.id=g.course_id
+         LEFT JOIN crm_teachers t ON t.id=g.teacher_id
+         LEFT JOIN crm_rooms r ON r.id=g.room_id
+         WHERE g.tenant=$1 AND g.id=$2
+         LIMIT 1`,
+        [tenant, req.params.id]
+      );
+      const students = await realCrmQuery(
+        `SELECT s.id, s.name, s.phone, gs.joined_at AS "joinedAt", gs.status
+         FROM crm_group_students gs
+         JOIN crm_students s ON s.id=gs.student_id
+         WHERE gs.tenant=$1 AND gs.group_id=$2 AND gs.status='active'
+         ORDER BY s.name`,
+        [tenant, req.params.id]
+      );
+      res.json({ ok:true, group:group.rows[0] || null, students:students.rows });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.put("/api/app/groups-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `UPDATE crm_groups
+         SET name=$1, course_id=$2, teacher_id=$3, room_id=$4, room=$5, days=$6, lesson_time=$7, lesson_duration=$8, start_date=$9, end_date=$10, updated_at=NOW()
+         WHERE id=$11 AND tenant=$12
+         RETURNING *`,
+        [
+          cleanText(req.body.name) || "Guruh",
+          req.body.courseId || null,
+          req.body.teacherId || null,
+          req.body.roomId || null,
+          cleanText(req.body.roomName),
+          cleanText(req.body.days),
+          cleanText(req.body.lessonTime),
+          cleanText(req.body.lessonDuration),
+          phase2CleanDate(req.body.startDate),
+          phase2CleanDate(req.body.endDate),
+          req.params.id,
+          tenant
+        ]
+      );
+      res.json({ ok:true, group:q.rows[0] || null });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.delete("/api/app/groups-v2/:id", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      await realCrmQuery(`UPDATE crm_groups SET status='deleted', updated_at=NOW() WHERE id=$1 AND tenant=$2`, [req.params.id, tenant]);
+      res.json({ ok:true });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.get("/api/app/groups-v2/:id/available-students", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      const q = await realCrmQuery(
+        `SELECT s.id, s.name, s.phone
+         FROM crm_students s
+         WHERE s.tenant=$1 AND s.status='active'
+           AND NOT EXISTS (
+             SELECT 1 FROM crm_group_students gs
+             WHERE gs.group_id=$2 AND gs.student_id=s.id AND gs.status='active'
+           )
+         ORDER BY s.name`,
+        [tenant, req.params.id]
+      );
+      res.json({ ok:true, students:q.rows });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.post("/api/app/groups-v2/:id/students", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      await realCrmQuery(
+        `INSERT INTO crm_group_students(tenant, group_id, student_id, joined_at, status)
+         VALUES($1,$2,$3,$4,'active')
+         ON CONFLICT(group_id, student_id) DO UPDATE SET status='active', joined_at=EXCLUDED.joined_at`,
+        [tenant, req.params.id, req.body.studentId, phase2CleanDate(req.body.joinedAt) || new Date().toISOString().slice(0,10)]
+      );
+      await logRealCrm(tenant, "attach", "group_student", req.params.id, req.body);
+      res.json({ ok:true });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
+  app.delete("/api/app/groups-v2/:groupId/students/:studentId", async (req, res) => {
+    const tenant = realCrmTenantFromReq(req);
+    try {
+      await ensureRealCrmPhase2Schema();
+      await realCrmQuery(
+        `UPDATE crm_group_students SET status='removed'
+         WHERE tenant=$1 AND group_id=$2 AND student_id=$3`,
+        [tenant, req.params.groupId, req.params.studentId]
+      );
+      res.json({ ok:true });
+    } catch (e) { res.status(500).json({ ok:false, error:e.message, code:e.code || null }); }
+  });
+
 }
 
 module.exports = { installRealCrmEngine, ensureRealCrmSchema };
