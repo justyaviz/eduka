@@ -1,12 +1,15 @@
 require("dotenv").config();
 
 const express = require("express");
+const { installPhase39TenantSystem } = require("./phase39-tenant-system");
+
 const { installPhase35HardPageGate } = require("./hard-page-gate");
 const { installEdukaSpaFallback } = require("./spa-fallback-fix");
 const path = require("path");
 const fs = require("fs");
 
 const app = express();
+installPhase39TenantSystem(app);
 installPhase35HardPageGate(app);
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = "0.0.0.0";

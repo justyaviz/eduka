@@ -1,3 +1,4 @@
+let __phase39Tenant = null; try { __phase39Tenant = require("./phase39-tenant-system"); } catch(e) { __phase39Tenant = null; }
 let __phase37Gate = null; try { __phase37Gate = require("./hard-page-gate"); } catch(e) { __phase37Gate = null; }
 
 /* ===== EDUKA REAL CRM ENGINE PHASE 1 ===== */
@@ -745,6 +746,7 @@ async function phase34PageGate(req, res, next) {
 }
 
 function installRealCrmEngine(app) {
+  if (__phase39Tenant && __phase39Tenant.installPhase39TenantSystem) __phase39Tenant.installPhase39TenantSystem(app);
   app.use(phase34PageGate);
   app.use('/api/app', phase34RequireApprovedTenantAuth);
 
