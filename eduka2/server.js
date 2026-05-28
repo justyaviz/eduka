@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const { installEdukaSpaFallback } = require("./spa-fallback-fix");
 const path = require("path");
 const fs = require("fs");
 
@@ -184,6 +185,10 @@ app.get("*", (req, res) => {
 });
 
 installRealCrmEngine(app);
+
+// EDUKA refresh not found fix
+installEdukaSpaFallback(app, express);
+
 app.listen(PORT, HOST, () => {
   console.log(`✅ EDUKA running on ${HOST}:${PORT}`);
   console.log(`✅ Healthcheck ready: /api/health`);
