@@ -365,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.disabled = true;
     btn.textContent = "Tekshirilmoqda...";
     try {
-      const r = await fetch("/api/tenant/login", {
+      const r = await edukaLoginFetchWithTimeout("/api/tenant/login", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body:JSON.stringify({ email, password })
@@ -381,7 +381,8 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem("eduka_tenant", d.tenant);
       hideTenantLogin();
       toast("Kirish muvaffaqiyatli!");
-      await loadData();
+      btn.disabled = false; btn.textContent = "CRM panelga kirish";
+      try { await loadData(); } catch(e) { console.warn(e); }
       go("dashboard", false);
     } catch(err) {
       toast(err.message, false);
@@ -529,3 +530,21 @@ async function phase35FrontendHardCheck(){
 /* ===== EDUKA PHASE 3.7 FRONTEND: CEO CENTERS ARE VALID =====
    Tenant status backend endi CEO paneldagi mavjud markazlarni valid deb oladi.
 */
+
+
+/* ===== EDUKA PHASE 4.0 LOGIN FETCH TIMEOUT FIX ===== */
+async function edukaLoginFetchWithTimeout(url, options, ms = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const r = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return r;
+  } catch (e) {
+    clearTimeout(timer);
+    if (e && e.name === "AbortError") {
+      throw new Error("Server javob bermadi. Backend deploy yoki /api/tenant/login route tekshiring.");
+    }
+    throw e;
+  }
+}

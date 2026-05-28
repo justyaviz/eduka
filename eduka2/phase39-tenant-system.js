@@ -201,9 +201,236 @@ async function p39EnsureSubdomains() {
   `);
 }
 
+
+async function p40ReadJsonBody(req) {
+  if (req.body && typeof req.body === "object" && Object.keys(req.body).length) return req.body;
+
+  return new Promise((resolve) => {
+    let raw = "";
+    req.on("data", chunk => { raw += chunk; if (raw.length > 1024 * 1024) req.destroy(); });
+    req.on("end", () => {
+      try { resolve(raw ? JSON.parse(raw) : {}); }
+      catch(e) { resolve({}); }
+    });
+    req.on("error", () => resolve({}));
+  });
+}
+
+async function p40EnsureAuthTables() {
+  await p39Query(`
+    CREATE TABLE IF NOT EXISTS crm_sessions (
+      id SERIAL PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      tenant TEXT NOT NULL,
+      admin_id INTEGER,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  await p39Query(`
+    CREATE TABLE IF NOT EXISTS crm_tenant_admins (
+      id SERIAL PRIMARY KEY,
+      tenant TEXT NOT NULL,
+      name TEXT,
+      email TEXT,
+      phone TEXT,
+      password TEXT,
+      role TEXT DEFAULT 'admin',
+      status TEXT DEFAULT 'active',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+}
+
+function p40Token() {
+  return "eduka_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 18);
+}
+
+function p40Clean(v) {
+  return String(v || "").trim();
+}
+
+async function p40FindAdminInTenantAdmins(tenant, org, login, password) {
+  const tenantVariants = Array.from(new Set([
+    p39Slug(tenant),
+    tenant,
+    p39Slug(org && org.subdomain),
+    org && org.subdomain,
+    p39Slug(org && org.name),
+    org && org.name
+  ].filter(Boolean).map(v => String(v).toLowerCase())));
+
+  const q = await p39Query(`
+    SELECT *
+    FROM crm_tenant_admins
+    WHERE lower(tenant) = ANY($1::text[])
+      AND COALESCE(status, 'active') <> 'deleted'
+      AND (
+        lower(COALESCE(email,'')) = lower($2)
+        OR regexp_replace(COALESCE(phone,''), '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')
+        OR lower(COALESCE(name,'')) = lower($2)
+        OR lower(COALESCE(role,'')) = lower($2)
+      )
+      AND COALESCE(password,'') = $3
+    LIMIT 1
+  `, [tenantVariants, login, password]);
+
+  return q.rows[0] || null;
+}
+
+function p40OrgLoginMatches(org, login, password) {
+  if (!org) return false;
+
+  const logins = [
+    org.email,
+    org.phone,
+    org.owner_phone,
+    org.owner_email,
+    org.owner_name,
+    org.name,
+    org.login,
+    org.admin_login,
+    org.username
+  ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+
+  const inputLogin = String(login || "").trim().toLowerCase();
+  const inputPhone = String(login || "").replace(/[^0-9]/g, "");
+
+  const loginOk = logins.some(v => {
+    const phone = String(v).replace(/[^0-9]/g, "");
+    return v === inputLogin || (phone && phone === inputPhone);
+  });
+
+  const passwords = [
+    org.admin_password,
+    org.password,
+    org.owner_password,
+    org.crm_password,
+    org.login_password
+  ].filter(Boolean).map(v => String(v).trim());
+
+  const passwordOk = passwords.includes(String(password || "").trim());
+
+  return loginOk && passwordOk;
+}
+
+async function p40EnsureAdminFromOrganization(tenant, org) {
+  if (!org) return null;
+
+  const email = p40Clean(org.email || org.owner_email || ("admin@" + p39Slug(tenant) + ".eduka.uz"));
+  const phone = p40Clean(org.phone || org.owner_phone || "");
+  const name = p40Clean(org.owner_name || org.name || "Admin");
+  const password = p40Clean(org.admin_password || org.password || org.owner_password || org.crm_password || org.login_password);
+
+  if (!password) return null;
+
+  const t = p39Slug(tenant);
+  const q = await p39Query(`
+    INSERT INTO crm_tenant_admins(tenant, name, email, phone, password, role, status)
+    VALUES($1,$2,$3,$4,$5,'admin','active')
+    ON CONFLICT DO NOTHING
+    RETURNING *
+  `, [t, name, email, phone, password]);
+
+  if (q.rows[0]) return q.rows[0];
+
+  const f = await p39Query(`
+    SELECT *
+    FROM crm_tenant_admins
+    WHERE lower(tenant)=lower($1)
+      AND COALESCE(password,'')=$2
+    LIMIT 1
+  `, [t, password]);
+
+  return f.rows[0] || null;
+}
+
+async function p40CreateSession(tenant, adminId) {
+  const token = p40Token();
+  await p39Query(`
+    INSERT INTO crm_sessions(token, tenant, admin_id, expires_at)
+    VALUES($1,$2,$3,NOW()+INTERVAL '30 days')
+  `, [token, p39Slug(tenant), adminId || null]);
+  return token;
+}
+
 function installPhase39TenantSystem(app) {
   if (app.__edukaPhase39Installed) return;
   app.__edukaPhase39Installed = true;
+
+
+  /* ===== EDUKA PHASE 4.0 FORCE TENANT LOGIN ===== */
+  app.post("/api/tenant/login", async (req, res) => {
+    try {
+      await p39EnsureSubdomains();
+      await p40EnsureAuthTables();
+
+      if (p39IsRoot(req)) {
+        return res.status(400).json({ ok:false, code:"ROOT_LOGIN_DISABLED", error:"Root domain uchun markaz login kerak emas." });
+      }
+
+      const tenant = p39Subdomain(req);
+      const org = await p39FindCenter(tenant);
+
+      if (!org) {
+        return res.status(404).json(p39NotFoundPayload(req));
+      }
+
+      const body = await p40ReadJsonBody(req);
+      const login = p40Clean(body.email || body.phone || body.login);
+      const password = p40Clean(body.password);
+
+      if (!login || !password) {
+        return res.status(400).json({ ok:false, code:"EMPTY_LOGIN", error:"Login yoki parol kiritilmagan" });
+      }
+
+      let admin = await p40FindAdminInTenantAdmins(tenant, org, login, password);
+
+      if (!admin && p40OrgLoginMatches(org, login, password)) {
+        admin = await p40EnsureAdminFromOrganization(tenant, org);
+      }
+
+      if (!admin) {
+        return res.status(401).json({
+          ok:false,
+          code:"BAD_CREDENTIALS",
+          error:"Login yoki parol xato",
+          tenant,
+          hint:"CEO panelda ko‘rsatilgan login/parol yoki Telegramga yuborilgan ma’lumotni kiriting."
+        });
+      }
+
+      const token = await p40CreateSession(tenant, admin.id);
+
+      return res.json({
+        ok:true,
+        version:"phase40",
+        token,
+        tenant:p39Slug(tenant),
+        organization:{
+          id:org.id,
+          name:org.name || org.center_name || org.organization_name || tenant,
+          subdomain:org.subdomain || p39Slug(tenant),
+          status:org.status || null
+        },
+        user:{
+          id:admin.id,
+          name:admin.name || org.owner_name || "Admin",
+          email:admin.email || org.email || "",
+          phone:admin.phone || org.phone || "",
+          role:admin.role || "admin"
+        }
+      });
+    } catch(e) {
+      return res.status(500).json({
+        ok:false,
+        code:"LOGIN_SERVER_ERROR",
+        error:"Login tekshirishda server xatosi",
+        realError:e.message
+      });
+    }
+  });
 
   // Debug route — ENG OLDIN. Shu route chiqmasa, fayl ulanmagan bo‘ladi.
   app.get("/api/debug/tenant-center-v39", async (req, res) => {
