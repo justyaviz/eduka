@@ -60,6 +60,29 @@ UPDATE study_groups g
        updated_at=NOW()
  WHERE g.branch_id IS NULL;
 
+-- New staff/groups automatically enter the main branch unless a branch is explicitly supplied.
+CREATE OR REPLACE FUNCTION eduka_assign_main_branch() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.branch_id IS NULL AND NEW.center_id IS NOT NULL THEN
+    SELECT id INTO NEW.branch_id
+      FROM center_branches
+     WHERE center_id=NEW.center_id AND is_main=TRUE AND COALESCE(status,'active')<>'deleted'
+     ORDER BY created_at ASC LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_center_users_main_branch ON center_users;
+CREATE TRIGGER trg_center_users_main_branch
+BEFORE INSERT ON center_users
+FOR EACH ROW EXECUTE FUNCTION eduka_assign_main_branch();
+
+DROP TRIGGER IF EXISTS trg_study_groups_main_branch ON study_groups;
+CREATE TRIGGER trg_study_groups_main_branch
+BEFORE INSERT ON study_groups
+FOR EACH ROW EXECUTE FUNCTION eduka_assign_main_branch();
+
 UPDATE centers c
    SET branches_count=(SELECT COUNT(*)::int FROM center_branches b WHERE b.center_id=c.id AND COALESCE(b.status,'active')<>'deleted'),
        updated_at=NOW();
