@@ -18,6 +18,18 @@
     return p||"dashboard";
   }
 
+  function syncOriginalLogo(){
+    const loginLogo=$(".tenant-login-card .login-logo");
+    if(!loginLogo||loginLogo.querySelector(".crm-login-original-logo")) return;
+    const legacyIcon=loginLogo.querySelector("[data-icon]");
+    if(legacyIcon) legacyIcon.remove();
+    const img=document.createElement("img");
+    img.src="/assets/logo-icon.png";
+    img.alt="EDUKA";
+    img.className="crm-login-original-logo";
+    loginLogo.prepend(img);
+  }
+
   function syncIdentity(){
     const st=window.state||{};
     const center=st.me?.center||{};
@@ -34,6 +46,7 @@
 
     const page=currentPage();
     const pageTitle=$("#shellPageTitle"); if(pageTitle) pageTitle.textContent=pageNames[page]||"Boshqaruv paneli";
+    syncOriginalLogo();
   }
 
   function closeShellMenus(except){
@@ -77,7 +90,6 @@
       if(drawer&&!drawer.hidden&&typeof window.closeDrawer==="function") window.closeDrawer();
     });
 
-    // Keep context synchronized after async tenant data loads and page navigation changes.
     let ticks=0;
     const timer=setInterval(()=>{
       syncIdentity();
@@ -87,6 +99,7 @@
 
     const content=$("#content");
     if(content) new MutationObserver(syncIdentity).observe(content,{childList:true,subtree:false});
+    new MutationObserver(syncOriginalLogo).observe(document.body,{childList:true,subtree:true});
     syncIdentity();
   }
 
