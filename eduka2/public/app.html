@@ -3,20 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>EDUKA CRM</title>
+  <title>EDUKA CRM — O‘quv markaz boshqaruvi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app/app.css?v=client-ready-1">
+  <link rel="stylesheet" href="/app/app-shell-v01.css?v=0.1.0">
 </head>
 <body>
   <div class="boot-loader" id="bootLoader"><span></span><span></span><span></span></div>
 
   <main class="crm-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="Asosiy navigatsiya">
       <div class="side-top">
-        <div class="logo-mark" data-icon="arrow-up-right"></div>
-        <button class="quick-add" id="quickAddBtn" title="Tez qo‘shish" data-icon="plus"></button>
+        <div class="tenant-brand-mark" aria-label="EDUKA">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M7 8.5c3.3-1.5 6.1-1.6 9 .2v15.1c-2.8-1.6-5.7-1.7-9-.2V8.5Z"/>
+            <path d="M25 8.5c-3.3-1.5-6.1-1.6-9 .2v15.1c2.8-1.6 5.7-1.7 9-.2V8.5Z"/>
+            <path d="M10 13h3.5M18.5 13H22M10 17h3.5M18.5 17H22"/>
+          </svg>
+        </div>
+        <button class="quick-add" id="quickAddBtn" type="button" title="Tez qo‘shish" aria-label="Tez qo‘shish" data-icon="plus"></button>
       </div>
 
       <div class="quick-pop" id="quickPop" hidden>
@@ -39,25 +46,26 @@
 
     <section class="main">
       <header class="topbar">
-        <div class="brand">
-          <strong>EDUKA CRM</strong>
-          <small>O‘quv markaz boshqaruvi</small>
+        <div class="crm-page-context">
+          <div class="crm-center-avatar" id="shellCenterAvatar">CR</div>
+          <div class="crm-context-copy">
+            <div class="crm-breadcrumb">EDUKA CRM <span>•</span> <b id="shellPageTitle">Dashboard</b></div>
+            <strong id="shellCenterName">O‘quv markaz</strong>
+            <small id="shellSubdomain">markaz.eduka.uz</small>
+          </div>
         </div>
-
-        <label class="search">
-          <span data-icon="search"></span>
-          <input id="globalSearch" placeholder="Qidiruv">
-        </label>
 
         <div class="top-actions">
-          <button class="lang" id="langBtn">UZ</button>
-          <button title="Fullscreen" data-icon="maximize"></button>
-          <button title="Yordam" data-icon="help"></button>
-          <button title="Soat" data-icon="clock"></button>
-          <button title="Bildirishnoma" data-icon="bell"></button>
-          <button class="profile" id="profileBtn"><span class="avatar"></span><b id="profileName">CRM</b></button>
+          <button id="fullScreenBtn" type="button" title="Fullscreen" aria-label="Fullscreen" data-icon="maximize"></button>
+          <a href="https://t.me/eduka_sales" target="_blank" rel="noreferrer" title="Texnik yordam" aria-label="Texnik yordam" class="shell-help"><span data-icon="help"></span></a>
+          <button class="profile" id="profileBtn" type="button" aria-label="Profil menyusi">
+            <span class="avatar" id="shellProfileAvatar">CR</span>
+            <b id="profileName">CRM</b>
+          </button>
         </div>
 
+        <!-- Legacy language elements stay in DOM for compatibility with the current app.js, but are not shown until i18n is real. -->
+        <button class="lang" id="langBtn" type="button" hidden>UZ</button>
         <div class="menu-pop lang-pop" id="langPop" hidden>
           <button>uz - O‘zbekcha</button>
           <button>ru - Русский</button>
@@ -65,40 +73,41 @@
         </div>
 
         <div class="menu-pop profile-pop" id="profilePop" hidden>
-          <button>Hisob qaydnomasi</button>
-          <button id="logoutBtn">Chiqish</button>
+          <button type="button" data-shell-settings><span data-icon="settings"></span> Hisob va sozlamalar</button>
+          <button id="logoutBtn" type="button"><span data-icon="logout"></span> Chiqish</button>
         </div>
       </header>
 
-      <div class="license">
+      <div class="license" role="status" aria-live="polite">
         <span data-icon="calendar"></span>
-        <b>Litsenziyaning platformaga amal qilish muddati:</b>
+        <b>Litsenziya:</b>
         <strong id="licenseUntil">—</strong>
-        <em id="licenseStatus">Litsenziya holati yuklanmoqda</em>
-        <button>Batafsil</button>
-        <button class="primary">To‘lash</button>
+        <em id="licenseStatus">Holat yuklanmoqda</em>
+        <button type="button">Batafsil</button>
+        <button type="button" class="primary">To‘lash</button>
       </div>
 
       <section class="content" id="content"></section>
 
       <footer class="footer">
-        <span><span data-icon="help"></span> Texnik yordam</span>
-        <span><span data-icon="play"></span> Video darsliklar</span>
-        <span><span data-icon="info"></span> To‘lov rejimi: Oylik</span>
+        <a href="https://t.me/eduka_sales" target="_blank" rel="noreferrer"><span data-icon="help"></span> Texnik yordam</a>
+        <span><i class="crm-system-dot"></i> Tizim ishlamoqda</span>
+        <span><span data-icon="info"></span> EDUKA CRM</span>
         <strong>EDUKA</strong>
       </footer>
     </section>
   </main>
 
-  <button class="floating-calendar" data-icon="calendar"></button>
+  <button class="floating-calendar" type="button" data-icon="calendar" aria-hidden="true" tabindex="-1"></button>
 
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
-  <aside class="drawer" id="drawer" hidden>
-    <button class="drawer-close" id="drawerClose">×</button>
+  <aside class="drawer" id="drawer" hidden aria-label="Amal oynasi">
+    <button class="drawer-close" id="drawerClose" type="button" aria-label="Yopish">×</button>
     <h2 id="drawerTitle">Qo‘shish</h2>
     <div id="drawerBody"></div>
   </aside>
 
   <script src="/app/app.js?v=client-ready-1"></script>
+  <script src="/app/app-shell-v01.js?v=0.1.0"></script>
 </body>
 </html>
