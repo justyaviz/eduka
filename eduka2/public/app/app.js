@@ -43,10 +43,11 @@ const API={
  async get(url,fallback){try{const r=await fetch(url,{headers:this.headers()});const d=await r.json();return d||fallback}catch(e){return fallback}},
  async post(url,body){try{const r=await fetch(url,{method:"POST",headers:this.headers(),body:JSON.stringify(body)});return await r.json()}catch(e){return{ok:false,error:e.message}}},
  async put(url,body){try{const r=await fetch(url,{method:"PUT",headers:this.headers(),body:JSON.stringify(body)});return await r.json()}catch(e){return{ok:false,error:e.message}}},
+ async patch(url,body){try{const r=await fetch(url,{method:"PATCH",headers:this.headers(),body:JSON.stringify(body)});return await r.json()}catch(e){return{ok:false,error:e.message}}},
  async del(url){try{const r=await fetch(url,{method:"DELETE",headers:this.headers()});return await r.json()}catch(e){return{ok:false,error:e.message}}}
 };
 
-const state=window.state={page:"dashboard",students:[],teachers:[],groups:[],courses:[],rooms:[],reminders:[],finance:{income:0,expenses:0,profit:0,payments:[]},dashboard:{},selectedGroupId:null,selectedGroup:null,selectedGroupStudents:[]};
+const state=window.state={page:"dashboard",students:[],teachers:[],groups:[],courses:[],rooms:[],reminders:[],finance:{income:0,expenses:0,profit:0,payments:[]},dashboard:{},me:null,license:null,settings:{name:"",phone:"",workStart:"09:00",workEnd:"18:00"},selectedGroupId:null,selectedGroup:null,selectedGroupStudents:[]};
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 function renderIcons(){ $$("[data-icon]").forEach(el=>{const k=el.dataset.icon;if(ICONS[k])el.innerHTML=ICONS[k]}) }
@@ -62,8 +63,7 @@ function table(heads,rows){return `<div class="table-wrap"><table class="table">
 function filters(items){return `<div class="filters">${items.map(x=>x.startsWith("select:")?`<select><option>${x.slice(7)}</option></select>`:`<input placeholder="${x}">`).join("")}</div>`}
 
 async function loadData(){
- await API.post("/api/app/init",{centerName:location.hostname.split(".")[0]||"main"});
- const [students,teachers,groups,courses,rooms,reminders,finance,dashboard]=await Promise.all([
+ const [students,teachers,groups,courses,rooms,reminders,finance,dashboard,me,license,settings]=await Promise.all([
   API.get("/api/app/students",{students:[]}),
   API.get("/api/app/teachers",{teachers:[]}),
   API.get("/api/app/groups-v2",{groups:[]}),
@@ -71,7 +71,10 @@ async function loadData(){
   API.get("/api/app/rooms",{rooms:[]}),
   API.get("/api/app/reminders",{reminders:[]}),
   API.get("/api/app/finance/summary",{income:0,expenses:0,profit:0,payments:[]}),
-  API.get("/api/app/dashboard",{stats:{}})
+  API.get("/api/app/dashboard",{stats:{}}),
+  API.get("/api/app/me",{}),
+  API.get("/api/app/license",{}),
+  API.get("/api/app/settings/general",{settings:{}})
  ]);
  state.students=students.students||[];
  state.teachers=teachers.teachers||[];
@@ -81,12 +84,23 @@ async function loadData(){
  state.reminders=reminders.reminders||[];
  state.finance=finance.ok!==false?finance:{income:0,expenses:0,profit:0,payments:[]};
  state.dashboard=dashboard.stats||{};
+ state.me=me||null;
+ state.license=license.license||null;
+ state.settings={...state.settings,...(settings.settings||{})};
+ updateShellMeta();
+}
+function updateShellMeta(){
+ const p=$("#profileName"); if(p) p.textContent=state.me?.user?.fullName||state.me?.center?.name||"CRM";
+ const until=$("#licenseUntil"), status=$("#licenseStatus");
+ const l=state.license||{}; const d=l.trial_ends_at||l.next_payment_date;
+ if(until) until.textContent=d?new Date(d).toLocaleString("uz-UZ"):`${l.tariff||"Tarif"} · muddat ko‘rsatilmagan`;
+ if(status) status.textContent=l.status?`Holat: ${l.status}`:"Litsenziya holati noma’lum";
 }
 
 function statCards(){
  const s=state.dashboard||{};
  const cards=[
-  ["user-plus","Faol lidlar",0],
+  ["user-plus","Faol lidlar",s.leads||0],
   ["graduation","Faol talabalar",s.students||state.students.length],
   ["layers","Guruhlar",s.groups||state.groups.length],
   ["alert","Qarzdorlar",0],
@@ -131,7 +145,7 @@ function settingsShell(active,inner){
  ];
  return `<div class="settings-shell"><div class="settings-tabs">${items.map(x=>`<button class="${active===x[0]?"active":""}" data-sub-page="${x[0]}">${x[1]}</button>`).join("")}</div><div class="settings-content">${inner}</div></div>`;
 }
-function generalSettings(){return settingsShell("general-settings",`<h1>Umumiy sozlamalari</h1><div class="form-grid two module"><label>O‘quv markazingiz nomi<input value="EDUKA"></label><label>Telefon<input value="998998939000"></label><label>Ish boshlanish vaqti<input type="time" value="09:00"></label><label>Ish tugash vaqti<input type="time" value="18:00"></label></div><br><button class="btn">Saqlash</button>`)}
+function generalSettings(){const x=state.settings||{};return settingsShell("general-settings",`<h1>Umumiy sozlamalari</h1><form id="generalSettingsForm"><div class="form-grid two module"><label>O‘quv markazingiz nomi<input id="gs_name" value="${esc(x.name||state.me?.center?.name||"")}"></label><label>Telefon<input id="gs_phone" value="${esc(x.phone||"")}"></label><label>Ish boshlanish vaqti<input id="gs_start" type="time" value="${esc(x.workStart||"09:00")}"></label><label>Ish tugash vaqti<input id="gs_end" type="time" value="${esc(x.workEnd||"18:00")}"></label></div><br><button class="btn" type="submit">Saqlash</button></form>`)}
 function simpleSettings(key,title){return settingsShell(key,`<h1>${title}</h1><div class="module">Bu bo‘lim keyingi bosqichda real sozlamalar bilan ulanadi.</div>`)}
 function groupDetail(){
  const g=state.selectedGroup;
@@ -261,8 +275,9 @@ function bind(){
  $("#drawerBackdrop").addEventListener("click",closeDrawer);
  $("#langBtn").addEventListener("click",()=>$("#langPop").hidden=!$("#langPop").hidden);
  $("#profileBtn").addEventListener("click",()=>$("#profilePop").hidden=!$("#profilePop").hidden);
- $("#logoutBtn")?.addEventListener("click",()=>{localStorage.removeItem("eduka_center_token");location.href="/"});
+ $("#logoutBtn")?.addEventListener("click",()=>{localStorage.removeItem("eduka_center_token");localStorage.removeItem("eduka_tenant");API.token="";location.href="/"});
  const qp=$("#quickPop"); if(qp&&!qp.querySelector('[data-open-drawer="course"]')) qp.insertAdjacentHTML("beforeend",`<button data-open-drawer="course"><span data-icon="presentation"></span> Yangi kurs</button><button data-open-drawer="room"><span data-icon="room"></span> Yangi xona</button><button data-open-drawer="reminder"><span data-icon="bell"></span> Eslatma</button>`);
+ document.body.addEventListener("submit",async e=>{const f=e.target.closest("#generalSettingsForm");if(!f)return;e.preventDefault();const r=await API.patch("/api/app/settings/general",{name:val("gs_name"),phone:val("gs_phone"),workStart:val("gs_start"),workEnd:val("gs_end")});if(!r.ok){toast(r.error||"Saqlashda xatolik",false);return}state.settings={...state.settings,name:val("gs_name"),phone:val("gs_phone"),workStart:val("gs_start"),workEnd:val("gs_end")};toast("Sozlamalar saqlandi");});
 }
 document.addEventListener("DOMContentLoaded",async()=>{
  renderIcons(); bind();
@@ -379,6 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       localStorage.setItem("eduka_center_token", d.token);
       localStorage.setItem("eduka_tenant", d.tenant);
+      API.token = d.token;
       hideTenantLogin();
       toast("Kirish muvaffaqiyatli!");
       btn.disabled = false; btn.textContent = "CRM panelga kirish";

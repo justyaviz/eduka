@@ -67,13 +67,17 @@ function money(n) {
   return Number(n || 0).toLocaleString("uz-UZ");
 }
 
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+
 function badge(s) {
   const val = s || "-";
   let c = "blue";
   if (["Active", "To‘landi", "Mijoz bo‘ldi"].includes(val)) c = "green";
   if (["Trial", "Kutilmoqda", "Demo belgilandi", "Bog‘lanildi", "Tayinlanmagan"].includes(val)) c = "orange";
   if (["Suspended", "Qarzdor", "Rad etildi", "Muddat o‘tgan", "Expired"].includes(val)) c = "red";
-  return `<span class="badge ${c}">${val}</span>`;
+  return `<span class="badge ${c}">${esc(val)}</span>`;
 }
 
 function toast(t) {
@@ -100,7 +104,7 @@ function table(el, heads, rows, map, empty = "Ma’lumot yo‘q") {
 }
 
 function demoRow(x) {
-  return `<td><b>${x.name}</b></td><td>${x.center}</td><td>${x.phone}</td><td>${x.payment || "-"}</td><td>${badge(x.status)}</td><td>${x.manager || "-"}</td><td>${fmt(x.createdAt)}</td>`;
+  return `<td><b>${esc(x.name)}</b></td><td>${esc(x.center)}</td><td>${esc(x.phone)}</td><td>${esc(x.payment || "-")}</td><td>${badge(x.status)}</td><td>${esc(x.manager || "-")}</td><td>${fmt(x.createdAt)}</td>`;
 }
 
 function updateStats(s = {}) {
@@ -127,13 +131,13 @@ async function loadDashboard() {
   const act = $("#activityList");
   if (act) {
     act.innerHTML = (d.activity || []).length
-      ? d.activity.map((x) => `<p><b>${x.action}</b><span>${fmt(x.created_at)}</span></p>`).join("")
+      ? d.activity.map((x) => `<p><b>${esc(x.action)}</b><span>${fmt(x.created_at)}</span></p>`).join("")
       : `<p><b>Hali faoliyat yo‘q</b><span>—</span></p>`;
   }
   const recentCenters = $("#recentCenters");
   if (recentCenters) {
     recentCenters.innerHTML = (d.recentCenters || []).length
-      ? d.recentCenters.map((c) => `<article><b>${c.name}</b><span>${c.subdomain}</span>${badge(c.status)}</article>`).join("")
+      ? d.recentCenters.map((c) => `<article><b>${esc(c.name)}</b><span>${esc(c.subdomain)}</span>${badge(c.status)}</article>`).join("")
       : `<div class="empty-mini">Hali markaz yo‘q</div>`;
   }
 }
@@ -160,12 +164,12 @@ async function loadCenters() {
     ? state.centers.map((c) => `
       <article class="center-card" data-center="${c.id}">
         <div class="card-top">
-          <div><h3>${c.name}</h3><p>${c.subdomain || "-"}</p></div>${badge(c.status)}
+          <div><h3>${esc(c.name)}</h3><p>${esc(c.subdomain || "-")}</p></div>${badge(c.status)}
         </div>
         <div class="center-meta">
-          <span>Egasi <b>${c.ownerName || "-"}</b></span>
-          <span>Telefon <b>${c.ownerPhone || "-"}</b></span>
-          <span>Tarif <b>${c.tariff || "Start"}</b></span>
+          <span>Egasi <b>${esc(c.ownerName || "-")}</b></span>
+          <span>Telefon <b>${esc(c.ownerPhone || "-")}</b></span>
+          <span>Tarif <b>${esc(c.tariff || "Start")}</b></span>
           <span>Oylik <b>${money(c.monthlyPayment)}</b></span>
           <span>Trial <b>${c.trialEndsAt ? fmt(c.trialEndsAt) : "-"}</b></span>
           <span>Yaratildi <b>${fmt(c.createdAt)}</b></span>
@@ -187,10 +191,10 @@ async function loadTariffs() {
   grid.innerHTML = state.tariffs.length
     ? state.tariffs.map((t) => `
       <article class="tariff-card">
-        <div class="card-top"><h3>${t.name}</h3>${badge(t.is_active ? "Active" : "Inactive")}</div>
+        <div class="card-top"><h3>${esc(t.name)}</h3>${badge(t.is_active ? "Active" : "Inactive")}</div>
         <p>${t.student_limit} o‘quvchi / ${t.branch_limit} filial</p>
         <h2>${money(t.monthly_price)} so‘m</h2>
-        <ul>${(t.features || []).map((f) => `<li>${f}</li>`).join("")}</ul>
+        <ul>${(t.features || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
       </article>`).join("")
     : `<div class="empty-panel">Tariflar yo‘q</div>`;
 }
@@ -199,7 +203,7 @@ async function loadPayments() {
   const d = await api("/api/ceo/payments");
   state.payments = d.payments || [];
   table($("#paymentsTable"), ["Markaz", "Tarif", "Summa", "Status", "Keyingi to‘lov"], state.payments, (x) =>
-    `<td>${x.center || "-"}</td><td>${x.tariff || "-"}</td><td>${money(x.amount)}</td><td>${badge(x.status)}</td><td>${x.nextDate ? fmt(x.nextDate) : "-"}</td>`, "Hali to‘lovlar yo‘q");
+    `<td>${esc(x.center || "-")}</td><td>${esc(x.tariff || "-")}</td><td>${money(x.amount)}</td><td>${badge(x.status)}</td><td>${x.nextDate ? fmt(x.nextDate) : "-"}</td>`, "Hali to‘lovlar yo‘q");
 }
 
 function renderRoles() {
@@ -228,7 +232,7 @@ async function loadSettings() {
   Object.entries(map).forEach(([k, sel]) => { if ($(sel) && s[k]) $(sel).value = s[k]; });
   const a = await api("/api/ceo/audit");
   $("#auditList").innerHTML = (a.auditLogs || []).length
-    ? a.auditLogs.map((x) => `<p><b>${x.action}</b><span>${fmt(x.created_at)}</span></p>`).join("")
+    ? a.auditLogs.map((x) => `<p><b>${esc(x.action)}</b><span>${fmt(x.created_at)}</span></p>`).join("")
     : `<p><b>Hali audit log yo‘q</b><span>—</span></p>`;
 }
 
@@ -295,18 +299,18 @@ function logout(red = true) {
 function openDemoModal(r) {
   $("#modalBody").innerHTML = `
     <div class="detail-list">
-      <p><span>Ism</span>${r.name}</p>
-      <p><span>Markaz</span>${r.center}</p>
-      <p><span>Telefon</span>${r.phone}</p>
-      <p><span>To‘lov rejimi</span>${r.payment || "-"}</p>
-      <p><span>Status</span>${r.status}</p>
-      <p><span>Menejer</span>${r.manager || "-"}</p>
+      <p><span>Ism</span>${esc(r.name)}</p>
+      <p><span>Markaz</span>${esc(r.center)}</p>
+      <p><span>Telefon</span>${esc(r.phone)}</p>
+      <p><span>To‘lov rejimi</span>${esc(r.payment || "-")}</p>
+      <p><span>Status</span>${esc(r.status)}</p>
+      <p><span>Menejer</span>${esc(r.manager || "-")}</p>
       <p><span>Kelgan vaqt</span>${fmt(r.createdAt)}</p>
       <label>Menejer
-        <input id="modalManager" value="${r.manager === "Tayinlanmagan" ? "" : (r.manager || "")}" placeholder="Masalan: Sales manager">
+        <input id="modalManager" value="${esc(r.manager === "Tayinlanmagan" ? "" : (r.manager || ""))}" placeholder="Masalan: Sales manager">
       </label>
       <label>Izoh
-        <textarea id="modalNote" placeholder="Qo‘shimcha izoh">${r.note || ""}</textarea>
+        <textarea id="modalNote" placeholder="Qo‘shimcha izoh">${esc(r.note || "")}</textarea>
       </label>
       <div class="modal-actions">
         <button class="primary-action" data-convert="${r.id}">O‘quv markazga aylantirish</button>

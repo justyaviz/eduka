@@ -130,27 +130,7 @@ ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS demo_date TIMESTAMP;
 ALTER TABLE centers ADD COLUMN IF NOT EXISTS next_payment_date TIMESTAMP;
 ALTER TABLE centers ADD COLUMN IF NOT EXISTS created_from_demo_id UUID;
 
-INSERT INTO ceo_users (
-  full_name,
-  email,
-  password_hash,
-  role,
-  status
-)
-VALUES (
-  'EDUKA CEO',
-  'ceo@eduka.uz',
-  crypt('admin123', gen_salt('bf', 10)),
-  'CEO',
-  'active'
-)
-ON CONFLICT (email)
-DO UPDATE SET
-  full_name = EXCLUDED.full_name,
-  password_hash = crypt('admin123', gen_salt('bf', 10)),
-  role = 'CEO',
-  status = 'active',
-  updated_at = NOW();
+-- CEO user is created safely by utils/init-db.js only when required.
 
 INSERT INTO tariffs (name, student_limit, branch_limit, monthly_price, features)
 VALUES

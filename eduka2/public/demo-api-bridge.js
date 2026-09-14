@@ -26,7 +26,6 @@
       center: val(form, ["center", "centerName"], /markaz|center/i),
       phone: phone(val(form, ["phone"], /telefon|phone|99/i)),
       payment: val(form, ["payment", "paymentMode"], /to.?lov|payment/i) || form.querySelector("select")?.value || "Tanlanmagan",
-      password: val(form, ["password"], /parol|password/i),
       source: "landing",
     };
 

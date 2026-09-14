@@ -1,6 +1,12 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || "eduka_super_secret_change_this";
+function jwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is required in production');
+  }
+  return 'dev-only-eduka-secret';
+}
 
 function signCenterToken(user, center) {
   return jwt.sign(
@@ -9,28 +15,27 @@ function signCenterToken(user, center) {
       email: user.email,
       role: user.role,
       fullName: user.full_name,
-      centerId: user.center_id,
+      centerId: user.center_id || center?.id,
       centerName: center?.name,
       subdomain: center?.subdomain,
     },
-    JWT_SECRET,
-    { expiresIn: "7d" }
+    jwtSecret(),
+    { expiresIn: '7d' }
   );
 }
 
 function requireCenterAuth(req, res, next) {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-
-  if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
+  const header = String(req.headers.authorization || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ ok: false, error: 'Unauthorized' });
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (!payload.centerId) return res.status(401).json({ ok: false, error: "Center token required" });
+    const payload = jwt.verify(token, jwtSecret());
+    if (!payload.centerId) return res.status(401).json({ ok: false, error: 'Center token required' });
     req.centerUser = payload;
-    next();
-  } catch (error) {
-    return res.status(401).json({ ok: false, error: "Invalid token" });
+    return next();
+  } catch {
+    return res.status(401).json({ ok: false, error: 'Invalid token' });
   }
 }
 

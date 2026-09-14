@@ -7,6 +7,23 @@ const { sendTelegramMessage } = require("../utils/telegram");
 const { initDatabase } = require("../utils/init-db");
 
 const router = express.Router();
+const PROD = process.env.NODE_ENV === "production";
+
+router.use((req, res, next) => {
+  if (!PROD) return next();
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    if (body && typeof body === "object" && !Array.isArray(body)) {
+      body = { ...body };
+      delete body.realError;
+      delete body.detail;
+      delete body.candidateErrors;
+      delete body.stack;
+    }
+    return originalJson(body);
+  };
+  return next();
+});
 
 function demoMap(r) {
   return {
@@ -92,6 +109,7 @@ async function audit({ user, action, module, details, req }) {
   }
 }
 
+if (process.env.NODE_ENV !== "production") {
 router.get("/debug/db", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW() AS now");
@@ -150,25 +168,26 @@ router.get("/debug/init-db", async (req, res) => {
   }
 });
 
+}
+
 /* Landing demo form */
 router.post("/demo-requests", async (req, res) => {
   try {
-    const { name, center, centerName, phone, payment, paymentMode, password, source } = req.body;
+    const { name, center, centerName, phone, payment, paymentMode, source } = req.body;
 
     if (!name || !(center || centerName) || !phone) {
       return res.status(400).json({ ok: false, error: "Ism, markaz nomi va telefon raqam kerak" });
     }
 
     const result = await pool.query(
-      `INSERT INTO demo_requests (name, center_name, phone, payment_mode, password_text, source)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      `INSERT INTO demo_requests (name, center_name, phone, payment_mode, source)
+       VALUES ($1,$2,$3,$4,$5)
        RETURNING *`,
       [
         String(name).trim(),
         String(center || centerName).trim(),
         String(phone).trim(),
         String(payment || paymentMode || "Tanlanmagan").trim(),
-        password ? String(password) : null,
         source || "landing",
       ]
     );
@@ -433,11 +452,11 @@ router.post("/ceo/demo-requests/:id/convert-to-center", requireCeoAuth, async (r
     const selectedTariff = tariff.rows[0] || (await client.query(`SELECT * FROM tariffs WHERE name='Start' LIMIT 1`)).rows[0];
 
     const base = slugify(demo.center_name);
-    let subdomain = `${base}.eduka.uz`;
+    let subdomain = base;
     let index = 1;
 
-    while ((await client.query(`SELECT id FROM centers WHERE subdomain = $1 LIMIT 1`, [subdomain])).rows[0]) {
-      subdomain = `${base}-${index}.eduka.uz`;
+    while ((await client.query(`SELECT id FROM centers WHERE lower(subdomain)=lower($1) OR lower(subdomain)=lower($1 || '.eduka.uz') LIMIT 1`, [subdomain])).rows[0]) {
+      subdomain = `${base}-${index}`;
       index += 1;
     }
 
@@ -509,7 +528,7 @@ await client.query(
     await sendTelegramMessage(
       `<b>✅ EDUKA — Yangi markaz yaratildi</b>\n\n` +
       `<b>Markaz:</b> ${center.name}\n` +
-      `<b>Subdomain:</b> ${center.subdomain}\n` +
+      `<b>Subdomain:</b> ${center.subdomain}.eduka.uz\n` +
       `<b>Egasi:</b> ${center.owner_name}\n` +
       `<b>Telefon:</b> ${center.owner_phone}\n` +
       `<b>Tarif:</b> ${center.tariff}\n` +
