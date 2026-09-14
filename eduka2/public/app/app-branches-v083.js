@@ -103,7 +103,7 @@
     if(isSettings()&&!e.target.closest('[data-v083-section="branches"]')&&e.target.closest('[data-v08-section],[data-v081-section],[data-v082-section]'))ui.section=false;
   },true);
 
-  const observer=new MutationObserver(()=>{injectSettingsNav();installScopedRenderers();if(ui.section&&isSettings()&&ui.data&&$('.settings-pane-v08'))renderBranches()});
+  const observer=new MutationObserver(()=>{injectSettingsNav();installScopedRenderers();const pane=$('.settings-pane-v08');if(ui.section&&isSettings()&&ui.data&&pane&&!pane.querySelector('.branch-grid-v083'))renderBranches()});
   observer.observe(document.body,{childList:true,subtree:true});
 
   setTimeout(async()=>{installScopedRenderers();await load();window.EDUKA_ACTIVE_BRANCH=ui.active;injectSettingsNav()},450);
