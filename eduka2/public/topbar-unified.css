@@ -1,22 +1,6 @@
+@import url("/brand-tokens.css");
 
-/* =========================================================
-   EDUKA TOPBAR UNIFIED FINAL
-   This file intentionally overrides every older topbar style.
-   Same header on: /, /prices, /gamification, /vacancies
-   ========================================================= */
-
-:root {
-  --eduka-topbar-bg: #f7faff;
-  --eduka-topbar-card: rgba(255, 255, 255, 0.96);
-  --eduka-blue: #123cff;
-  --eduka-blue-2: #1f55ff;
-  --eduka-blue-dark: #06123e;
-  --eduka-ink: #071132;
-  --eduka-muted: #61708a;
-  --eduka-line: #e3ebf8;
-}
-
-/* Kill old page header styles */
+/* EDUKA public topbar — v0.1 brand foundation */
 .brand-header,
 .site-header,
 .prices-header,
@@ -26,7 +10,6 @@ header.site-header {
   all: unset;
 }
 
-/* New fixed standard header */
 .eduka-topbar {
   position: sticky !important;
   top: 0 !important;
@@ -34,19 +17,17 @@ header.site-header {
   display: block !important;
   width: 100% !important;
   box-sizing: border-box !important;
-  padding: 16px 0 18px !important;
-  background:
-    radial-gradient(circle at 85% -40px, rgba(18, 60, 255, .10), transparent 240px),
-    rgba(247, 250, 255, .92) !important;
-  border-bottom: 1px solid rgba(18, 60, 255, .07) !important;
+  padding: 14px 0 16px !important;
+  background: rgba(247, 250, 255, .9) !important;
+  border-bottom: 1px solid rgba(18, 60, 255, .06) !important;
   backdrop-filter: blur(18px) !important;
   -webkit-backdrop-filter: blur(18px) !important;
-  font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-family: var(--eduka-font) !important;
 }
 
 .eduka-topbar__inner {
-  width: min(1180px, calc(100% - 112px)) !important;
-  height: 66px !important;
+  width: min(1180px, calc(100% - 64px)) !important;
+  min-height: 66px !important;
   margin: 0 auto !important;
   padding: 0 20px !important;
   box-sizing: border-box !important;
@@ -55,37 +36,35 @@ header.site-header {
   align-items: center !important;
   gap: 18px !important;
   border: 1px solid var(--eduka-line) !important;
-  border-radius: 18px !important;
-  background: var(--eduka-topbar-card) !important;
-  box-shadow:
-    0 18px 45px rgba(8, 25, 74, .08),
-    inset 0 1px 0 rgba(255, 255, 255, .75) !important;
+  border-radius: var(--eduka-radius-lg) !important;
+  background: rgba(255, 255, 255, .96) !important;
+  box-shadow: var(--eduka-shadow-md) !important;
 }
 
 .eduka-topbar__logo {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 12px !important;
-  text-decoration: none !important;
-  color: var(--eduka-ink) !important;
+  gap: 11px !important;
   min-width: 0 !important;
+  color: var(--eduka-ink-950) !important;
+  text-decoration: none !important;
 }
 
 .eduka-topbar__logo img {
   width: 40px !important;
   height: 40px !important;
   min-width: 40px !important;
-  border-radius: 10px !important;
   display: block !important;
-  object-fit: cover !important;
+  border-radius: 0 !important;
+  object-fit: contain !important;
 }
 
 .eduka-topbar__logo span {
-  color: var(--eduka-ink) !important;
-  font-size: 30px !important;
+  color: var(--eduka-ink-950) !important;
+  font-size: 29px !important;
   line-height: 1 !important;
-  font-weight: 950 !important;
-  letter-spacing: -1.3px !important;
+  font-weight: 900 !important;
+  letter-spacing: -1.15px !important;
   text-transform: uppercase !important;
   white-space: nowrap !important;
 }
@@ -94,53 +73,45 @@ header.site-header {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 30px !important;
+  gap: 28px !important;
   min-width: 0 !important;
-  height: 66px !important;
+  min-height: 66px !important;
 }
 
 .eduka-topbar__links a {
   position: relative !important;
   display: inline-flex !important;
   align-items: center !important;
-  height: 66px !important;
+  min-height: 66px !important;
   padding: 0 !important;
   margin: 0 !important;
-  color: var(--eduka-ink) !important;
+  color: var(--eduka-ink-800) !important;
   text-decoration: none !important;
-  font-size: 15px !important;
+  font-size: 14px !important;
   line-height: 1 !important;
-  font-weight: 850 !important;
-  letter-spacing: -.15px !important;
+  font-weight: 750 !important;
+  letter-spacing: -.1px !important;
   white-space: nowrap !important;
-  transition: color .22s ease, transform .22s ease !important;
+  transition: color .2s ease !important;
 }
 
-.eduka-topbar__links a::before,
 .eduka-topbar__links a::after {
   content: "" !important;
   position: absolute !important;
   left: 0 !important;
-  width: 100% !important;
+  right: 0 !important;
+  bottom: 13px !important;
   height: 2px !important;
-  border-radius: 999px !important;
-  background: linear-gradient(90deg, var(--eduka-blue), var(--eduka-blue-2)) !important;
+  border-radius: var(--eduka-radius-pill) !important;
+  background: var(--eduka-brand-600) !important;
   transform: scaleX(0) !important;
-  transform-origin: left center !important;
-  transition: transform .28s cubic-bezier(.22, 1, .36, 1) !important;
-}
-
-.eduka-topbar__links a::before {
-  display: none !important;
-}
-
-.eduka-topbar__links a::after {
-  bottom: 15px !important;
+  transform-origin: center !important;
+  transition: transform .25s var(--eduka-ease) !important;
 }
 
 .eduka-topbar__links a:hover,
 .eduka-topbar__links a.active {
-  color: var(--eduka-blue) !important;
+  color: var(--eduka-brand-600) !important;
 }
 
 .eduka-topbar__links a:hover::after,
@@ -152,40 +123,40 @@ header.site-header {
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
-  gap: 14px !important;
-  height: 66px !important;
+  gap: 13px !important;
+  min-height: 66px !important;
   min-width: 0 !important;
+}
+
+.eduka-topbar__phone,
+.eduka-topbar__lang {
+  color: var(--eduka-ink-800) !important;
+  font-family: var(--eduka-font) !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
 }
 
 .eduka-topbar__phone {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  color: var(--eduka-ink) !important;
-  text-decoration: none !important;
-  font-size: 14px !important;
-  line-height: 1 !important;
-  font-weight: 850 !important;
-  white-space: nowrap !important;
-  margin: 0 !important;
+  gap: 7px !important;
   padding: 0 !important;
+  margin: 0 !important;
+  text-decoration: none !important;
 }
 
 .eduka-topbar__lang {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
   border: 0 !important;
   outline: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
   background: transparent !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 7px !important;
-  color: var(--eduka-ink) !important;
-  font-size: 14px !important;
-  line-height: 1 !important;
-  font-weight: 850 !important;
   cursor: pointer !important;
-  white-space: nowrap !important;
 }
 
 .eduka-topbar__phone [data-hicon],
@@ -194,67 +165,37 @@ header.site-header {
   height: 18px !important;
   display: grid !important;
   place-items: center !important;
-  color: #061a63 !important;
-}
-
-.eduka-topbar__phone svg,
-.eduka-topbar__lang svg {
-  width: 18px !important;
-  height: 18px !important;
-  stroke-width: 2 !important;
+  color: var(--eduka-brand-700) !important;
 }
 
 .eduka-topbar__demo {
-  height: 48px !important;
-  min-width: 146px !important;
+  height: 46px !important;
+  min-width: 138px !important;
   box-sizing: border-box !important;
-  padding: 0 26px !important;
+  padding: 0 23px !important;
   margin: 0 !important;
-  border: 0 !important;
-  border-radius: 12px !important;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, .22), transparent 34%),
-    linear-gradient(135deg, #06123e 0%, #0b1d69 45%, #123cff 100%) !important;
+  border: 1px solid var(--eduka-brand-600) !important;
+  border-radius: var(--eduka-radius-md) !important;
+  background: var(--eduka-brand-600) !important;
   color: #fff !important;
   text-decoration: none !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 15px !important;
+  font-size: 14px !important;
   line-height: 1 !important;
-  font-weight: 950 !important;
+  font-weight: 850 !important;
   white-space: nowrap !important;
-  box-shadow:
-    0 16px 34px rgba(18, 60, 255, .24),
-    inset 0 1px 0 rgba(255,255,255,.18) !important;
-  transition: transform .22s ease, box-shadow .22s ease, filter .22s ease !important;
+  box-shadow: 0 12px 28px rgba(18, 60, 255, .22) !important;
+  transition: transform .2s var(--eduka-ease), box-shadow .2s ease, background .2s ease !important;
 }
 
 .eduka-topbar__demo:hover {
   transform: translateY(-2px) !important;
-  filter: saturate(1.08) !important;
-  box-shadow:
-    0 22px 42px rgba(18, 60, 255, .28),
-    inset 0 1px 0 rgba(255,255,255,.2) !important;
+  background: var(--eduka-brand-700) !important;
+  box-shadow: 0 18px 34px rgba(18, 60, 255, .28) !important;
 }
 
-/* Make old topbar classes harmless if they still exist somewhere */
-.brand-logo,
-.brand-links,
-.brand-actions,
-.brand-demo,
-.brand-phone,
-.brand-lang,
-.site-logo,
-.site-links,
-.site-actions,
-.site-demo,
-.site-phone,
-.site-lang {
-  /* no reset here; footer uses some old names too */
-}
-
-/* Topbar SVG lock */
 .eduka-topbar [data-hicon] svg,
 .eduka-topbar .hicon-ready svg {
   width: 1em !important;
@@ -269,16 +210,16 @@ header.site-header {
 @media (max-width: 1220px) {
   .eduka-topbar__inner {
     width: min(1180px, calc(100% - 32px)) !important;
-    grid-template-columns: 172px 1fr 360px !important;
+    grid-template-columns: 172px 1fr 352px !important;
   }
 
   .eduka-topbar__links {
-    gap: 22px !important;
+    gap: 20px !important;
   }
 
   .eduka-topbar__demo {
-    min-width: 132px !important;
-    padding: 0 22px !important;
+    min-width: 128px !important;
+    padding: 0 18px !important;
   }
 }
 
@@ -301,14 +242,14 @@ header.site-header {
 
 @media (max-width: 640px) {
   .eduka-topbar {
-    padding: 10px 0 12px !important;
+    padding: 9px 0 10px !important;
   }
 
   .eduka-topbar__inner {
     width: calc(100% - 20px) !important;
-    height: 60px !important;
+    min-height: 58px !important;
+    padding: 0 13px !important;
     border-radius: 16px !important;
-    padding: 0 14px !important;
   }
 
   .eduka-topbar__logo img {
@@ -318,13 +259,13 @@ header.site-header {
   }
 
   .eduka-topbar__logo span {
-    font-size: 25px !important;
+    font-size: 24px !important;
   }
 
   .eduka-topbar__demo {
-    height: 42px !important;
-    min-width: 110px !important;
-    padding: 0 16px !important;
-    font-size: 13px !important;
+    height: 40px !important;
+    min-width: 104px !important;
+    padding: 0 14px !important;
+    font-size: 12px !important;
   }
 }
