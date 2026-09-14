@@ -1,6 +1,6 @@
 # EDUKA Public Website — v0.0 → v1.0 Roadmap
 
-Status: public marketing site audit, 2026-09-14.
+Status: v0.1 brand foundation implemented on `website/v0.0-audit`; v0.2 interaction cleanup in progress.
 
 ## v0.0 — Audit & freeze
 - Inventory every page, CTA, link, menu, modal, form, language switch, breakpoint and animation.
@@ -11,22 +11,22 @@ Status: public marketing site audit, 2026-09-14.
 Exit: every public interaction is classified as working, broken, misleading, or planned.
 
 ## v0.1 — Brand foundation
-- Replace oversized/wrong raster logo with canonical SVG mark + wordmark + favicon assets.
-- Stop reusing the logo as generic feature/integration icons.
-- Create design tokens for color, typography, radius, shadow, spacing and button variants.
-- Normalize header/footer branding across all public pages.
+- [x] Replace oversized/wrong raster logo with canonical SVG mark + favicon asset.
+- [x] Stop reusing the logo as generic feature/integration icons in the homepage feature illustrations.
+- [x] Create design tokens for color, typography, radius, shadow and spacing.
+- [x] Normalize header/footer branding across public pages.
 
 Exit: one consistent EDUKA identity on /, /prices, /gamification, /vacancies and modals.
 
 ## v0.2 — Buttons, forms, menus
-- Create a single Demo submit flow; remove overlapping localStorage/API bridge handlers.
-- Show success only after the API succeeds; show error/retry on failure.
-- Connect support leads/messages to a real backend or clearly label the current assistant as automated.
-- Replace text-scanning sales-link patch with explicit URLs/actions.
-- Fix payment CTA semantics.
-- Add real Privacy Policy and Terms pages; remove href="#" dead links.
-- Central overlay manager: one modal/menu at a time, backdrop close, ESC close, focus restore.
-- Remove duplicate hrefs and all dead CTAs.
+- [x] Create a single Demo submit flow; duplicate localStorage/API bridge handlers disabled.
+- [x] Show success only after the API succeeds; show error/retry on failure.
+- [~] Connect support leads/messages to the real `/api/support-requests` backend and label the UI as an automated assistant.
+- [ ] Replace text-scanning sales-link patch with explicit URLs/actions.
+- [ ] Fix payment CTA semantics.
+- [ ] Add real Privacy Policy and Terms pages; remove href="#" dead links.
+- [ ] Central overlay manager: one modal/menu at a time, backdrop close, ESC close, focus restore.
+- [ ] Remove duplicate hrefs and all dead CTAs.
 
 Exit: 100% CTA/link/form test matrix passes.
 
