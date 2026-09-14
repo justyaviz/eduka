@@ -1,39 +1,59 @@
--- Remove legacy plaintext credentials after copying them into center_users as bcrypt/crypt hashes.
+-- EDUKA V3 credential compatibility migration.
+-- IMPORTANT FOR LAUNCH: copy legacy credentials into bcrypt-compatible
+-- `center_users`, but DO NOT destroy the legacy values yet. Keeping the old
+-- values for the first rollout preserves an immediate rollback path. A later
+-- verified migration can scrub/drop plaintext legacy columns.
+
 DO $$
 BEGIN
   IF to_regclass('public.crm_tenant_admins') IS NOT NULL THEN
     INSERT INTO center_users (center_id, full_name, email, password_hash, role, status)
     SELECT c.id,
            COALESCE(NULLIF(a.name,''), 'Center Admin'),
-           COALESCE(NULLIF(a.email,''), 'admin+' || regexp_replace(lower(COALESCE(c.subdomain,'center')), '[^a-z0-9]+', '-', 'g') || '@eduka.local'),
+           COALESCE(
+             NULLIF(a.email,''),
+             'admin+' || regexp_replace(lower(COALESCE(c.subdomain,'center')), '[^a-z0-9]+', '-', 'g') || '@eduka.local'
+           ),
            crypt(a.password, gen_salt('bf', 12)),
            COALESCE(NULLIF(a.role,''), 'director'),
-           CASE WHEN COALESCE(a.status,'active')='deleted' THEN 'inactive' ELSE 'active' END
+           CASE WHEN lower(COALESCE(a.status,'active')) IN ('deleted','inactive','blocked') THEN 'inactive' ELSE 'active' END
       FROM crm_tenant_admins a
       JOIN centers c
-        ON lower(c.subdomain)=lower(a.tenant)
-        OR lower(c.subdomain)=lower(a.tenant || '.eduka.uz')
-        OR lower(c.subdomain || '.eduka.uz')=lower(a.tenant)
+        ON lower(regexp_replace(COALESCE(c.subdomain,''), '\.eduka\.uz$', '')) =
+           lower(regexp_replace(COALESCE(a.tenant,''), '\.eduka\.uz$', ''))
      WHERE COALESCE(a.password,'') <> ''
        AND COALESCE(a.password,'') NOT LIKE 'MIGRATED_DISABLED_%'
     ON CONFLICT (center_id, email) DO NOTHING;
-
-    UPDATE crm_tenant_admins
-       SET password='MIGRATED_DISABLED_' || id::text
-     WHERE COALESCE(password,'') <> ''
-       AND password NOT LIKE 'MIGRATED_DISABLED_%';
   END IF;
 END $$;
 
+-- Some older tenants authenticated directly from `organizations`. Migrate
+-- those too when a usable plaintext legacy password is still present.
 DO $$
 BEGIN
-  IF to_regclass('public.organizations') IS NOT NULL
-     AND EXISTS (
-       SELECT 1 FROM information_schema.columns
-        WHERE table_schema='public' AND table_name='organizations' AND column_name='admin_password'
-     ) THEN
-    EXECUTE 'UPDATE organizations SET admin_password=NULL WHERE admin_password IS NOT NULL';
+  IF to_regclass('public.organizations') IS NOT NULL THEN
+    INSERT INTO center_users (center_id, full_name, email, password_hash, role, status)
+    SELECT c.id,
+           COALESCE(NULLIF(o.owner_name,''), NULLIF(o.name,''), 'Center Admin'),
+           COALESCE(
+             NULLIF(o.email,''),
+             'admin+' || regexp_replace(lower(COALESCE(c.subdomain,'center')), '[^a-z0-9]+', '-', 'g') || '@eduka.local'
+           ),
+           crypt(o.admin_password, gen_salt('bf', 12)),
+           'director',
+           CASE WHEN lower(COALESCE(o.status,'active')) IN ('deleted','inactive','blocked') THEN 'inactive' ELSE 'active' END
+      FROM organizations o
+      JOIN centers c
+        ON lower(regexp_replace(COALESCE(c.subdomain,''), '\.eduka\.uz$', '')) =
+           lower(regexp_replace(COALESCE(NULLIF(o.subdomain,''), o.name), '\.eduka\.uz$', ''))
+     WHERE COALESCE(o.admin_password,'') <> ''
+       AND COALESCE(o.admin_password,'') NOT LIKE 'MIGRATED_DISABLED_%'
+    ON CONFLICT (center_id, email) DO NOTHING;
   END IF;
+EXCEPTION WHEN undefined_column THEN
+  NULL;
 END $$;
 
-ALTER TABLE demo_requests DROP COLUMN IF EXISTS password_text;
+-- Do not DROP demo_requests.password_text in the launch migration. The new
+-- frontend/API no longer writes it, but leaving the legacy column temporarily
+-- keeps the pre-launch rollback branch schema-compatible.

@@ -48,10 +48,12 @@ app.use(['/api/ceo/login', '/api/tenant/login', '/api/app/login'], authLimiter);
 installPhase35HardPageGate(app);
 
 app.get(['/api/health', '/health', '/healthz'], (req, res) => {
-  res.status(200).json({
-    ok: true,
-    status: 'healthy',
+  const ready = dbStarted && dbReady && !dbError;
+  res.status(ready ? 200 : 503).json({
+    ok: ready,
+    status: ready ? 'healthy' : 'starting',
     service: 'eduka',
+    version: process.env.EDUKA_VERSION || '3.0.0',
     server: 'online',
     dbReady,
     dbStarted,
