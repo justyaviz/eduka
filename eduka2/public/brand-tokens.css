@@ -1,0 +1,77 @@
+/* EDUKA public brand foundation v0.1 */
+:root {
+  --eduka-brand-50: #f4f7ff;
+  --eduka-brand-100: #e8eeff;
+  --eduka-brand-200: #d7e1ff;
+  --eduka-brand-300: #b8c9ff;
+  --eduka-brand-400: #829eff;
+  --eduka-brand-500: #4f6fff;
+  --eduka-brand-600: #123cff;
+  --eduka-brand-700: #0d2fd4;
+  --eduka-brand-800: #0a259f;
+  --eduka-brand-900: #071a6b;
+  --eduka-ink-950: #071132;
+  --eduka-ink-800: #172446;
+  --eduka-muted: #61708a;
+  --eduka-surface: #ffffff;
+  --eduka-surface-soft: #f7faff;
+  --eduka-line: #e3ebf8;
+  --eduka-success: #159447;
+  --eduka-danger: #d92d20;
+  --eduka-warning: #b54708;
+
+  --eduka-radius-sm: 10px;
+  --eduka-radius-md: 14px;
+  --eduka-radius-lg: 18px;
+  --eduka-radius-xl: 24px;
+  --eduka-radius-pill: 999px;
+
+  --eduka-shadow-sm: 0 8px 24px rgba(8, 25, 74, .07);
+  --eduka-shadow-md: 0 18px 45px rgba(8, 25, 74, .09);
+  --eduka-shadow-lg: 0 28px 70px rgba(18, 60, 255, .14);
+
+  --eduka-space-1: 4px;
+  --eduka-space-2: 8px;
+  --eduka-space-3: 12px;
+  --eduka-space-4: 16px;
+  --eduka-space-5: 20px;
+  --eduka-space-6: 24px;
+  --eduka-space-8: 32px;
+  --eduka-space-10: 40px;
+  --eduka-space-12: 48px;
+
+  --eduka-font: "Manrope", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --eduka-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--eduka-font);
+  color: var(--eduka-ink-950);
+}
+
+::selection {
+  background: var(--eduka-brand-600);
+  color: #fff;
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid rgba(18, 60, 255, .28);
+  outline-offset: 3px;
+}
+
+.eduka-brand-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.eduka-brand-wordmark {
+  font-family: var(--eduka-font);
+  font-weight: 900;
+  letter-spacing: -1.2px;
+  text-transform: uppercase;
+}
