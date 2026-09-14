@@ -1,0 +1,87 @@
+/* EDUKA CRM v0.2 — dashboard only. */
+.dash-v02{display:grid;gap:18px;padding-bottom:12px}
+.dash-welcome{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 22px;background:linear-gradient(135deg,#0f43d6,#1455ff);border-radius:18px;color:#fff;box-shadow:0 18px 40px rgba(20,85,255,.18)}
+.dash-welcome h1{margin:4px 0 5px;font-size:24px;line-height:1.15;letter-spacing:-.03em}
+.dash-welcome p{margin:0;color:rgba(255,255,255,.78);font-size:13px;font-weight:600}
+.dash-eyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;color:rgba(255,255,255,.68)}
+.dash-quick-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.dash-quick-actions button{height:40px;padding:0 13px;border:1px solid rgba(255,255,255,.18);border-radius:11px;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:7px;cursor:pointer;transition:.18s ease}
+.dash-quick-actions button:hover{background:#fff;color:#1455ff;transform:translateY(-1px)}
+.dash-quick-actions button [data-icon]{width:16px;height:16px}
+
+.dash-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.dash-kpi{background:#fff;border:1px solid #e5ebf4;border-radius:16px;padding:16px;min-height:118px;display:flex;gap:12px;align-items:flex-start;box-shadow:0 7px 22px rgba(7,17,55,.035);transition:transform .18s ease,box-shadow .18s ease}
+.dash-kpi:hover{transform:translateY(-2px);box-shadow:0 15px 30px rgba(7,17,55,.07)}
+.dash-kpi-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto}
+.dash-kpi-icon [data-icon]{width:20px;height:20px}
+.dash-kpi-copy{display:grid;gap:3px;min-width:0}
+.dash-kpi-copy>span{font-size:11px;font-weight:800;color:#68758d}
+.dash-kpi-copy strong{font-size:20px;line-height:1.1;color:#071137;letter-spacing:-.025em;word-break:break-word}
+.dash-kpi-copy small{font-size:10px;line-height:1.3;color:#9aa5b6;font-weight:600}
+.dash-tone-blue .dash-kpi-icon{background:#eef4ff;color:#1455ff}
+.dash-tone-indigo .dash-kpi-icon{background:#f0efff;color:#5747d7}
+.dash-tone-green .dash-kpi-icon{background:#ebf9f2;color:#1b9a62}
+.dash-tone-violet .dash-kpi-icon{background:#f7efff;color:#8a43d9}
+.dash-tone-orange .dash-kpi-icon{background:#fff3e9;color:#e77818}
+.dash-tone-cyan .dash-kpi-icon{background:#eaf9fb;color:#138ca0}
+
+.dash-grid-two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(340px,.7fr);gap:16px}
+.dash-bottom-grid{grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr)}
+.dash-card{background:#fff;border:1px solid #e4ebf4;border-radius:17px;min-height:260px;box-shadow:0 8px 25px rgba(7,17,55,.035);overflow:hidden}
+.dash-card>header{min-height:72px;padding:15px 18px;border-bottom:1px solid #edf1f6;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.dash-card>header>div{display:grid;gap:2px}
+.dash-card>header span{font-size:10px;color:#9aa5b6;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.dash-card>header h2{font-size:16px;margin:0;color:#071137;letter-spacing:-.02em}
+.dash-card>header button{height:34px;padding:0 11px;border:1px solid #e2e9f3;border-radius:9px;background:#fff;color:#1455ff;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.dash-card>header button:hover{background:#f5f8ff;border-color:#cad9ff}
+.dash-list,.dash-table-mini,.dash-activity{padding:5px 14px 12px}
+
+.dash-schedule-row{width:100%;min-height:58px;padding:8px 4px;border:0;border-bottom:1px solid #f0f3f7;background:#fff;display:grid;grid-template-columns:62px minmax(0,1fr) auto;align-items:center;gap:10px;text-align:left;cursor:pointer;color:#071137}
+.dash-schedule-row:last-child{border-bottom:0}
+.dash-schedule-row:hover{background:#fbfcff}
+.dash-time{display:inline-grid;place-items:center;min-height:31px;border-radius:9px;background:#eef4ff;color:#1455ff;font-size:11px;font-weight:900}
+.dash-row-main{display:grid;gap:3px;min-width:0}
+.dash-row-main b{font-size:12px;color:#17213d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-row-main small{font-size:10px;color:#8995a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-room{font-size:10px;color:#6f7c92;font-weight:800;background:#f5f7fa;border-radius:8px;padding:6px 8px;white-space:nowrap}
+
+.dash-reminder-row{min-height:58px;border-bottom:1px solid #f0f3f7;display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 2px}
+.dash-reminder-row:last-child{border-bottom:0}
+.dash-reminder-row>span{display:grid;gap:3px;min-width:0}
+.dash-reminder-row b{font-size:12px;color:#17213d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-reminder-row small{font-size:10px;color:#8995a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-reminder-row time{font-size:10px;color:#7e8aa0;font-weight:700;white-space:nowrap}
+.dash-dot{width:8px;height:8px;border-radius:50%;background:#9aa5b6}
+.dash-dot.today{background:#1455ff;box-shadow:0 0 0 4px rgba(20,85,255,.08)}
+.dash-dot.overdue{background:#e05252;box-shadow:0 0 0 4px rgba(224,82,82,.08)}
+.dash-dot.upcoming{background:#21a66d;box-shadow:0 0 0 4px rgba(33,166,109,.08)}
+
+.dash-payment-row{min-height:62px;border-bottom:1px solid #f0f3f7;display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:7px 2px}
+.dash-payment-row:last-child{border-bottom:0}
+.dash-payment-icon,.dash-activity-icon{width:34px;height:34px;border-radius:10px;background:#eef4ff;color:#1455ff;display:grid;place-items:center}
+.dash-payment-icon [data-icon],.dash-activity-icon [data-icon]{width:17px;height:17px}
+.dash-payment-row>strong{font-size:11px;color:#17213d;white-space:nowrap}
+.dash-payment-row>time{font-size:10px;color:#8b96a9;white-space:nowrap}
+
+.dash-activity-row{min-height:58px;border-bottom:1px solid #f0f3f7;display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 2px}
+.dash-activity-row:last-child{border-bottom:0}
+.dash-activity-row>span:nth-child(2){display:grid;gap:3px;min-width:0}
+.dash-activity-row b{font-size:12px;color:#17213d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-activity-row small{font-size:10px;color:#8b96a9;text-transform:capitalize}
+.dash-activity-row time{font-size:10px;color:#8b96a9;white-space:nowrap}
+.dash-activity-icon{background:#f2f5f9;color:#66758e}
+
+.dash-empty.compact{min-height:180px;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;color:#7d899d}
+.dash-empty.compact>[data-icon]{width:28px;height:28px;color:#a8b3c3}
+.dash-empty.compact b{font-size:13px;color:#35405a}
+.dash-empty.compact p{max-width:300px;margin:0;font-size:11px;line-height:1.5}
+.dash-empty.compact button{margin-top:4px;height:34px;padding:0 11px;border:1px solid #dbe5f4;border-radius:9px;background:#fff;color:#1455ff;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+
+.dash-skeleton{height:46px;margin:10px 2px;border-radius:10px;background:linear-gradient(90deg,#f3f5f8 25%,#fafbfc 50%,#f3f5f8 75%);background-size:200% 100%;animation:dashShimmer 1.2s linear infinite}
+@keyframes dashShimmer{to{background-position:-200% 0}}
+
+@media(max-width:1380px){.dash-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1080px){.dash-grid-two,.dash-bottom-grid{grid-template-columns:1fr}.dash-welcome{align-items:flex-start;flex-direction:column}.dash-quick-actions{justify-content:flex-start}}
+@media(max-width:760px){.dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-payment-row{grid-template-columns:34px minmax(0,1fr) auto}.dash-payment-row time{display:none}.dash-schedule-row{grid-template-columns:55px minmax(0,1fr)}.dash-room{display:none}}
+@media(max-width:520px){.dash-kpis{grid-template-columns:1fr}.dash-welcome{padding:18px}.dash-quick-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.dash-quick-actions button{justify-content:center}.dash-card>header{padding:14px}.dash-list,.dash-table-mini,.dash-activity{padding-left:10px;padding-right:10px}.dash-reminder-row time{display:none}}
+@media(prefers-reduced-motion:reduce){.dash-kpi,.dash-quick-actions button,.dash-skeleton{animation:none!important;transition:none!important}}
