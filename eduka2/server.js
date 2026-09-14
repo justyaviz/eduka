@@ -85,12 +85,14 @@ const centerRoutes = require('./routes/center-api');
 const centerV05Actions = require('./routes/center-v05-actions');
 const centerV06Finance = require('./routes/center-v06-finance');
 const centerV07Leads = require('./routes/center-v07-leads');
+const centerV08Settings = require('./routes/center-v08-settings');
 const tenantRoutes = require('./routes/tenant-api');
 app.use('/api', apiRoutes);
 app.use('/api/app', centerRoutes);
 app.use('/api/app', centerV05Actions);
 app.use('/api/app', centerV06Finance);
 app.use('/api/app', centerV07Leads);
+app.use('/api/app', centerV08Settings);
 app.use('/api/tenant', tenantRoutes);
 
 // Static assets.
