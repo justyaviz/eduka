@@ -1,0 +1,85 @@
+/* EDUKA CRM v0.1 — tenant admin shell only. No public landing styles. */
+:root{
+  --crm-blue:#1455ff;
+  --crm-blue-700:#0f43d6;
+  --crm-blue-50:#eef4ff;
+  --crm-ink:#071137;
+  --crm-muted:#6b7890;
+  --crm-line:#e5ebf4;
+  --crm-bg:#f5f7fb;
+  --crm-card:#fff;
+  --crm-radius:14px;
+  --crm-shadow:0 14px 38px rgba(7,17,55,.08);
+  --crm-ease:cubic-bezier(.22,1,.36,1);
+}
+
+body{background:var(--crm-bg)}
+
+.sidebar{width:116px;background:#fff;border-right:1px solid var(--crm-line);box-shadow:6px 0 24px rgba(7,17,55,.035)}
+.main{margin-left:116px}
+.footer{left:116px}
+.side-top{height:88px;border-bottom:1px solid #eef2f7}
+.tenant-brand-mark{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,#1455ff,#0c39cc);display:grid;place-items:center;box-shadow:0 10px 24px rgba(20,85,255,.24)}
+.tenant-brand-mark svg{width:27px;height:27px}
+.tenant-brand-mark svg *{fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.quick-add{top:32px;border-color:#dbe4f1;transition:transform .18s var(--crm-ease),box-shadow .18s ease,color .18s ease}
+.quick-add:hover{color:var(--crm-blue);transform:translateY(-1px);box-shadow:0 12px 25px rgba(20,85,255,.16)}
+.side-nav{height:calc(100vh - 88px);padding:8px 0 30px}
+.side-nav button{min-height:70px;border-top:0;margin:3px 8px;width:calc(100% - 16px);border-radius:12px;color:#55627a;transition:background .18s ease,color .18s ease,transform .18s var(--crm-ease)}
+.side-nav button:hover{transform:translateY(-1px)}
+.side-nav button.active{background:var(--crm-blue-50);color:var(--crm-blue)}
+.side-nav button.active:before{left:-8px;top:10px;bottom:10px;width:3px;border-radius:0 5px 5px 0}
+.side-nav button em{font-weight:700;font-size:11.5px}
+
+.topbar{height:82px;grid-template-columns:minmax(240px,1fr) auto;gap:20px;padding:0 30px;border-bottom:1px solid var(--crm-line);box-shadow:none;background:rgba(255,255,255,.96);backdrop-filter:blur(14px)}
+.crm-page-context{display:flex;align-items:center;gap:14px;min-width:0}
+.crm-center-avatar{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#eaf1ff,#dfe9ff);color:var(--crm-blue);display:grid;place-items:center;font-weight:900;font-size:15px;border:1px solid #d7e3fb;flex:0 0 auto}
+.crm-context-copy{min-width:0;display:grid;gap:2px}
+.crm-context-copy strong{font-size:16px;font-weight:900;color:var(--crm-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crm-context-copy small{font-size:12px;color:var(--crm-muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crm-breadcrumb{display:inline-flex;align-items:center;gap:6px;color:#98a3b5;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.crm-breadcrumb b{color:var(--crm-blue)}
+.top-actions{gap:7px}
+.top-actions>button,.top-actions>.shell-help{width:38px;height:38px;border:1px solid transparent;border-radius:11px;display:grid;place-items:center;transition:.18s ease;color:#64748b;background:#fff;text-decoration:none}
+.top-actions>button:hover,.top-actions>.shell-help:hover{border-color:#dce5f2;background:#f7f9fd!important;color:var(--crm-blue)!important}
+.top-actions>.shell-help [data-icon]{width:18px;height:18px}
+.top-actions .profile{width:auto;height:44px!important;min-width:0;border:1px solid #e1e8f2!important;background:#fff!important;padding:5px 9px 5px 6px!important;border-radius:13px!important;display:flex!important}
+.profile .avatar{width:32px;height:32px;border-radius:10px;background:var(--crm-blue-50);border:1px solid #d7e4ff;display:grid;place-items:center;color:var(--crm-blue);font-size:11px;font-weight:900}
+.profile b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-pop{top:70px;right:26px;border-radius:14px;border:1px solid #e0e8f3;box-shadow:var(--crm-shadow);padding:7px;animation:crmPop .16s var(--crm-ease)}
+.menu-pop button{width:190px;height:42px;border-radius:9px;font-weight:700;display:flex;align-items:center;gap:9px}
+.menu-pop button [data-icon]{width:17px;height:17px}
+@keyframes crmPop{from{opacity:0;transform:translateY(-5px) scale(.98)}to{opacity:1;transform:none}}
+
+.license{margin:22px 28px 16px;min-height:58px;border-radius:14px;border:1px solid #dfe8f6;background:linear-gradient(90deg,#fff,#f8fbff);box-shadow:0 7px 20px rgba(7,17,55,.035);padding:0 16px;gap:10px}
+.license b{color:#34405a;font-size:12px}
+.license strong{font-size:12px;color:var(--crm-ink)}
+.license em{margin-left:auto;background:#eef4ff;color:var(--crm-blue);border:1px solid #dbe7ff;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800}
+.license button{display:none!important}
+
+.quick-pop{left:108px;top:65px;width:210px;border-radius:14px;border-color:#dfe7f2;box-shadow:var(--crm-shadow);padding:7px;animation:crmPop .16s var(--crm-ease)}
+.quick-pop button{height:43px;border-radius:9px;font-weight:700}
+.drawer-backdrop{background:rgba(3,12,38,.28);backdrop-filter:blur(2px)}
+.drawer{box-shadow:-18px 0 50px rgba(7,17,55,.14);animation:drawerIn .22s var(--crm-ease)}
+@keyframes drawerIn{from{opacity:.5;transform:translateX(22px)}to{opacity:1;transform:none}}
+.drawer-close{transition:transform .18s ease,background .18s ease}
+.drawer-close:hover{transform:rotate(4deg);background:#f2f5fa}
+
+.footer{height:62px;padding:0 36px;gap:22px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+.footer a,.footer span{display:inline-flex;align-items:center;gap:7px;color:#64748b;text-decoration:none;font-size:12px;font-weight:700}
+.footer a:hover{color:var(--crm-blue)}
+.footer strong{font-size:20px;color:#a5afbf;letter-spacing:-.03em}
+.crm-system-dot{width:7px;height:7px;border-radius:50%;background:#20b26b;box-shadow:0 0 0 4px rgba(32,178,107,.09)}
+.floating-calendar{display:none!important}
+
+:where(button,a,input,select,textarea):focus-visible{outline:3px solid rgba(20,85,255,.22);outline-offset:2px}
+
+@media(max-width:900px){
+  .sidebar{width:92px}
+  .main{margin-left:92px}
+  .footer{left:92px}
+  .side-nav button em{font-size:10.5px}
+  .topbar{padding:0 18px}
+  .profile b{display:none}
+  .license{margin-left:18px;margin-right:18px}
+}
