@@ -1,5 +1,6 @@
 (function () {
   const BRAND_MARK = "/assets/eduka-mark.svg";
+  const FEATURE_NODE = "/assets/feature-node.svg";
 
   function setActiveTopbarLink() {
     const path = window.location.pathname.replace(/\/$/, "");
@@ -20,6 +21,15 @@
       img.setAttribute("src", BRAND_MARK);
       img.setAttribute("width", "64");
       img.setAttribute("height", "64");
+      img.setAttribute("decoding", "async");
+    });
+
+    document.querySelectorAll(
+      ".iso-illustration img, .lead-card img, .integration-art img"
+    ).forEach((img) => {
+      img.setAttribute("src", FEATURE_NODE);
+      img.setAttribute("alt", "");
+      img.setAttribute("aria-hidden", "true");
       img.setAttribute("decoding", "async");
     });
 
