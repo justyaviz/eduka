@@ -68,10 +68,25 @@ function candidateUrls() {
   return unique;
 }
 
+function sslConfig(url) {
+  const raw = String(url || "");
+  const forced = String(process.env.PGSSLMODE || "").toLowerCase();
+  if (forced === "disable") return false;
+  if (["require", "verify-ca", "verify-full"].includes(forced)) return { rejectUnauthorized: false };
+
+  // Railway private networking uses *.railway.internal and normally does not
+  // need TLS. Forcing SSL there can fail with "server does not support SSL".
+  if (/\.railway\.internal(?::|\/|$)/i.test(raw) || /@[^/]*\.internal(?::|\/|$)/i.test(raw)) {
+    return false;
+  }
+
+  return process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false;
+}
+
 async function testPool(item) {
   const pool = new Pool({
     connectionString: item.url,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    ssl: sslConfig(item.url),
     max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
