@@ -19,9 +19,8 @@ body{background:var(--crm-bg)}
 .main{margin-left:116px}
 .footer{left:116px}
 .side-top{height:88px;border-bottom:1px solid #eef2f7}
-.tenant-brand-mark{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,#1455ff,#0c39cc);display:grid;place-items:center;box-shadow:0 10px 24px rgba(20,85,255,.24)}
-.tenant-brand-mark svg{width:27px;height:27px}
-.tenant-brand-mark svg *{fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tenant-brand-mark{width:48px;height:48px;display:grid;place-items:center;filter:drop-shadow(0 8px 16px rgba(20,85,255,.18))}
+.tenant-brand-logo{width:48px;height:48px;display:block;object-fit:contain}
 .quick-add{top:32px;border-color:#dbe4f1;transition:transform .18s var(--crm-ease),box-shadow .18s ease,color .18s ease}
 .quick-add:hover{color:var(--crm-blue);transform:translateY(-1px);box-shadow:0 12px 25px rgba(20,85,255,.16)}
 .side-nav{height:calc(100vh - 88px);padding:8px 0 30px}
@@ -64,6 +63,10 @@ body{background:var(--crm-bg)}
 @keyframes drawerIn{from{opacity:.5;transform:translateX(22px)}to{opacity:1;transform:none}}
 .drawer-close{transition:transform .18s ease,background .18s ease}
 .drawer-close:hover{transform:rotate(4deg);background:#f2f5fa}
+
+/* Original EDUKA logo inside tenant login card as well. */
+.tenant-login-card .login-logo{display:flex;align-items:center;gap:10px}
+.tenant-login-card .login-logo .crm-login-original-logo{width:46px;height:46px;object-fit:contain;display:block;filter:drop-shadow(0 8px 16px rgba(20,85,255,.18))}
 
 .footer{height:62px;padding:0 36px;gap:22px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
 .footer a,.footer span{display:inline-flex;align-items:center;gap:7px;color:#64748b;text-decoration:none;font-size:12px;font-weight:700}
