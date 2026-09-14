@@ -47,6 +47,34 @@
     });
   }
 
+  function normalizeLegalAndFooterLinks() {
+    document.querySelectorAll(".eduka-footer__bottom > div").forEach((group) => {
+      const links = group.querySelectorAll("a");
+      if (links[0]) links[0].setAttribute("href", "/privacy");
+      if (links[1]) links[1].setAttribute("href", "/terms");
+    });
+
+    document.querySelectorAll(".demo-check a").forEach((link) => {
+      link.setAttribute("href", "/privacy");
+      link.removeAttribute("target");
+      link.removeAttribute("rel");
+    });
+
+    document.querySelectorAll(".eduka-footer__bottom p").forEach((copyright) => {
+      copyright.textContent = copyright.textContent.replace(/©\s*\d{4}/, `© ${new Date().getFullYear()}`);
+    });
+
+    document.querySelectorAll(".eduka-footer__col").forEach((column) => {
+      const phoneLinks = Array.from(column.querySelectorAll('a[href^="tel:"]'));
+      const seen = new Set();
+      phoneLinks.forEach((link) => {
+        const normalized = (link.getAttribute("href") || "").replace(/\s+/g, "");
+        if (seen.has(normalized)) link.remove();
+        else seen.add(normalized);
+      });
+    });
+  }
+
   function bindLogoScrollTop() {
     document.querySelectorAll("[data-scroll-top]").forEach((logo) => {
       logo.addEventListener("click", (event) => {
@@ -61,6 +89,7 @@
 
   applyCanonicalBrandAssets();
   normalizeBrandWordmarks();
+  normalizeLegalAndFooterLinks();
   setActiveTopbarLink();
   bindLogoScrollTop();
 })();
