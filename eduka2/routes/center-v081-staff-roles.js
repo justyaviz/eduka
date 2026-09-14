@@ -12,6 +12,7 @@ function err(res,status,message,error){ return res.status(status).json({ok:false
 
 const DEFAULT_ROLES = [
   {id:'owner',name:'Owner',description:'Markaz egasi — barcha ruxsatlar',system:true,permissions:['*']},
+  {id:'director',name:'Director',description:'Markaz direktori — barcha ruxsatlar',system:true,permissions:['*']},
   {id:'admin',name:'Administrator',description:'CRM boshqaruvi va sozlamalar',system:true,permissions:['dashboard.view','leads.*','students.*','groups.*','teachers.*','attendance.*','reminders.*','finance.*','settings.view','staff.view','staff.manage','roles.view','roles.manage']},
   {id:'manager',name:'Manager',description:'Lidlar, talabalar va guruhlar bilan ishlash',system:true,permissions:['dashboard.view','leads.*','students.*','groups.view','groups.manage','reminders.*','teachers.view','attendance.view']},
   {id:'teacher',name:'Teacher',description:'O‘z guruhlari, talabalar va davomat',system:true,permissions:['dashboard.view','groups.view','students.view','attendance.*','reminders.view']},
@@ -19,14 +20,21 @@ const DEFAULT_ROLES = [
   {id:'accountant',name:'Accountant',description:'Moliya va hisobotlar',system:true,permissions:['dashboard.view','finance.*','students.view','groups.view']}
 ];
 
+function compatRoles(input){
+  const roles=Array.isArray(input)?input.map(x=>({...x,permissions:Array.isArray(x.permissions)?x.permissions:[]})):[];
+  for(const required of DEFAULT_ROLES.filter(r=>['owner','director'].includes(r.id))){
+    if(!roles.some(r=>String(r.id)===required.id)) roles.unshift({...required});
+  }
+  return roles.length?roles:DEFAULT_ROLES.map(x=>({...x,permissions:[...(x.permissions||[])]}));
+}
 async function getRoles(centerId){
   const q=await pool.query('SELECT value FROM center_settings WHERE center_id=$1 AND key=$2 LIMIT 1',[centerId,ROLES_KEY]);
-  if(!q.rows[0]?.value) return DEFAULT_ROLES;
+  if(!q.rows[0]?.value) return compatRoles(DEFAULT_ROLES);
   try{
     const parsed=JSON.parse(q.rows[0].value);
-    if(Array.isArray(parsed) && parsed.length) return parsed;
+    if(Array.isArray(parsed) && parsed.length) return compatRoles(parsed);
   }catch{}
-  return DEFAULT_ROLES;
+  return compatRoles(DEFAULT_ROLES);
 }
 async function saveRoles(centerId,roles){
   await pool.query(`INSERT INTO center_settings(center_id,key,value) VALUES($1,$2,$3)
@@ -125,6 +133,7 @@ router.patch('/roles-v081/:id',requireCenterAuth,requireRbacManage,async(req,res
   try{
     const roles=await getRoles(req.centerUser.centerId); const i=roles.findIndex(r=>String(r.id)===String(req.params.id));
     if(i<0) return err(res,404,'Rol topilmadi');
+    if(['owner','director'].includes(String(roles[i].id))) return err(res,400,'Owner/Director ruxsatlarini o‘zgartirib bo‘lmaydi');
     const b=req.body||{}; roles[i]={...roles[i],name:clean(b.name)||roles[i].name,description:b.description==null?roles[i].description:clean(b.description),permissions:Array.isArray(b.permissions)?b.permissions:roles[i].permissions};
     await saveRoles(req.centerUser.centerId,roles); return res.json({ok:true,role:roles[i],roles});
   }catch(error){return err(res,500,'Rolni yangilashda xatolik',error);}
