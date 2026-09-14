@@ -1,6 +1,6 @@
 # EDUKA Public Website — v0.0 → v1.0 Roadmap
 
-Status: v0.1 brand foundation implemented on `website/v0.0-audit`; v0.2 interaction cleanup in progress.
+Status: v0.1 completed; v0.2 mostly implemented; v0.3 mobile navigation started on `website/v0.0-audit`.
 
 ## v0.0 — Audit & freeze
 - Inventory every page, CTA, link, menu, modal, form, language switch, breakpoint and animation.
@@ -21,20 +21,20 @@ Exit: one consistent EDUKA identity on /, /prices, /gamification, /vacancies and
 ## v0.2 — Buttons, forms, menus
 - [x] Create a single Demo submit flow; duplicate localStorage/API bridge handlers disabled.
 - [x] Show success only after the API succeeds; show error/retry on failure.
-- [~] Connect support leads/messages to the real `/api/support-requests` backend and label the UI as an automated assistant.
-- [ ] Replace text-scanning sales-link patch with explicit URLs/actions.
-- [ ] Fix payment CTA semantics.
-- [ ] Add real Privacy Policy and Terms pages; remove href="#" dead links.
-- [ ] Central overlay manager: one modal/menu at a time, backdrop close, ESC close, focus restore.
-- [ ] Remove duplicate hrefs and all dead CTAs.
+- [x] Connect support leads/messages to the real `/api/support-requests` backend and label the UI as an automated assistant.
+- [x] Replace text-scanning sales-link patch with explicit URLs/actions.
+- [x] Fix payment CTA semantics so the pricing CTA opens the real demo flow instead of the gamification anchor.
+- [x] Add real Privacy Policy and Terms pages and wire footer/demo-consent links to them.
+- [~] Overlay behavior: backdrop/ESC/focus restore exists for demo/support; shared one-overlay-at-a-time manager still pending.
+- [ ] Remove remaining duplicate attributes/dead CTAs directly from copied HTML templates.
 
 Exit: 100% CTA/link/form test matrix passes.
 
 ## v0.3 — Navigation & responsive
-- Build mobile hamburger/drawer navigation instead of hiding desktop links.
-- Keep language, support, phone/sales CTA accessible on mobile.
-- Normalize header behavior on all pages and breakpoints.
-- Fix mobile pricing table, footer, modal and support panel layouts.
+- [x] Build mobile hamburger/drawer navigation instead of hiding desktop links.
+- [x] Keep language, support, phone and demo CTA accessible on mobile.
+- [x] Normalize header behavior through the shared public topbar runtime.
+- [ ] Fix mobile pricing table, footer, modal and support panel layouts.
 
 Exit: 320, 375, 390, 768, 1024, 1440 widths pass without missing navigation or horizontal breakage.
 
