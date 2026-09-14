@@ -1,5 +1,4 @@
-
-/* ===== EDUKA Standard Footer — same on every page ===== */
+/* EDUKA standard footer — v0.1 brand foundation */
 .brand-footer,
 footer.brand-footer {
   display: none !important;
@@ -8,166 +7,165 @@ footer.brand-footer {
 .eduka-footer {
   position: relative;
   overflow: hidden;
+  padding: 58px 0 0;
+  color: #fff;
+  font-family: var(--eduka-font, "Manrope", ui-sans-serif, system-ui, sans-serif);
   background:
     radial-gradient(circle at 12% 20%, rgba(18, 60, 255, .22), transparent 330px),
     radial-gradient(circle at 88% 12%, rgba(79, 111, 255, .18), transparent 360px),
     linear-gradient(135deg, #06123e 0%, #071a4d 55%, #06123e 100%);
-  color: #ffffff;
-  padding: 58px 0 0;
-  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
 
 .eduka-footer::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1px);
-  background-size: 26px 26px;
-  opacity: .12;
   pointer-events: none;
+  opacity: .1;
+  background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 .eduka-footer__inner,
 .eduka-footer__bottom {
   position: relative;
-  width: min(1180px, calc(100% - 112px));
+  width: min(1180px, calc(100% - 64px));
   margin: 0 auto;
 }
 
 .eduka-footer__inner {
   display: grid;
   grid-template-columns: 1.5fr .9fr 1fr .9fr;
-  gap: 64px;
+  gap: 60px;
   padding-bottom: 52px;
 }
 
 .eduka-footer__logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
+  margin-bottom: 20px;
   color: #fff;
   text-decoration: none;
-  font-size: 32px;
+  font-size: 31px;
   line-height: 1;
-  font-weight: 950;
-  letter-spacing: -1.3px;
-  margin-bottom: 20px;
+  font-weight: 900;
+  letter-spacing: -1.15px;
 }
 
 .eduka-footer__logo img {
   width: 42px;
   height: 42px;
-  border-radius: 11px;
   display: block;
+  border-radius: 0;
+  object-fit: contain;
 }
 
 .eduka-footer__brand p {
   max-width: 370px;
   margin: 0 0 24px;
-  color: rgba(255,255,255,.82);
-  font-size: 16px;
-  line-height: 1.65;
-  font-weight: 600;
+  color: rgba(255,255,255,.78);
+  font-size: 15px;
+  line-height: 1.7;
+  font-weight: 550;
 }
 
 .eduka-footer__buttons {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .eduka-footer__primary,
 .eduka-footer__secondary,
 .eduka-footer__support {
-  height: 46px;
-  padding: 0 24px;
-  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: var(--eduka-radius-md, 14px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  font-weight: 900;
+  font-weight: 800;
   font-size: 14px;
-  transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+  transition: transform .2s var(--eduka-ease, ease), box-shadow .2s ease, background .2s ease;
 }
 
 .eduka-footer__primary {
   color: #fff;
-  background: linear-gradient(135deg, #123cff, #4f6fff);
-  box-shadow: 0 18px 38px rgba(18,60,255,.28);
+  background: var(--eduka-brand-600, #123cff);
+  box-shadow: 0 14px 30px rgba(18,60,255,.26);
 }
 
-.eduka-footer__secondary {
+.eduka-footer__secondary,
+.eduka-footer__support {
   color: #fff;
-  border: 1px solid rgba(255,255,255,.28);
+  border: 1px solid rgba(255,255,255,.24);
   background: rgba(255,255,255,.06);
 }
 
 .eduka-footer__support {
-  margin-top: 20px;
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.25);
-  background: rgba(255,255,255,.07);
+  margin-top: 18px;
 }
 
 .eduka-footer__primary:hover,
 .eduka-footer__secondary:hover,
 .eduka-footer__support:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .eduka-footer__col h4 {
-  margin: 0 0 20px;
+  margin: 0 0 18px;
   color: #fff;
-  font-size: 17px;
-  font-weight: 950;
+  font-size: 16px;
+  font-weight: 850;
 }
 
 .eduka-footer__col a,
 .eduka-footer__col span {
   display: block;
-  margin: 0 0 14px;
-  color: rgba(255,255,255,.82);
+  margin: 0 0 13px;
+  color: rgba(255,255,255,.76);
   text-decoration: none;
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.35;
-  transition: color .22s ease, transform .22s ease;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.4;
+  transition: color .2s ease, transform .2s ease;
 }
 
 .eduka-footer__col a:hover {
   color: #fff;
-  transform: translateX(4px);
+  transform: translateX(3px);
 }
 
 .eduka-footer__socials {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .eduka-footer__socials a {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--eduka-radius-md, 14px);
   display: grid;
   place-items: center;
   color: #fff;
-  background: linear-gradient(135deg, #123cff, #4f6fff);
-  box-shadow: 0 14px 28px rgba(18,60,255,.25);
-  transition: transform .22s ease, box-shadow .22s ease;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.16);
+  transition: transform .2s var(--eduka-ease, ease), background .2s ease;
 }
 
 .eduka-footer__socials a:hover {
-  transform: translateY(-4px) scale(1.03);
-  box-shadow: 0 20px 42px rgba(18,60,255,.34);
+  transform: translateY(-3px);
+  background: var(--eduka-brand-600, #123cff);
 }
 
 .eduka-footer__socials svg,
 .eduka-footer [data-hicon] svg {
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
   fill: none !important;
   stroke: currentColor !important;
   stroke-width: 1.9;
@@ -176,37 +174,35 @@ footer.brand-footer {
 }
 
 .eduka-footer__bottom {
+  min-height: 74px;
   border-top: 1px solid rgba(255,255,255,.12);
-  min-height: 76px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 28px;
 }
 
-.eduka-footer__bottom p {
+.eduka-footer__bottom p,
+.eduka-footer__bottom a {
   margin: 0;
-  color: rgba(255,255,255,.76);
-  font-size: 14px;
-  font-weight: 650;
+  color: rgba(255,255,255,.7);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.eduka-footer__bottom a {
+  text-decoration: none;
+}
+
+.eduka-footer__bottom a:hover {
+  color: #fff;
 }
 
 .eduka-footer__bottom div {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 24px;
   flex-wrap: wrap;
-}
-
-.eduka-footer__bottom a {
-  color: rgba(255,255,255,.76);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.eduka-footer__bottom a:hover {
-  color: #fff;
 }
 
 @media (max-width: 1050px) {
@@ -217,7 +213,7 @@ footer.brand-footer {
 
   .eduka-footer__inner {
     grid-template-columns: 1fr 1fr;
-    gap: 42px;
+    gap: 40px;
   }
 }
 
