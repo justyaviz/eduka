@@ -1,0 +1,30 @@
+name: EDUKA CI
+
+on:
+  pull_request:
+    paths:
+      - 'eduka2/**'
+      - '.github/workflows/eduka-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'eduka2/**'
+      - '.github/workflows/eduka-ci.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eduka2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Syntax and project check
+        run: npm run check
+      - name: Build check
+        run: npm run build
