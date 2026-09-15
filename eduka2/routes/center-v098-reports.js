@@ -3,45 +3,59 @@ const pool=require('../db');
 const {requireCenterAuth}=require('../middleware/center-auth');
 
 const router=express.Router();
-const PROD=process.env.NODE_ENV==='production';
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function num(v){const n=Number(v||0);return Number.isFinite(n)?n:0;}
-function clean(v){return v==null?'':String(v).trim();}
-function err(res,status,message,error){return res.status(status).json({ok:false,error:message,...(PROD||!error?{}:{realError:error.message,code:error.code||null})});}
-function isoDay(v){const s=clean(v);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const d=new Date(`${s}T00:00:00Z`);return Number.isNaN(d.getTime())?null:s;}
+const num=v=>{const n=Number(v||0);return Number.isFinite(n)?n:0};
+const clean=v=>v==null?'':String(v).trim();
+const isoDay=v=>/^\d{4}-\d{2}-\d{2}$/.test(clean(v))?clean(v):null;
 function defaultRange(){const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return{from:`${y}-${m}-01`,to:`${y}-${m}-${day}`};}
+function dayKey(v){if(!v)return'';if(v instanceof Date&&!Number.isNaN(v.getTime()))return v.toISOString().slice(0,10);return String(v).slice(0,10);}
+function bump(map,key,amount=1){key=clean(key)||'Kiritilmagan';map[key]=(map[key]||0)+amount;}
+function mapPairs(obj){return Object.entries(obj).map(([key,count])=>({key,count})).sort((a,b)=>b.count-a.count);}
 
 router.get('/reports-v098',requireCenterAuth,async(req,res)=>{
  try{
   const centerId=req.centerUser.centerId,def=defaultRange(),from=isoDay(req.query.from)||def.from,to=isoDay(req.query.to)||def.to,rawBranch=clean(req.query.branchId),branchId=rawBranch&&rawBranch!=='all'?rawBranch:null;
-  if(from>to)return err(res,400,'Boshlanish sanasi tugash sanasidan katta bo‘lishi mumkin emas');
-  if(branchId&&!UUID_RE.test(branchId))return err(res,400,'Filial ID noto‘g‘ri');
-  if(branchId){const b=await pool.query(`SELECT id FROM center_branches WHERE id=$1 AND center_id=$2 AND COALESCE(status,'active')<>'deleted'`,[branchId,centerId]);if(!b.rows[0])return err(res,404,'Filial topilmadi');}
-  const args=[centerId,from,to,branchId];
-  const studentScope=`s.center_id=$1 AND COALESCE(s.status,'active')<>'deleted' AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM group_students gs JOIN study_groups g ON g.id=gs.group_id AND g.center_id=gs.center_id WHERE gs.center_id=s.center_id AND gs.student_id=s.id AND gs.status='active' AND COALESCE(g.status,'active')<>'deleted' AND g.branch_id=$4))`;
-  const leadScope=`l.center_id=$1 AND COALESCE(l.status,'LEADS')<>'deleted' AND l.created_at >= $2::date AND l.created_at < ($3::date + INTERVAL '1 day') AND ($4::uuid IS NULL OR l.assigned_to IN(SELECT id FROM center_users WHERE center_id=$1 AND branch_id=$4 AND COALESCE(status,'active')<>'deleted'))`;
-  const financePayScope=`p.center_id=$1 AND p.status='paid' AND p.paid_at >= $2::date AND p.paid_at < ($3::date + INTERVAL '1 day') AND ($4::uuid IS NULL OR p.branch_id=$4)`;
-  const financeExpScope=`e.center_id=$1 AND e.spent_at >= $2::date AND e.spent_at < ($3::date + INTERVAL '1 day') AND ($4::uuid IS NULL OR e.branch_id=$4)`;
-  const [branchesQ,studentsQ,studentGenderQ,studentStatusQ,leadsQ,leadStatusQ,leadSourceQ,financeQ,payDayQ,expDayQ,methodQ,groupsQ,branchStatsQ,managerQ]=await Promise.all([
+  if(from>to)return res.status(400).json({ok:false,error:'Boshlanish sanasi tugash sanasidan katta bo‘lishi mumkin emas'});
+  if(branchId&&!UUID_RE.test(branchId))return res.status(400).json({ok:false,error:'Filial ID noto‘g‘ri'});
+  const [branchesQ,studentsQ,groupsQ,membersQ,leadsQ,paymentsQ,expensesQ,usersQ]=await Promise.all([
    pool.query(`SELECT id,name,is_main FROM center_branches WHERE center_id=$1 AND COALESCE(status,'active')<>'deleted' ORDER BY is_main DESC,name`,[centerId]),
-   pool.query(`SELECT COUNT(*)::int total,COUNT(*) FILTER(WHERE s.status='active')::int active,COUNT(*) FILTER(WHERE s.status IN('archived','inactive'))::int archived,COUNT(*) FILTER(WHERE s.created_at >= $2::date AND s.created_at < ($3::date+INTERVAL '1 day'))::int new_count FROM students s WHERE ${studentScope}`,args),
-   pool.query(`SELECT COALESCE(NULLIF(s.gender,''),'Kiritilmagan') key,COUNT(*)::int count FROM students s WHERE ${studentScope} GROUP BY 1 ORDER BY count DESC`,args),
-   pool.query(`SELECT COALESCE(NULLIF(s.status,''),'active') key,COUNT(*)::int count FROM students s WHERE ${studentScope} GROUP BY 1 ORDER BY count DESC`,args),
-   pool.query(`SELECT COUNT(*)::int total,COUNT(*) FILTER(WHERE l.status='Mijoz bo‘ldi')::int converted,COUNT(*) FILTER(WHERE l.assigned_to IS NULL)::int unassigned FROM leads l WHERE ${leadScope}`,args),
-   pool.query(`SELECT COALESCE(NULLIF(l.status,''),'LEADS') key,COUNT(*)::int count FROM leads l WHERE ${leadScope} GROUP BY 1 ORDER BY count DESC`,args),
-   pool.query(`SELECT COALESCE(NULLIF(l.source,''),'Manual') key,COUNT(*)::int count FROM leads l WHERE ${leadScope} GROUP BY 1 ORDER BY count DESC`,args),
-   pool.query(`SELECT (SELECT COALESCE(SUM(p.amount),0) FROM center_payments p WHERE ${financePayScope})::numeric income,(SELECT COALESCE(SUM(e.amount),0) FROM center_expenses e WHERE ${financeExpScope})::numeric expenses,(SELECT COUNT(*) FROM center_payments p WHERE ${financePayScope})::int payment_count,(SELECT COUNT(*) FROM center_expenses e WHERE ${financeExpScope})::int expense_count`,args),
-   pool.query(`SELECT p.paid_at::date day,COALESCE(SUM(p.amount),0)::numeric total FROM center_payments p WHERE ${financePayScope} GROUP BY 1 ORDER BY 1`,args),
-   pool.query(`SELECT e.spent_at::date day,COALESCE(SUM(e.amount),0)::numeric total FROM center_expenses e WHERE ${financeExpScope} GROUP BY 1 ORDER BY 1`,args),
-   pool.query(`SELECT COALESCE(NULLIF(p.payment_type,''),'other') key,COALESCE(SUM(p.amount),0)::numeric total,COUNT(*)::int count FROM center_payments p WHERE ${financePayScope} GROUP BY 1 ORDER BY total DESC`,args),
-   pool.query(`SELECT g.id,g.name,g.course_name,g.teacher_name,g.branch_id,b.name branch_name,g.status,COUNT(gs.student_id) FILTER(WHERE gs.status='active')::int student_count FROM study_groups g LEFT JOIN center_branches b ON b.id=g.branch_id AND b.center_id=g.center_id LEFT JOIN group_students gs ON gs.group_id=g.id AND gs.center_id=g.center_id WHERE g.center_id=$1 AND COALESCE(g.status,'active')<>'deleted' AND ($4::uuid IS NULL OR g.branch_id=$4) GROUP BY g.id,b.id ORDER BY student_count DESC,g.name`,args),
-   pool.query(`SELECT b.id,b.name,b.is_main,COUNT(DISTINCT g.id) FILTER(WHERE COALESCE(g.status,'active')<>'deleted')::int group_count,COUNT(DISTINCT gs.student_id) FILTER(WHERE gs.status='active')::int student_count,COALESCE((SELECT SUM(p.amount) FROM center_payments p WHERE p.center_id=b.center_id AND p.branch_id=b.id AND p.status='paid' AND p.paid_at >= $2::date AND p.paid_at < ($3::date+INTERVAL '1 day')),0)::numeric income,COALESCE((SELECT SUM(e.amount) FROM center_expenses e WHERE e.center_id=b.center_id AND e.branch_id=b.id AND e.spent_at >= $2::date AND e.spent_at < ($3::date+INTERVAL '1 day')),0)::numeric expenses FROM center_branches b LEFT JOIN study_groups g ON g.center_id=b.center_id AND g.branch_id=b.id LEFT JOIN group_students gs ON gs.center_id=b.center_id AND gs.group_id=g.id WHERE b.center_id=$1 AND COALESCE(b.status,'active')<>'deleted' AND ($4::uuid IS NULL OR b.id=$4) GROUP BY b.id ORDER BY b.is_main DESC,b.name`,args),
-   pool.query(`SELECT u.id,u.full_name,u.role,u.branch_id,b.name branch_name,COUNT(l.id)::int lead_count,COUNT(l.id) FILTER(WHERE l.status='Mijoz bo‘ldi')::int converted_count,COUNT(l.id) FILTER(WHERE l.next_contact_at IS NOT NULL AND l.next_contact_at<NOW() AND l.status<>'Mijoz bo‘ldi')::int overdue_count FROM center_users u LEFT JOIN center_branches b ON b.id=u.branch_id AND b.center_id=u.center_id LEFT JOIN leads l ON l.center_id=u.center_id AND l.assigned_to=u.id AND COALESCE(l.status,'LEADS')<>'deleted' AND l.created_at >= $2::date AND l.created_at < ($3::date+INTERVAL '1 day') WHERE u.center_id=$1 AND COALESCE(u.status,'active')='active' AND ($4::uuid IS NULL OR u.branch_id=$4) GROUP BY u.id,b.id HAVING COUNT(l.id)>0 ORDER BY converted_count DESC,lead_count DESC,u.full_name`,args)
+   pool.query(`SELECT id,status,gender,created_at FROM students WHERE center_id=$1 AND COALESCE(status,'active')<>'deleted'`,[centerId]),
+   pool.query(`SELECT g.id,g.name,g.course_name,g.teacher_name,g.branch_id,b.name branch_name,g.status FROM study_groups g LEFT JOIN center_branches b ON b.id=g.branch_id AND b.center_id=g.center_id WHERE g.center_id=$1 AND COALESCE(g.status,'active')<>'deleted'`,[centerId]),
+   pool.query(`SELECT gs.student_id,gs.group_id FROM group_students gs JOIN study_groups g ON g.id=gs.group_id AND g.center_id=gs.center_id WHERE gs.center_id=$1 AND gs.status='active' AND COALESCE(g.status,'active')<>'deleted'`,[centerId]),
+   pool.query(`SELECT id,status,source,assigned_to,next_contact_at,created_at FROM leads WHERE center_id=$1 AND COALESCE(status,'LEADS')<>'deleted' AND created_at >= $2::date AND created_at < ($3::date+INTERVAL '1 day')`,[centerId,from,to]),
+   pool.query(`SELECT amount,payment_type,branch_id,paid_at FROM center_payments WHERE center_id=$1 AND status='paid' AND paid_at >= $2::date AND paid_at < ($3::date+INTERVAL '1 day')`,[centerId,from,to]),
+   pool.query(`SELECT amount,branch_id,spent_at FROM center_expenses WHERE center_id=$1 AND spent_at >= $2::date AND spent_at < ($3::date+INTERVAL '1 day')`,[centerId,from,to]),
+   pool.query(`SELECT id,full_name,role,branch_id FROM center_users WHERE center_id=$1 AND COALESCE(status,'active')='active'`,[centerId])
   ]);
-  const st=studentsQ.rows[0]||{},ld=leadsQ.rows[0]||{},fn=financeQ.rows[0]||{};const income=num(fn.income),expenses=num(fn.expenses),leadTotal=Number(ld.total||0),converted=Number(ld.converted||0);
-  const days={};for(const r of payDayQ.rows){const k=String(r.day).slice(0,10);days[k]={day:k,income:num(r.total),expenses:0};}for(const r of expDayQ.rows){const k=String(r.day).slice(0,10);days[k]=days[k]||{day:k,income:0,expenses:0};days[k].expenses=num(r.total);}
-  return res.json({ok:true,range:{from,to},branchId:branchId||'all',meta:{branches:branchesQ.rows},summary:{students:Number(st.total||0),activeStudents:Number(st.active||0),newStudents:Number(st.new_count||0),archivedStudents:Number(st.archived||0),leads:leadTotal,convertedLeads:converted,conversionRate:leadTotal?Math.round(converted/leadTotal*1000)/10:0,income,expenses,profit:income-expenses,groups:groupsQ.rows.filter(x=>(x.status||'active')==='active').length,branches:branchStatsQ.rows.length,managers:managerQ.rows.length},students:{byGender:studentGenderQ.rows,byStatus:studentStatusQ.rows},leads:{byStatus:leadStatusQ.rows,bySource:leadSourceQ.rows,unassigned:Number(ld.unassigned||0)},finance:{income,expenses,profit:income-expenses,paymentCount:Number(fn.payment_count||0),expenseCount:Number(fn.expense_count||0),byDay:Object.values(days).sort((a,b)=>a.day.localeCompare(b.day)),byMethod:methodQ.rows.map(x=>({key:x.key,total:num(x.total),count:Number(x.count||0)}))},groups:groupsQ.rows.map(x=>({id:x.id,name:x.name,courseName:x.course_name||'',teacherName:x.teacher_name||'',branchId:x.branch_id,branchName:x.branch_name||'',status:x.status||'active',studentCount:Number(x.student_count||0)})),branches:branchStatsQ.rows.map(x=>({id:x.id,name:x.name,isMain:x.is_main,groupCount:Number(x.group_count||0),studentCount:Number(x.student_count||0),income:num(x.income),expenses:num(x.expenses),profit:num(x.income)-num(x.expenses)})),managers:managerQ.rows.map(x=>({id:x.id,name:x.full_name,role:x.role||'',branchId:x.branch_id,branchName:x.branch_name||'',leadCount:Number(x.lead_count||0),convertedCount:Number(x.converted_count||0),overdueCount:Number(x.overdue_count||0),conversionRate:Number(x.lead_count||0)?Math.round(Number(x.converted_count||0)/Number(x.lead_count||0)*1000)/10:0}))});
- }catch(error){return err(res,500,'Hisobotlarni yuklashda xatolik',error);}
+
+  const branches=branchesQ.rows;if(branchId&&!branches.some(b=>String(b.id)===branchId))return res.status(404).json({ok:false,error:'Filial topilmadi'});
+  const groupsAll=groupsQ.rows,members=membersQ.rows,users=usersQ.rows;
+  const groupById=new Map(groupsAll.map(g=>[String(g.id),g]));
+  const userById=new Map(users.map(u=>[String(u.id),u]));
+  const studentBranches=new Map(),groupCounts=new Map();
+  for(const m of members){const g=groupById.get(String(m.group_id));if(!g)continue;const sid=String(m.student_id);if(!studentBranches.has(sid))studentBranches.set(sid,new Set());if(g.branch_id)studentBranches.get(sid).add(String(g.branch_id));groupCounts.set(String(g.id),(groupCounts.get(String(g.id))||0)+1);}
+
+  const students=studentsQ.rows.filter(s=>!branchId||(studentBranches.get(String(s.id))?.has(branchId)));
+  const leads=leadsQ.rows.filter(l=>!branchId||(l.assigned_to&&String(userById.get(String(l.assigned_to))?.branch_id||'')===branchId));
+  const payments=paymentsQ.rows.filter(p=>!branchId||String(p.branch_id||'')===branchId);
+  const expenses=expensesQ.rows.filter(e=>!branchId||String(e.branch_id||'')===branchId);
+  const groups=groupsAll.filter(g=>!branchId||String(g.branch_id||'')===branchId);
+  const branchRows=branches.filter(b=>!branchId||String(b.id)===branchId);
+
+  const studentStatus={},studentGender={};let activeStudents=0,archivedStudents=0,newStudents=0;
+  for(const s of students){const status=clean(s.status)||'active';bump(studentStatus,status);bump(studentGender,clean(s.gender)||'Kiritilmagan');if(status==='active')activeStudents++;if(status==='archived'||status==='inactive')archivedStudents++;const d=dayKey(s.created_at);if(d>=from&&d<=to)newStudents++;}
+  const leadStatus={},leadSource={};let converted=0,unassigned=0;for(const l of leads){const st=clean(l.status)||'LEADS';bump(leadStatus,st);bump(leadSource,clean(l.source)||'Manual');if(st==='Mijoz bo‘ldi')converted++;if(!l.assigned_to)unassigned++;}
+  const income=payments.reduce((a,x)=>a+num(x.amount),0),expense=expenses.reduce((a,x)=>a+num(x.amount),0),days={},methods={};
+  for(const p of payments){const k=dayKey(p.paid_at);days[k]=days[k]||{day:k,income:0,expenses:0};days[k].income+=num(p.amount);const mk=clean(p.payment_type)||'other';methods[mk]=methods[mk]||{key:mk,total:0,count:0};methods[mk].total+=num(p.amount);methods[mk].count++;}
+  for(const e of expenses){const k=dayKey(e.spent_at);days[k]=days[k]||{day:k,income:0,expenses:0};days[k].expenses+=num(e.amount);}
+
+  const managers=users.filter(u=>!branchId||String(u.branch_id||'')===branchId).map(u=>{const rows=leads.filter(l=>String(l.assigned_to||'')===String(u.id));const c=rows.filter(l=>l.status==='Mijoz bo‘ldi').length,over=rows.filter(l=>l.next_contact_at&&new Date(l.next_contact_at)<new Date()&&l.status!=='Mijoz bo‘ldi').length;return{id:u.id,name:u.full_name,role:u.role||'',branchId:u.branch_id,branchName:branches.find(b=>String(b.id)===String(u.branch_id))?.name||'',leadCount:rows.length,convertedCount:c,overdueCount:over,conversionRate:rows.length?Math.round(c/rows.length*1000)/10:0};}).filter(x=>x.leadCount>0).sort((a,b)=>b.convertedCount-a.convertedCount||b.leadCount-a.leadCount);
+
+  const groupOut=groups.map(g=>({id:g.id,name:g.name,courseName:g.course_name||'',teacherName:g.teacher_name||'',branchId:g.branch_id,branchName:g.branch_name||'',status:g.status||'active',studentCount:groupCounts.get(String(g.id))||0})).sort((a,b)=>b.studentCount-a.studentCount||a.name.localeCompare(b.name));
+  const branchOut=branchRows.map(b=>{const bid=String(b.id),gids=new Set(groupsAll.filter(g=>String(g.branch_id||'')===bid).map(g=>String(g.id))),sids=new Set(members.filter(m=>gids.has(String(m.group_id))).map(m=>String(m.student_id))),inc=paymentsQ.rows.filter(p=>String(p.branch_id||'')===bid).reduce((a,x)=>a+num(x.amount),0),exp=expensesQ.rows.filter(e=>String(e.branch_id||'')===bid).reduce((a,x)=>a+num(x.amount),0);return{id:b.id,name:b.name,isMain:b.is_main,groupCount:gids.size,studentCount:sids.size,income:inc,expenses:exp,profit:inc-exp};});
+  const leadTotal=leads.length;
+  return res.json({ok:true,range:{from,to},branchId:branchId||'all',meta:{branches},summary:{students:students.length,activeStudents,newStudents,archivedStudents,leads:leadTotal,convertedLeads:converted,conversionRate:leadTotal?Math.round(converted/leadTotal*1000)/10:0,income,expenses:expense,profit:income-expense,groups:groups.filter(x=>(x.status||'active')==='active').length,branches:branchOut.length,managers:managers.length},students:{byGender:mapPairs(studentGender),byStatus:mapPairs(studentStatus)},leads:{byStatus:mapPairs(leadStatus),bySource:mapPairs(leadSource),unassigned},finance:{income,expenses:expense,profit:income-expense,paymentCount:payments.length,expenseCount:expenses.length,byDay:Object.values(days).filter(x=>x.day).sort((a,b)=>a.day.localeCompare(b.day)),byMethod:Object.values(methods).sort((a,b)=>b.total-a.total)},groups:groupOut,branches:branchOut,managers});
+ }catch(error){console.error('REPORTS_V098_ERROR',error.stack||error);return res.status(500).json({ok:false,error:'Hisobotlarni yuklashda xatolik'});}
 });
 
 module.exports=router;
