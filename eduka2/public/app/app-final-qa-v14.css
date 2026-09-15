@@ -1,0 +1,89 @@
+/* EDUKA Brandbook v1.4 — final CRM QA layer. Landing untouched. */
+:root{
+  --eduka-blue:#2158FF;
+  --eduka-navy:#102544;
+  --eduka-white:#FFFFFF;
+  --eduka-bg:#F4F7FB;
+  --eduka-muted:#7B8797;
+  --eduka-tint:#E8F0FF;
+  --eduka-border:#E4EAF2;
+  --eduka-danger:#D92D20;
+  --eduka-success:#178A58;
+  --eduka-radius-sm:8px;
+  --eduka-radius-md:12px;
+  --eduka-radius-lg:16px;
+  --eduka-shadow:0 8px 28px rgba(16,37,68,.08);
+}
+
+.eduka-final-v14,.eduka-final-v14 button,.eduka-final-v14 input,.eduka-final-v14 select,.eduka-final-v14 textarea{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.eduka-final-v14 h1,.eduka-final-v14 h2,.eduka-final-v14 h3,.eduka-final-v14 h4,.eduka-final-v14 strong{font-family:Manrope,Inter,system-ui,sans-serif}
+.eduka-final-v14 .content{min-width:0;overflow-x:clip}
+.eduka-final-v14 .content>div,.eduka-final-v14 .content>section{min-width:0}
+
+/* Focus and disabled states */
+.eduka-final-v14 :where(button,a,input,select,textarea,[tabindex]):focus-visible{outline:3px solid rgba(33,88,255,.18);outline-offset:2px}
+.eduka-final-v14 button:disabled,.eduka-final-v14 input:disabled,.eduka-final-v14 select:disabled,.eduka-final-v14 textarea:disabled{opacity:.58;cursor:not-allowed}
+.eduka-final-v14 button{transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease}
+.eduka-final-v14 button:active:not(:disabled){transform:translateY(1px)}
+
+/* Generic drawer used by quick add / payment / room / reminder */
+.eduka-final-v14 .drawer-backdrop{background:rgba(16,37,68,.36)!important;backdrop-filter:blur(2px)}
+.eduka-final-v14 .drawer{width:min(540px,calc(100vw - 24px))!important;max-width:540px!important;background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:18px 0 0 18px!important;box-shadow:-18px 0 50px rgba(16,37,68,.14)!important;padding:24px!important}
+.eduka-final-v14 .drawer h2{margin:0 44px 20px 0!important;color:var(--eduka-navy)!important;font-size:20px!important;font-weight:800!important;letter-spacing:-.02em}
+.eduka-final-v14 .drawer-close{width:36px!important;height:36px!important;border:1px solid var(--eduka-border)!important;border-radius:10px!important;background:#fff!important;color:#637083!important;font-size:22px!important;line-height:1!important;display:grid!important;place-items:center!important}
+.eduka-final-v14 .drawer-close:hover{background:var(--eduka-bg)!important;color:var(--eduka-navy)!important}
+.eduka-final-v14 .form-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
+.eduka-final-v14 .form-grid label{display:grid!important;gap:6px!important;color:#475467!important;font-size:12px!important;font-weight:700!important;min-width:0}
+.eduka-final-v14 .form-grid input,.eduka-final-v14 .form-grid select,.eduka-final-v14 .form-grid textarea{width:100%!important;box-sizing:border-box!important;border:1px solid #D9E1EA!important;border-radius:10px!important;background:#fff!important;color:var(--eduka-navy)!important;font-size:13px!important;font-weight:500!important;outline:0!important}
+.eduka-final-v14 .form-grid input,.eduka-final-v14 .form-grid select{height:42px!important;padding:0 12px!important}
+.eduka-final-v14 .form-grid textarea{min-height:92px!important;padding:11px 12px!important;resize:vertical}
+.eduka-final-v14 .form-grid input:focus,.eduka-final-v14 .form-grid select:focus,.eduka-final-v14 .form-grid textarea:focus{border-color:rgba(33,88,255,.55)!important;box-shadow:0 0 0 3px rgba(33,88,255,.08)!important}
+.eduka-final-v14 .form-grid>button,.eduka-final-v14 .form-grid button[type="submit"]{grid-column:1/-1;height:42px!important;border:1px solid var(--eduka-blue)!important;border-radius:10px!important;background:var(--eduka-blue)!important;color:#fff!important;font-size:13px!important;font-weight:800!important;padding:0 16px!important;cursor:pointer!important;box-shadow:0 5px 14px rgba(33,88,255,.18)}
+.eduka-final-v14 .form-grid>button:hover,.eduka-final-v14 .form-grid button[type="submit"]:hover{background:#164AE8!important;border-color:#164AE8!important}
+
+/* Quick-add and small popup menus */
+.eduka-final-v14 .quick-pop,.eduka-final-v14 .menu-pop{border:1px solid var(--eduka-border)!important;background:#fff!important;border-radius:12px!important;box-shadow:var(--eduka-shadow)!important;padding:6px!important}
+.eduka-final-v14 .quick-pop button,.eduka-final-v14 .menu-pop button{min-height:38px!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#344054!important;font-size:12px!important;font-weight:650!important;display:flex!important;align-items:center!important;gap:9px!important;padding:0 10px!important}
+.eduka-final-v14 .quick-pop button:hover,.eduka-final-v14 .menu-pop button:hover{background:var(--eduka-bg)!important;color:var(--eduka-blue)!important}
+.eduka-final-v14 .quick-pop [data-icon],.eduka-final-v14 .menu-pop [data-icon]{width:16px!important;height:16px!important;flex:0 0 16px!important}
+
+/* Tenant login */
+.eduka-final-v14 .tenant-login-screen{background:linear-gradient(145deg,#F7F9FD 0%,#EDF3FF 58%,#F8FAFD 100%)!important}
+.eduka-final-v14 .tenant-login-card{width:min(430px,calc(100vw - 32px))!important;border:1px solid rgba(33,88,255,.12)!important;border-radius:20px!important;background:rgba(255,255,255,.98)!important;box-shadow:0 24px 70px rgba(16,37,68,.14)!important;padding:30px!important}
+.eduka-final-v14 .tenant-login-card h1{color:var(--eduka-navy)!important;font-size:25px!important;letter-spacing:-.025em}
+.eduka-final-v14 .tenant-login-card p,.eduka-final-v14 .tenant-login-card small{color:var(--eduka-muted)!important}
+.eduka-final-v14 .tenant-login-card label{color:#475467!important;font-size:12px!important;font-weight:700!important}
+.eduka-final-v14 .tenant-login-card input{height:44px!important;border:1px solid #D9E1EA!important;border-radius:10px!important;background:#fff!important;padding:0 12px!important;color:var(--eduka-navy)!important}
+.eduka-final-v14 .tenant-login-card input:focus{border-color:rgba(33,88,255,.55)!important;box-shadow:0 0 0 3px rgba(33,88,255,.08)!important;outline:0!important}
+.eduka-final-v14 .tenant-login-card button[type="submit"]{height:44px!important;border:0!important;border-radius:10px!important;background:var(--eduka-blue)!important;color:#fff!important;font-size:13px!important;font-weight:800!important;box-shadow:0 7px 18px rgba(33,88,255,.2)!important}
+.eduka-final-v14 .login-logo{color:var(--eduka-blue)!important}
+.eduka-final-v14 .login-badge{background:var(--eduka-tint)!important;color:var(--eduka-blue)!important;border-radius:999px!important}
+
+/* Tables / horizontal overflow */
+.eduka-final-v14 :where(.groups-table-wrap-v094,.student-list-v095,.edu-table-wrap-v096,.fin-card-v097,.r98-table-wrap,.tasks-board-v092){scrollbar-width:thin;scrollbar-color:#C8D1DF transparent}
+.eduka-final-v14 :where(.groups-table-v094,.student-table-v095,.edu-table-v096,.fin-table-v097,.r98-table) th{white-space:nowrap}
+.eduka-final-v14 :where(.groups-table-v094,.student-table-v095,.edu-table-v096,.fin-table-v097,.r98-table) td{vertical-align:middle}
+.eduka-final-v14 :where(.group-actions-v094,.student-actions-v095,.edu-actions-v096,.fin-row-actions-v097,.task-actions-v092) button{flex:0 0 auto}
+
+/* Native page visual rhythm */
+.eduka-final-v14 :where(.edu-dashboard-v091,.leads093,.groups-v094,.students-v095,.finance-v097,.tasks-v092,.edu-v096,.reports-v098,.settings-v099){gap:16px!important}
+.eduka-final-v14 :where(.lead093-head h1,.groups-head-v094 h1,.students-head-v095 h1,.fin-head-v097 h1,.tasks-head-copy-v092 h1,.edu-head-v096 h1,.r98-head h1,.settings-head-v099 h1){letter-spacing:-.025em!important}
+.eduka-final-v14 :where(.lead093-head p,.groups-head-v094 p,.students-head-v095 p,.fin-head-v097 p,.tasks-head-copy-v092 p,.edu-head-v096 p,.r98-head p,.settings-head-v099 p){line-height:1.5!important}
+
+/* Remove accidental oversized SVG/illustration leakage everywhere inside CRM controls */
+.eduka-final-v14 button [data-icon],.eduka-final-v14 a [data-icon],.eduka-final-v14 .settings-nav-v099 [data-icon]{width:16px!important;height:16px!important;max-width:16px!important;max-height:16px!important;flex:0 0 16px!important}
+.eduka-final-v14 :where(button,a) svg{max-width:18px;max-height:18px}
+
+/* Responsive finishing */
+@media(max-width:900px){
+  .eduka-final-v14 .content{padding-left:14px!important;padding-right:14px!important}
+  .eduka-final-v14 .drawer{border-radius:16px 0 0 16px!important;padding:20px!important}
+}
+@media(max-width:640px){
+  .eduka-final-v14 .content{padding-left:10px!important;padding-right:10px!important}
+  .eduka-final-v14 .drawer{width:100vw!important;max-width:100vw!important;border-radius:16px 16px 0 0!important;top:auto!important;bottom:0!important;height:min(88vh,760px)!important}
+  .eduka-final-v14 .form-grid{grid-template-columns:1fr!important}
+  .eduka-final-v14 .form-grid>button,.eduka-final-v14 .form-grid button[type="submit"]{grid-column:1!important}
+  .eduka-final-v14 .tenant-login-card{padding:24px 20px!important}
+}
+@media(prefers-reduced-motion:reduce){.eduka-final-v14 *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
