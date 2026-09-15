@@ -44,7 +44,6 @@ const authLimiter = rateLimit({
 });
 app.use(['/api/ceo/login', '/api/tenant/login', '/api/app/login'], authLimiter);
 
-// Tenant gate API routelardan oldin: noma'lum subdomainlar API'ga ham kira olmaydi.
 installPhase35HardPageGate(app);
 
 app.get(['/api/health', '/health', '/healthz'], (req, res) => {
@@ -79,7 +78,6 @@ if (!PROD) {
   });
 }
 
-// API ROUTES — barcha API routelar SPA fallbackdan OLDIN.
 const apiRoutes = require('./routes/api');
 const centerRoutes = require('./routes/center-api');
 const centerV05Actions = require('./routes/center-v05-actions');
@@ -93,6 +91,7 @@ const centerV093Leads = require('./routes/center-v093-leads');
 const centerV094Groups = require('./routes/center-v094-groups');
 const centerV095Students = require('./routes/center-v095-students');
 const centerV096Academic = require('./routes/center-v096-academic');
+const centerV097FinancePayroll = require('./routes/center-v097-finance-payroll');
 const tenantRoutes = require('./routes/tenant-api');
 app.use('/api', apiRoutes);
 app.use('/api/app', centerRoutes);
@@ -107,9 +106,9 @@ app.use('/api/app', centerV093Leads);
 app.use('/api/app', centerV094Groups);
 app.use('/api/app', centerV095Students);
 app.use('/api/app', centerV096Academic);
+app.use('/api/app', centerV097FinancePayroll);
 app.use('/api/tenant', tenantRoutes);
 
-// Static assets.
 app.use(express.static(publicDir, {
   extensions: ['html'],
   maxAge: PROD ? '1h' : 0,
@@ -117,7 +116,6 @@ app.use(express.static(publicDir, {
   index: false,
 }));
 
-// Public marketing pages.
 app.get('/', (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'index.html'));
 app.get(['/uz', '/index.html'], (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'index.html'));
 app.get(['/gamification', '/uz/gamification'], (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'gamification.html'));
@@ -138,10 +136,8 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
 });
 
-// API 404 SPA fallbackdan oldin.
 app.all('/api/*', (req, res) => res.status(404).json({ ok: false, error: 'Not found' }));
 
-// Final SPA/page fallback.
 app.get('*', (req, res) => {
   if (tenantFromRequest(req)) return sendPage(res, 'app.html');
   if (req.path.startsWith('/ceo')) return sendPage(res, 'ceo.html');
