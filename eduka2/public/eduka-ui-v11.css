@@ -1,0 +1,31 @@
+/* EDUKA UI Kit v1.1 — shared product states and feedback. Landing is not linked to this file. */
+.eduka-ui-toast-stack{position:fixed;right:22px;bottom:22px;z-index:100000;display:grid;gap:10px;width:min(380px,calc(100vw - 32px));pointer-events:none}
+.eduka-ui-toast{pointer-events:auto;display:grid;grid-template-columns:36px 1fr auto;align-items:start;gap:11px;padding:13px 14px;border:1px solid var(--eduka-border);border-radius:14px;background:#fff;box-shadow:var(--eduka-shadow-md);color:var(--eduka-text);animation:edukaToastIn .2s ease}
+.eduka-ui-toast.is-leaving{opacity:0;transform:translateY(8px);transition:.18s ease}
+.eduka-ui-toast-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--eduka-blue-soft);color:var(--eduka-blue);font-weight:900}
+.eduka-ui-toast.success .eduka-ui-toast-icon{background:var(--eduka-success-soft);color:var(--eduka-success)}
+.eduka-ui-toast.error .eduka-ui-toast-icon{background:var(--eduka-danger-soft);color:var(--eduka-danger)}
+.eduka-ui-toast.warning .eduka-ui-toast-icon{background:var(--eduka-warning-soft);color:var(--eduka-warning)}
+.eduka-ui-toast-copy{min-width:0;padding-top:1px}.eduka-ui-toast-copy b{display:block;color:var(--eduka-navy);font-size:13px;line-height:1.35}.eduka-ui-toast-copy span{display:block;color:var(--eduka-muted);font-size:12px;line-height:1.45;margin-top:2px;overflow-wrap:anywhere}
+.eduka-ui-toast-close{width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--eduka-muted);cursor:pointer;font-size:18px;line-height:1}
+.eduka-ui-toast-close:hover{background:var(--eduka-bg);color:var(--eduka-navy)}
+@keyframes edukaToastIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+
+.eduka-ui-state{min-height:220px;display:grid;place-items:center;padding:28px;text-align:center;border:1px solid var(--eduka-border);border-radius:14px;background:#fff}
+.eduka-ui-state-inner{max-width:430px}.eduka-ui-state-icon{width:48px;height:48px;margin:0 auto 12px;border-radius:14px;display:grid;place-items:center;background:var(--eduka-blue-soft);color:var(--eduka-blue);font-size:20px;font-weight:900}
+.eduka-ui-state.error .eduka-ui-state-icon{background:var(--eduka-danger-soft);color:var(--eduka-danger)}
+.eduka-ui-state h3{margin:0;color:var(--eduka-navy);font-size:16px}.eduka-ui-state p{margin:6px 0 0;color:var(--eduka-muted);font-size:12px;line-height:1.55}.eduka-ui-state-actions{display:flex;justify-content:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.eduka-ui-btn{height:38px;border:1px solid var(--eduka-border-strong);border-radius:10px;background:#fff;color:var(--eduka-text);padding:0 13px;font-weight:750;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.eduka-ui-btn:hover{border-color:#C6D4E8;background:#FAFBFD}.eduka-ui-btn.primary{background:var(--eduka-blue);border-color:var(--eduka-blue);color:#fff}.eduka-ui-btn.primary:hover{background:var(--eduka-blue-hover);border-color:var(--eduka-blue-hover)}.eduka-ui-btn.danger{color:var(--eduka-danger);border-color:#F4C8CE;background:#fff}
+
+.eduka-ui-skeleton{position:relative;overflow:hidden;background:#EAF0F7!important;color:transparent!important;border-color:transparent!important}.eduka-ui-skeleton:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.72),transparent);animation:edukaSkeleton 1.25s infinite}@keyframes edukaSkeleton{100%{transform:translateX(100%)}}
+.eduka-ui-skeleton-line{height:12px;border-radius:999px;background:#EAF0F7;position:relative;overflow:hidden}.eduka-ui-skeleton-line:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.72),transparent);animation:edukaSkeleton 1.25s infinite}
+.eduka-ui-skeleton-card{border:1px solid var(--eduka-border);border-radius:14px;background:#fff;padding:16px;display:grid;gap:11px}.eduka-ui-skeleton-card .eduka-ui-skeleton-line:nth-child(1){width:44%}.eduka-ui-skeleton-card .eduka-ui-skeleton-line:nth-child(2){width:72%}.eduka-ui-skeleton-card .eduka-ui-skeleton-line:nth-child(3){width:58%}
+
+.eduka-ui-confirm-backdrop{position:fixed;inset:0;z-index:100001;display:grid;place-items:center;padding:20px;background:rgba(16,37,68,.38);backdrop-filter:blur(2px)}
+.eduka-ui-confirm{width:min(420px,100%);background:#fff;border:1px solid var(--eduka-border);border-radius:18px;box-shadow:0 30px 90px rgba(16,37,68,.24);padding:22px}
+.eduka-ui-confirm-icon{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--eduka-warning-soft);color:var(--eduka-warning);font-weight:900;margin-bottom:13px}.eduka-ui-confirm.danger .eduka-ui-confirm-icon{background:var(--eduka-danger-soft);color:var(--eduka-danger)}
+.eduka-ui-confirm h3{margin:0;color:var(--eduka-navy);font-size:17px}.eduka-ui-confirm p{margin:7px 0 0;color:var(--eduka-muted);font-size:12px;line-height:1.55}.eduka-ui-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.eduka-ui-progress{height:3px;position:fixed;left:0;right:0;top:0;z-index:100002;pointer-events:none;overflow:hidden;background:transparent}.eduka-ui-progress>i{display:block;height:100%;width:32%;background:var(--eduka-blue);border-radius:999px;animation:edukaProgress 1s ease-in-out infinite}@keyframes edukaProgress{0%{transform:translateX(-110%)}100%{transform:translateX(420%)}}
+
+@media(max-width:640px){.eduka-ui-toast-stack{right:12px;bottom:12px;width:calc(100vw - 24px)}.eduka-ui-confirm-actions{display:grid;grid-template-columns:1fr 1fr}.eduka-ui-confirm-actions .eduka-ui-btn{width:100%}}
