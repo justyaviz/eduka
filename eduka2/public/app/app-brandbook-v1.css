@@ -1,0 +1,250 @@
+/* EDUKA Brandbook v1 — tenant/client CRM theme. Landing untouched. */
+body.eduka-brandbook-v1.edutizim-client-v090{
+  --e-blue:var(--eduka-blue)!important;
+  --e-blue-hover:var(--eduka-blue-hover)!important;
+  --e-blue-soft:var(--eduka-blue-soft)!important;
+  --e-bg:var(--eduka-bg)!important;
+  --e-card:var(--eduka-surface)!important;
+  --e-border:var(--eduka-border)!important;
+  --e-text:var(--eduka-text)!important;
+  --e-muted:var(--eduka-muted)!important;
+  --e-radius:var(--eduka-radius)!important;
+  --e-shadow:var(--eduka-shadow-xs)!important;
+}
+
+/* ===== PRODUCT SHELL ===== */
+body.eduka-brandbook-v1 .crm-shell{background:var(--eduka-bg)!important}
+body.eduka-brandbook-v1 .sidebar{
+  background:#fff!important;border-right:1px solid var(--eduka-border)!important;box-shadow:none!important;
+}
+body.eduka-brandbook-v1 .side-top{border-bottom:1px solid var(--eduka-border)!important;background:#fff!important}
+body.eduka-brandbook-v1 .tenant-brand-logo{border-radius:9px!important;box-shadow:0 5px 14px rgba(33,88,255,.16)}
+body.eduka-brandbook-v1 .client-brand-static b{color:var(--eduka-navy)!important;font-weight:800!important;letter-spacing:-.025em!important}
+body.eduka-brandbook-v1 .client-brand-static small{color:var(--eduka-muted-2)!important;font-family:Manrope,Inter,sans-serif!important;font-weight:600!important}
+body.eduka-brandbook-v1 .quick-add{
+  border:1px solid #C9D7FF!important;background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important;border-radius:9px!important;
+}
+body.eduka-brandbook-v1 .quick-add:hover{background:#DDE8FF!important;border-color:#B7C9FF!important}
+body.eduka-brandbook-v1 .client-nav-group{font-family:Manrope,Inter,sans-serif!important;color:#A1ABBA!important;letter-spacing:.10em!important}
+body.eduka-brandbook-v1 .side-nav button{border-radius:10px!important;color:#536176!important;font-weight:600!important}
+body.eduka-brandbook-v1 .side-nav button:hover{background:#F7F9FC!important;color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 .side-nav button.active{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important;font-weight:700!important}
+body.eduka-brandbook-v1 .side-nav button.active em{font-weight:700!important}
+body.eduka-brandbook-v1 .client-sidebar-bottom{background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 24%)!important}
+body.eduka-brandbook-v1 .client-sidebar-bottom a{color:#6F7B8E!important;border-radius:10px!important}
+body.eduka-brandbook-v1 .client-sidebar-bottom a:hover{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+
+body.eduka-brandbook-v1 .topbar{
+  background:rgba(255,255,255,.97)!important;border-bottom:1px solid var(--eduka-border)!important;
+  box-shadow:0 3px 14px rgba(16,37,68,.035)!important;backdrop-filter:saturate(160%) blur(10px)!important;
+}
+body.eduka-brandbook-v1 .client-back-static,
+body.eduka-brandbook-v1 .top-actions>button,
+body.eduka-brandbook-v1 .top-actions>.shell-help{
+  border-radius:9px!important;color:#64748B!important;
+}
+body.eduka-brandbook-v1 .client-back-static:hover,
+body.eduka-brandbook-v1 .top-actions>button:hover,
+body.eduka-brandbook-v1 .top-actions>.shell-help:hover{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .crm-context-copy strong{color:var(--eduka-navy)!important;font-weight:750!important}
+body.eduka-brandbook-v1 .branch-switcher-v083,
+body.eduka-brandbook-v1 .client-global-search,
+body.eduka-brandbook-v1 .license{
+  border-color:var(--eduka-border)!important;background:#fff!important;border-radius:10px!important;box-shadow:var(--eduka-shadow-xs)!important;
+}
+body.eduka-brandbook-v1 .client-global-search{background:#F8FAFD!important}
+body.eduka-brandbook-v1 .client-global-search:focus-within{border-color:#AFC2FF!important;background:#fff!important;box-shadow:var(--eduka-focus)!important}
+body.eduka-brandbook-v1 .client-global-search kbd{font-family:Manrope,Inter,sans-serif!important;border-color:var(--eduka-border)!important;color:#8B96A8!important}
+body.eduka-brandbook-v1 .profile .avatar{background:var(--eduka-blue-soft)!important;border-color:#D4E0FF!important;color:var(--eduka-blue)!important;font-weight:800!important}
+body.eduka-brandbook-v1 .menu-pop,
+body.eduka-brandbook-v1 .quick-pop,
+body.eduka-brandbook-v1 .client-search-pop{border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-md)!important;background:#fff!important}
+body.eduka-brandbook-v1 .menu-pop button:hover,
+body.eduka-brandbook-v1 .quick-pop button:hover,
+body.eduka-brandbook-v1 .client-search-item:hover{background:var(--eduka-blue-faint)!important;color:var(--eduka-blue)!important}
+
+/* ===== PAGE CANVAS ===== */
+body.eduka-brandbook-v1 .content{background:var(--eduka-bg)!important;padding:18px 20px 32px!important}
+body.eduka-brandbook-v1 .content>div,
+body.eduka-brandbook-v1 .content>section{max-width:none}
+body.eduka-brandbook-v1 .module,
+body.eduka-brandbook-v1 .table-wrap,
+body.eduka-brandbook-v1 .settings-shell,
+body.eduka-brandbook-v1 .metric-card,
+body.eduka-brandbook-v1 .stat-card,
+body.eduka-brandbook-v1 .schedule,
+body.eduka-brandbook-v1 .empty-panel,
+body.eduka-brandbook-v1 [class*="-card-v09"],
+body.eduka-brandbook-v1 [class*="-kpi-v09"],
+body.eduka-brandbook-v1 [class*="-stat-v09"],
+body.eduka-brandbook-v1 [class*="-table-wrap-v09"]{
+  background:#fff!important;border-color:var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important;
+}
+
+/* ===== GLOBAL BUTTON LANGUAGE ===== */
+body.eduka-brandbook-v1 .btn,
+body.eduka-brandbook-v1 .groups-primary-v094,
+body.eduka-brandbook-v1 .settings-primary-v099,
+body.eduka-brandbook-v1 .settings-head-v099 button,
+body.eduka-brandbook-v1 .fin-btn-v097.primary,
+body.eduka-brandbook-v1 [class*="primary-v09"]{
+  min-height:38px!important;border-radius:10px!important;border:1px solid var(--eduka-blue)!important;background:var(--eduka-blue)!important;color:#fff!important;
+  font:700 12px/1 Inter,sans-serif!important;box-shadow:0 6px 14px rgba(33,88,255,.14)!important;padding-left:14px!important;padding-right:14px!important;
+}
+body.eduka-brandbook-v1 .btn:hover,
+body.eduka-brandbook-v1 .groups-primary-v094:hover,
+body.eduka-brandbook-v1 .settings-primary-v099:hover,
+body.eduka-brandbook-v1 .settings-head-v099 button:hover,
+body.eduka-brandbook-v1 .fin-btn-v097.primary:hover{background:var(--eduka-blue-hover)!important;border-color:var(--eduka-blue-hover)!important;transform:translateY(-1px)}
+body.eduka-brandbook-v1 .btn.outline,
+body.eduka-brandbook-v1 .btn.soft,
+body.eduka-brandbook-v1 .fin-btn-v097:not(.primary),
+body.eduka-brandbook-v1 .group-form-actions-v094 .ghost,
+body.eduka-brandbook-v1 .settings-actions-v099 button:not(.primary){
+  background:#fff!important;border:1px solid var(--eduka-border-strong)!important;color:#4F5E73!important;box-shadow:none!important;border-radius:10px!important;
+}
+body.eduka-brandbook-v1 .btn.outline:hover,
+body.eduka-brandbook-v1 .btn.soft:hover,
+body.eduka-brandbook-v1 .fin-btn-v097:not(.primary):hover,
+body.eduka-brandbook-v1 .settings-actions-v099 button:not(.primary):hover{background:var(--eduka-blue-faint)!important;border-color:#BFD0FF!important;color:var(--eduka-blue)!important}
+
+/* icon-only buttons */
+body.eduka-brandbook-v1 .group-actions-v094 button,
+body.eduka-brandbook-v1 .fin-icon-v097,
+body.eduka-brandbook-v1 button[class*="icon"]{
+  width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;padding:7px!important;border-radius:9px!important;
+  border:1px solid var(--eduka-border)!important;background:#fff!important;color:#64748B!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+}
+body.eduka-brandbook-v1 .group-actions-v094 button:hover,
+body.eduka-brandbook-v1 .fin-icon-v097:hover,
+body.eduka-brandbook-v1 button[class*="icon"]:hover{background:var(--eduka-blue-faint)!important;border-color:#BED0FF!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .group-actions-v094 button.danger:hover,
+body.eduka-brandbook-v1 button.danger:hover{background:var(--eduka-danger-soft)!important;border-color:#F3C5CC!important;color:var(--eduka-danger)!important}
+
+/* ===== FORMS ===== */
+body.eduka-brandbook-v1 .filters input,
+body.eduka-brandbook-v1 .filters select,
+body.eduka-brandbook-v1 .groups-toolbar-v094 input,
+body.eduka-brandbook-v1 .groups-toolbar-v094 select,
+body.eduka-brandbook-v1 .fin-period-v097 input,
+body.eduka-brandbook-v1 .fin-period-v097 select,
+body.eduka-brandbook-v1 .fin-toolbar-v097 input,
+body.eduka-brandbook-v1 .fin-toolbar-v097 select,
+body.eduka-brandbook-v1 .fin-form-v097 input,
+body.eduka-brandbook-v1 .fin-form-v097 select,
+body.eduka-brandbook-v1 .fin-form-v097 textarea,
+body.eduka-brandbook-v1 .settings-field-v099 input,
+body.eduka-brandbook-v1 .settings-field-v099 select,
+body.eduka-brandbook-v1 .settings-field-v099 textarea,
+body.eduka-brandbook-v1 .group-form-v094 input,
+body.eduka-brandbook-v1 .group-form-v094 select{
+  min-height:38px!important;border-radius:10px!important;border:1px solid var(--eduka-border-strong)!important;background:#fff!important;color:var(--eduka-text)!important;font:600 12px Inter,sans-serif!important;
+}
+body.eduka-brandbook-v1 input:focus,
+body.eduka-brandbook-v1 select:focus,
+body.eduka-brandbook-v1 textarea:focus{border-color:#9FB6FF!important;box-shadow:var(--eduka-focus)!important;outline:none!important}
+
+/* ===== GROUPS ===== */
+body.eduka-brandbook-v1 .groups-head-v094 .eyebrow{color:var(--eduka-blue)!important;font-family:Manrope,Inter,sans-serif!important}
+body.eduka-brandbook-v1 .groups-head-v094 h1{color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 .group-stat-v094{border-color:var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-brandbook-v1 .group-stat-v094>span{width:38px!important;height:38px!important;border-radius:10px!important;background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .groups-toolbar-v094{border-color:var(--eduka-border)!important;border-radius:12px!important;padding:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-brandbook-v1 .groups-table-wrap-v094{border-color:var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-brandbook-v1 .group-name-v094{font-family:Inter,sans-serif!important;color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 .group-name-v094:hover,
+body.eduka-brandbook-v1 .group-count-v094{color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .group-level-v094,
+body.eduka-brandbook-v1 .group-branch-v094,
+body.eduka-brandbook-v1 .group-type-v094{background:#F2F5F9!important;color:#59677A!important;font-family:Manrope,Inter,sans-serif!important}
+body.eduka-brandbook-v1 .group-day-v094 span{border-radius:9px!important}
+body.eduka-brandbook-v1 .group-day-v094 input:checked+span{background:var(--eduka-blue-soft)!important;border-color:#AFC2FF!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .group-detail-icon-v094{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .group-tabs-v094 button.active{color:var(--eduka-blue)!important;border-color:var(--eduka-blue)!important}
+
+/* ===== FINANCE ===== */
+body.eduka-brandbook-v1 .fin-head-v097,
+body.eduka-brandbook-v1 .fin-period-v097,
+body.eduka-brandbook-v1 .fin-card-v097,
+body.eduka-brandbook-v1 .fin-kpi-v097,
+body.eduka-brandbook-v1 .fin-cash-v097{border-color:var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-brandbook-v1 .fin-head-v097 h1{color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 .fin-tabs-v097{border-color:var(--eduka-border)!important}
+body.eduka-brandbook-v1 .fin-tabs-v097 button{font-family:Inter,sans-serif!important;color:#738095!important}
+body.eduka-brandbook-v1 .fin-tabs-v097 button.active{color:var(--eduka-blue)!important;border-color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .fin-kpi-v097 b{color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 .fin-pill-v097.blue{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .payroll-total-v097{color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .fin-note-v097{background:#F8FAFD!important;border-color:var(--eduka-border)!important}
+
+/* old finance action cards / any oversized action illustration: normalize into compact brand cards */
+body.eduka-brandbook-v1 .finance-actions,
+body.eduka-brandbook-v1 [class*="finance-action"]{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+body.eduka-brandbook-v1 [class*="finance-action"]>button,
+body.eduka-brandbook-v1 [class*="finance-action"]>article,
+body.eduka-brandbook-v1 [class*="finance-action"]>div{min-height:92px!important;border-radius:14px!important;border:1px solid var(--eduka-border)!important;background:#fff!important;box-shadow:var(--eduka-shadow-xs)!important;color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 [class*="finance-action"] svg{width:24px!important;height:24px!important;max-width:24px!important;max-height:24px!important;color:var(--eduka-blue)!important}
+
+/* ===== SETTINGS ===== */
+body.eduka-brandbook-v1 .settings-v099{grid-template-columns:240px minmax(0,1fr)!important;gap:14px!important}
+body.eduka-brandbook-v1 .settings-side-v099,
+body.eduka-brandbook-v1 .settings-main-v099{border-color:var(--eduka-border)!important;border-radius:14px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-brandbook-v1 .settings-brand-v099{border-color:#EDF1F6!important}
+body.eduka-brandbook-v1 .settings-brand-v099 small,
+body.eduka-brandbook-v1 .settings-group-v099{font-family:Manrope,Inter,sans-serif!important;color:#9AA5B5!important}
+body.eduka-brandbook-v1 .settings-brand-v099 h2,
+body.eduka-brandbook-v1 .settings-head-v099 h1{color:var(--eduka-navy)!important}
+body.eduka-brandbook-v1 .settings-nav-v099 button{font-family:Inter,sans-serif!important;color:#536176!important;border-radius:10px!important}
+body.eduka-brandbook-v1 .settings-nav-v099 button:hover{background:#F7F9FC!important}
+body.eduka-brandbook-v1 .settings-nav-v099 button.active{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .settings-nav-v099 button span[data-icon],
+body.eduka-brandbook-v1 .settings-nav-v099 button span[data-icon] svg{width:18px!important;height:18px!important;max-width:18px!important;max-height:18px!important;min-width:18px!important;min-height:18px!important}
+body.eduka-brandbook-v1 .settings-nav-v099 button span[data-icon]{overflow:hidden!important;flex:0 0 18px!important}
+body.eduka-brandbook-v1 .settings-card-v099,
+body.eduka-brandbook-v1 .settings-kpi-v099,
+body.eduka-brandbook-v1 .settings-item-v099{border-color:var(--eduka-border)!important;border-radius:12px!important;box-shadow:none!important}
+body.eduka-brandbook-v1 .settings-badge-v099.blue{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .settings-note-v099{background:#F7F9FC!important;color:#677489!important}
+body.eduka-brandbook-v1 .settings-toggle-v099 input{accent-color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .settings-loading-v099 i{border-color:#DCE5FF!important;border-top-color:var(--eduka-blue)!important}
+
+/* ===== COMMON STATUS LANGUAGE ===== */
+body.eduka-brandbook-v1 .badge.green,
+body.eduka-brandbook-v1 [class*="badge"][class*="green"],
+body.eduka-brandbook-v1 [class*="pill"][class*="green"]{background:var(--eduka-success-soft)!important;color:#087A53!important}
+body.eduka-brandbook-v1 .badge.blue,
+body.eduka-brandbook-v1 [class*="badge"][class*="blue"],
+body.eduka-brandbook-v1 [class*="pill"][class*="blue"]{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .badge.red,
+body.eduka-brandbook-v1 [class*="badge"][class*="red"]{background:var(--eduka-danger-soft)!important;color:var(--eduka-danger)!important}
+body.eduka-brandbook-v1 .badge.orange,
+body.eduka-brandbook-v1 [class*="badge"][class*="orange"]{background:var(--eduka-warning-soft)!important;color:var(--eduka-warning)!important}
+
+/* ===== DRAWERS / MODALS / PROFILE ===== */
+body.eduka-brandbook-v1 .drawer-backdrop{background:rgba(16,37,68,.30)!important;backdrop-filter:blur(2px)!important}
+body.eduka-brandbook-v1 .drawer{background:#fff!important;border-left:1px solid var(--eduka-border)!important;box-shadow:-24px 0 64px rgba(16,37,68,.14)!important}
+body.eduka-brandbook-v1 .drawer-close{border-radius:10px!important;color:#667085!important}
+body.eduka-brandbook-v1 .drawer-close:hover{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-brandbook-v1 .profile-pop{min-width:210px!important;padding:7px!important}
+body.eduka-brandbook-v1 .profile-pop button{gap:9px!important;color:#475569!important}
+
+/* ===== LOGIN/AUTH rendered by core app ===== */
+body.eduka-brandbook-v1 .login-page,
+body.eduka-brandbook-v1 .tenant-login-page,
+body.eduka-brandbook-v1 [class*="login-page"]{background:linear-gradient(145deg,#F7F9FE 0%,#EEF4FF 52%,#F4F7FB 100%)!important}
+body.eduka-brandbook-v1 .login-card,
+body.eduka-brandbook-v1 .tenant-login-card,
+body.eduka-brandbook-v1 [class*="login-card"]{border:1px solid var(--eduka-border)!important;border-radius:18px!important;background:#fff!important;box-shadow:0 30px 80px rgba(16,37,68,.10)!important}
+body.eduka-brandbook-v1 [class*="login-card"] button[type="submit"]{background:var(--eduka-blue)!important;border-color:var(--eduka-blue)!important;border-radius:11px!important;color:#fff!important}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:980px){
+  body.eduka-brandbook-v1 .content{padding:16px!important}
+  body.eduka-brandbook-v1 .settings-v099{grid-template-columns:1fr!important}
+}
+@media(max-width:680px){
+  body.eduka-brandbook-v1 .content{padding:12px!important}
+  body.eduka-brandbook-v1 .groups-summary-v094{grid-template-columns:1fr!important}
+  body.eduka-brandbook-v1 .finance-actions,
+  body.eduka-brandbook-v1 [class*="finance-action"]{grid-template-columns:1fr!important}
+}

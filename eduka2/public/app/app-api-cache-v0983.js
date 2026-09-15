@@ -1,5 +1,23 @@
-/* EDUKA CRM v0.9.8.5 — cache-safe GET requests. Client panel only. */
+/* EDUKA CRM v1.0 — cache-safe GET + Brandbook theme bootstrap. Client panel only. */
 (function(){
+  // Brandbook theme is intentionally injected after all legacy stylesheets so it becomes
+  // the single visual source of truth without touching the public landing.
+  try{
+    document.body.classList.add('eduka-brandbook-v1');
+    const links=[
+      '/brandbook-core-v1.css?v=1.0.0',
+      '/app/app-brandbook-v1.css?v=1.0.0'
+    ];
+    links.forEach((href)=>{
+      if(document.querySelector(`link[href^="${href.split('?')[0]}"]`)) return;
+      const link=document.createElement('link');
+      link.rel='stylesheet';
+      link.href=href;
+      link.dataset.edukaBrandbook='v1';
+      document.head.appendChild(link);
+    });
+  }catch(e){ console.error('EDUKA_BRANDBOOK_BOOTSTRAP_ERROR',e); }
+
   if(typeof API==='undefined') return;
   API.get=async function(url,fallback){
     try{
