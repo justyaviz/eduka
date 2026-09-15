@@ -106,4 +106,5 @@ router.get('/students-v200',requireCenterAuth,async(req,res)=>{
   }catch(error){return err(res,500,'O‘quvchilarni yuklashda xatolik',error);}
 });
 
+router.use(require('./center-v220-rooms-equipment'));
 module.exports=router;
