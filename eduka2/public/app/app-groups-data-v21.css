@@ -1,0 +1,10 @@
+/* EDUKA Clone v2.1 — Groups parity controls. Tenant CRM only. */
+.eduka-groups-filter-v21{display:grid;grid-template-columns:repeat(4,minmax(130px,.7fr)) auto auto;gap:8px;align-items:center;margin-top:-6px;padding:10px;background:#fff;border:1px solid #E4EAF3;border-radius:12px;font-family:Inter,system-ui,sans-serif}
+.eduka-groups-filter-v21 select{width:100%;height:36px;border:1px solid #DCE3ED;border-radius:9px;background:#fff;color:#475467;padding:0 30px 0 10px;font:700 11px Inter,system-ui,sans-serif;outline:none}.eduka-groups-filter-v21 select:focus{border-color:#8FAAFF;box-shadow:0 0 0 3px rgba(33,88,255,.08)}
+.eduka-groups-reset-v21{height:36px;border:1px solid #DCE3ED;border-radius:9px;background:#fff;color:#667085;padding:0 11px;font:800 11px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}.eduka-groups-reset-v21:hover{background:#F7F9FC;color:#2158FF;border-color:#A9BCFF}
+.groups-table-wrap-v094[data-eduka-v21]{border-radius:12px 12px 0 0;border-bottom:0}.groups-table-wrap-v094[data-eduka-v21]+.eduka-data-pager{margin-top:-15px;margin-bottom:0}
+.groups-table-v094 th{padding-top:0!important;padding-bottom:0!important}.groups-table-v094 .eduka-data-sort{min-height:40px;font-size:9px}
+.eduka-groups-empty-v21{min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:28px;text-align:center;color:#98A2B3;background:#fff}.eduka-groups-empty-v21 b{color:#344054;font-size:13px}.eduka-groups-empty-v21 span{font-size:10px}
+@media(max-width:1180px){.eduka-groups-filter-v21{grid-template-columns:repeat(3,minmax(0,1fr))}.eduka-groups-filter-v21 .eduka-data-columns-btn,.eduka-groups-reset-v21{width:100%}}
+@media(max-width:760px){.eduka-groups-filter-v21{grid-template-columns:1fr 1fr}.groups-table-wrap-v094[data-eduka-v21]+.eduka-data-pager{margin-top:-15px}}
+@media(max-width:520px){.eduka-groups-filter-v21{grid-template-columns:1fr}}
