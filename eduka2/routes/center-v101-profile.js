@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
-const { requireCenterAuth } = require('../middleware/center-auth');
+const { requireCenterAuth, signCenterToken } = require('../middleware/center-auth');
 
 const router = express.Router();
 const PROD = process.env.NODE_ENV === 'production';
@@ -13,7 +13,7 @@ function err(res,status,message,error){
 
 async function readProfile(userId,centerId){
   const q=await pool.query(`
-    SELECT u.id,u.full_name,u.email,u.role,u.status,u.branch_id,u.last_login_at,u.created_at,u.updated_at,
+    SELECT u.id,u.center_id,u.full_name,u.email,u.role,u.status,u.branch_id,u.last_login_at,u.created_at,u.updated_at,
            b.name AS branch_name,
            c.name AS center_name,c.subdomain
       FROM center_users u
@@ -39,16 +39,13 @@ function mapProfile(r){
     updatedAt:r.updated_at||null,
   };
 }
+function centerFromRow(r){return {id:r.center_id,name:r.center_name,subdomain:r.subdomain};}
 
 router.get('/profile-v101',requireCenterAuth,async(req,res)=>{
   try{
     const row=await readProfile(req.centerUser.id,req.centerUser.centerId);
     if(!row) return err(res,404,'Profil topilmadi');
-    return res.json({
-      ok:true,
-      profile:mapProfile(row),
-      center:{id:req.centerUser.centerId,name:row.center_name,subdomain:row.subdomain}
-    });
+    return res.json({ok:true,profile:mapProfile(row),center:centerFromRow(row)});
   }catch(error){return err(res,500,'Profilni yuklashda xatolik',error);}
 });
 
@@ -67,7 +64,9 @@ router.patch('/profile-v101',requireCenterAuth,async(req,res)=>{
     if(!q.rows[0]) return err(res,404,'Profil topilmadi');
 
     const row=await readProfile(req.centerUser.id,req.centerUser.centerId);
-    return res.json({ok:true,profile:mapProfile(row),center:{id:req.centerUser.centerId,name:row.center_name,subdomain:row.subdomain}});
+    const center=centerFromRow(row);
+    const token=signCenterToken(row,center);
+    return res.json({ok:true,profile:mapProfile(row),center,token});
   }catch(error){
     if(error.code==='23505') return err(res,409,'Bu email boshqa akkauntda ishlatilgan',error);
     return err(res,500,'Profilni saqlashda xatolik',error);
