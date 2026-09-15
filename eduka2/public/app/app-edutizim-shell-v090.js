@@ -18,7 +18,6 @@
   function safe(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
   function go(page){
-    if(page==='settings'){location.href='/app/settings';return;}
     if(typeof window.go==='function') window.go(page);
     else location.href=`/app/${page}`;
   }
@@ -81,14 +80,17 @@
     document.addEventListener('click',e=>{if(!e.target.closest('.client-global-search')&&!e.target.closest('#clientSearchPopV090'))closeSearch()});
   }
 
-  function bindSettingsNavigation(){
-    document.addEventListener('click',e=>{
-      const target=e.target.closest('#sideNav button[data-page="settings"],[data-shell-settings]');
-      if(!target)return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      location.href='/app/settings';
-    },true);
+  function settleSettingsReload(){
+    if(location.pathname.replace(/\/+$/,'')!=='/app/settings')return;
+    const started=Date.now();
+    const tick=()=>{
+      if($('#content .settings-v08')){
+        $('#bootLoader')?.classList.add('hide');
+        return;
+      }
+      if(Date.now()-started<6000)setTimeout(tick,100);
+    };
+    tick();
   }
 
   function bindBack(){const b=$('#clientBackStaticV090');if(b)b.onclick=()=>{if(history.length>1)history.back()}}
@@ -102,8 +104,8 @@
     document.body.classList.add('edutizim-client-v090');
     syncStaticLabels();
     bindSearch();
-    bindSettingsNavigation();
     bindBack();
+    settleSettingsReload();
     if(typeof window.renderIcons==='function')window.renderIcons();
   }
 
