@@ -92,6 +92,7 @@ const centerV083Branches = require('./routes/center-v083-branches');
 const centerV093Leads = require('./routes/center-v093-leads');
 const centerV094Groups = require('./routes/center-v094-groups');
 const centerV095Students = require('./routes/center-v095-students');
+const centerV096Academic = require('./routes/center-v096-academic');
 const tenantRoutes = require('./routes/tenant-api');
 app.use('/api', apiRoutes);
 app.use('/api/app', centerRoutes);
@@ -105,6 +106,7 @@ app.use('/api/app', centerV083Branches);
 app.use('/api/app', centerV093Leads);
 app.use('/api/app', centerV094Groups);
 app.use('/api/app', centerV095Students);
+app.use('/api/app', centerV096Academic);
 app.use('/api/tenant', tenantRoutes);
 
 // Static assets.
