@@ -93,6 +93,7 @@ const centerV095Students = require('./routes/center-v095-students');
 const centerV096Academic = require('./routes/center-v096-academic');
 const centerV097FinancePayroll = require('./routes/center-v097-finance-payroll');
 const centerV098Reports = require('./routes/center-v098-reports');
+const centerV101Profile = require('./routes/center-v101-profile');
 const tenantRoutes = require('./routes/tenant-api');
 app.use('/api', apiRoutes);
 app.use('/api/app', centerRoutes);
@@ -109,6 +110,7 @@ app.use('/api/app', centerV095Students);
 app.use('/api/app', centerV096Academic);
 app.use('/api/app', centerV097FinancePayroll);
 app.use('/api/app', centerV098Reports);
+app.use('/api/app', centerV101Profile);
 app.use('/api/tenant', tenantRoutes);
 
 app.use(express.static(publicDir, {
