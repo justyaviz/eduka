@@ -1,0 +1,156 @@
+/* EDUKA Brandbook v1 — public non-landing pages only.
+   Applied only on .brand-page.eduka-brandbook-v1. The landing page / is intentionally untouched. */
+body.brand-page.eduka-brandbook-v1{
+  background:var(--eduka-bg)!important;color:var(--eduka-text)!important;font-family:Inter,system-ui,sans-serif!important;
+}
+body.brand-page.eduka-brandbook-v1 .brand-container{width:min(1180px,calc(100% - 48px))!important}
+
+/* Global public topbar */
+body.brand-page.eduka-brandbook-v1 .eduka-topbar{background:rgba(255,255,255,.96)!important;border-bottom:1px solid var(--eduka-border)!important;box-shadow:0 3px 14px rgba(16,37,68,.035)!important;backdrop-filter:saturate(160%) blur(12px)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__logo span{color:var(--eduka-navy)!important;font-weight:800!important;letter-spacing:-.03em!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__logo img{border-radius:9px!important;box-shadow:0 5px 14px rgba(33,88,255,.14)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__links a{color:#536176!important;font-weight:650!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__links a:hover,
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__links a.active{color:var(--eduka-blue)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__links a::after{background:var(--eduka-blue)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__phone,
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__lang{color:#536176!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__demo{background:var(--eduka-blue)!important;color:#fff!important;border-radius:10px!important;box-shadow:0 7px 16px rgba(33,88,255,.15)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-topbar__demo:hover{background:var(--eduka-blue-hover)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-lang-menu{border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-md)!important}
+body.brand-page.eduka-brandbook-v1 .eduka-lang-menu button:hover{background:var(--eduka-blue-faint)!important;color:var(--eduka-blue)!important}
+
+/* Public icon standard */
+body.brand-page.eduka-brandbook-v1 [data-hicon]{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;max-width:18px!important;max-height:18px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;color:currentColor!important;overflow:hidden!important}
+body.brand-page.eduka-brandbook-v1 [data-hicon] svg,
+body.brand-page.eduka-brandbook-v1 .hicon-ready svg{width:18px!important;height:18px!important;max-width:18px!important;max-height:18px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+
+/* Public typography */
+body.brand-page.eduka-brandbook-v1 h1,
+body.brand-page.eduka-brandbook-v1 h2,
+body.brand-page.eduka-brandbook-v1 h3,
+body.brand-page.eduka-brandbook-v1 h4{color:var(--eduka-navy)!important;font-family:Inter,sans-serif!important}
+body.brand-page.eduka-brandbook-v1 p{color:var(--eduka-muted)!important}
+body.brand-page.eduka-brandbook-v1 .page-pill{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important;border:1px solid #D6E2FF!important;font-family:Manrope,Inter,sans-serif!important;font-weight:700!important;letter-spacing:.02em!important}
+
+/* Buttons and links */
+body.brand-page.eduka-brandbook-v1 .primary-btn,
+body.brand-page.eduka-brandbook-v1 .brand-demo,
+body.brand-page.eduka-brandbook-v1 .video-btn,
+body.brand-page.eduka-brandbook-v1 .apply-btn,
+body.brand-page.eduka-brandbook-v1 .telegram-btn,
+body.brand-page.eduka-brandbook-v1 .payment-banner a,
+body.brand-page.eduka-brandbook-v1 .price-card-text a,
+body.brand-page.eduka-brandbook-v1 .demo-submit,
+body.brand-page.eduka-brandbook-v1 .support-lead-form button[type="submit"]{
+  background:var(--eduka-blue)!important;color:#fff!important;border-color:var(--eduka-blue)!important;border-radius:11px!important;box-shadow:0 7px 16px rgba(33,88,255,.15)!important;font-weight:750!important;
+}
+body.brand-page.eduka-brandbook-v1 .primary-btn:hover,
+body.brand-page.eduka-brandbook-v1 .brand-demo:hover,
+body.brand-page.eduka-brandbook-v1 .video-btn:hover,
+body.brand-page.eduka-brandbook-v1 .apply-btn:hover,
+body.brand-page.eduka-brandbook-v1 .telegram-btn:hover,
+body.brand-page.eduka-brandbook-v1 .payment-banner a:hover,
+body.brand-page.eduka-brandbook-v1 .price-card-text a:hover{background:var(--eduka-blue-hover)!important}
+body.brand-page.eduka-brandbook-v1 .outline-btn{background:#fff!important;color:var(--eduka-blue)!important;border:1px solid #BFD0FF!important;border-radius:11px!important}
+body.brand-page.eduka-brandbook-v1 .outline-btn:hover{background:var(--eduka-blue-faint)!important}
+
+/* Pricing */
+body.prices-page.eduka-brandbook-v1 .prices-hero{background:linear-gradient(180deg,#F8FAFF 0%,var(--eduka-bg) 100%)!important;padding-top:72px!important}
+body.prices-page.eduka-brandbook-v1 .prices-hero h1{font-size:48px!important;color:var(--eduka-navy)!important;font-weight:800!important;letter-spacing:-.045em!important}
+body.prices-page.eduka-brandbook-v1 .pricing-table-wrap{border:1px solid var(--eduka-border)!important;border-radius:16px!important;box-shadow:var(--eduka-shadow-sm)!important}
+body.prices-page.eduka-brandbook-v1 .pricing-table th{background:#F7F9FD!important;color:var(--eduka-navy)!important;font-family:Inter,sans-serif!important}
+body.prices-page.eduka-brandbook-v1 .pricing-table td{border-color:#EDF1F6!important;color:#344054!important;font-family:Inter,sans-serif!important}
+body.prices-page.eduka-brandbook-v1 .pricing-table td small{color:var(--eduka-blue)!important}
+body.prices-page.eduka-brandbook-v1 .highlight-row{background:var(--eduka-blue-faint)!important}
+body.prices-page.eduka-brandbook-v1 .highlight-row td{color:var(--eduka-blue)!important}
+body.prices-page.eduka-brandbook-v1 .payment-banner{background:linear-gradient(135deg,var(--eduka-blue-faint),#fff)!important;border-color:#D7E3FF!important;border-radius:16px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.prices-page.eduka-brandbook-v1 .bonus-badges span{border-color:var(--eduka-border)!important;border-radius:10px!important;box-shadow:var(--eduka-shadow-xs)!important;color:#5B687C!important}
+body.prices-page.eduka-brandbook-v1 .bonus-badges [data-hicon]{color:var(--eduka-blue)!important}
+body.prices-page.eduka-brandbook-v1 .down-arrows span{border-color:var(--eduka-blue)!important}
+body.prices-page.eduka-brandbook-v1 .gamification-price-card{background:linear-gradient(135deg,var(--eduka-blue-faint),#fff)!important;border-color:#D7E3FF!important;border-radius:18px!important;box-shadow:var(--eduka-shadow-sm)!important}
+body.prices-page.eduka-brandbook-v1 .price-card-text h2 [data-hicon]{color:var(--eduka-blue)!important}
+body.prices-page.eduka-brandbook-v1 .price-bubble{background:var(--eduka-blue)!important;box-shadow:0 18px 36px rgba(33,88,255,.18)!important}
+
+/* Gamification */
+body.game-page.eduka-brandbook-v1 .game-hero{background:radial-gradient(circle at 50% 20%,rgba(33,88,255,.10),transparent 28%),linear-gradient(180deg,#FBFCFF 0%,#EEF4FF 100%)!important;min-height:570px!important}
+body.game-page.eduka-brandbook-v1 .game-hero::before{background:rgba(33,88,255,.045)!important}
+body.game-page.eduka-brandbook-v1 .game-hero::after{background-image:radial-gradient(rgba(33,88,255,.16) 1.5px,transparent 1.5px)!important}
+body.game-page.eduka-brandbook-v1 .game-hero h1{color:var(--eduka-navy)!important;font-weight:800!important;letter-spacing:-.055em!important}
+body.game-page.eduka-brandbook-v1 .game-hero p{color:#66758A!important;font-weight:500!important}
+body.game-page.eduka-brandbook-v1 .floating-icon{color:var(--eduka-blue)!important}
+body.game-page.eduka-brandbook-v1 .floating-icon svg{width:44px!important;height:44px!important;max-width:44px!important;max-height:44px!important}
+body.game-page.eduka-brandbook-v1 .scroll-mouse{border-color:rgba(33,88,255,.30)!important}
+body.game-page.eduka-brandbook-v1 .scroll-mouse::before{background:var(--eduka-blue)!important}
+body.game-page.eduka-brandbook-v1 .game-features,
+body.game-page.eduka-brandbook-v1 .game-cta{background:var(--eduka-bg)!important}
+body.game-page.eduka-brandbook-v1 .game-section-title h2{font-weight:800!important;color:var(--eduka-navy)!important}
+body.game-page.eduka-brandbook-v1 .game-card{border:1px solid var(--eduka-border)!important;border-radius:16px!important;box-shadow:var(--eduka-shadow-sm)!important;padding:28px!important}
+body.game-page.eduka-brandbook-v1 .game-card-icon{width:44px!important;height:44px!important;border-radius:11px!important;background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.game-page.eduka-brandbook-v1 .game-card h3{font-weight:750!important;color:var(--eduka-navy)!important}
+body.game-page.eduka-brandbook-v1 .game-card p{color:#6D7B8F!important}
+body.game-page.eduka-brandbook-v1 .game-cta-box{background:linear-gradient(135deg,var(--eduka-blue),#3E70FF)!important;border-radius:18px!important;box-shadow:0 24px 54px rgba(33,88,255,.18)!important}
+body.game-page.eduka-brandbook-v1 .game-cta-box h2{color:#fff!important;font-weight:800!important}
+body.game-page.eduka-brandbook-v1 .game-cta-box p{color:#EAF0FF!important}
+body.game-page.eduka-brandbook-v1 .game-cta-box a{background:#fff!important;color:var(--eduka-blue)!important;border-radius:11px!important}
+
+/* Vacancies */
+body.vacancies-page.eduka-brandbook-v1 .vacancy-hero{background:radial-gradient(circle at 50% 0%,rgba(33,88,255,.075),transparent 34%),var(--eduka-bg)!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-hero h1{color:var(--eduka-navy)!important;font-weight:800!important;letter-spacing:-.045em!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-card{border:1px solid var(--eduka-border)!important;border-radius:18px!important;box-shadow:var(--eduka-shadow-sm)!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-card-head{background:linear-gradient(135deg,var(--eduka-blue-faint),#fff)!important;padding:30px 32px!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-card-head h2{color:var(--eduka-navy)!important;font-weight:800!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-tags span,
+body.vacancies-page.eduka-brandbook-v1 .mini-tags span,
+body.vacancies-page.eduka-brandbook-v1 .offer-tags span{border-color:var(--eduka-border)!important;border-radius:10px!important;color:#536176!important;font-family:Manrope,Inter,sans-serif!important;box-shadow:none!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-tags [data-hicon],
+body.vacancies-page.eduka-brandbook-v1 .offer-tags [data-hicon],
+body.vacancies-page.eduka-brandbook-v1 .language-box h3 [data-hicon]{color:var(--eduka-blue)!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-body{padding:30px 32px 34px!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-desc{color:#617086!important}
+body.vacancies-page.eduka-brandbook-v1 .check-list.orange li::before,
+body.vacancies-page.eduka-brandbook-v1 .check-list.orange li::after{color:var(--eduka-blue)!important}
+body.vacancies-page.eduka-brandbook-v1 .offer-box{background:#F8FAFD!important;border-color:var(--eduka-border)!important;border-radius:14px!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-bottom{border-color:var(--eduka-border)!important}
+body.vacancies-page.eduka-brandbook-v1 .vacancy-note a{color:var(--eduka-blue)!important}
+
+/* Demo modal and support chat on public non-landing pages */
+body.brand-page.eduka-brandbook-v1 .demo-modal-backdrop,
+body.brand-page.eduka-brandbook-v1 .support-chat-backdrop{background:rgba(16,37,68,.34)!important;backdrop-filter:blur(3px)!important}
+body.brand-page.eduka-brandbook-v1 .demo-modal-card,
+body.brand-page.eduka-brandbook-v1 .support-chat-panel{border:1px solid var(--eduka-border)!important;border-radius:18px!important;box-shadow:0 30px 90px rgba(16,37,68,.18)!important;background:#fff!important}
+body.brand-page.eduka-brandbook-v1 .demo-modal-close,
+body.brand-page.eduka-brandbook-v1 .support-close-btn{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important;border-radius:10px!important}
+body.brand-page.eduka-brandbook-v1 .demo-field input,
+body.brand-page.eduka-brandbook-v1 .demo-field select,
+body.brand-page.eduka-brandbook-v1 .support-lead-form input,
+body.brand-page.eduka-brandbook-v1 .support-message-form input{border:1px solid var(--eduka-border-strong)!important;border-radius:10px!important;font-family:Inter,sans-serif!important}
+body.brand-page.eduka-brandbook-v1 .demo-field input:focus,
+body.brand-page.eduka-brandbook-v1 .demo-field select:focus,
+body.brand-page.eduka-brandbook-v1 .support-lead-form input:focus,
+body.brand-page.eduka-brandbook-v1 .support-message-form input:focus{outline:none!important;border-color:#9FB6FF!important;box-shadow:var(--eduka-focus)!important}
+body.brand-page.eduka-brandbook-v1 .quick-questions button{border-color:var(--eduka-border)!important;border-radius:10px!important;color:#536176!important;background:#fff!important}
+body.brand-page.eduka-brandbook-v1 .quick-questions button:hover{background:var(--eduka-blue-faint)!important;border-color:#C2D2FF!important;color:var(--eduka-blue)!important}
+body.brand-page.eduka-brandbook-v1 .support-brand-badge{background:var(--eduka-blue-soft)!important;border-radius:11px!important}
+body.brand-page.eduka-brandbook-v1 .online-dot{background:var(--eduka-success)!important}
+
+/* Footer */
+body.brand-page.eduka-brandbook-v1 .eduka-footer,
+body.brand-page.eduka-brandbook-v1 .brand-footer{background:var(--eduka-navy)!important;color:#fff!important}
+body.brand-page.eduka-brandbook-v1 .eduka-footer h4,
+body.brand-page.eduka-brandbook-v1 .brand-footer h4{color:#fff!important}
+body.brand-page.eduka-brandbook-v1 .eduka-footer p,
+body.brand-page.eduka-brandbook-v1 .brand-footer p,
+body.brand-page.eduka-brandbook-v1 .eduka-footer a,
+body.brand-page.eduka-brandbook-v1 .brand-footer a{color:#D9E2F0!important}
+body.brand-page.eduka-brandbook-v1 .eduka-footer__socials a,
+body.brand-page.eduka-brandbook-v1 .brand-socials a{background:var(--eduka-blue)!important;border-radius:10px!important;color:#fff!important}
+body.brand-page.eduka-brandbook-v1 .footer-demo{background:var(--eduka-blue)!important;border-radius:10px!important}
+
+/* Loader */
+body.brand-page.eduka-brandbook-v1 .site-loader{background:rgba(244,247,251,.97)!important}
+body.brand-page.eduka-brandbook-v1 .dot{background:#BFD0FF!important}
+body.brand-page.eduka-brandbook-v1 .dot:nth-child(2){background:#7D9EFF!important}
+body.brand-page.eduka-brandbook-v1 .dot:nth-child(3){background:var(--eduka-blue)!important}
+
+@media(max-width:1050px){body.brand-page.eduka-brandbook-v1 .brand-container{width:min(1180px,calc(100% - 30px))!important}}
