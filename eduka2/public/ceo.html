@@ -7,11 +7,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/ceo/ceo.css">
-  <link rel="stylesheet" href="/brandbook-core-v1.css?v=1.0.0">
-  <link rel="stylesheet" href="/ceo/ceo-brandbook-v1.css?v=1.0.0">
+  <link rel="stylesheet" href="/brandbook-core-v1.css?v=1.1.0">
+  <link rel="stylesheet" href="/eduka-ui-v11.css?v=1.1.0">
+  <link rel="stylesheet" href="/ceo/ceo-native-v11.css?v=1.1.0">
 </head>
-<body class="eduka-brandbook-v1">
+<body class="eduka-brandbook-v1 eduka-ceo-v11">
   <div class="dots-loader" id="ceoLoader"><div class="dots-container"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
 
   <main class="ceo-login-page" id="ceoLoginPage" hidden>
@@ -52,15 +52,17 @@
       </nav>
       <div class="help-box"><b>Yordam kerakmi?</b><p>Support va sotuv bo‘limi ma’lumotlari sozlamalarda boshqariladi.</p></div>
     </aside>
+    <div class="ceo-mobile-overlay" id="ceoMobileOverlayV11"></div>
 
     <section class="ceo-main">
       <header class="ceo-topbar">
+        <button class="ceo-mobile-menu" id="ceoMobileMenuV11" type="button" aria-label="Menyuni ochish">☰</button>
         <h1 id="pageTitle">Boshqaruv paneli</h1>
         <div class="top-actions">
-          <div class="search"><i data-icon="search"></i><input placeholder="Qidiruv..."></div>
+          <div class="search"><i data-icon="search"></i><input id="ceoGlobalSearchV11" placeholder="Markaz yoki demo qidirish..."></div>
           <button class="ceo-bell"><i data-icon="bell"></i><b>0</b></button>
           <div class="ceo-profile"><strong>CEO</strong><span>ceo@eduka.uz</span></div>
-          <button id="ceoLogout" class="logout"><i data-icon="logout"></i></button>
+          <button id="ceoLogout" class="logout" title="Chiqish" aria-label="Chiqish"><i data-icon="logout"></i></button>
         </div>
       </header>
 
@@ -132,6 +134,8 @@
     </div>
   </div>
 
-  <script src="/ceo/ceo.js"></script>
+  <script src="/eduka-ui-v11.js?v=1.1.0"></script>
+  <script src="/ceo/ceo.js?v=1.1.0"></script>
+  <script src="/ceo/ceo-native-v11.js?v=1.1.0"></script>
 </body>
 </html>
