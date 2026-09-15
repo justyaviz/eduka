@@ -1,21 +1,30 @@
-/* EDUKA CRM v1.0 — cache-safe GET + Brandbook theme bootstrap. Client panel only. */
+/* EDUKA CRM v1.0.1 — cache-safe GET + Brandbook bootstrap. Client panel only. */
 (function(){
-  // Brandbook theme is intentionally injected after all legacy stylesheets so it becomes
-  // the single visual source of truth without touching the public landing.
+  /*
+   * Keep all visual dependencies in <head> as early as this bootstrap can run.
+   * The CRM boot-loader remains visible during startup, so users never need to see
+   * the legacy theme before these styles finish loading.
+   */
   try{
-    document.body.classList.add('eduka-brandbook-v1');
-    const links=[
-      '/brandbook-core-v1.css?v=1.0.0',
-      '/app/app-brandbook-v1.css?v=1.0.0'
-    ];
-    links.forEach((href)=>{
-      if(document.querySelector(`link[href^="${href.split('?')[0]}"]`)) return;
+    document.body.classList.add('eduka-brandbook-v1','eduka-brandbook-v101');
+
+    const ensureLink=(href,attrs={})=>{
+      const base=href.split('?')[0];
+      if(document.querySelector(`link[href^="${base}"]`)) return;
       const link=document.createElement('link');
-      link.rel='stylesheet';
+      link.rel=attrs.rel||'stylesheet';
       link.href=href;
-      link.dataset.edukaBrandbook='v1';
+      if(attrs.crossOrigin) link.crossOrigin=attrs.crossOrigin;
+      link.dataset.edukaBrandbook='v1.0.1';
       document.head.appendChild(link);
-    });
+    };
+
+    if(!document.querySelector('link[href*="fonts.googleapis.com/css2?family=Inter"]')){
+      ensureLink('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap');
+    }
+    ensureLink('/brandbook-core-v1.css?v=1.0.1');
+    ensureLink('/app/app-brandbook-v1.css?v=1.0.1');
+    ensureLink('/app/app-hardening-v101.css?v=1.0.1');
   }catch(e){ console.error('EDUKA_BRANDBOOK_BOOTSTRAP_ERROR',e); }
 
   if(typeof API==='undefined') return;
