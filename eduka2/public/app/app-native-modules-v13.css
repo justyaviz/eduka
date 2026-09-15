@@ -1,0 +1,143 @@
+/* EDUKA Brandbook v1.3 — native completion for Tasks, Teachers/Academic, Reports and Settings. Client CRM only. */
+body.eduka-native-v13 :is(.tasks-v092,.edu-v096,.reports-v098,.settings-v099){font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif!important;color:var(--eduka-text)}
+
+/* Shared page rhythm */
+body.eduka-native-v13 :is(.tasks-v092,.edu-v096,.reports-v098){gap:16px}
+body.eduka-native-v13 :is(.tasks-head-copy-v092,.edu-head-v096,.r98-head) h1,
+body.eduka-native-v13 .settings-head-v099 h1{font-family:Inter,system-ui,sans-serif!important;font-size:24px!important;line-height:1.2!important;font-weight:800!important;letter-spacing:-.035em!important;color:var(--eduka-navy)!important}
+body.eduka-native-v13 :is(.tasks-head-copy-v092,.edu-head-v096,.r98-head,.settings-head-v099) p{color:var(--eduka-muted)!important;font-size:12px!important;line-height:1.5}
+
+/* Native buttons */
+body.eduka-native-v13 :is(.tasks-btn-v092,.edu-primary-v096,.edu-secondary-v096,.r98-export button,.r98-filters>button,.settings-head-v099 button,.settings-primary-v099,.settings-actions-v099 button,.settings-item-v099 button){
+  min-height:38px!important;border-radius:10px!important;font-family:Inter,system-ui,sans-serif!important;font-size:11px!important;font-weight:750!important;letter-spacing:0!important;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:none!important
+}
+body.eduka-native-v13 :is(.tasks-btn-v092,.edu-secondary-v096,.r98-export button,.settings-actions-v099 button,.settings-item-v099 button){background:#fff!important;border:1px solid var(--eduka-border-strong)!important;color:#536174!important}
+body.eduka-native-v13 :is(.tasks-btn-v092.primary,.edu-primary-v096,.r98-export .primary,.r98-filters>button,.settings-head-v099 button,.settings-primary-v099,.settings-actions-v099 button.primary){background:var(--eduka-blue)!important;border-color:var(--eduka-blue)!important;color:#fff!important}
+body.eduka-native-v13 :is(.tasks-btn-v092.primary,.edu-primary-v096,.r98-export .primary,.r98-filters>button,.settings-head-v099 button,.settings-primary-v099,.settings-actions-v099 button.primary):hover{background:var(--eduka-blue-hover)!important;border-color:var(--eduka-blue-hover)!important}
+body.eduka-native-v13 :is(.task-actions-v092 button,.edu-icon-v096){width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;border:1px solid var(--eduka-border)!important;border-radius:9px!important;background:#fff!important;color:#66758a!important;display:grid!important;place-items:center!important;padding:0!important}
+body.eduka-native-v13 :is(.task-actions-v092 button,.edu-icon-v096):hover{border-color:#B9C8FF!important;background:var(--eduka-blue-faint)!important;color:var(--eduka-blue)!important}
+body.eduka-native-v13 :is(.task-actions-v092 button,.edu-icon-v096) [data-icon],
+body.eduka-native-v13 :is(.task-actions-v092 button,.edu-icon-v096) svg{width:16px!important;height:16px!important;max-width:16px!important;max-height:16px!important}
+body.eduka-native-v13 :is(.task-actions-v092 button.danger,.edu-icon-v096.danger){color:var(--eduka-danger)!important}
+body.eduka-native-v13 :is(.task-actions-v092 button.danger,.edu-icon-v096.danger):hover{background:var(--eduka-danger-soft)!important;border-color:#F2C6CC!important;color:var(--eduka-danger)!important}
+
+/* Inputs / filters / forms */
+body.eduka-native-v13 :is(.tasks-filter-v092,.edu-toolbar-v096,.r98-filters){background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-native-v13 :is(.tasks-filter-v092 input,.tasks-filter-v092 select,.task-drawer-form-v092 input,.task-drawer-form-v092 select,.task-drawer-form-v092 textarea,
+.edu-search-v096,.edu-toolbar-v096 select,.edu-form-v096 input,.edu-form-v096 select,.edu-form-v096 textarea,
+.r98-filters input,.r98-filters select,.settings-field-v099 input,.settings-field-v099 select,.settings-field-v099 textarea){
+  border:1px solid var(--eduka-border-strong)!important;border-radius:9px!important;background:#fff!important;color:var(--eduka-text)!important;font-family:Inter,system-ui,sans-serif!important;font-size:11px!important;font-weight:600!important;box-shadow:none!important
+}
+body.eduka-native-v13 :is(.tasks-filter-v092 input,.tasks-filter-v092 select,.task-drawer-form-v092 input,.task-drawer-form-v092 select,.task-drawer-form-v092 textarea,
+.edu-search-v096,.edu-toolbar-v096 select,.edu-form-v096 input,.edu-form-v096 select,.edu-form-v096 textarea,
+.r98-filters input,.r98-filters select,.settings-field-v099 input,.settings-field-v099 select,.settings-field-v099 textarea):focus{border-color:#8EA9FF!important;box-shadow:var(--eduka-focus)!important;outline:0!important}
+body.eduka-native-v13 .edu-search-v096 input{font-family:Inter,system-ui,sans-serif!important;font-size:11px!important;color:var(--eduka-text)!important}
+body.eduka-native-v13 :is(.task-drawer-form-v092 label,.edu-form-v096 label,.r98-filters label,.settings-field-v099 span){font-family:Manrope,Inter,sans-serif!important;color:#66758a!important;font-size:10px!important;font-weight:800!important}
+
+/* Tabs */
+body.eduka-native-v13 :is(.tasks-tabs-v092,.r98-tabs){border-bottom:1px solid var(--eduka-border)!important}
+body.eduka-native-v13 :is(.tasks-tab-v092,.r98-tabs button,.edu-tabs-v096 button,.edu-profile-tabs-v096 button){font-family:Inter,system-ui,sans-serif!important;font-size:11px!important;font-weight:750!important;color:#778398!important}
+body.eduka-native-v13 :is(.tasks-tab-v092.active,.r98-tabs button.active){color:var(--eduka-blue)!important;border-bottom-color:var(--eduka-blue)!important}
+body.eduka-native-v13 .edu-tabs-v096{background:#EEF2F7!important;border-radius:10px!important;padding:4px!important}
+body.eduka-native-v13 :is(.edu-tabs-v096 button,.edu-profile-tabs-v096 button){border-radius:8px!important}
+body.eduka-native-v13 :is(.edu-tabs-v096 button.active,.edu-profile-tabs-v096 button.active){background:#fff!important;color:var(--eduka-blue)!important;border-color:#B9C8FF!important;box-shadow:var(--eduka-shadow-xs)!important}
+
+/* KPI systems */
+body.eduka-native-v13 :is(.tasks-summary-v092,.edu-kpis-v096,.r98-kpis,.settings-kpis-v099){gap:10px!important}
+body.eduka-native-v13 :is(.tasks-summary-card-v092,.edu-kpi-v096,.r98-kpi,.settings-kpi-v099){background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+body.eduka-native-v13 :is(.tasks-summary-card-v092,.edu-kpi-v096,.r98-kpi,.settings-kpi-v099):hover{border-color:#D4DFF0!important;box-shadow:var(--eduka-shadow-sm)!important;transform:translateY(-1px)}
+body.eduka-native-v13 :is(.tasks-summary-card-v092,.edu-kpi-v096,.r98-kpi,.settings-kpi-v099) :is(strong,b){color:var(--eduka-navy)!important;font-family:Inter,system-ui,sans-serif!important;font-weight:800!important}
+body.eduka-native-v13 :is(.tasks-summary-card-v092,.edu-kpi-v096,.r98-kpi,.settings-kpi-v099) :is(span,small){color:var(--eduka-muted)!important}
+body.eduka-native-v13 :is(.tasks-summary-icon-v092,.r98-kpi>span){background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important;border-radius:9px!important}
+
+/* Tasks */
+body.eduka-native-v13 .tasks-board-v092{background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important;overflow:hidden}
+body.eduka-native-v13 .tasks-list-head-v092{background:#FAFBFD!important;border-bottom-color:#EDF1F6!important;color:#718095!important;font-family:Manrope,Inter,sans-serif!important;font-size:9px!important;font-weight:800!important;letter-spacing:.045em!important}
+body.eduka-native-v13 .task-row-v092{border-bottom-color:#EDF1F6!important;transition:background .16s ease}
+body.eduka-native-v13 .task-row-v092:hover{background:#F8FAFE!important}
+body.eduka-native-v13 .task-title-v092 b{color:var(--eduka-navy)!important;font-weight:750!important}
+body.eduka-native-v13 :is(.task-title-v092 p,.task-person-v092,.task-time-v092){color:#718095!important}
+body.eduka-native-v13 .task-type-v092{background:#F1F4F8!important;color:#627085!important;border-radius:999px!important;font-family:Manrope,Inter,sans-serif!important;font-weight:800!important}
+body.eduka-native-v13 .task-time-v092.overdue{color:var(--eduka-danger)!important}
+body.eduka-native-v13 .tasks-empty-v092{color:var(--eduka-muted)!important}
+
+/* Teachers + Academic */
+body.eduka-native-v13 :is(.edu-table-wrap-v096,.edu-resource-v096){background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-native-v13 .edu-table-v096 th{background:#FAFBFD!important;color:#718095!important;font-family:Manrope,Inter,sans-serif!important;font-size:9px!important;font-weight:800!important;letter-spacing:.04em!important;text-transform:uppercase!important;border-bottom-color:#EDF1F6!important}
+body.eduka-native-v13 .edu-table-v096 td{color:#526176!important;border-bottom-color:#EDF1F6!important}
+body.eduka-native-v13 .edu-table-v096 tbody tr:hover{background:#F8FAFE!important}
+body.eduka-native-v13 .edu-avatar-v096{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-native-v13 .edu-person-v096 b{color:var(--eduka-navy)!important}
+body.eduka-native-v13 .edu-pill-v096{background:#F1F4F8!important;color:#657489!important;font-family:Manrope,Inter,sans-serif!important}
+body.eduka-native-v13 .edu-pill-v096.blue{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-native-v13 .edu-pill-v096.green{background:var(--eduka-success-soft)!important;color:var(--eduka-success)!important}
+body.eduka-native-v13 .edu-pill-v096.orange{background:var(--eduka-warning-soft)!important;color:var(--eduka-warning)!important}
+body.eduka-native-v13 .edu-resource-v096 h3{color:var(--eduka-navy)!important;font-weight:800!important}
+body.eduka-native-v13 .edu-resource-meta-v096 div{background:#F7F9FC!important;border-radius:8px!important}
+body.eduka-native-v13 :is(.edu-group-row-v096,.edu-att-row-v096){border-color:var(--eduka-border)!important;border-radius:9px!important;background:#fff!important}
+body.eduka-native-v13 .edu-note-v096{background:var(--eduka-blue-faint)!important;border-color:#DDE7FF!important;border-radius:9px!important;color:#66758a!important}
+
+/* Reports */
+body.eduka-native-v13 .reports-v098{font-family:Inter,system-ui,sans-serif!important}
+body.eduka-native-v13 .r98-card{background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:12px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-native-v13 .r98-card>header{border-bottom-color:#EDF1F6!important;padding:14px 15px!important}
+body.eduka-native-v13 .r98-card>header h3{color:var(--eduka-navy)!important;font-weight:800!important}
+body.eduka-native-v13 .r98-bar-row i{background:#EDF1F6!important;height:6px!important}
+body.eduka-native-v13 .r98-bar-row u{background:var(--eduka-blue)!important}
+body.eduka-native-v13 .r98-fin-col .in{background:var(--eduka-blue)!important}
+body.eduka-native-v13 .r98-fin-col .out{background:#F08A82!important}
+body.eduka-native-v13 .r98-table th{background:#FAFBFD!important;color:#718095!important;font-family:Manrope,Inter,sans-serif!important;font-size:9px!important;font-weight:800!important;letter-spacing:.04em!important;border-bottom-color:#EDF1F6!important}
+body.eduka-native-v13 .r98-table td{color:#526176!important;border-bottom-color:#EDF1F6!important}
+body.eduka-native-v13 .r98-table tbody tr:hover{background:#F8FAFE!important}
+body.eduka-native-v13 .r98-status{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important;font-family:Manrope,Inter,sans-serif!important}
+body.eduka-native-v13 .r98-note{background:var(--eduka-blue-faint)!important;border-color:#DDE7FF!important;color:#63718A!important;border-radius:10px!important}
+body.eduka-native-v13 .r98-error{background:var(--eduka-danger-soft)!important;border-color:#F2C6CC!important;color:#B83F4C!important}
+
+/* Settings — fully Brandbook-native */
+body.eduka-native-v13 .settings-v099{grid-template-columns:240px minmax(0,1fr)!important;gap:14px!important}
+body.eduka-native-v13 :is(.settings-side-v099,.settings-main-v099){background:#fff!important;border:1px solid var(--eduka-border)!important;border-radius:14px!important;box-shadow:var(--eduka-shadow-xs)!important}
+body.eduka-native-v13 .settings-side-v099{padding:10px!important;top:68px!important}
+body.eduka-native-v13 .settings-brand-v099{border-bottom-color:#EDF1F6!important;padding:10px 10px 13px!important}
+body.eduka-native-v13 .settings-brand-v099 small,
+body.eduka-native-v13 .settings-group-v099{font-family:Manrope,Inter,sans-serif!important;color:#94A0B1!important;font-size:9px!important;font-weight:800!important;letter-spacing:.08em!important}
+body.eduka-native-v13 .settings-brand-v099 h2{color:var(--eduka-navy)!important;font-size:18px!important;font-weight:800!important}
+body.eduka-native-v13 .settings-nav-v099 button{height:40px!important;border-radius:9px!important;padding:0 10px!important;font-family:Inter,system-ui,sans-serif!important;font-size:11px!important;font-weight:700!important;color:#5C697D!important;gap:9px!important}
+body.eduka-native-v13 .settings-nav-v099 button:hover{background:#F5F8FC!important;color:#344258!important}
+body.eduka-native-v13 .settings-nav-v099 button.active{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-native-v13 .settings-nav-v099 button [data-icon]{width:17px!important;height:17px!important;min-width:17px!important;min-height:17px!important;max-width:17px!important;max-height:17px!important;flex:0 0 17px!important}
+body.eduka-native-v13 .settings-main-v099{padding:18px!important}
+body.eduka-native-v13 .settings-card-v099{border:1px solid var(--eduka-border)!important;border-radius:12px!important;padding:15px!important;box-shadow:none!important}
+body.eduka-native-v13 .settings-card-v099 h3{color:var(--eduka-navy)!important;font-size:14px!important;font-weight:800!important}
+body.eduka-native-v13 .settings-card-v099>p{color:var(--eduka-muted)!important;font-size:11px!important}
+body.eduka-native-v13 .settings-toggle-v099{border-bottom-color:#EDF1F6!important;padding:12px 0!important}
+body.eduka-native-v13 .settings-toggle-v099 b{color:#344258!important;font-size:11px!important}
+body.eduka-native-v13 .settings-toggle-v099 small{color:var(--eduka-muted)!important;font-size:10px!important}
+body.eduka-native-v13 .settings-toggle-v099 input{accent-color:var(--eduka-blue)!important;width:17px!important;height:17px!important}
+body.eduka-native-v13 .settings-table-v099 th{background:#FAFBFD!important;color:#718095!important;font-family:Manrope,Inter,sans-serif!important;font-size:9px!important;font-weight:800!important;letter-spacing:.04em!important;text-transform:uppercase!important}
+body.eduka-native-v13 .settings-table-v099 td{color:#526176!important;border-bottom-color:#EDF1F6!important}
+body.eduka-native-v13 .settings-item-v099{border-color:var(--eduka-border)!important;border-radius:10px!important;background:#fff!important}
+body.eduka-native-v13 .settings-badge-v099{font-family:Manrope,Inter,sans-serif!important;background:#F1F4F8!important;color:#657489!important}
+body.eduka-native-v13 .settings-badge-v099.active{background:var(--eduka-success-soft)!important;color:var(--eduka-success)!important}
+body.eduka-native-v13 .settings-badge-v099.blue{background:var(--eduka-blue-soft)!important;color:var(--eduka-blue)!important}
+body.eduka-native-v13 .settings-note-v099{background:#F7F9FC!important;color:#66758a!important;border-radius:9px!important}
+body.eduka-native-v13 .settings-loading-v099{color:var(--eduka-muted)!important}
+body.eduka-native-v13 .settings-loading-v099 i{border-color:#DDE7FF!important;border-top-color:var(--eduka-blue)!important}
+body.eduka-native-v13 .settings-alert-v099{background:var(--eduka-danger-soft)!important;border-color:#F2C6CC!important;color:#B83F4C!important;border-radius:10px!important}
+
+/* Native empty/loading states */
+body.eduka-native-v13 :is(.tasks-empty-v092,.edu-empty-v096,.r98-empty,.r98-loading,.settings-loading-v099){border-radius:12px!important;color:var(--eduka-muted)!important}
+
+@media(max-width:900px){
+  body.eduka-native-v13 .settings-v099{grid-template-columns:1fr!important}
+  body.eduka-native-v13 .settings-side-v099{position:static!important}
+  body.eduka-native-v13 .settings-nav-v099{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important}
+  body.eduka-native-v13 .settings-group-v099{grid-column:1/-1!important}
+}
+@media(max-width:720px){
+  body.eduka-native-v13 :is(.tasks-head-v092,.edu-head-v096,.r98-head,.settings-head-v099){flex-direction:column!important;align-items:stretch!important}
+  body.eduka-native-v13 :is(.tasks-head-actions-v092,.r98-export){width:100%!important}
+  body.eduka-native-v13 :is(.tasks-head-actions-v092,.r98-export)>button{flex:1!important}
+  body.eduka-native-v13 .settings-main-v099{padding:12px!important}
+  body.eduka-native-v13 .settings-nav-v099{grid-template-columns:1fr 1fr!important}
+}
+@media(prefers-reduced-motion:reduce){body.eduka-native-v13 *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
