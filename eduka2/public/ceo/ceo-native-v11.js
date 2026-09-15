@@ -23,6 +23,16 @@
     };
   }
 
+  function patchPageLoading(){
+    const original=window.openPage;
+    if(!window.EDUKA_UI||typeof original!=='function'||window.__EDUKA_CEO_PAGE_PATCHED)return;
+    window.__EDUKA_CEO_PAGE_PATCHED=true;
+    window.openPage=async function(page){
+      window.EDUKA_UI.startProgress();
+      try{return await original(page)}finally{window.EDUKA_UI.stopProgress()}
+    };
+  }
+
   function patchDangerConfirm(){
     document.addEventListener('click',async e=>{
       const btn=e.target.closest('[data-center-status]');
@@ -87,6 +97,6 @@
     const s=document.createElement('style');s.id='ceoNativeInlineV11';s.textContent=`.ceo-search-pop-v11{position:fixed;z-index:150;top:56px;right:150px;width:min(430px,calc(100vw - 32px));max-height:390px;overflow:auto;padding:6px;background:#fff;border:1px solid var(--eduka-border);border-radius:12px;box-shadow:var(--eduka-shadow-md)}.ceo-search-pop-v11[hidden]{display:none!important}.ceo-search-pop-v11 button{width:100%;min-height:44px;border:0;border-radius:9px;background:#fff;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;cursor:pointer}.ceo-search-pop-v11 button:hover{background:#F5F8FC}.ceo-search-pop-v11 span{display:grid;gap:2px;min-width:0}.ceo-search-pop-v11 b{font-size:11px;color:var(--eduka-navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ceo-search-pop-v11 small{font-size:9px;color:var(--eduka-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ceo-search-pop-v11 em{font-style:normal;font:800 8px Manrope,Inter,sans-serif;color:var(--eduka-blue);background:var(--eduka-blue-soft);border-radius:999px;padding:5px 7px}.ceo-search-empty-v11{padding:26px;text-align:center;color:var(--eduka-muted);font-size:11px}@media(max-width:840px){.ceo-search-pop-v11{right:12px;left:12px;top:60px;width:auto}}`;document.head.appendChild(s);
   }
 
-  function init(){addStyles();patchToast();initMobile();initSearch();patchDangerConfirm()}
+  function init(){addStyles();patchToast();patchPageLoading();initMobile();initSearch();patchDangerConfirm()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
