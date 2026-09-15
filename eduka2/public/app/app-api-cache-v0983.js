@@ -51,4 +51,14 @@
       return fallback;
     }
   };
+
+  const originalPatch=API.patch.bind(API);
+  API.patch=async function(url,body){
+    const data=await originalPatch(url,body);
+    if(data?.ok && data?.token && String(url).startsWith('/api/app/profile-v101')){
+      localStorage.setItem('eduka_center_token',data.token);
+      this.token=data.token;
+    }
+    return data;
+  };
 })();
