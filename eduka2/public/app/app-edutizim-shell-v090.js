@@ -10,6 +10,7 @@
     ['teachers','O‘qituvchilar','teacher','Ustozlar va yuklama'],
     ['reminders','Topshiriqlar','clock','Bugungi va kechikkan vazifalar'],
     ['finance','Moliya','coin','To‘lov, kirim va chiqim'],
+    ['reports','Hisobotlar','chart','KPI, tahlil va eksport'],
     ['settings','Sozlamalar','settings','Markaz va tizim sozlamalari']
   ];
 
