@@ -7,12 +7,13 @@ const PROD=process.env.NODE_ENV==='production';
 function clean(v){return v==null?'':String(v).trim();}
 function num(v){const n=Number(v||0);return Number.isFinite(n)?n:0;}
 function err(res,status,message,error){return res.status(status).json({ok:false,error:message,...(PROD||!error?{}:{realError:error.message,code:error.code||null})});}
-function teacherMap(r){return {id:r.id,name:r.full_name,fullName:r.full_name,phone:r.phone||'',subject:r.subject||'',salary:num(r.salary),birthDate:r.birth_date,gender:r.gender||'',photoUrl:r.photo_url||'',status:r.status||'active',createdAt:r.created_at,groupCount:Number(r.group_count||0),studentCount:Number(r.student_count||0),branchCount:Number(r.branch_count||0),attendanceTotal:Number(r.attendance_total||0),attendancePresent:Number(r.attendance_present||0),attendanceAbsent:Number(r.attendance_absent||0),attendanceLate:Number(r.attendance_late||0)};}
+function teacherMap(r){return {id:r.id,name:r.full_name,fullName:r.full_name,phone:r.phone||'',subject:r.subject||'',salary:num(r.salary),birthDate:r.birth_date,gender:r.gender||'',photoUrl:r.photo_url||'',status:r.status||'active',createdAt:r.created_at,groupCount:Number(r.group_count||0),studentCount:Number(r.student_count||0),branchCount:Number(r.branch_count||0),branchIds:Array.isArray(r.branch_ids)?r.branch_ids.map(String):[],attendanceTotal:Number(r.attendance_total||0),attendancePresent:Number(r.attendance_present||0),attendanceAbsent:Number(r.attendance_absent||0),attendanceLate:Number(r.attendance_late||0)};}
 
 const TEACHERS_SQL=`SELECT t.*,
  (SELECT COUNT(*)::int FROM study_groups g WHERE g.center_id=t.center_id AND g.teacher_id=t.id AND COALESCE(g.status,'active')<>'deleted') group_count,
  (SELECT COUNT(DISTINCT gs.student_id)::int FROM study_groups g JOIN group_students gs ON gs.group_id=g.id AND gs.center_id=g.center_id AND gs.status='active' WHERE g.center_id=t.center_id AND g.teacher_id=t.id AND COALESCE(g.status,'active')<>'deleted') student_count,
  (SELECT COUNT(DISTINCT g.branch_id)::int FROM study_groups g WHERE g.center_id=t.center_id AND g.teacher_id=t.id AND g.branch_id IS NOT NULL AND COALESCE(g.status,'active')<>'deleted') branch_count,
+ ARRAY(SELECT DISTINCT g.branch_id::text FROM study_groups g WHERE g.center_id=t.center_id AND g.teacher_id=t.id AND g.branch_id IS NOT NULL AND COALESCE(g.status,'active')<>'deleted') branch_ids,
  (SELECT COUNT(*)::int FROM attendance a JOIN study_groups g ON g.id=a.group_id AND g.center_id=a.center_id WHERE a.center_id=t.center_id AND g.teacher_id=t.id) attendance_total,
  (SELECT COUNT(*)::int FROM attendance a JOIN study_groups g ON g.id=a.group_id AND g.center_id=a.center_id WHERE a.center_id=t.center_id AND g.teacher_id=t.id AND a.status='present') attendance_present,
  (SELECT COUNT(*)::int FROM attendance a JOIN study_groups g ON g.id=a.group_id AND g.center_id=a.center_id WHERE a.center_id=t.center_id AND g.teacher_id=t.id AND a.status='absent') attendance_absent,
@@ -22,9 +23,10 @@ const TEACHERS_SQL=`SELECT t.*,
 router.get('/teachers-v096',requireCenterAuth,async(req,res)=>{
  try{
   const q=await pool.query(TEACHERS_SQL+' ORDER BY t.created_at DESC',[req.centerUser.centerId]);
-  const teachers=q.rows.map(teacherMap);const search=clean(req.query.q).toLowerCase();
-  const rows=search?teachers.filter(t=>[t.name,t.phone,t.subject].some(v=>String(v||'').toLowerCase().includes(search))):teachers;
-  return res.json({ok:true,teachers:rows,summary:{total:teachers.length,active:teachers.filter(t=>String(t.status).toLowerCase()==='active').length,assigned:teachers.filter(t=>t.groupCount>0).length,subjects:new Set(teachers.map(t=>t.subject).filter(Boolean)).size,monthlySalary:teachers.reduce((a,t)=>a+t.salary,0)}});
+  const teachers=q.rows.map(teacherMap);const search=clean(req.query.q).toLowerCase(),branch=clean(req.query.branchId);
+  let rows=teachers;if(branch)rows=rows.filter(t=>t.branchIds.includes(branch));
+  if(search)rows=rows.filter(t=>[t.name,t.phone,t.subject].some(v=>String(v||'').toLowerCase().includes(search)));
+  return res.json({ok:true,teachers:rows,summary:{total:rows.length,active:rows.filter(t=>String(t.status).toLowerCase()==='active').length,assigned:rows.filter(t=>t.groupCount>0).length,subjects:new Set(rows.map(t=>t.subject).filter(Boolean)).size,monthlySalary:rows.reduce((a,t)=>a+t.salary,0)}});
  }catch(error){return err(res,500,'O‘qituvchilarni yuklashda xatolik',error);}
 });
 
