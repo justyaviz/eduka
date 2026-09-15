@@ -12,7 +12,9 @@
       limit:clamp(parseInt(q.get('limit')||d.limit,10)||d.limit,1,100),
       sortBy:q.get('sortBy')||d.sortBy,
       sortOrder:(q.get('sortOrder')||d.sortOrder)==='asc'?'asc':'desc',
-      q:q.get('q')||'',source:q.get('source')||'all',status:q.get('status')||'all',assignedTo:q.get('assignedTo')||'all'
+      q:q.get('q')||'',
+      source:q.get('source')||'all',status:q.get('status')||'all',assignedTo:q.get('assignedTo')||'all',
+      tab:q.get('tab')||'',groupId:q.get('groupId')||'',courseId:q.get('courseId')||'',gender:q.get('gender')||'',balance:q.get('balance')||'',branchId:q.get('branchId')||''
     };
   }
   function write(patch,{replace=true,resetPage=false}={}){
