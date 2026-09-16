@@ -20,10 +20,21 @@ let dbStarted = false;
 
 function sendPage(res, fileName) {
   const filePath = path.join(publicDir, fileName);
+  if (fileName === 'app.html') {
+    // Tenant CRM shell must never be kept as a stale HTML document by a proxy/browser.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.set('Pragma', 'no-cache');
+    res.set('Vary', 'Host');
+  }
   if (fs.existsSync(filePath)) return res.sendFile(filePath);
   const fallback = path.join(publicDir, 'index.html');
   if (fs.existsSync(fallback)) return res.sendFile(fallback);
   return res.status(503).send('EDUKA public files missing');
+}
+
+const STATIC_ASSET_RE = /\.(?:css|js|mjs|png|jpe?g|webp|gif|svg|ico|avif|woff2?|ttf|otf|eot|map|json|txt|xml|pdf|zip)$/i;
+function isStaticAssetPath(urlPath) {
+  return STATIC_ASSET_RE.test(String(urlPath || ''));
 }
 
 app.disable('x-powered-by');
@@ -44,6 +55,7 @@ const authLimiter = rateLimit({
 });
 app.use(['/api/ceo/login', '/api/tenant/login', '/api/app/login'], authLimiter);
 
+// Unknown tenant subdomains fail closed before any CRM HTML is exposed.
 installPhase35HardPageGate(app);
 
 app.get(['/api/health', '/health', '/healthz'], (req, res) => {
@@ -115,6 +127,33 @@ app.use('/api/app', centerV101Profile);
 app.use('/api/app', centerV200DataEngine);
 app.use('/api/tenant', tenantRoutes);
 
+/*
+ * CLIENT CRM HOST ROUTER
+ * ----------------------
+ * A valid center subdomain is an application host, not a marketing host.
+ * Every page-like request on <center>.eduka.uz must therefore resolve to the
+ * client CRM shell, including /, /index.html, /prices, /ceo and deep SPA URLs.
+ * Static assets and APIs are allowed through normally.
+ *
+ * This middleware intentionally runs BEFORE express.static so a tenant can
+ * never accidentally receive the landing/CEO HTML via an explicit .html URL.
+ */
+app.use((req, res, next) => {
+  if (!['GET', 'HEAD'].includes(req.method)) return next();
+  const tenant = tenantFromRequest(req);
+  if (!tenant) return next();
+  if (String(req.path || '').startsWith('/api/')) return next();
+  if (isStaticAssetPath(req.path)) return next();
+  return sendPage(res, 'app.html');
+});
+
+// The apex domain keeps only the public landing and CEO console. The client CRM
+// is entered through a center subdomain; the old apex /app entry is retired.
+app.get(['/app', '/app/', '/app.html'], (req, res) => {
+  if (tenantFromRequest(req)) return sendPage(res, 'app.html');
+  return res.redirect(302, '/');
+});
+
 app.use(express.static(publicDir, {
   extensions: ['html'],
   maxAge: PROD ? '1h' : 0,
@@ -122,14 +161,24 @@ app.use(express.static(publicDir, {
   index: false,
 }));
 
+// Public landing routes. On tenant hosts these are intercepted above and open CRM.
 app.get('/', (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'index.html'));
 app.get(['/uz', '/index.html'], (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'index.html'));
 app.get(['/gamification', '/uz/gamification'], (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'gamification.html'));
 app.get(['/prices', '/uz/prices'], (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'prices.html'));
 app.get(['/vacancies', '/uz/vacancies'], (req, res) => tenantFromRequest(req) ? sendPage(res, 'app.html') : sendPage(res, 'vacancies.html'));
 
-app.get(['/ceo', '/ceo/', '/ceo/*'], (req, res) => sendPage(res, 'ceo.html'));
-app.get(['/app', '/app/', '/app/*'], (req, res) => sendPage(res, 'app.html'));
+// CEO design/routes stay untouched and are available only from the apex host.
+app.get(['/ceo', '/ceo/', '/ceo/*'], (req, res) => {
+  if (tenantFromRequest(req)) return sendPage(res, 'app.html');
+  return sendPage(res, 'ceo.html');
+});
+
+// Old client CRM path on the apex host is intentionally retired.
+app.get(['/app/*'], (req, res) => {
+  if (tenantFromRequest(req)) return sendPage(res, 'app.html');
+  return res.redirect(302, '/');
+});
 
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send('User-agent: *\nAllow: /\nDisallow: /ceo\nDisallow: /app\nSitemap: https://eduka.uz/sitemap.xml\n');
@@ -145,9 +194,12 @@ app.get('/sitemap.xml', (req, res) => {
 app.all('/api/*', (req, res) => res.status(404).json({ ok: false, error: 'Not found' }));
 
 app.get('*', (req, res) => {
-  if (tenantFromRequest(req)) return sendPage(res, 'app.html');
+  if (tenantFromRequest(req)) {
+    if (isStaticAssetPath(req.path)) return res.status(404).end();
+    return sendPage(res, 'app.html');
+  }
   if (req.path.startsWith('/ceo')) return sendPage(res, 'ceo.html');
-  if (req.path.startsWith('/app')) return sendPage(res, 'app.html');
+  if (req.path.startsWith('/app')) return res.redirect(302, '/');
   return sendPage(res, 'index.html');
 });
 
