@@ -15,6 +15,25 @@ function rootDomain() {
     .replace(/\/$/, '');
 }
 
+function normalizeTenantSlug(value) {
+  const root = rootDomain();
+  let v = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .split(':')[0]
+    .replace(/^www\./, '')
+    .replace(/\.$/, '');
+
+  if (v.endsWith(`.${root}`)) {
+    v = v.slice(0, -(`.${root}`).length);
+  }
+
+  // EDUKA uses one tenant level: <center>.eduka.uz
+  return v.split('.')[0] || null;
+}
+
 function tenantFromRequest(req) {
   const host = normalizeHost(req.headers['x-forwarded-host'] || req.headers.host || '');
   const root = rootDomain();
@@ -24,18 +43,20 @@ function tenantFromRequest(req) {
   if (!host.endsWith(`.${root}`)) return null;
 
   const left = host.slice(0, -(`.${root}`).length);
-  return left.split('.')[0] || null;
+  return normalizeTenantSlug(left);
 }
 
 async function findCenterByTenant(tenant) {
-  if (!tenant) return null;
+  const slug = normalizeTenantSlug(tenant);
+  if (!slug) return null;
+  const root = rootDomain();
   const result = await pool.query(
     `SELECT *
        FROM centers
       WHERE lower(subdomain) = lower($1)
-         OR lower(subdomain) = lower($1 || '.eduka.uz')
+         OR lower(subdomain) = lower($1 || $2)
       LIMIT 1`,
-    [tenant]
+    [slug, `.${root}`]
   );
   return result.rows[0] || null;
 }
@@ -43,6 +64,7 @@ async function findCenterByTenant(tenant) {
 module.exports = {
   normalizeHost,
   rootDomain,
+  normalizeTenantSlug,
   tenantFromRequest,
   findCenterByTenant,
 };
