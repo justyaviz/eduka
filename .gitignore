@@ -1,0 +1,7 @@
+node_modules/
+**/node_modules/
+eduka2/public/crm/
+eduka2/utils/crm-catalog.cjs
+*.tsbuildinfo
+.env
+.env.*

@@ -126,6 +126,7 @@ app.use('/api/app', centerV098Reports);
 app.use('/api/app', centerV101Profile);
 app.use('/api/app', centerV200DataEngine);
 app.use('/api/tenant', tenantRoutes);
+app.use('/api/crm', require('./routes/crm-workspace'));
 
 /*
  * CLIENT CRM HOST ROUTER
@@ -209,7 +210,7 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ ok: false, error: 'Server error', ...(PROD ? {} : { realError: err.message }) });
 });
 
-app.listen(PORT, HOST, () => {
+if (require.main === module) app.listen(PORT, HOST, () => {
   console.log(`✅ EDUKA running on ${HOST}:${PORT}`);
   console.log('✅ Healthcheck ready: /api/health');
 
@@ -229,3 +230,5 @@ app.listen(PORT, HOST, () => {
     }
   }, 1200);
 });
+
+module.exports = app;

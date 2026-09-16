@@ -74,6 +74,8 @@ router.get('/status', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
+    const origin=req.get('origin');
+    if(origin){try{if(new URL(origin).hostname.toLowerCase()!==String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim().split(':')[0].toLowerCase())return res.status(403).json({ok:false,error:'Noto‘g‘ri so‘rov manbasi'})}catch{return res.status(403).json({ok:false,error:'Noto‘g‘ri so‘rov manbasi'})}}
     const tenant = tenantFromRequest(req);
     if (!tenant) return res.status(400).json({ ok: false, error: 'CRM login markaz subdomainida bajarilishi kerak' });
 
@@ -95,8 +97,8 @@ router.post('/login', async (req, res) => {
           AND cu.status = 'active'
           AND (
             lower(cu.email) = lower($2)
-            OR lower(COALESCE(c.owner_email,'')) = lower($2)
-            OR regexp_replace(COALESCE(c.owner_phone,''), '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')
+            OR (cu.role IN ('owner','director') AND lower(COALESCE(c.owner_email,'')) = lower($2))
+            OR (cu.role IN ('owner','director') AND regexp_replace($2, '[^0-9]', '', 'g') <> '' AND regexp_replace(COALESCE(c.owner_phone,''), '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g'))
           )
         ORDER BY cu.created_at ASC
         LIMIT 1`,
@@ -118,6 +120,7 @@ router.post('/login', async (req, res) => {
 
     await pool.query(`UPDATE center_users SET last_login_at=NOW(), updated_at=NOW() WHERE id=$1`, [user.id]);
     const token = signCenterToken(user, center);
+    res.cookie('eduka_session',token,{httpOnly:true,secure:PROD,sameSite:'strict',path:'/',maxAge:7*24*60*60*1000});
 
     return res.json({
       ok: true,

@@ -1,0 +1,1 @@
+export default function BrandLogo({className=''}:{className?:string}){return <span className={'eduka-logo '+className} role="img" aria-label="EDUKA"><img className="eduka-logo-light" src="/crm/brand/EDUKA-primary-horizontal.png" alt="" width="1672" height="941"/><img className="eduka-logo-dark" src="/crm/brand/EDUKA-reverse-white.png" alt="" width="1672" height="941"/></span>}

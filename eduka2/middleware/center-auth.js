@@ -30,7 +30,8 @@ function signCenterToken(user, center) {
 
 async function requireCenterAuth(req, res, next) {
   const header = String(req.headers.authorization || '');
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const cookie=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('eduka_session='));
+  const token = header.startsWith('Bearer ') ? header.slice(7) : cookie?.slice('eduka_session='.length);
   if (!token) return res.status(401).json({ ok: false, error: 'Unauthorized' });
 
   let payload;

@@ -4,25 +4,30 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "build": "node scripts/check.js && node scripts/build.js",
+    "build": "node scripts/check.js && node scripts/build.js && node scripts/build-crm.js",
     "start": "node server.js",
     "start:safe": "node server.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed-ceo": "node scripts/create-ceo.js",
     "db:setup": "node scripts/migrate.js && node scripts/create-ceo.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "test": "node tests/crm-workspace.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.1",
+    "express-rate-limit": "^7.5.1",
     "helmet": "^8.1.0",
-    "express-rate-limit": "^7.5.1"
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.13.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }
