@@ -1,0 +1,24 @@
+name: Export EDUKA2 Working Tree
+
+on:
+  push:
+    branches:
+      - work/export-eduka2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive eduka2
+        run: |
+          zip -r eduka2-working-tree.zip eduka2 -x 'eduka2/node_modules/*' -x 'eduka2/.next/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eduka2-working-tree
+          path: eduka2-working-tree.zip
+          retention-days: 3
