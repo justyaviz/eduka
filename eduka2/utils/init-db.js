@@ -12,10 +12,18 @@ async function initDatabase() {
   const files = fs.readdirSync(migrationsDir).filter((x) => x.endsWith('.sql')).sort();
   if (!files.length) return { ok: false, error: 'No migration files found' };
 
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    await pool.query(sql);
-    console.log(`✅ Migration applied: ${file}`);
+  const migrationClient=await pool.connect();
+  try {
+    await migrationClient.query("SELECT pg_advisory_lock(18470001)");
+    await migrationClient.query("CREATE TABLE IF NOT EXISTS eduka_schema_migrations(name TEXT PRIMARY KEY,applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+    for (const file of files) {
+      if((await migrationClient.query('SELECT name FROM eduka_schema_migrations WHERE name=$1',[file])).rows.length)continue;
+      const sql=fs.readFileSync(path.join(migrationsDir,file),'utf8');
+      try{await migrationClient.query('BEGIN');await migrationClient.query(sql);await migrationClient.query('INSERT INTO eduka_schema_migrations(name) VALUES($1)',[file]);await migrationClient.query('COMMIT');console.log(`✅ Migration applied: ${file}`)}catch(error){await migrationClient.query('ROLLBACK');throw error}
+    }
+  } finally {
+    await migrationClient.query('SELECT pg_advisory_unlock(18470001)').catch(()=>{});
+    migrationClient.release();
   }
 
   const existing = await pool.query(`SELECT id, email FROM ceo_users ORDER BY created_at ASC LIMIT 1`);

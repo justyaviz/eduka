@@ -484,7 +484,7 @@ router.post("/ceo/demo-requests/:id/convert-to-center", requireCeoAuth, async (r
 
     
     const adminEmail = `admin+${base}@eduka.uz`;
-    const adminPassword = Math.random().toString(36).slice(2, 8).toUpperCase() + "ed";
+    const adminPassword = require('node:crypto').randomBytes(18).toString('base64url');
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
     const centerUserResult = await client.query(
@@ -532,7 +532,7 @@ await client.query(
       `<b>Egasi:</b> ${center.owner_name}\n` +
       `<b>Telefon:</b> ${center.owner_phone}\n` +
       `<b>Tarif:</b> ${center.tariff}\n` +
-      `<b>Status:</b> Trial\n<b>Admin login:</b> ${typeof adminEmail !== "undefined" ? adminEmail : "-"}\n<b>Parol:</b> ${typeof adminPassword !== "undefined" ? adminPassword : "-"}`
+      `<b>Status:</b> Trial`
     );
 
     return res.json({ ok: true, center: centerMap(center), centerAdmin: typeof centerUserResult !== "undefined" ? { email: centerUserResult.rows[0].email, password: adminPassword } : null });
@@ -564,37 +564,20 @@ router.get("/ceo/centers", requireCeoAuth, async (req, res) => {
 });
 
 router.post("/ceo/centers", requireCeoAuth, async (req, res) => {
-  try {
-    const b = req.body;
-    if (!b.name) return res.status(400).json({ ok: false, error: "Markaz nomi kerak" });
-
-    const tariff = await pool.query(`SELECT * FROM tariffs WHERE name=$1 LIMIT 1`, [b.tariff || "Start"]);
-    const selectedTariff = tariff.rows[0];
-
-    const result = await pool.query(
-      `INSERT INTO centers (name,subdomain,owner_name,owner_phone,owner_email,tariff,status,students_count,branches_count,monthly_payment,trial_ends_at,next_payment_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()+($11 || ' days')::interval,NOW()+($11 || ' days')::interval)
-       RETURNING *`,
-      [
-        b.name,
-        b.subdomain || `${slugify(b.name)}.eduka.uz`,
-        b.ownerName || null,
-        b.ownerPhone || null,
-        b.ownerEmail || null,
-        selectedTariff?.name || b.tariff || "Start",
-        b.status || "Trial",
-        Number(b.students || 0),
-        Number(b.branches || 1),
-        Number(b.monthlyPayment || selectedTariff?.monthly_price || 0),
-        Number(b.trialDays || 7),
-      ]
-    );
-
-    await audit({ user: req.user, action: "O‘quv markaz yaratildi", module: "centers", details: { centerId: result.rows[0].id }, req });
-    return res.status(201).json({ ok: true, center: centerMap(result.rows[0]) });
-  } catch (error) {
-    return res.status(500).json({ ok: false, error: "Create center server error", realError: error.message });
-  }
+ const db=await pool.connect();try {
+ const b=req.body||{},name=String(b.name||'').trim();if(!name)return res.status(400).json({ok:false,error:'Markaz nomi kerak'});
+ const slug=String(b.subdomain||slugify(name)).toLowerCase().replace(/\.eduka\.uz$/,'');
+ if(!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug)||['www','api','ceo','admin','mail','app'].includes(slug))return res.status(400).json({ok:false,error:'Subdomen noto‘g‘ri yoki band'});
+ await db.query('BEGIN');await db.query('LOCK TABLE centers IN SHARE ROW EXCLUSIVE MODE');
+ if((await db.query("SELECT id FROM centers WHERE lower(subdomain) IN ($1,$2)",[slug,slug+'.eduka.uz'])).rows.length){await db.query('ROLLBACK');return res.status(409).json({ok:false,error:'Subdomen band'})}
+ const tariff=(await db.query('SELECT * FROM tariffs WHERE name=$1 AND is_active=TRUE',[b.tariff||'Start'])).rows[0];if(!tariff){await db.query('ROLLBACK');return res.status(400).json({ok:false,error:'Faol tarifni tanlang'})}
+ const days=Math.max(1,Math.min(90,Number(b.trialDays)||7));
+ const center=(await db.query(`INSERT INTO centers(name,subdomain,owner_name,owner_phone,owner_email,tariff,status,students_count,branches_count,monthly_payment,trial_ends_at,next_payment_date)
+ VALUES($1,$2,$3,$4,$5,$6,'Trial',0,0,$7,NOW()+$8*INTERVAL '1 day',NOW()+$8*INTERVAL '1 day') RETURNING *`,[name,slug,b.ownerName||name,b.ownerPhone||null,b.ownerEmail||null,tariff.name,tariff.monthly_price,days])).rows[0];
+ const email=String(b.ownerEmail||('admin@'+slug+'.eduka.uz')).toLowerCase(),password=require('node:crypto').randomBytes(18).toString('base64url');
+ await db.query("INSERT INTO center_users(center_id,full_name,email,password_hash,role,status) VALUES($1,$2,$3,$4,'director','active')",[center.id,b.ownerName||name,email,await bcrypt.hash(password,12)]);
+ await db.query('COMMIT');res.set('Cache-Control','no-store');return res.status(201).json({ok:true,center:centerMap(center),centerAdmin:{email,password}});
+ }catch(error){await db.query('ROLLBACK');return res.status(error.code==='23505'?409:500).json({ok:false,error:error.code==='23505'?'Subdomen yoki hisob band':'Markaz yaratilmadi'})}finally{db.release()}
 });
 
 router.patch("/ceo/centers/:id", requireCeoAuth, async (req, res) => {

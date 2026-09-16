@@ -40,17 +40,26 @@ router.use(async(req,res,next)=>{try{
  req.crmPermissions=roles.find(r=>String(r.id).toLowerCase()===req.crmRole)?.permissions||defaults[req.crmRole]||[];
  res.set('Cache-Control','no-store');next();
  }catch(e){next(e)}});
+router.get('/notification-status',async(req,res,next)=>{try{if(!['owner','director'].includes(req.crmRole))throw fail('Ruxsat yo‘q',403);res.json({telegramConfigured:!!require('../utils/crm-notifications').config(req.centerUser.centerId),messages:(await pool.query('SELECT id,channel,status,error,created_at,sent_at FROM eduka_notification_outbox WHERE center_id=$1 ORDER BY created_at DESC LIMIT 50',[req.centerUser.centerId])).rows})}catch(e){next(e)}});
+router.get('/support',async(req,res,next)=>{try{res.json({messages:(await pool.query('SELECT id,sender,body,created_at FROM eduka_support_messages WHERE center_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 100',[req.centerUser.centerId,req.crmUser.id])).rows.reverse()})}catch(e){next(e)}});
+router.post('/support',async(req,res,next)=>{try{const body=String(req.body.body||'').trim();if(!body||body.length>3000)throw fail('Xabar 1–3000 belgi bo‘lsin');const r=await pool.query("INSERT INTO eduka_support_messages(center_id,user_id,sender,body) VALUES($1,$2,'user',$3) RETURNING id",[req.centerUser.centerId,req.crmUser.id,body]);res.json({ok:true,id:r.rows[0].id})}catch(e){next(e)}});
 router.get('/session',(req,res)=>res.json({user:{id:req.crmUser.id,fullName:req.crmUser.full_name,role:req.crmRole},center:{id:req.centerUser.centerId,name:req.center?.name||req.centerUser.centerName},permissions:req.crmPermissions}));
+router.use((req,res,next)=>{const c=req.center;const expiry=String(c?.status).toLowerCase()==='trial'?c?.trial_ends_at:c?.next_payment_date;if(req.method!=='GET'&&expiry&&new Date(expiry).getTime()<Date.now())return res.status(402).json({error:'Obuna muddati tugagan. Markaz tarifini uzaytiring.'});next()});
 async function initialized(db,center){
  await db.query('SELECT id FROM centers WHERE id=$1 FOR UPDATE',[center]);
  const flag=await db.query("SELECT id FROM center_settings WHERE center_id=$1 AND key='crm.workspace.v1'",[center]);
- if(!flag.rows.length){await importLegacy(db,center);await db.query("INSERT INTO center_settings(center_id,key,value) VALUES($1,'crm.workspace.v1','ready') ON CONFLICT(center_id,key) DO NOTHING",[center]);}
+ if(!flag.rows.length){const cutoff=(await db.query('SELECT COALESCE(MAX(id),0) id FROM eduka_legacy_changes WHERE center_id=$1',[center])).rows[0].id;await importLegacy(db,center);await db.query("INSERT INTO center_settings(center_id,key,value) VALUES($1,'crm.workspace.v1','ready') ON CONFLICT(center_id,key) DO NOTHING",[center]);await db.query('DELETE FROM eduka_legacy_changes WHERE center_id=$1 AND id<=$2',[center,cutoff]);}
+ await require('../utils/crm-reconcile').reconcile(db,center);
 }
-router.get('/records',async(req,res,next)=>{const db=await pool.connect();try{await db.query('BEGIN');const center=req.centerUser.centerId;await initialized(db,center);const records=(await db.query('SELECT id,entity,data,version,deleted,created_at,updated_at FROM eduka_records WHERE center_id=$1 ORDER BY created_at DESC',[center])).rows.filter(r=>allowed(req,r.entity));const events=(await db.query('SELECT record_id,entity,action,actor,changes,created_at FROM eduka_events WHERE center_id=$1 ORDER BY created_at DESC LIMIT 500',[center])).rows.filter(e=>allowed(req,e.entity));await db.query('COMMIT');res.json({records,events})}catch(e){await db.query('ROLLBACK');next(e)}finally{db.release()}});
+require('../utils/crm-operations').register(router,{pool,initialized,allowed});
+require('../utils/crm-coins').register(router,{pool,initialized,allowed});
+router.get('/records',async(req,res,next)=>{const db=await pool.connect();try{await db.query('BEGIN');const center=req.centerUser.centerId;await initialized(db,center);const entities=entityAllowlist.filter(e=>allowed(req,e)&&(!req.query.entity||req.query.entity===e));const cursor=String(req.query.cursor||'00000000-0000-0000-0000-000000000000');if(!UUID.test(cursor))throw fail('Sahifa belgisi noto‘g‘ri');const limit=Math.min(500,Math.max(1,Number(req.query.limit)||500));const records=(await db.query('SELECT id,entity,data,version,deleted,created_at,updated_at FROM eduka_records WHERE center_id=$1 AND entity=ANY($2::text[]) AND id>$3 ORDER BY id LIMIT $4',[center,entities,cursor,limit+1])).rows;const more=records.length>limit;if(more)records.pop();const events=req.query.cursor?[]:(await db.query('SELECT record_id,entity,action,actor,changes,created_at FROM eduka_events WHERE center_id=$1 AND entity=ANY($2::text[]) ORDER BY created_at DESC LIMIT 500',[center,entities])).rows;await db.query('COMMIT');res.json({records,events,nextCursor:more?records.at(-1).id:null})}catch(e){await db.query('ROLLBACK');next(e)}finally{db.release()}});
+
 async function validate(db,center,entity,data,current){
+ if(data&&Object.keys(data).some(k=>/password|secret|token/i.test(k)))throw fail('Maxfiy ma’lumotni bu shaklda saqlab bo‘lmaydi');
  if(!data||typeof data!=='object'||Array.isArray(data)||JSON.stringify(data).length>100000)throw fail('Yozuv hajmi yoki formati noto‘g‘ri');
  for(const [key,v]of Object.entries(data))if(['__proto__','constructor','prototype'].includes(key)||!['string','number','boolean'].includes(typeof v)||typeof v==='number'&&!Number.isFinite(v))throw fail('Maydon qiymati noto‘g‘ri');
- for(const k of ['openingBalance','legacyKind']){if(current?.data[k]!==undefined)data[k]=current.data[k];else delete data[k]}
+ for(const k of ['openingBalance','legacyKind','calculation','paymentId','payrollId','sourceAttendance','rewardId']){if(current?.data[k]!==undefined)data[k]=current.data[k];else delete data[k]}
  const definition=pages.find(p=>p.entity===entity&&p.fields.length);
  for(const f of definition?fieldsFor(definition):[]){const v=data[f.key];if(f.required&&(v===undefined||v===''))throw fail(f.label+' majburiy');if(v===undefined||v==='')continue;
   if(f.type==='number'&&(typeof v!=='number'||v<0&&!['latitude','longitude'].includes(f.key)))throw fail(f.label+': musbat raqam kiriting');
@@ -65,6 +74,11 @@ async function validate(db,center,entity,data,current){
  }
  if(data.startDate&&data.endDate&&data.endDate<data.startDate)throw fail('Tugash sanasi boshlanishdan oldin');
  if(entity==='groups'&&data.time&&data.endTime&&data.endTime<=data.time)throw fail('Dars tugash vaqti noto‘g‘ri');
+ if(entity==='coins'&&(!Number.isInteger(data.amount)||data.amount<=0))throw fail('Coin musbat butun son bo‘lsin');
+ if(entity==='rewards'&&(!Number.isInteger(data.cost)||data.cost<=0||!Number.isInteger(data.stock)||data.stock<0))throw fail('Narx va qoldiq butun son bo‘lsin');
+ if(entity==='settings'&&data.attendanceCoins!==undefined&&(!Number.isInteger(data.attendanceCoins)||data.attendanceCoins<0||data.attendanceCoins>1000))throw fail('Dars uchun coin 0–1000 oralig‘ida bo‘lsin');
+ if(entity==='employees'&&Number(data.revenuePercent||0)>100)throw fail('Foiz 0–100 oralig‘ida bo‘lsin');
+ if(current?.data.calculation==='v1'||current?.data.payrollId||current?.data.sourceAttendance||current?.data.rewardId)throw fail('Hisoblangan maoshni qo‘lda o‘zgartirib bo‘lmaydi');
  if(entity==='ratings'&&(data.rating<1||data.rating>5))throw fail('Reyting 1 dan 5 gacha');
  if(entity==='charges'&&Number(data.teacherShare||0)>data.amount)throw fail('O‘qituvchi ulushi jami summadan katta');
  if(data.latitude!==undefined&&Math.abs(Number(data.latitude))>90||data.longitude!==undefined&&Math.abs(Number(data.longitude))>180)throw fail('Koordinata noto‘g‘ri');
@@ -92,11 +106,19 @@ router.post('/records',async(req,res,next)=>{let db;try{
  if(current&&b.version!==current.version)throw fail('Yozuv yangilangan. Sahifani yangilang.',409);
  const data=['archive','restore'].includes(b.action)?{...current.data}:{...b.data};
  // Restore must recheck uniqueness and relations too.
+ if(current?.data.calculation==='v1'||current?.data.payrollId||current?.data.sourceAttendance||current?.data.rewardId)throw fail('Avtomatik yaratilgan yozuvni qo‘lda o‘zgartirib bo‘lmaydi');
+ if(b.entity==='roles'&&!['owner','director'].includes(req.crmRole))throw fail('Rollarni faqat rahbar boshqaradi',403);
  if(b.action!=='archive')await validate(db,center,b.entity,data,current);
+ await require('../utils/crm-limits').checkLimit(db,center,b.entity,current,data,b.action);
  const record={id:current?.id||randomUUID(),entity:b.entity,data,version:(current?.version||0)+1,deleted:b.action==='archive'?1:b.action==='restore'?0:current?.deleted||0,created_at:current?.created_at||new Date(),updated_at:new Date()};
  const changes=Object.fromEntries([...new Set([...Object.keys(current?.data||{}),...Object.keys(data)])].filter(k=>JSON.stringify(current?.data[k])!==JSON.stringify(data[k])&&!/password|secret|token/i.test(k)).map(k=>[k,{before:current?.data[k]??null,after:data[k]??null}]));
  await db.query('INSERT INTO eduka_records(id,center_id,entity,data,version,deleted,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,version=EXCLUDED.version,deleted=EXCLUDED.deleted,updated_at=EXCLUDED.updated_at WHERE eduka_records.center_id=EXCLUDED.center_id',[record.id,center,record.entity,JSON.stringify(data),record.version,record.deleted,record.created_at,record.updated_at]);
  await syncCanonical(db,record,center);
+ await require('../utils/crm-notifications').payment(db,center,record,b.action);
+ await require('../utils/crm-coins').attendanceCoins(db,center,record);
+ if(record.entity==='coins')await require('../utils/crm-coins').ensureBalances(db,center);
+ if(b.entity==='employees'&&record.deleted){if(record.id===req.centerUser.id||(await db.query("SELECT id FROM center_users WHERE center_id=$1 AND id=$2 AND role IN ('owner','director')",[center,record.id])).rows.length)throw fail('Rahbar hisobini arxivlab bo‘lmaydi');await db.query("UPDATE center_users SET status='inactive' WHERE center_id=$1 AND id=$2",[center,record.id])}
+ if(b.entity==='roles'){const row=(await db.query("SELECT value FROM center_settings WHERE center_id=$1 AND key='rbac.roles.v1'",[center])).rows[0];let roles=[];try{roles=JSON.parse(row?.value||'[]')}catch{};roles=roles.filter(r=>r.id!==record.id);roles.push({id:record.id,name:record.data.name,permissions:record.deleted?[]:require('../utils/crm-operations').rolePermissions(record.data)});await db.query("INSERT INTO center_settings(center_id,key,value) VALUES($1,'rbac.roles.v1',$2) ON CONFLICT(center_id,key) DO UPDATE SET value=EXCLUDED.value",[center,JSON.stringify(roles)])}
  const event={record_id:record.id,entity:b.entity,action:b.action,actor:req.crmUser.full_name,changes,created_at:record.updated_at};
  await db.query('INSERT INTO eduka_events(center_id,record_id,entity,action,actor,changes) VALUES($1,$2,$3,$4,$5,$6)',[center,record.id,b.entity,b.action,event.actor,JSON.stringify(changes)]);
  await db.query('COMMIT');res.json({record,event});
@@ -112,5 +134,5 @@ router.get('/files',async(req,res,next)=>{try{
  const f=(await pool.query('SELECT * FROM eduka_files WHERE id=$1 AND center_id=$2',[req.query.id,req.centerUser.centerId])).rows[0];if(!f)throw fail('Fayl topilmadi',404);
  res.set({'Content-Type':f.mime,'X-Content-Type-Options':'nosniff','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.name)}).send(Buffer.from(f.content));
  }catch(e){next(e)}});
-router.use((e,req,res,next)=>{console.error('CRM request failed:',e.code||e.status||'INTERNAL');res.status(e.status||e instanceof multer.MulterError&&400||500).json({error:e.status?e.message:e instanceof multer.MulterError?'Fayl hajmi 20 MB dan oshmasin':'Amal bajarilmadi. Qayta urinib ko‘ring.'})});
+router.use((e,req,res,next)=>{console.error('CRM request failed:',e.code||e.status||'INTERNAL');res.status(e.status||e.code==='23505'&&409||e instanceof multer.MulterError&&400||500).json({error:e.status?e.message:e instanceof multer.MulterError?'Fayl hajmi 20 MB dan oshmasin':'Amal bajarilmadi. Qayta urinib ko‘ring.'})});
 module.exports=router;

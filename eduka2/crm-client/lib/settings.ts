@@ -1,5 +1,6 @@
 export const settingsSections:Record<string,Record<string,{label:string;key:string;type?:string;options?:string[]}[]>>={
 system:{
+ 'Coin qoidasi':[{key:'attendanceCoins',label:'Darsga kelganda coin (0 — o‘chirilgan)','type':'number'}],
  'Moliya':[{key:'monthlyPricing',label:'Oylik narxlash',type:'switch'},{key:'retainPrice',label:'Guruh almashtirganda narxni saqlash',type:'switch'},{key:'transferConfirm',label:'Kassa o‘tkazmasini tasdiqlash',type:'switch'},{key:'cancelNote',label:'Bekor qilishda izoh talab qilish',type:'switch'},{key:'currency',label:'Valyuta',type:'select',options:['UZS','USD']},{key:'debtLimit',label:'Qarzdorlik limiti',type:'number'}],
  'Davomat':[{key:'oldAttendance',label:'O‘tgan darslar davomatini tahrirlash',type:'switch'},{key:'defaultPresent',label:'Boshlang‘ich holat: keldi',type:'switch'},{key:'autoExit',label:'Kelmagan o‘quvchini avtomatik chiqarish',type:'switch'},{key:'maxGrade',label:'Maksimal baho',type:'number'}],
  'O‘qituvchi':[{key:'teacherBusy',label:'O‘qituvchi bandligini ko‘rsatish',type:'switch'},{key:'teacherFinance',label:'Moliyaviy filtr',type:'switch'},{key:'supportTeacher',label:'Support o‘qituvchi',type:'switch'},{key:'salaryIndicator',label:'Ish haqi ko‘rsatkichi',type:'switch'}],

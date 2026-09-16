@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const pool=require('../db');
 const { tenantFromRequest, findCenterByTenant } = require('../utils/tenant');
 
 const PROD = process.env.NODE_ENV === 'production';
@@ -16,6 +17,7 @@ function signCenterToken(user, center) {
   return jwt.sign(
     {
       id: user.id,
+      authVersion: Number(user.auth_version||0),
       email: user.email,
       role: user.role,
       fullName: user.full_name,
@@ -89,6 +91,9 @@ async function requireCenterAuth(req, res, next) {
       req.center = center;
     }
 
+    const live=(await pool.query('SELECT role,status,auth_version FROM center_users WHERE id=$1 AND center_id=$2',[payload.id,payload.centerId])).rows[0];
+    if(!live||live.status!=='active'||Number(live.auth_version)!==Number(payload.authVersion||0))return res.status(401).json({ok:false,error:'Hisob faol emas'});
+    payload.role=live.role;
     req.centerUser = payload;
     return next();
   } catch (error) {

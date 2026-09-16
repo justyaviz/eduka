@@ -43,6 +43,7 @@ async function upsert(db,table,id,center,values){
  await db.query(`INSERT INTO ${table}(id,center_id,${keys.join(',')}) VALUES(${args.map((_,i)=>'$'+(i+1)).join(',')}) ON CONFLICT(id) DO UPDATE SET ${keys.map(k=>`${k}=EXCLUDED.${k}`).join(',')} WHERE ${table}.center_id=EXCLUDED.center_id`,args);
 }
 async function syncCanonical(db,r,center){
+ await db.query("SELECT set_config('eduka.workspace_write','1',true)");
  const d=r.data,s=canonicalStatus(r),n=[d.name,d.surname].filter(Boolean).join(' '),ref=v=>v||null;
  const write=(table,values)=>upsert(db,table,r.id,center,values);
  switch(r.entity){
@@ -70,4 +71,4 @@ async function syncCanonical(db,r,center){
  }
  if(['students','branches'].includes(r.entity))await db.query("UPDATE centers SET students_count=(SELECT COUNT(*) FROM students WHERE center_id=$1 AND status='active'),branches_count=(SELECT COUNT(*) FROM center_branches WHERE center_id=$1 AND status<>'deleted') WHERE id=$1",[center]);
 }
-module.exports={importLegacy,syncCanonical};
+module.exports={importLegacy,syncCanonical,maps};

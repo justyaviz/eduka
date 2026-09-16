@@ -138,13 +138,7 @@ VALUES
 ('Basic', 300, 2, 5616000, '["O‘quvchilar", "Guruhlar", "To‘lovlar", "Davomat", "Hisobot"]'),
 ('Pro', 1000, 5, 8424000, '["Davomat", "Hisobot", "Telegram bot", "Gamification", "Student app"]'),
 ('Premium', 999999, 999, 16200000, '["Barcha modullar", "API", "Multi-branch", "Premium support"]')
-ON CONFLICT (name) DO UPDATE SET
-  student_limit = EXCLUDED.student_limit,
-  branch_limit = EXCLUDED.branch_limit,
-  monthly_price = EXCLUDED.monthly_price,
-  features = EXCLUDED.features,
-  is_active = TRUE,
-  updated_at = NOW();
+ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO ceo_roles (name, description, permissions)
 VALUES

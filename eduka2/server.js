@@ -126,6 +126,7 @@ app.use('/api/app', centerV098Reports);
 app.use('/api/app', centerV101Profile);
 app.use('/api/app', centerV200DataEngine);
 app.use('/api/tenant', tenantRoutes);
+app.use('/api/ceo/support', require('./routes/crm-support'));
 app.use('/api/crm', require('./routes/crm-workspace'));
 
 /*
@@ -221,7 +222,7 @@ if (require.main === module) app.listen(PORT, HOST, () => {
       const result = await initDatabase();
       dbReady = !!result.ok;
       dbError = result.ok ? null : new Error(result.error || 'Database init failed');
-      if (dbReady) console.log('✅ DB migrations ready');
+      if (dbReady) {console.log('✅ DB migrations ready');require('./utils/crm-notifications').start(require('./db'));}
       else console.log('⚠️ DB setup failed:', dbError.message);
     } catch (error) {
       dbReady = false;
