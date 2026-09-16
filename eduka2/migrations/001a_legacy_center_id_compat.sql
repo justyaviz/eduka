@@ -1,0 +1,35 @@
+-- Compatibility bridge for databases created by earlier EDUKA / START-EDU versions.
+-- Non-destructive: only adds missing tenant columns used by the canonical multi-tenant schema.
+
+ALTER TABLE IF EXISTS center_users
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS students
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS study_groups
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS group_students
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS center_payments
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS attendance
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS center_activity_logs
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS teachers
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS leads
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS reminders
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS center_expenses
+  ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id) ON DELETE CASCADE;
