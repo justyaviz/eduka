@@ -223,7 +223,7 @@ if (require.main === module) app.listen(PORT, HOST, () => {
       const result = await initDatabase();
       dbReady = !!result.ok;
       dbError = result.ok ? null : new Error(result.error || 'Database init failed');
-      if (dbReady) {console.log('✅ DB migrations ready');require('./utils/crm-notifications').start(require('./db'));}
+      if (dbReady) {console.log('✅ DB migrations ready');require('./utils/crm-notifications').start(require('./db'));if(process.env.ESKIZ_EMAIL&&process.env.ESKIZ_PASSWORD)void require('./utils/eskiz').checkConnection(require('./db'));}
       else console.log('⚠️ DB setup failed:', dbError.message);
     } catch (error) {
       dbReady = false;

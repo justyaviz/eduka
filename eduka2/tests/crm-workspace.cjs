@@ -145,6 +145,8 @@ async function main(){
  const history=JSON.stringify((await sms('history')).body);assert.ok(!history.includes('synthetic-eskiz-token'));assert.ok(!history.includes('provider raw secret'));assert.ok(!history.includes('fake-secret-for-test'));
  const saved=(await pg.query('SELECT token_ciphertext FROM eskiz_tokens WHERE id=1')).rows[0];assert.ok(!saved.token_ciphertext.includes('synthetic-eskiz-token'));
  }finally{global.fetch=providerFetch;delete process.env.ESKIZ_EMAIL;delete process.env.ESKIZ_PASSWORD;delete process.env.ESKIZ_FROM}
+ const {loginError}=require('../utils/eskiz');
+ for(const [status,data,code]of [[401,{message:'secret password rejected'},'ESKIZ_CREDENTIALS_REJECTED'],[403,null,'ESKIZ_ACCESS_DENIED'],[422,{errors:{email:['private email']}},'ESKIZ_AUTH_FIELDS'],[429,{},'ESKIZ_AUTH_LIMIT'],[503,{},'ESKIZ_UNAVAILABLE'],[200,null,'ESKIZ_AUTH_RESPONSE']]){const err=loginError({status,data});assert.equal(err.code,code);assert.ok(!err.message.includes('secret password'));assert.ok(!err.message.includes('private email'))}
  console.log('PASS: CEO SMS authentication, validation, encrypted token cache, 401 refresh, idempotency, timeout and provider rejection.');
  await new Promise(r=>server.close(r));await pg.close();
  console.log('PASS: tenant isolation, empty onboarding, billing limits, pagination, staff access, payroll idempotency, coins/rewards, support replies, CEO authorization, ledger/refunds, native login, legacy import and private files.');
