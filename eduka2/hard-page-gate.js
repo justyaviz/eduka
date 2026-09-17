@@ -43,6 +43,7 @@ function installPhase35HardPageGate(app) {
 }
 
 module.exports = {
+  clearCenterCache: () => cache.clear(),
   installPhase35HardPageGate,
   phase35Subdomain: tenantFromRequest,
   phase35NotFoundHtml: (req) => notFoundHtml(req, tenantFromRequest(req)),

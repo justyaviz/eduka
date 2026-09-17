@@ -544,6 +544,8 @@ await client.query(
   }
 });
 
+require('../utils/ceo-center-actions').register(router,{pool,requireCeoAuth});
+
 router.get("/ceo/centers", requireCeoAuth, async (req, res) => {
   try {
     const params = [];

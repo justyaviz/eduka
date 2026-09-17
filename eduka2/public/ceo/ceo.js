@@ -175,6 +175,7 @@ async function loadCenters() {
           <span>Yaratildi <b>${fmt(c.createdAt)}</b></span>
         </div>
         <div class="card-actions">
+          <label>Trial <select data-trial-days="${c.id}"><option value="3">3 kun</option><option value="7" selected>7 kun</option><option value="10">10 kun</option></select></label><button data-trial-center="${c.id}">Trial belgilash</button><button data-delete-center="${c.id}" style="color:#F04438">Butunlay o‘chirish</button>
           <button data-edit-center="${c.id}">Tahrirlash</button>
           <button data-center-status="${c.id}" data-status="Active">Active</button>
           <button data-center-status="${c.id}" data-status="Suspended">To‘xtatish</button>
@@ -402,6 +403,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const st = e.target.closest("[data-set-status]");
     if (st) updateDemo(st.dataset.id, st.dataset.setStatus).catch((err) => toast(err.message));
 
+    const trial = e.target.closest('[data-trial-center]');
+    if(trial){const id=trial.dataset.trialCenter;const days=Number(document.querySelector(`[data-trial-days="${id}"]`).value);if(confirm(`Trial bugundan ${days} kunga belgilanadi. Tasdiqlaysizmi?`)){trial.disabled=true;api(`/api/ceo/centers/${id}/trial`,{method:'POST',body:JSON.stringify({days})}).then(()=>{toast('Trial belgilandi');return loadCenters()}).catch(err=>{toast(err.message);trial.disabled=false})}}
+    const del = e.target.closest('[data-delete-center]');
+    if(del){const c=state.centers.find(c=>c.id===del.dataset.deleteCenter);const confirmName=prompt(`DIQQAT: ${c.name} markazi, hisoblari va barcha ma’lumotlari qayta tiklab bo‘lmaydigan tarzda o‘chiriladi. Tasdiqlash uchun markaz nomini aynan kiriting: ${c.name}`);if(confirmName===c.name){del.disabled=true;api(`/api/ceo/centers/${c.id}`,{method:'DELETE',body:JSON.stringify({confirmName})}).then(()=>{toast('Markaz butunlay o‘chirildi');return loadCenters()}).catch(err=>{toast(err.message);del.disabled=false})}else if(confirmName!==null)toast('Markaz nomi mos kelmadi')}
     const cs = e.target.closest("[data-center-status]");
     if (cs) updateCenterStatus(cs.dataset.centerStatus, cs.dataset.status).catch((err) => toast(err.message));
   });

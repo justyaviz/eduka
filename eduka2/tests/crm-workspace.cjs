@@ -96,7 +96,34 @@ async function main(){
  const notified=await create('transactions',{name:'Queue test',amount:1000,date:'2026-09-16',direction:'Kirim',student,cash:cash.id,paymentMethod:'Naqd'});assert.equal(notified.status,200);
  assert.equal((await pg.query('SELECT COUNT(*)::int n FROM eduka_notification_outbox WHERE center_id=$1',[center])).rows[0].n,1);
  const realFetch=global.fetch;let sent=0;global.fetch=async()=>{sent++;return {ok:true,json:async()=>({ok:true})}};try{await require('../utils/crm-notifications').tick(adapter);await require('../utils/crm-notifications').tick(adapter)}finally{global.fetch=realFetch;delete process.env.EDUKA_TELEGRAM_CENTERS}assert.equal(sent,1,'outbox claim prevents duplicate sends');
- await pg.query("UPDATE center_users SET status='inactive' WHERE id=$1",[user]);assert.equal((await request('crm/session')).status,401);
+
+ async function tenantAction(method,body,cookie='eduka_session='+token,host='alpha.eduka.uz'){const r=await realFetch(base+'/api/crm/telegram',{method,headers:{Host:host,'X-Forwarded-Host':host,Cookie:cookie,'Content-Type':'application/json',Origin:'https://'+host},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json()}}
+ const fakeToken='987654:synthetic_token_only';let telegramCalls=0;
+ global.fetch=async(url,opts)=>{if(!String(url).startsWith('https://api.telegram.org/'))return realFetch(url,opts);telegramCalls++;const method=String(url).split('/').at(-1);return {ok:true,json:async()=>({ok:true,result:method==='getMe'?{id:987654,username:'test_bot'}:method==='getChat'?{type:'supergroup',title:'Synthetic group'}:{status:'administrator'}})}};
+ try{
+ assert.equal((await tenantAction('PUT',{token:fakeToken,chatId:'123'})).status,400);
+ assert.equal((await tenantAction('PUT',{token:fakeToken,chatId:'-1001234567890'},staffCookie)).status,403);
+ assert.equal((await tenantAction('PUT',{token:fakeToken,chatId:'-1001234567890'})).status,200);
+ assert.equal(telegramCalls,3,'saving verifies bot and membership without sending');
+ const view=await tenantAction('GET');assert.equal(view.body.configured,true);assert.ok(!JSON.stringify(view).includes(fakeToken));
+ const encrypted=(await pg.query('SELECT token_ciphertext FROM eduka_telegram_settings WHERE center_id=$1',[center])).rows[0].token_ciphertext;assert.ok(!encrypted.includes(fakeToken));
+ assert.equal((await tenantAction('GET',null,'eduka_session='+token,'beta.eduka.uz')).status,403);
+ assert.equal((await tenantAction('PUT',{chatId:'-1001234567890',enabled:false})).status,200);
+ assert.equal(await require('../utils/crm-telegram').config(adapter,center),null);
+ assert.equal((await tenantAction('PUT',{chatId:'-1001234567890',enabled:true})).status,200);
+ assert.equal((await require('../utils/crm-telegram').config(adapter,center)).token,fakeToken);
+ }finally{global.fetch=realFetch}
+ async function ceoAction(id,suffix,method,body,auth=ceoToken){const r=await fetch(base+'/api/ceo/centers/'+id+suffix,{method,headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()}}
+ for(const days of [3,7,10]){assert.equal((await ceoAction(center,'/trial','POST',{days})).status,200);const session=(await request('crm/session')).body;assert.equal(session.center.status,'Trial');assert.equal(Math.ceil((new Date(session.center.expiresAt)-new Date(session.serverNow))/86400000),days)}
+ assert.equal((await ceoAction(center,'/trial','POST',{days:4})).status,400);
+ assert.equal((await ceoAction(center,'','DELETE',{confirmName:'Alpha'},token)).status,403);
+ assert.equal((await ceoAction(center,'','DELETE',{confirmName:'wrong'})).status,400);
+ const beforeOther=(await pg.query('SELECT * FROM centers WHERE id=$1',[other])).rows[0];
+ assert.equal((await ceoAction(center,'','DELETE',{confirmName:'Alpha'})).status,200);
+ for(const table of ['eduka_records','eduka_support_messages','eduka_telegram_settings','eduka_notification_outbox','center_users','students'])assert.equal((await pg.query(`SELECT COUNT(*)::int n FROM ${table} WHERE center_id=$1`,[center])).rows[0].n,0,table+' removed');
+ assert.deepEqual((await pg.query('SELECT * FROM centers WHERE id=$1',[other])).rows[0],beforeOther);
+ assert.ok([401,404].includes((await request('crm/session')).status));
+ await pg.query("UPDATE center_users SET status='inactive' WHERE id=$1",[user]);assert.ok([401,404].includes((await request('crm/session')).status));
  await new Promise(r=>server.close(r));await pg.close();
  console.log('PASS: tenant isolation, empty onboarding, billing limits, pagination, staff access, payroll idempotency, coins/rewards, support replies, CEO authorization, ledger/refunds, native login, legacy import and private files.');
 }

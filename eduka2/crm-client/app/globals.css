@@ -110,3 +110,5 @@ body{font-size:16px;line-height:1.5}h1,h2,h3,h4{color:var(--heading)}
 
 .operations-panel{padding:20px;margin:16px 0}.operations-panel h2{font-size:16px;font-weight:700;margin-bottom:14px}.operations-panel .form-grid{margin:16px 0}.operations-table{width:100%;font-size:13px;text-align:left}.operations-table th,.operations-table td{padding:12px;border-bottom:1px solid var(--border)}
 .eduka-chat-unread{position:absolute;right:-4px;top:-4px;min-width:22px;height:22px;background:#f04438;color:white;border:2px solid white;border-radius:50%;font-size:11px;display:grid;place-items:center}
+
+.telegram-form{display:grid;gap:16px}.telegram-form label{display:block;font-size:14px}.telegram-form label input:not([type=checkbox]){margin-top:6px}.subscription-badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;background:#1847FF;color:white;padding:7px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 12px #1847ff30}.subscription-badge.expired{background:#F04438}@media(max-width:700px){.topbar{flex-wrap:wrap;height:auto;min-height:64px;padding-block:10px}.topbar-actions{flex-wrap:wrap}.subscription-badge{font-size:11px;padding:6px 9px}}

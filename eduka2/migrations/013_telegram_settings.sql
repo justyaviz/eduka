@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS eduka_telegram_settings (
+ center_id UUID PRIMARY KEY REFERENCES centers(id) ON DELETE CASCADE,
+ token_ciphertext TEXT NOT NULL, chat_id TEXT NOT NULL,
+ bot_username TEXT NOT NULL, chat_title TEXT NOT NULL,
+ enabled BOOLEAN NOT NULL DEFAULT TRUE,
+ payments BOOLEAN NOT NULL DEFAULT TRUE, reminders BOOLEAN NOT NULL DEFAULT TRUE,
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
