@@ -126,6 +126,7 @@ app.use('/api/app', centerV098Reports);
 app.use('/api/app', centerV101Profile);
 app.use('/api/app', centerV200DataEngine);
 app.use('/api/tenant', tenantRoutes);
+app.use('/api/sms', require('./routes/ceo-sms'));
 app.use('/api/ceo/support', require('./routes/crm-support'));
 app.use('/api/crm', require('./routes/crm-workspace'));
 

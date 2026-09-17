@@ -124,6 +124,28 @@ async function main(){
  assert.deepEqual((await pg.query('SELECT * FROM centers WHERE id=$1',[other])).rows[0],beforeOther);
  assert.ok([401,404].includes((await request('crm/session')).status));
  await pg.query("UPDATE center_users SET status='inactive' WHERE id=$1",[user]);assert.ok([401,404].includes((await request('crm/session')).status));
+
+ process.env.ESKIZ_EMAIL='sms@example.test';process.env.ESKIZ_PASSWORD='fake-secret-for-test';process.env.ESKIZ_FROM='4546';
+ let smsSends=0,authLogins=0,smsMode='accepted';
+ const providerFetch=global.fetch;
+ global.fetch=async(url,options)=>{if(!String(url).startsWith('https://notify.eskiz.uz/'))return providerFetch(url,options);if(String(url).endsWith('/auth/login')){authLogins++;assert.equal(options.body.get('email'),'sms@example.test');return {ok:true,status:200,json:async()=>({data:{token:'synthetic-eskiz-token-'+authLogins}})}}smsSends++;assert.equal(options.body.get('mobile_phone'),'998901234567');assert.equal(options.body.get('from'),'4546');if(smsMode==='timeout')throw Error('network error secret should not leak');if(smsMode==='reject')return {ok:false,status:400,json:async()=>({message:'provider raw secret'})};if(smsMode==='expired'){smsMode='accepted';return {ok:false,status:401,json:async()=>({})}}return {ok:true,status:200,json:async()=>({id:'provider-id',status:'waiting'})}};
+ async function sms(route,body,key,auth=ceoToken){const r=await providerFetch(base+'/api/sms/'+route,{method:body?'POST':'GET',headers:{...(auth?{Authorization:'Bearer '+auth}:{}),'Content-Type':'application/json',...(key?{'Idempotency-Key':key}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json()}}
+ try{
+ assert.equal((await sms('send',{phone:'998901234567',message:'Test'},'anonymous-test',null)).status,401);
+ assert.equal((await sms('send',{phone:'998901234567',message:'Test'},'tenant-test-key',token)).status,403);
+ assert.equal((await sms('send',{phone:'bad',message:'Test'},'invalid-phone')).status,400);
+ assert.equal((await sms('check',{})).status,200);assert.equal(smsSends,0,'connection check never sends SMS');
+ const smsBody={phone:'+998 90 123 45 67',message:'Isolated SMS test'};
+ assert.equal((await sms('send',smsBody,'sms-request-one')).body.status,'accepted');assert.equal(authLogins,1,'cached token');
+ assert.equal((await sms('send',smsBody,'sms-request-one')).body.duplicate,true);assert.equal(smsSends,1);
+ assert.equal((await sms('send',{...smsBody,message:'Changed'},'sms-request-one')).status,409);
+ smsMode='expired';assert.equal((await sms('send',smsBody,'sms-request-expired')).body.status,'accepted');assert.equal(authLogins,2);
+ smsMode='timeout';assert.equal((await sms('send',smsBody,'sms-request-timeout')).body.status,'unknown');const count=smsSends;await sms('send',smsBody,'sms-request-timeout');assert.equal(smsSends,count,'uncertain delivery never resent');
+ smsMode='reject';assert.equal((await sms('send',smsBody,'sms-request-reject')).body.status,'failed');
+ const history=JSON.stringify((await sms('history')).body);assert.ok(!history.includes('synthetic-eskiz-token'));assert.ok(!history.includes('provider raw secret'));assert.ok(!history.includes('fake-secret-for-test'));
+ const saved=(await pg.query('SELECT token_ciphertext FROM eskiz_tokens WHERE id=1')).rows[0];assert.ok(!saved.token_ciphertext.includes('synthetic-eskiz-token'));
+ }finally{global.fetch=providerFetch;delete process.env.ESKIZ_EMAIL;delete process.env.ESKIZ_PASSWORD;delete process.env.ESKIZ_FROM}
+ console.log('PASS: CEO SMS authentication, validation, encrypted token cache, 401 refresh, idempotency, timeout and provider rejection.');
  await new Promise(r=>server.close(r));await pg.close();
  console.log('PASS: tenant isolation, empty onboarding, billing limits, pagination, staff access, payroll idempotency, coins/rewards, support replies, CEO authorization, ledger/refunds, native login, legacy import and private files.');
 }

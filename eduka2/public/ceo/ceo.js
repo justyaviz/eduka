@@ -23,6 +23,7 @@ const titles = {
   payments: "To‘lovlar / obunalar",
   roles: "Ruxsatlar / rollar",
   settings: "Platforma sozlamalari",
+  sms: "SMS xabarlar",
 };
 
 let state = { dashboard: null, demo: [], centers: [], payments: [], tariffs: [], currentPage: "dashboard" };
@@ -219,6 +220,20 @@ function renderRoles() {
   $("#rolesGrid").innerHTML = roles.map((r) => `<article class="role-card"><h3>${r[0]}</h3><p>${r[1]}</p><span class="badge blue">${r[2]}</span></article>`).join("");
 }
 
+const smsLabels={processing:'Jarayonda — qayta yubormang',accepted:'Eskiz qabul qildi',failed:'Rad etildi',unknown:'Natija noma’lum — Eskiz tarixini tekshiring'};
+let smsRequestKey=null,smsPayload=null;
+async function loadSms(){
+ const [status,history]=await Promise.all([api('/api/sms/status'),api('/api/sms/history')]);
+ $('#smsStatus').textContent=status.configured?`Eskiz sozlamalari mavjud. Yuboruvchi: ${status.from}. Ulanishni tekshirish tugmasini bosing.`:'Railway’da ESKIZ_EMAIL va ESKIZ_PASSWORD qiymatlarini tekshiring.';
+ $('#smsHistory').innerHTML='<thead><tr><th>Sana</th><th>Telefon</th><th>Matn</th><th>Holat</th><th>Izoh</th></tr></thead><tbody>'+history.messages.map(m=>`<tr><td>${esc(fmt(m.created_at))}</td><td>${esc(m.phone)}</td><td style="max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(m.message)}</td><td>${esc(smsLabels[m.status]||m.status)}</td><td>${esc(m.error||'—')}</td></tr>`).join('')+'</tbody>';
+ if(!history.messages.length)$('#smsHistory').innerHTML='<tbody><tr><td>Hozircha SMS yuborilmagan.</td></tr></tbody>';
+}
+async function sendSms(e){e.preventDefault();const body={phone:$('#smsPhone').value,message:$('#smsMessage').value};const payload=JSON.stringify(body);if(payload!==smsPayload){smsPayload=payload;smsRequestKey=crypto.randomUUID()}
+ if(!confirm(`${body.phone} raqamiga ushbu SMS yuborilsinmi?\n\n${body.message}`))return;
+ const button=$('#smsSend');button.disabled=true;$('#smsNew').disabled=true;$('#smsResult').textContent='Yuborilmoqda…';
+ try{const d=await api('/api/sms/send',{method:'POST',headers:{'Idempotency-Key':smsRequestKey},body:payload});$('#smsResult').textContent=(smsLabels[d.status]||d.status)+(d.error?' — '+d.error:'')+(d.duplicate?' (oldingi so‘rov natijasi)':'');await loadSms()}catch(err){$('#smsResult').textContent=err.message}finally{button.disabled=false;$('#smsNew').disabled=false}
+}
+
 async function loadSettings() {
   const d = await api("/api/ceo/settings");
   const s = d.settings || {};
@@ -251,6 +266,7 @@ async function openPage(p) {
     if (p === "payments") await loadPayments();
     if (p === "roles") renderRoles();
     if (p === "settings") await loadSettings();
+    if (p === "sms") await loadSms();
   } catch (e) { toast(e.message); }
 }
 
@@ -277,6 +293,7 @@ async function showApp() {
   if (path.includes("payments")) p = "payments";
   if (path.includes("roles")) p = "roles";
   if (path.includes("settings")) p = "settings";
+  if (path.includes("sms")) p = "sms";
   await openPage(p);
 }
 
@@ -368,6 +385,12 @@ async function saveSettings() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   renderIcons();
+  $('#smsForm')?.addEventListener('submit',sendSms);
+  $('#smsForm')?.addEventListener('reset',()=>{smsRequestKey=null;smsPayload=null;$('#smsResult').textContent='';$('#smsCount').textContent='0 / 1000 belgi'});
+  $('#smsMessage')?.addEventListener('input',()=>{$('#smsCount').textContent=$('#smsMessage').value.length+' / 1000 belgi'});
+  $('#smsRefresh')?.addEventListener('click',()=>loadSms().catch(e=>toast(e.message)));
+  $('#smsCheck')?.addEventListener('click',async()=>{const b=$('#smsCheck');b.disabled=true;try{const d=await api('/api/sms/check',{method:'POST',body:'{}'});$('#smsStatus').textContent=d.message}catch(e){$('#smsStatus').textContent=e.message}finally{b.disabled=false}});
+
 
   $("#ceoLoginForm")?.addEventListener("submit", (e) => {
     e.preventDefault();

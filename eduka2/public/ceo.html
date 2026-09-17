@@ -48,6 +48,7 @@
         <button data-page="tariffs"><i data-icon="tariffs"></i>Tariflar</button>
         <button data-page="payments"><i data-icon="payments"></i>To‘lovlar</button>
         <button data-page="roles"><i data-icon="roles"></i>Ruxsatlar</button>
+        <button data-page="sms"><i data-icon="bell"></i>SMS xabarlar</button>
         <button data-page="settings"><i data-icon="settings"></i>Sozlamalar</button>
       </nav>
       <div class="help-box"><b>Yordam kerakmi?</b><p>Support va sotuv bo‘limi ma’lumotlari sozlamalarda boshqariladi.</p></div>
@@ -111,6 +112,17 @@
         <div class="roles-grid" id="rolesGrid"></div>
       </section>
 
+      <section class="ceo-page" data-view="sms">
+        <section class="panel"><div class="panel-head"><h2>Eskiz SMS</h2><button id="smsCheck" type="button">Ulanishni tekshirish</button></div><p id="smsStatus" role="status" style="padding:16px">Yuklanmoqda…</p></section>
+        <form id="smsForm" class="settings-grid">
+          <label>Telefon raqami<input id="smsPhone" type="tel" placeholder="998901234567" autocomplete="tel" required></label>
+          <label>SMS matni<textarea id="smsMessage" rows="5" maxlength="1000" required placeholder="Xabar matnini kiriting"></textarea><small id="smsCount">0 / 1000 belgi</small></label>
+          <p>SMS Eskiz hisobingiz balansidan yuboriladi. “Qabul qilindi” holati telefonga yetkazilganini anglatmaydi.</p>
+          <button id="smsSend" type="submit">SMS yuborish</button><button id="smsNew" type="reset">Yangi SMS</button><p id="smsResult" role="status"></p>
+        </form>
+        <section class="panel"><div class="panel-head"><h2>Oxirgi 100 ta SMS</h2><button id="smsRefresh" type="button">Yangilash</button></div><div class="table-wrap"><table id="smsHistory"></table></div></section>
+      </section>
+
       <section class="ceo-page" data-view="settings">
         <form class="settings-grid">
           <label>Platforma nomi<input id="settingPlatformName" value="EDUKA"></label>
@@ -135,7 +147,7 @@
   </div>
 
   <script src="/eduka-ui-v11.js?v=1.1.0"></script>
-  <script src="/ceo/ceo.js?v=1.1.0"></script>
+  <script src="/ceo/ceo.js?v=1.2.0"></script>
   <script src="/ceo/ceo-native-v11.js?v=1.1.0"></script>
 </body>
 </html>
