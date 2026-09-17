@@ -1,6 +1,6 @@
 const express=require('express');
 const multer=require('multer');
-const {randomUUID}=require('node:crypto');
+const {randomUUID,createHash}=require('node:crypto');
 const pool=require('../db');
 const {requireCenterAuth}=require('../middleware/center-auth');
 const {normalizeHost,tenantFromRequest}=require('../utils/tenant');
@@ -62,7 +62,7 @@ async function validate(db,center,entity,data,current){
  for(const [key,v]of Object.entries(data))if(['__proto__','constructor','prototype'].includes(key)||!['string','number','boolean'].includes(typeof v)||typeof v==='number'&&!Number.isFinite(v))throw fail('Maydon qiymati noto‘g‘ri');
  for(const k of ['openingBalance','legacyKind','calculation','paymentId','payrollId','sourceAttendance','rewardId']){if(current?.data[k]!==undefined)data[k]=current.data[k];else delete data[k]}
  const definition=pages.find(p=>p.entity===entity&&p.fields.length);
- for(const f of definition?fieldsFor(definition):[]){const v=data[f.key];if(f.required&&(v===undefined||v===''))throw fail(f.label+' majburiy');if(v===undefined||v==='')continue;
+ for(const f of definition?fieldsFor(definition):[]){const v=data[f.key];if(f.required&&(v===undefined||typeof v==='string'&&!v.trim()))throw fail(f.label+' majburiy');if(v===undefined||v==='')continue;
   if(f.type==='number'&&(typeof v!=='number'||v<0&&!['latitude','longitude'].includes(f.key)))throw fail(f.label+': musbat raqam kiriting');
   if(f.type==='select'&&f.options&&!f.options.includes(v))throw fail(f.label+': variantni tanlang');
   if(f.type==='date'&&(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v))throw fail(f.label+': sana noto‘g‘ri');
@@ -102,10 +102,17 @@ router.post('/records',async(req,res,next)=>{let db;try{
  if(!allowed(req,b.entity,true))throw fail('Bu amal uchun ruxsat yo‘q',403);
  if(b.action!=='create'&&!UUID.test(b.id||''))throw fail('ID noto‘g‘ri');
  db=await pool.connect();await db.query('BEGIN');await initialized(db,center);
+ const requestId=b.action==='create'?b.requestId:null;if(requestId&&!UUID.test(requestId))throw fail('So‘rov IDsi noto‘g‘ri');const payloadHash=createHash('sha256').update(JSON.stringify({entity:b.entity,data:b.data})).digest('hex');
+ if(requestId){const prev=(await db.query('SELECT * FROM eduka_record_requests WHERE center_id=$1 AND actor_id=$2 AND request_id=$3',[center,req.crmUser.id,requestId])).rows[0];if(prev){if(prev.payload_hash!==payloadHash)throw fail('Bu so‘rov IDsi boshqa ma’lumot uchun ishlatilgan',409);const record=(await db.query('SELECT id,entity,data,version,deleted,created_at,updated_at FROM eduka_records WHERE center_id=$1 AND id=$2',[center,prev.record_id])).rows[0];await db.query('COMMIT');return res.json({record,replayed:true})}}
  const current=b.action==='create'?null:(await db.query('SELECT * FROM eduka_records WHERE id=$1 AND center_id=$2 AND entity=$3 FOR UPDATE',[b.id,center,b.entity])).rows[0];
  if(b.action!=='create'&&!current)throw fail('Yozuv topilmadi',404);
  if(current&&b.version!==current.version)throw fail('Yozuv yangilangan. Sahifani yangilang.',409);
  const data=['archive','restore'].includes(b.action)?{...current.data}:{...b.data};
+ if(b.action==='restore'&&b.entity==='students'&&data.status==='Arxiv')data.status='Faol';
+ if(b.action==='update'&&current.deleted)throw fail('Avval yozuvni arxivdan tiklang',409);
+ if(b.action==='restore'&&!current.deleted||b.action==='archive'&&current.deleted)throw fail('Yozuv holati o‘zgargan. Sahifani yangilang.',409);
+ if(b.action==='archive')await require('../utils/crm-record-quality').beforeArchive(db,center,current);
+ else{require('../utils/crm-record-quality').normalize(b.entity,data);await require('../utils/crm-record-quality').check(db,center,b.entity,data,current);}
  // Restore must recheck uniqueness and relations too.
  if(current?.data.calculation==='v1'||current?.data.payrollId||current?.data.sourceAttendance||current?.data.rewardId)throw fail('Avtomatik yaratilgan yozuvni qo‘lda o‘zgartirib bo‘lmaydi');
  if(b.entity==='settings'){if(!['owner','director'].includes(req.crmRole))throw fail('Sozlamalarni faqat rahbar o‘zgartiradi',403);if(b.action==='archive')throw fail('Sozlamalarni arxivlash mumkin emas');await require('../utils/crm-settings').validateSettings(db,center,data,current)}
@@ -125,6 +132,7 @@ router.post('/records',async(req,res,next)=>{let db;try{
  if(b.entity==='roles'){const row=(await db.query("SELECT value FROM center_settings WHERE center_id=$1 AND key='rbac.roles.v1'",[center])).rows[0];let roles=[];try{roles=JSON.parse(row?.value||'[]')}catch{};roles=roles.filter(r=>r.id!==record.id);roles.push({id:record.id,name:record.data.name,permissions:record.deleted?[]:require('../utils/crm-operations').rolePermissions(record.data)});await db.query("INSERT INTO center_settings(center_id,key,value) VALUES($1,'rbac.roles.v1',$2) ON CONFLICT(center_id,key) DO UPDATE SET value=EXCLUDED.value",[center,JSON.stringify(roles)])}
  const event={record_id:record.id,entity:b.entity,action:b.action,actor:req.crmUser.full_name,changes,created_at:record.updated_at};
  await db.query('INSERT INTO eduka_events(center_id,record_id,entity,action,actor,changes) VALUES($1,$2,$3,$4,$5,$6)',[center,record.id,b.entity,b.action,event.actor,JSON.stringify(changes)]);
+ if(requestId)await db.query('INSERT INTO eduka_record_requests(center_id,actor_id,request_id,payload_hash,record_id) VALUES($1,$2,$3,$4,$5)',[center,req.crmUser.id,requestId,payloadHash,record.id]);
  await db.query('COMMIT');res.json({record,event});
  }catch(e){if(db)await db.query('ROLLBACK');next(e)}finally{db?.release()}});
 router.post('/files',upload.single('file'),async(req,res,next)=>{try{
