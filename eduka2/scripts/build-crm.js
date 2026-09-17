@@ -5,6 +5,7 @@ const root=path.join(__dirname,'..'),client=path.join(root,'crm-client');
 execFileSync('npm',['ci','--include=dev','--no-audit','--no-fund'],{cwd:client,stdio:'inherit'});
 const ts=require(path.join(client,'node_modules/typescript'));
 fs.writeFileSync(path.join(root,'utils/crm-catalog.cjs'),ts.transpileModule(fs.readFileSync(path.join(client,'lib/catalog.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
+fs.writeFileSync(path.join(root,'utils/crm-settings-catalog.cjs'),ts.transpileModule(fs.readFileSync(path.join(client,'lib/settings.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
 execFileSync('npm',['run','typecheck'],{cwd:client,stdio:'inherit'});
 execFileSync('npm',['run','build'],{cwd:client,stdio:'inherit'});
 fs.copyFileSync(path.join(root,'public/crm/index.html'),path.join(root,'public/app.html'));

@@ -1,5 +1,6 @@
 export const settingsSections:Record<string,Record<string,{label:string;key:string;type?:string;options?:string[]}[]>>={
 system:{
+ 'Markaz ma’lumotlari':[{key:'centerName',label:'Markaz nomi'},{key:'centerPhone',label:'Markaz telefoni',type:'tel'},{key:'centerAddress',label:'Manzil'},{key:'centerLogo',label:'Markaz logosi',type:'file'}],
  'Coin qoidasi':[{key:'attendanceCoins',label:'Darsga kelganda coin (0 — o‘chirilgan)','type':'number'}],
  'Moliya':[{key:'monthlyPricing',label:'Oylik narxlash',type:'switch'},{key:'retainPrice',label:'Guruh almashtirganda narxni saqlash',type:'switch'},{key:'transferConfirm',label:'Kassa o‘tkazmasini tasdiqlash',type:'switch'},{key:'cancelNote',label:'Bekor qilishda izoh talab qilish',type:'switch'},{key:'currency',label:'Valyuta',type:'select',options:['UZS','USD']},{key:'debtLimit',label:'Qarzdorlik limiti',type:'number'}],
  'Davomat':[{key:'oldAttendance',label:'O‘tgan darslar davomatini tahrirlash',type:'switch'},{key:'defaultPresent',label:'Boshlang‘ich holat: keldi',type:'switch'},{key:'autoExit',label:'Kelmagan o‘quvchini avtomatik chiqarish',type:'switch'},{key:'maxGrade',label:'Maksimal baho',type:'number'}],
@@ -18,3 +19,6 @@ management:{'Moderator darajalari':[{key:'managerGrade',label:'Daraja nomi'},{ke
 'app-settings':{'Kontent':[{key:'showStories',label:'Stories ko‘rsatish',type:'switch'},{key:'showNews',label:'Yangiliklar ko‘rsatish',type:'switch'}],'Xodimlar':[{key:'faceId',label:'Face ID davomat',type:'switch'},{key:'geolocation',label:'Geolokatsiya orqali davomat',type:'switch'}],'O‘quvchilar':[{key:'archivedAccess',label:'Arxiv o‘quvchiga kirish',type:'switch'},{key:'showBalance',label:'Balansni ko‘rsatish',type:'switch'},{key:'profileEdit',label:'Profil tahrirlash',type:'switch'}]}
 };
 export const integrations=[['To‘lov tizimlari','Click','Payme','Payze','Uzum','Multicard','Atmos'],['SMS provayderlar','Playmobile','Eskiz','OsonSMS'],['Aloqa va sotuv','Telegram','Kommo','Google Sheets','OnlinePBX','Moizvonki'],['Boshqa','Hikvision','External API','AI / MCP']];
+
+export const activeSettingKeys=['centerName','centerPhone','centerAddress','centerLogo','attendanceCoins','requiredBirthDate','requiredPhone','requiredSource','dayStart','dayEnd','timezone','maxGrade','tablePageSize','oldAttendance','defaultPresent','receiptTitle','receiptFooter','receiptFontSize','lessonDuration','maxCapacity'];
+export const settingDefaults:Record<string,Record<string,any>>={system:{timezone:'Asia/Tashkent',dayStart:'08:00',dayEnd:'22:00',maxGrade:5,tablePageSize:'20',oldAttendance:true,defaultPresent:false,receiptFontSize:14},study:{lessonDuration:60}};

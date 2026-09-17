@@ -93,7 +93,7 @@ async function validate(db,center,entity,data,current){
   if(rows.some(r=>r.data.student===data.student&&(entity==='visits'?!r.data.leftAt&&!data.leftAt:entity==='enrollments'?r.data.group===data.group&&r.data.status!=='Yakunlangan'&&data.status!=='Yakunlangan':r.data.group===data.group&&r.data.date===data.date)))throw fail('Bu o‘quvchi uchun bunday faol yozuv mavjud',409);
  }
  const config=(await db.query("SELECT data FROM eduka_records WHERE center_id=$1 AND entity='settings' AND data->>'section'='system' AND deleted=0 ORDER BY updated_at DESC LIMIT 1",[center])).rows[0]?.data||{};
- if(entity==='students')for(const [setting,key]of [['requiredBirthDate','birthDate'],['requiredPhone','phone'],['requiredSource','source']])if(config[setting]&&!data[key])throw fail(key+' majburiy');
+ if(entity==='students')for(const [setting,key]of [['requiredBirthDate','birthDate'],['requiredPhone','phone'],['requiredSource','source']])if(config[setting]&&!String(data[key]??'').trim())throw fail(key+' majburiy');
  if(entity==='assessments'&&Number(data.grade)>Number(config.maxGrade||5))throw fail('Baho maksimal qiymatdan katta');
 }
 router.post('/records',async(req,res,next)=>{let db;try{
@@ -108,13 +108,16 @@ router.post('/records',async(req,res,next)=>{let db;try{
  const data=['archive','restore'].includes(b.action)?{...current.data}:{...b.data};
  // Restore must recheck uniqueness and relations too.
  if(current?.data.calculation==='v1'||current?.data.payrollId||current?.data.sourceAttendance||current?.data.rewardId)throw fail('Avtomatik yaratilgan yozuvni qo‘lda o‘zgartirib bo‘lmaydi');
+ if(b.entity==='settings'){if(!['owner','director'].includes(req.crmRole))throw fail('Sozlamalarni faqat rahbar o‘zgartiradi',403);if(b.action==='archive')throw fail('Sozlamalarni arxivlash mumkin emas');await require('../utils/crm-settings').validateSettings(db,center,data,current)}
  if(b.entity==='roles'&&!['owner','director'].includes(req.crmRole))throw fail('Rollarni faqat rahbar boshqaradi',403);
- if(b.action!=='archive')await validate(db,center,b.entity,data,current);
+ if(b.action==='archive'&&b.entity==='attendance')await require('../utils/crm-settings').rules(db,center,b.entity,data,current);
+ if(b.action!=='archive'){await require('../utils/crm-settings').rules(db,center,b.entity,data,current);await validate(db,center,b.entity,data,current);}
  await require('../utils/crm-limits').checkLimit(db,center,b.entity,current,data,b.action);
  const record={id:current?.id||randomUUID(),entity:b.entity,data,version:(current?.version||0)+1,deleted:b.action==='archive'?1:b.action==='restore'?0:current?.deleted||0,created_at:current?.created_at||new Date(),updated_at:new Date()};
  const changes=Object.fromEntries([...new Set([...Object.keys(current?.data||{}),...Object.keys(data)])].filter(k=>JSON.stringify(current?.data[k])!==JSON.stringify(data[k])&&!/password|secret|token/i.test(k)).map(k=>[k,{before:current?.data[k]??null,after:data[k]??null}]));
  await db.query('INSERT INTO eduka_records(id,center_id,entity,data,version,deleted,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,version=EXCLUDED.version,deleted=EXCLUDED.deleted,updated_at=EXCLUDED.updated_at WHERE eduka_records.center_id=EXCLUDED.center_id',[record.id,center,record.entity,JSON.stringify(data),record.version,record.deleted,record.created_at,record.updated_at]);
  await syncCanonical(db,record,center);
+ if(b.entity==='settings'&&data.section==='system'&&data.centerName)await db.query('UPDATE centers SET name=$2,updated_at=NOW() WHERE id=$1',[center,data.centerName.trim()]);
  await require('../utils/crm-notifications').payment(db,center,record,b.action);
  await require('../utils/crm-coins').attendanceCoins(db,center,record);
  if(record.entity==='coins')await require('../utils/crm-coins').ensureBalances(db,center);

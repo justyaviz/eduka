@@ -5,3 +5,4 @@ eduka2/utils/crm-catalog.cjs
 *.tsbuildinfo
 .env
 .env.*
+eduka2/utils/crm-settings-catalog.cjs
