@@ -13,13 +13,13 @@ const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const allRoles=['owner','director','admin','administrator'];
 const modules={orders:'leads',groups:'groups',enrollments:'groups',students:'students',parents:'students','student-files':'students','student-notes':'students',addresses:'students','student-contracts':'students',calls:'students','student-tasks':'reminders',tasks:'reminders',visits:'attendance',attendance:'attendance',assessments:'attendance',employees:'teachers',transactions:'finance',cash:'finance',charges:'finance',discounts:'finance',installments:'finance',salary:'finance',bonuses:'finance',penalties:'finance','payment-type':'finance','income-plans':'finance','planned-expenses':'finance',settings:'settings',roles:'roles',branches:'settings'};
 const defaults={manager:['dashboard.view','leads.*','students.*','groups.*','reminders.*','teachers.view','attendance.view'],teacher:['dashboard.view','groups.view','students.view','attendance.*','reminders.view'],cashier:['dashboard.view','students.view','finance.view','finance.payments','finance.collect'],accountant:['dashboard.view','finance.*','students.view','groups.view']};
-function allowed(req,entity,write=false){
+function allowed(req,entity,write=false,action){
  if(allRoles.includes(req.crmRole))return true;
  const module=modules[entity]||'settings';const list=req.crmPermissions;
  if(list.includes('*')||list.includes(module+'.*'))return true;
  if(!write)return list.includes(module+'.view');
  if(entity==='transactions'&&list.includes('finance.collect'))return true;
- return list.includes(module+'.manage');
+ return list.includes(module+'.manage')||!!action&&list.includes(module+'.'+(action==='restore'?'archive':action));
 }
 function sameOrigin(req,res,next){
  if(['GET','HEAD'].includes(req.method))return next();
@@ -37,7 +37,8 @@ router.use(async(req,res,next)=>{try{
  req.crmRole=String(u.role||'').toLowerCase();req.crmUser=u;
  const row=(await pool.query("SELECT value FROM center_settings WHERE center_id=$1 AND key='rbac.roles.v1'",[req.centerUser.centerId])).rows[0];
  let roles=[];try{roles=JSON.parse(row?.value||'[]')}catch{}
- req.crmPermissions=roles.find(r=>String(r.id).toLowerCase()===req.crmRole)?.permissions||defaults[req.crmRole]||[];
+ const custom=(await pool.query("SELECT data FROM eduka_records WHERE center_id=$1 AND id::text=$2 AND entity='roles' AND deleted=0",[req.centerUser.centerId,req.crmRole])).rows[0];
+ req.crmPermissions=custom?require('../utils/crm-operations').rolePermissions(custom.data):roles.find(r=>String(r.id).toLowerCase()===req.crmRole)?.permissions||defaults[req.crmRole]||[];
  res.set('Cache-Control','no-store');next();
  }catch(e){next(e)}});
 require('../utils/crm-telegram').register(router,pool);
@@ -99,10 +100,11 @@ async function validate(db,center,entity,data,current){
  if(entity==='students')for(const [setting,key]of [['requiredBirthDate','birthDate'],['requiredPhone','phone'],['requiredSource','source']])if(config[setting]&&!String(data[key]??'').trim())throw fail(key+' majburiy');
  if(entity==='assessments'&&Number(data.grade)>Number(config.maxGrade||5))throw fail('Baho maksimal qiymatdan katta');
 }
+require('../utils/crm-study').register(router,{pool,initialized,allowed,validate});
 router.post('/records',async(req,res,next)=>{let db;try{
  const b=req.body||{},center=req.centerUser.centerId;
  if(!entityAllowlist.includes(b.entity)||!['create','update','archive','restore'].includes(b.action))throw fail('Noto‘g‘ri amal yoki bo‘lim');
- if(!allowed(req,b.entity,true))throw fail('Bu amal uchun ruxsat yo‘q',403);
+ if(!allowed(req,b.entity,true,b.action))throw fail('Bu amal uchun ruxsat yo‘q',403);
  if(b.action!=='create'&&!UUID.test(b.id||''))throw fail('ID noto‘g‘ri');
  db=await pool.connect();await db.query('BEGIN');await initialized(db,center);
  const requestId=b.action==='create'?b.requestId:null;if(requestId&&!UUID.test(requestId))throw fail('So‘rov IDsi noto‘g‘ri');const payloadHash=createHash('sha256').update(JSON.stringify({entity:b.entity,data:b.data})).digest('hex');
@@ -122,6 +124,8 @@ router.post('/records',async(req,res,next)=>{let db;try{
  if(b.entity==='roles'&&!['owner','director'].includes(req.crmRole))throw fail('Rollarni faqat rahbar boshqaradi',403);
  if(b.action==='archive'&&b.entity==='attendance')await require('../utils/crm-settings').rules(db,center,b.entity,data,current);
  if(b.action!=='archive'){await require('../utils/crm-settings').rules(db,center,b.entity,data,current);await validate(db,center,b.entity,data,current);}
+ await require('../utils/crm-study').teacherScope(req,db,center,b.entity,data);
+ if(b.action!=='archive')await require('../utils/crm-study').rules(db,center,b.entity,data,current);
  await require('../utils/crm-limits').checkLimit(db,center,b.entity,current,data,b.action);
  const record={id:current?.id||randomUUID(),entity:b.entity,data,version:(current?.version||0)+1,deleted:b.action==='archive'?1:b.action==='restore'?0:current?.deleted||0,created_at:current?.created_at||new Date(),updated_at:new Date()};
  const changes=Object.fromEntries([...new Set([...Object.keys(current?.data||{}),...Object.keys(data)])].filter(k=>JSON.stringify(current?.data[k])!==JSON.stringify(data[k])&&!/password|secret|token/i.test(k)).map(k=>[k,{before:current?.data[k]??null,after:data[k]??null}]));

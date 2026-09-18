@@ -183,6 +183,35 @@ async function main(){
  assert.equal((await tenantAction('PUT',{chatId:'-1001234567890',enabled:true})).status,200);
  assert.equal((await require('../utils/crm-telegram').config(adapter,center)).token,fakeToken);
  }finally{global.fetch=realFetch}
+ // Phase 5: schedule collisions, atomic attendance, transfers and action-specific roles.
+ const room5=(await create('rooms',{name:'Phase5 room',capacity:2})).body.record;
+ const ga5=await create('groups',{name:'Phase5 A',teacher:employee,room:room5.id,days:'Toq kunlar',time:'11:00',endTime:'12:00',startDate:'2026-09-01',endDate:'2026-12-31'});assert.equal(ga5.status,200,JSON.stringify(ga5.body));
+ assert.equal((await create('groups',{name:'Phase5 clash',teacher:employee,days:'Toq kunlar',time:'11:30',endTime:'12:30',startDate:'2026-09-01'})).status,409);
+ const gb5=await create('groups',{name:'Phase5 B',teacher:employee,room:room5.id,days:'Toq kunlar',time:'12:00',endTime:'13:00',startDate:'2026-09-01'});assert.equal(gb5.status,200,JSON.stringify(gb5.body));
+ const ps5=(await create('students',{name:'Phase5 Student',phone:'+998909991111',group:ga5.body.record.id})).body.record;assert.ok(ps5);
+ const date5=new Date().toISOString().slice(0,10);
+ const batch5={group:ga5.body.record.id,date:date5,entries:[{student:ps5.id,status:'Kechikdi',version:0}]};
+ let br5=await request('crm/attendance-batch',batch5);assert.equal(br5.status,200,JSON.stringify(br5.body));
+ assert.equal(br5.body.records[0].data.teacher,employee);
+ assert.equal((await request('crm/attendance-batch',batch5)).status,409,'stale batch cannot overwrite');
+ assert.equal((await request('crm/attendance-batch',{...batch5,entries:[{student:ps5.id,status:'Keldi',version:1},{student:created.body.record.id,status:'Keldi',version:0}]})).status,400,'unrelated student rejects entire batch');
+ assert.equal((await pg.query('SELECT data FROM eduka_records WHERE id=$1',[br5.body.records[0].id])).rows[0].data.status,'Kechikdi','batch rollback preserves original');
+ const foreignAttendance=await fetch(base+'/api/crm/records',{method:'POST',headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:staffCookie,'Content-Type':'application/json'},body:JSON.stringify({action:'create',entity:'attendance',data:{student,group:group.id,date:date5,status:'Keldi'}})});assert.equal(foreignAttendance.status,403);
+ const moved5=await request('crm/group-transfer',{student:ps5.id,from:ga5.body.record.id,to:gb5.body.record.id,date:date5,version:ps5.version});assert.equal(moved5.status,200,JSON.stringify(moved5.body));
+ const after5=(await request('crm/records')).body.records;assert.equal(after5.find(r=>r.id===ps5.id).data.group,gb5.body.record.id);assert.equal(after5.find(r=>r.entity==='enrollments'&&r.data.student===ps5.id&&r.data.group===ga5.body.record.id).data.status,'Yakunlangan');
+ assert.equal((await request('crm/group-transfer',{student:ps5.id,from:ga5.body.record.id,to:gb5.body.record.id,date:date5,version:ps5.version})).status,409);
+ assert.equal((await request('crm/attendance-batch',batch5,'beta.eduka.uz')).status,403);
+ const onlyCreate5=await create('roles',{name:'Phase5 create only','permission:groups:Ko‘rish':true,'permission:groups:Qo‘shish':true});assert.equal(onlyCreate5.status,200);
+ assert.equal((await request('crm/staff-access',{employee,email:'new@example.test',password:'',role:onlyCreate5.body.record.id,status:'active'})).status,200);
+ const scopedLogin5=await request('tenant/login',{login:'new@example.test',password:'test-only-strong-password'},'alpha.eduka.uz',false);assert.equal(scopedLogin5.status,200);
+ const roleCookie5=scopedLogin5.headers.get('set-cookie').split(';')[0];
+ async function roleRequest5(body){const r=await fetch(base+'/api/crm/records',{method:'POST',headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:roleCookie5,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()}}
+ const roleGroup5=await roleRequest5({entity:'groups',action:'create',data:{name:'Limited role group'}});assert.equal(roleGroup5.status,200,JSON.stringify(roleGroup5.body));
+ assert.equal((await roleRequest5({entity:'groups',action:'update',id:roleGroup5.body.record.id,version:1,data:{name:'Forbidden edit'}})).status,403);
+ assert.equal((await roleRequest5({entity:'groups',action:'archive',id:roleGroup5.body.record.id,version:1})).status,403);
+ const {overlap}=require('../utils/crm-study');assert.equal(overlap({time:'10:00',endTime:'11:00',days:'Toq kunlar'},{time:'10:30',endTime:'11:30',days:'Juft kunlar'}),false);
+ assert.equal(calculatePayroll([...fixtures,{entity:'bonuses',data:{moderator:'t',date:'2026-09-01',amount:3000}},{entity:'penalties',data:{moderator:'t',date:'2026-09-01',amount:1000}},{entity:'bonuses',deleted:1,data:{moderator:'t',date:'2026-09-01',amount:99999}}],{id:'t',data:{salary:100000,lessonRate:10000,revenuePercent:10}},'2026-09').total,127000);
+ console.log('PASS: phase 5 schedule conflicts, atomic batch rollback, teacher scope, transfers, payroll adjustments and granular role permissions.');
  async function ceoAction(id,suffix,method,body,auth=ceoToken){const r=await fetch(base+'/api/ceo/centers/'+id+suffix,{method,headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()}}
  for(const days of [3,7,10]){assert.equal((await ceoAction(center,'/trial','POST',{days})).status,200);const session=(await request('crm/session')).body;assert.equal(session.center.status,'Trial');assert.equal(Math.ceil((new Date(session.center.expiresAt)-new Date(session.serverNow))/86400000),days)}
  assert.equal((await ceoAction(center,'/trial','POST',{days:4})).status,400);
