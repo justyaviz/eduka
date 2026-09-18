@@ -10,6 +10,7 @@ import {Checkbox} from '@/components/ui/checkbox';
 import {Table,TableHeader,TableHead,TableBody,TableRow,TableCell} from '@/components/ui/table';
 import {Empty,EmptyHeader,EmptyTitle,EmptyDescription} from '@/components/ui/empty';
 import {toast} from 'sonner';
+import {requestReceipt} from './experience';
 import {CRMRecord,studentAccount,displayName,groupIds,exportRows} from '@/lib/domain';
 import {pages,fieldsFor,PageDef} from '@/lib/catalog';
 const money=(v:any)=>new Intl.NumberFormat('uz-UZ').format(Number(v)||0);
@@ -25,7 +26,7 @@ export function Profile({student,records,events,close,edit,onAdd,onEdit,save}:{s
  const label=(id:string)=>displayName(records.find(r=>r.id===id));const account=studentAccount(student.id,records);
  const related=(entity:string)=>records.filter(r=>r.entity===entity&&r.data.student===student.id);
  const add=(entity:string,extra:any={})=>onAdd(entity,{student:student.id,branch:student.data.branch??'',date:today(),month:today().slice(0,7),...extra});
- const rowsTable=(entity:string,keys:string[],headers:string[])=>{const definition=pages.find(p=>p.entity===entity&&p.fields.length);return <><div className="profile-actions"><Button onClick={()=>add(entity)}><Plus size={15}/>Qo‘shish</Button></div><WorkflowTable headers={[...headers,'']} rows={related(entity).map(r=>[...keys.map(k=>{const f=definition?.fields.find(f=>f.key===k);const v=r.data[k];return f?.type==='relation'?label(v):f?.type==='number'?money(v):f?.type==='file'&&v?<a className="blue-text" href={v} target="_blank" rel="noreferrer">Faylni ochish</a>:v||'—'}),<button className="icon-button" aria-label="Tahrirlash" onClick={()=>onEdit(r)}><Pencil size={14}/></button>])}/></>};
+ const rowsTable=(entity:string,keys:string[],headers:string[])=>{const definition=pages.find(p=>p.entity===entity&&p.fields.length);return <><div className="profile-actions"><Button onClick={()=>add(entity)}><Plus size={15}/>Qo‘shish</Button></div><WorkflowTable headers={[...headers,'']} rows={related(entity).map(r=>[...keys.map(k=>{const f=definition?.fields.find(f=>f.key===k);const v=r.data[k];return f?.type==='relation'?label(v):f?.type==='number'?money(v):f?.type==='file'&&v?<a className="blue-text" href={v} target="_blank" rel="noreferrer">Faylni ochish</a>:v||'—'}),<div className="flex gap-2"><button className="icon-button" aria-label="Tahrirlash" onClick={()=>onEdit(r)}><Pencil size={14}/></button>{entity==='transactions'&&<Button variant="outline" onClick={()=>requestReceipt(r,displayName(student))}>Chek</Button>}</div>])}/></>};
  const enrollments=related('enrollments');const legacyGroup=student.data.group&&!enrollments.some(r=>r.data.group===student.data.group)?records.find(r=>r.id===student.data.group):null;
  const groups=[...new Set([...enrollments.map(r=>r.data.group),...related('charges').map(r=>r.data.group),...related('transactions').map(r=>r.data.group),...(legacyGroup?[legacyGroup.id]:[])].filter(Boolean))];
  const ltvHeaders=['Guruh','O‘qigan davri','Holati','Hisoblangan','Chegirma','To‘langan','Qarz','O‘qituvchi ulushi'];

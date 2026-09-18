@@ -54,6 +54,7 @@ async function initialized(db,center){
 }
 require('../utils/crm-operations').register(router,{pool,initialized,allowed});
 require('../utils/crm-coins').register(router,{pool,initialized,allowed});
+require('../utils/crm-finance').register(router,{pool,initialized,allowed});
 router.get('/records',async(req,res,next)=>{const db=await pool.connect();try{await db.query('BEGIN');const center=req.centerUser.centerId;await initialized(db,center);const entities=entityAllowlist.filter(e=>allowed(req,e)&&(!req.query.entity||req.query.entity===e));const cursor=String(req.query.cursor||'00000000-0000-0000-0000-000000000000');if(!UUID.test(cursor))throw fail('Sahifa belgisi noto‘g‘ri');const limit=Math.min(500,Math.max(1,Number(req.query.limit)||500));const records=(await db.query('SELECT id,entity,data,version,deleted,created_at,updated_at FROM eduka_records WHERE center_id=$1 AND entity=ANY($2::text[]) AND id>$3 ORDER BY id LIMIT $4',[center,entities,cursor,limit+1])).rows;const more=records.length>limit;if(more)records.pop();const events=req.query.cursor?[]:(await db.query('SELECT record_id,entity,action,actor,changes,created_at FROM eduka_events WHERE center_id=$1 AND entity=ANY($2::text[]) ORDER BY created_at DESC LIMIT 500',[center,entities])).rows;await db.query('COMMIT');res.json({records,events,nextCursor:more?records.at(-1).id:null})}catch(e){await db.query('ROLLBACK');next(e)}finally{db.release()}});
 
 async function validate(db,center,entity,data,current){
