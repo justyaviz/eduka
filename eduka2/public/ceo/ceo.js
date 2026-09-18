@@ -359,7 +359,7 @@ async function convertDemo(id) {
       <div><span>Bir martalik parol</span><code>${esc(d.centerAdmin.password)}</code><button data-copy="${esc(d.centerAdmin.password)}">Nusxalash</button></div>
     </div>
     <div class="modal-actions"><button class="primary-action" data-open-centers>Markazlar bo‘limiga o‘tish</button></div>`;
-  toast("Login ma’lumotlari Telegramga ham yuborildi");
+  toast(d.telegramDelivered ? "Login ma’lumotlari Telegramga ham yuborildi" : "Login ma’lumotlari CEO panelida tayyor");
 }
 
 function makePassword(length = 18) {

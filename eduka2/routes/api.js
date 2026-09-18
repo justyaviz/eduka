@@ -202,7 +202,7 @@ router.post("/demo-requests", async (req, res) => {
 
     await audit({ user: null, action: "Yangi demo so‘rov keldi", module: "demo_requests", details: demo, req });
 
-    await sendTelegramMessage(
+    const telegramResult = await sendTelegramMessage(
       `<b>🆕 EDUKA — Yangi demo so‘rov</b>\n\n` +
       `<b>Ism:</b> ${demo.name}\n` +
       `<b>Markaz:</b> ${demo.center}\n` +
@@ -539,7 +539,7 @@ await client.query(
       `<i>Parolni xavfsiz kanal orqali mijozga yetkazing. Keyin CEO panelida almashtirish mumkin.</i>`
     );
 
-    return res.json({ ok: true, center: centerMap(center), centerAdmin: typeof centerUserResult !== "undefined" ? { email: centerUserResult.rows[0].email, password: adminPassword } : null });
+    return res.json({ ok: true, center: centerMap(center), centerAdmin: typeof centerUserResult !== "undefined" ? { email: centerUserResult.rows[0].email, password: adminPassword } : null, telegramDelivered: telegramResult?.ok === true });
   } catch (error) {
     await client.query("ROLLBACK");
     return res.status(500).json({ ok: false, error: "Convert server error", realError: error.message });
