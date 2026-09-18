@@ -23,4 +23,8 @@ async function sendTelegramMessage(text) {
   }
 }
 
-module.exports = { sendTelegramMessage };
+function telegramEscape(value) {
+  return String(value ?? "").replace(/[&<>]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[character]);
+}
+
+module.exports = { sendTelegramMessage, telegramEscape };

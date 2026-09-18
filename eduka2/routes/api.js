@@ -3,7 +3,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const pool = require("../db");
 const { signToken, requireCeoAuth } = require("../middleware/auth");
-const { sendTelegramMessage } = require("../utils/telegram");
+const { sendTelegramMessage, telegramEscape } = require("../utils/telegram");
 const { initDatabase } = require("../utils/init-db");
 
 const router = express.Router();
@@ -61,6 +61,7 @@ function centerMap(r) {
     createdFromDemoId: r.created_from_demo_id,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    adminLogin: r.admin_login || null,
   };
 }
 
@@ -527,12 +528,15 @@ await client.query(
 
     await sendTelegramMessage(
       `<b>✅ EDUKA — Yangi markaz yaratildi</b>\n\n` +
-      `<b>Markaz:</b> ${center.name}\n` +
-      `<b>Subdomain:</b> ${center.subdomain}.eduka.uz\n` +
-      `<b>Egasi:</b> ${center.owner_name}\n` +
-      `<b>Telefon:</b> ${center.owner_phone}\n` +
-      `<b>Tarif:</b> ${center.tariff}\n` +
-      `<b>Status:</b> Trial`
+      `<b>Markaz:</b> ${telegramEscape(center.name)}\n` +
+      `<b>Domen:</b> https://${telegramEscape(center.subdomain)}.eduka.uz\n` +
+      `<b>Login:</b> <code>${telegramEscape(centerUserResult.rows[0].email)}</code>\n` +
+      `<b>Bir martalik parol:</b> <code>${telegramEscape(adminPassword)}</code>\n` +
+      `<b>Egasi:</b> ${telegramEscape(center.owner_name)}\n` +
+      `<b>Telefon:</b> ${telegramEscape(center.owner_phone)}\n` +
+      `<b>Tarif:</b> ${telegramEscape(center.tariff)}\n` +
+      `<b>Status:</b> Trial\n\n` +
+      `<i>Parolni xavfsiz kanal orqali mijozga yetkazing. Keyin CEO panelida almashtirish mumkin.</i>`
     );
 
     return res.json({ ok: true, center: centerMap(center), centerAdmin: typeof centerUserResult !== "undefined" ? { email: centerUserResult.rows[0].email, password: adminPassword } : null });
@@ -558,7 +562,9 @@ router.get("/ceo/centers", requireCeoAuth, async (req, res) => {
       params.push(`%${req.query.q}%`);
       where += ` AND (name ILIKE $${params.length} OR subdomain ILIKE $${params.length} OR owner_phone ILIKE $${params.length})`;
     }
-    const result = await pool.query(`SELECT * FROM centers ${where} ORDER BY created_at DESC`, params);
+    const result = await pool.query(`SELECT centers.*,
+      (SELECT email FROM center_users WHERE center_id=centers.id AND role IN ('owner','director') AND status='active' ORDER BY CASE WHEN role='owner' THEN 0 ELSE 1 END, created_at LIMIT 1) AS admin_login
+      FROM centers ${where} ORDER BY created_at DESC`, params);
     return res.json({ ok: true, centers: result.rows.map(centerMap) });
   } catch (error) {
     return res.status(500).json({ ok: false, error: "Centers server error", realError: error.message });

@@ -171,13 +171,14 @@ async function loadCenters() {
           <span>Egasi <b>${esc(c.ownerName || "-")}</b></span>
           <span>Telefon <b>${esc(c.ownerPhone || "-")}</b></span>
           <span>Tarif <b>${esc(c.tariff || "Start")}</b></span>
+          <span>Admin login <b>${esc(c.adminLogin || "-")}</b></span>
           <span>Oylik <b>${money(c.monthlyPayment)}</b></span>
           <span>Trial <b>${c.trialEndsAt ? fmt(c.trialEndsAt) : "-"}</b></span>
           <span>Yaratildi <b>${fmt(c.createdAt)}</b></span>
         </div>
         <div class="card-actions">
           <label>Trial <select data-trial-days="${c.id}"><option value="3">3 kun</option><option value="7" selected>7 kun</option><option value="10">10 kun</option></select></label><button data-trial-center="${c.id}">Trial belgilash</button><button data-delete-center="${c.id}" style="color:#F04438">Butunlay o‘chirish</button>
-          <button data-edit-center="${c.id}">Tahrirlash</button>
+          <button data-admin-access="${c.id}">Login / parol</button>
           <button data-center-status="${c.id}" data-status="Active">Active</button>
           <button data-center-status="${c.id}" data-status="Suspended">To‘xtatish</button>
         </div>
@@ -315,6 +316,7 @@ function logout(red = true) {
 }
 
 function openDemoModal(r) {
+  $("#ceoModalTitle").textContent = "Demo so‘rov tafsilotlari";
   $("#modalBody").innerHTML = `
     <div class="detail-list">
       <p><span>Ism</span>${esc(r.name)}</p>
@@ -342,9 +344,65 @@ function openDemoModal(r) {
 
 async function convertDemo(id) {
   const d = await api(`/api/ceo/demo-requests/${id}/convert-to-center`, { method: "POST" });
-  $("#demoModal").hidden = true;
-  toast(d.alreadyConverted ? "Bu so‘rov avval markazga aylantirilgan" : "O‘quv markaz yaratildi");
-  await openPage("centers");
+  if (d.alreadyConverted || !d.centerAdmin) {
+    $("#demoModal").hidden = true;
+    toast("Bu so‘rov avval markazga aylantirilgan");
+    return openPage("centers");
+  }
+  const domain = `https://${String(d.center.subdomain).replace(/\.eduka\.uz$/, "")}.eduka.uz`;
+  $("#ceoModalTitle").textContent = "Markaz muvaffaqiyatli yaratildi";
+  $("#modalBody").innerHTML = `
+    <div class="credential-notice">Bu bir martalik parol. Hozir nusxalab, markaz egasiga xavfsiz yuboring.</div>
+    <div class="credential-list">
+      <div><span>Domen</span><code>${esc(domain)}</code><button data-copy="${esc(domain)}">Nusxalash</button></div>
+      <div><span>Login</span><code>${esc(d.centerAdmin.email)}</code><button data-copy="${esc(d.centerAdmin.email)}">Nusxalash</button></div>
+      <div><span>Bir martalik parol</span><code>${esc(d.centerAdmin.password)}</code><button data-copy="${esc(d.centerAdmin.password)}">Nusxalash</button></div>
+    </div>
+    <div class="modal-actions"><button class="primary-action" data-open-centers>Markazlar bo‘limiga o‘tish</button></div>`;
+  toast("Login ma’lumotlari Telegramga ham yuborildi");
+}
+
+function makePassword(length = 18) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (byte) => chars[byte % chars.length]).join("");
+}
+
+async function copyText(value) {
+  try { await navigator.clipboard.writeText(value); }
+  catch {
+    const input = document.createElement("textarea");
+    input.value = value; document.body.appendChild(input); input.select(); document.execCommand("copy"); input.remove();
+  }
+  toast("Nusxalandi");
+}
+
+async function openAdminAccess(id) {
+  const d = await api(`/api/ceo/centers/${id}/admin-access`);
+  $("#ceoModalTitle").textContent = `${d.centerName} — kirish ma’lumotlari`;
+  $("#modalBody").innerHTML = `
+    <div class="credential-list"><div><span>Domen</span><code>${esc(d.domain)}</code><button data-copy="${esc(d.domain)}">Nusxalash</button></div></div>
+    <div class="credential-notice neutral">Amaldagi parol xavfsizlik sabab ko‘rsatilmaydi. Yangi parol kiritsangiz, eski parol va avvalgi sessiyalar bekor qilinadi.</div>
+    <form class="access-form" data-admin-form="${id}">
+      <label>Administrator ismi<input id="adminFullName" maxlength="120" required value="${esc(d.admin.fullName)}"></label>
+      <label>Login (email)<input id="adminEmail" type="email" maxlength="160" required value="${esc(d.admin.email)}"></label>
+      <label>Yangi parol <small>O‘zgartirmaslik uchun bo‘sh qoldiring; kamida 12 belgi.</small><div class="password-row"><input id="adminPassword" type="text" minlength="12" maxlength="128" autocomplete="new-password" placeholder="Yangi parol"><button type="button" data-generate-password>Yaratish</button></div></label>
+      <button class="primary-action" type="submit">Saqlash</button>
+    </form>`;
+  $("#demoModal").hidden = false;
+}
+
+async function saveAdminAccess(id) {
+  const password = $("#adminPassword").value;
+  const d = await api(`/api/ceo/centers/${id}/admin-access`, { method: "PATCH", body: JSON.stringify({ fullName: $("#adminFullName").value, email: $("#adminEmail").value, password }) });
+  if (d.passwordChanged) {
+    $("#ceoModalTitle").textContent = "Yangi kirish ma’lumotlari saqlandi";
+    $("#modalBody").innerHTML = `<div class="credential-notice">Yangi parol faqat hozir ko‘rsatiladi. Uni xavfsiz yuboring.</div><div class="credential-list"><div><span>Login</span><code>${esc(d.admin.email)}</code><button data-copy="${esc(d.admin.email)}">Nusxalash</button></div><div><span>Yangi parol</span><code>${esc(password)}</code><button data-copy="${esc(password)}">Nusxalash</button></div></div><div class="modal-actions"><button class="primary-action" data-open-centers>Yopish va yangilash</button></div>`;
+  } else {
+    $("#demoModal").hidden = true;
+    toast("Administrator login ma’lumoti yangilandi");
+    await loadCenters();
+  }
 }
 
 async function updateDemo(id, status) {
@@ -423,6 +481,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const convert = e.target.closest("[data-convert]");
     if (convert) convertDemo(convert.dataset.convert).catch((err) => toast(err.message));
 
+    const adminAccess = e.target.closest("[data-admin-access]");
+    if (adminAccess) openAdminAccess(adminAccess.dataset.adminAccess).catch((err) => toast(err.message));
+
+    const copy = e.target.closest("[data-copy]");
+    if (copy) copyText(copy.dataset.copy);
+
+    const generate = e.target.closest("[data-generate-password]");
+    if (generate) $("#adminPassword").value = makePassword();
+
+    const centers = e.target.closest("[data-open-centers]");
+    if (centers) { $("#demoModal").hidden = true; openPage("centers"); }
+
     const st = e.target.closest("[data-set-status]");
     if (st) updateDemo(st.dataset.id, st.dataset.setStatus).catch((err) => toast(err.message));
 
@@ -432,6 +502,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if(del){const c=state.centers.find(c=>c.id===del.dataset.deleteCenter);const confirmName=prompt(`DIQQAT: ${c.name} markazi, hisoblari va barcha ma’lumotlari qayta tiklab bo‘lmaydigan tarzda o‘chiriladi. Tasdiqlash uchun markaz nomini aynan kiriting: ${c.name}`);if(confirmName===c.name){del.disabled=true;api(`/api/ceo/centers/${c.id}`,{method:'DELETE',body:JSON.stringify({confirmName})}).then(()=>{toast('Markaz butunlay o‘chirildi');return loadCenters()}).catch(err=>{toast(err.message);del.disabled=false})}else if(confirmName!==null)toast('Markaz nomi mos kelmadi')}
     const cs = e.target.closest("[data-center-status]");
     if (cs) updateCenterStatus(cs.dataset.centerStatus, cs.dataset.status).catch((err) => toast(err.message));
+  });
+
+  document.addEventListener("submit", (e) => {
+    const form = e.target.closest("[data-admin-form]");
+    if (!form) return;
+    e.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    saveAdminAccess(form.dataset.adminForm).catch((err) => { toast(err.message); button.disabled = false; });
   });
 
   setTimeout(() => $("#ceoLoader")?.classList.add("hide"), 450);
