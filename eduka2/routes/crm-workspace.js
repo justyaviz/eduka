@@ -11,7 +11,7 @@ const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*102
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const allRoles=['owner','director','admin','administrator'];
-const modules={orders:'leads',groups:'groups',enrollments:'groups',students:'students',parents:'students',addresses:'students','student-contracts':'students',calls:'students','student-tasks':'reminders',tasks:'reminders',visits:'attendance',attendance:'attendance',assessments:'attendance',employees:'teachers',transactions:'finance',cash:'finance',charges:'finance',discounts:'finance',installments:'finance',salary:'finance',bonuses:'finance',penalties:'finance','payment-type':'finance','income-plans':'finance','planned-expenses':'finance',settings:'settings',roles:'roles',branches:'settings'};
+const modules={orders:'leads',groups:'groups',enrollments:'groups',students:'students',parents:'students','student-files':'students','student-notes':'students',addresses:'students','student-contracts':'students',calls:'students','student-tasks':'reminders',tasks:'reminders',visits:'attendance',attendance:'attendance',assessments:'attendance',employees:'teachers',transactions:'finance',cash:'finance',charges:'finance',discounts:'finance',installments:'finance',salary:'finance',bonuses:'finance',penalties:'finance','payment-type':'finance','income-plans':'finance','planned-expenses':'finance',settings:'settings',roles:'roles',branches:'settings'};
 const defaults={manager:['dashboard.view','leads.*','students.*','groups.*','reminders.*','teachers.view','attendance.view'],teacher:['dashboard.view','groups.view','students.view','attendance.*','reminders.view'],cashier:['dashboard.view','students.view','finance.view','finance.payments','finance.collect'],accountant:['dashboard.view','finance.*','students.view','groups.view']};
 function allowed(req,entity,write=false){
  if(allRoles.includes(req.crmRole))return true;
@@ -73,6 +73,8 @@ async function validate(db,center,entity,data,current){
   }
   if(f.type==='file'){const m=typeof v==='string'&&v.match(/^\/api\/crm\/files\?id=([a-f0-9-]+)$/);if(!m||!UUID.test(m[1])||!(await db.query('SELECT id FROM eduka_files WHERE id=$1 AND center_id=$2',[m[1],center])).rows.length)throw fail('Fayl topilmadi')}
  }
+ if(entity==='students'&&data.photo){const id=new URL(data.photo,'https://local').searchParams.get('id');const file=(await db.query('SELECT mime FROM eduka_files WHERE id=$1 AND center_id=$2',[id,center])).rows[0];if(!['image/png','image/jpeg','image/webp'].includes(file?.mime))throw fail('Profil uchun JPG, PNG yoki WebP rasm tanlang')}
+ if(entity==='assessments'&&(data.grade===undefined||data.grade===''||!data.month))throw fail('Baho va oyni kiriting');
  if(data.startDate&&data.endDate&&data.endDate<data.startDate)throw fail('Tugash sanasi boshlanishdan oldin');
  if(entity==='groups'&&data.time&&data.endTime&&data.endTime<=data.time)throw fail('Dars tugash vaqti noto‘g‘ri');
  if(entity==='coins'&&(!Number.isInteger(data.amount)||data.amount<=0))throw fail('Coin musbat butun son bo‘lsin');

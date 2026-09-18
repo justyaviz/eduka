@@ -21,7 +21,10 @@ export const menus:{title:string;icon:string;pages:PageDef[]}[]=[
 ].map(([path,title,entity,kind])=>({path,title,entity,kind,fields:[],readonly:true}))},
 {title:'Sozlamalar',icon:'settings',pages:[['system','Tizim sozlamalari'],['finance','Moliya sozlamalari'],['study','O‘quv bo‘limi sozlamalari'],['sale-marketing','Sotuv va marketing'],['management','Boshqaruv sozlamalari'],['app-settings','Ilova sozlamalari'],['integration','Integratsiyalar'],['gamification','Gamifikatsiya']].map(([key,title])=>({path:'/settings/'+key,title,entity:'settings',kind:key==='integration'?'integrations':key==='gamification'?'unverified':'settings',fields:[]}))}
 ];
+studentFields.push(f('photo','O‘quvchi rasmi','file'));
 const supplemental:PageDef[]=[
+ {path:'/students/files',title:'O‘quvchi fayllari',entity:'student-files',fields:[student,name,date,f('file','Fayl','file',true),note]},
+ {path:'/students/notes',title:'O‘quvchi izohlari',entity:'student-notes',fields:[student,date,f('note','Izoh','textarea',true)]},
  {path:'/students/rewards',title:'Mukofotlar',entity:'rewards',fields:[name,f('cost','Narxi (coin)','number',true),f('stock','Qoldiq','number',true),note]},
  {path:'/students/enrollments',title:'Guruhga biriktirish',entity:'enrollments',fields:[student,f('group','Guruh','relation',true,undefined,'groups'),f('startDate','Boshlanish sanasi','date',true),f('endDate','Tugash sanasi','date'),f('status','Holati','select',true,['Faol','Muzlatilgan','Yakunlangan']),f('price','Kelishilgan narx','number'),note]},
  {path:'/students/attendance/viewing',title:'Kirish va chiqish',entity:'visits',kind:'visits',fields:[student,f('arrivedAt','Kelish vaqti','datetime-local',true),f('leftAt','Ketish vaqti','datetime-local'),branch,note]},

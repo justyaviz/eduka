@@ -112,3 +112,8 @@ body{font-size:16px;line-height:1.5}h1,h2,h3,h4{color:var(--heading)}
 .eduka-chat-unread{position:absolute;right:-4px;top:-4px;min-width:22px;height:22px;background:#f04438;color:white;border:2px solid white;border-radius:50%;font-size:11px;display:grid;place-items:center}
 
 .telegram-form{display:grid;gap:16px}.telegram-form label{display:block;font-size:14px}.telegram-form label input:not([type=checkbox]){margin-top:6px}.subscription-badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;background:#1847FF;color:white;padding:7px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 12px #1847ff30}.subscription-badge.expired{background:#F04438}@media(max-width:700px){.topbar{flex-wrap:wrap;height:auto;min-height:64px;padding-block:10px}.topbar-actions{flex-wrap:wrap}.subscription-badge{font-size:11px;padding:6px 9px}}
+
+/* Student profile: balances and contacts remain visible on phones. */
+.student-card .student-contact{overflow-wrap:anywhere}
+.student-main .detail-grid a{display:block;color:var(--primary,#1847FF)}
+@media(max-width:767px){.student-dialog .student-contact{display:flex}.student-dialog .profile-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}.student-dialog .profile-tabs{max-width:100%;overflow-x:auto;justify-content:flex-start}.student-dialog .profile-actions{flex-wrap:wrap}}

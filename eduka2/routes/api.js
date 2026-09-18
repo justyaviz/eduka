@@ -202,7 +202,7 @@ router.post("/demo-requests", async (req, res) => {
 
     await audit({ user: null, action: "Yangi demo so‘rov keldi", module: "demo_requests", details: demo, req });
 
-    const telegramResult = await sendTelegramMessage(
+    await sendTelegramMessage(
       `<b>🆕 EDUKA — Yangi demo so‘rov</b>\n\n` +
       `<b>Ism:</b> ${demo.name}\n` +
       `<b>Markaz:</b> ${demo.center}\n` +
@@ -526,7 +526,7 @@ await client.query(
 
     await client.query("COMMIT");
 
-    await sendTelegramMessage(
+    const telegramResult = await sendTelegramMessage(
       `<b>✅ EDUKA — Yangi markaz yaratildi</b>\n\n` +
       `<b>Markaz:</b> ${telegramEscape(center.name)}\n` +
       `<b>Domen:</b> https://${telegramEscape(center.subdomain)}.eduka.uz\n` +
