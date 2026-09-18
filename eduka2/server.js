@@ -19,12 +19,15 @@ let dbError = null;
 let dbStarted = false;
 
 function sendPage(res, fileName) {
-  const filePath = path.join(publicDir, fileName);
+  // The deployment image copies tracked source files again after the build.
+  // public/app.html can therefore be stale; the untracked Vite output is authoritative.
+  const filePath = path.join(publicDir, fileName === 'app.html' ? 'crm/index.html' : fileName);
   if (fileName === 'app.html') {
     // Tenant CRM shell must never be kept as a stale HTML document by a proxy/browser.
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     res.set('Pragma', 'no-cache');
     res.set('Vary', 'Host');
+    if (!fs.existsSync(filePath)) return res.status(503).send('EDUKA CRM yuklanmadi. Iltimos, keyinroq qayta urinib ko‘ring.');
   }
   if (fs.existsSync(filePath)) return res.sendFile(filePath);
   const fallback = path.join(publicDir, 'index.html');
