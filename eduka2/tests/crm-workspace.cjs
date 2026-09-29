@@ -6,8 +6,8 @@ const {PGlite}=require('@electric-sql/pglite');
 const express=require('express');
 const bcrypt=require('bcryptjs');
 async function main(){
- process.env.BASE_DOMAIN='eduka.uz';process.env.JWT_SECRET='isolated-test-only';
- const pg=new PGlite();
+ process.env.TZ='UTC';process.env.BASE_DOMAIN='eduka.uz';process.env.JWT_SECRET='isolated-test-only';
+ const pg=new PGlite();await pg.exec("SET TIME ZONE 'UTC'");
  // pgcrypto is not needed for this isolated database; UUIDs are built into PG.
  for(const name of fs.readdirSync(path.join(__dirname,'../migrations')).filter(n=>n.endsWith('.sql')).sort()){
   let sql=fs.readFileSync(path.join(__dirname,'../migrations',name),'utf8').replace(/CREATE EXTENSION IF NOT EXISTS pgcrypto;/gi,'');
@@ -22,7 +22,7 @@ async function main(){
  await pg.query("INSERT INTO center_payments(id,center_id,student_id,amount,status) VALUES($1,$2,$3,100000,'paid')",[payment,center,student]);
  const app=require('../server');
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base='http://127.0.0.1:'+server.address().port;
- for(const [host,url,file] of [['eduka.uz','/','index.html'],['eduka.uz','/ceo','ceo.html'],['eduka.uz','/prices','prices.html'],['alpha.eduka.uz','/','app.html'],['alpha.eduka.uz','/students/student-list','app.html'],['alpha.eduka.uz','/ceo','app.html']]){const r=await fetch(base+url,{headers:{'X-Forwarded-Host':host}});assert.equal(r.status,200);assert.equal(await r.text(),fs.readFileSync(path.join(__dirname,'../public',file),'utf8'));}
+ for(const [host,url,file] of [['eduka.uz','/','index.html'],['eduka.uz','/ceo','ceo.html'],['eduka.uz','/prices','prices.html'],['alpha.eduka.uz','/','app.html'],['alpha.eduka.uz','/students/student-list','app.html'],['alpha.eduka.uz','/ceo','app.html']]){const r=await fetch(base+url,{headers:{'X-Forwarded-Host':host}});assert.equal(r.status,200);assert.equal(await r.text(),fs.readFileSync(path.join(__dirname,'../public',file==='app.html'?'crm/index.html':file),'utf8'));}
  const unknown=await fetch(base+'/',{headers:{'X-Forwarded-Host':'missing.eduka.uz'}});assert.equal(unknown.status,404);
  const {signCenterToken}=require('../middleware/center-auth');const token=signCenterToken({id:user,center_id:center,role:'director',full_name:'Test Director'},{subdomain:'alpha',name:'Alpha'});
  async function request(route,body,host='alpha.eduka.uz',auth=true){const r=await fetch(base+'/api/'+route,{method:body?'POST':'GET',headers:{Host:host,'X-Forwarded-Host':host,...(auth?{Cookie:'eduka_session='+token}:{}),...(body?{'Content-Type':'application/json',Origin:'https://'+host}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json(),headers:r.headers}}
@@ -77,7 +77,22 @@ async function main(){
  let finance=await request('crm/finance-summary?from=2026-09-01&to=2026-09-30');assert.equal(finance.status,200,JSON.stringify(finance.body));assert.equal(finance.body.balanceMismatches,0);assert.equal(finance.body.totals.net,Math.round((finance.body.totals.income-finance.body.totals.refunds-finance.body.totals.expenses)*100)/100);
  const futureFinance=await request('crm/finance-summary?from=2099-01-01');assert.equal(futureFinance.body.totals.net,0);assert.equal((await request('crm/finance-summary?from=2026-09-30&to=2026-09-01')).status,400);
  assert.equal((await request('crm/records',{entity:'transactions',id:receiptId,version:receiptPayment.body.record.version,action:'archive'})).status,200);assert.equal((await request('crm/receipts/'+receiptId)).body.record.deleted,1);assert.equal((await request('crm/finance-summary')).body.balanceMismatches,0);
+ // A previously unknown subdomain must open immediately after provisioning.
+ const missingBeforeCreate=await fetch(base+'/',{headers:{'X-Forwarded-Host':'empty-test.eduka.uz'}});assert.equal(missingBeforeCreate.status,404);
+ const ceoPost=(route,body)=>fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ceoToken},body:JSON.stringify(body)});
+ for(const bad of [{subdomain:'ceo'},{subdomain:'bad..name'},{trialDays:4},{trialDays:3.5},{ownerEmail:'not-an-email'}]){
+  const r=await ceoPost('ceo/centers',{name:'Rejected center',subdomain:'rejected-center',...bad});assert.equal(r.status,400,JSON.stringify(bad));
+ }
  const newCenterResponse=await fetch(base+'/api/ceo/centers',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ceoToken},body:JSON.stringify({name:'Empty Test',subdomain:'empty-test',ownerName:'Owner',ownerEmail:'empty@example.test',tariff:'Start'})});assert.equal(newCenterResponse.status,201);const newCenter=await newCenterResponse.json();assert.ok(newCenter.centerAdmin.password.length>=20);
+ assert.equal((await fetch(base+'/',{headers:{'X-Forwarded-Host':'empty-test.eduka.uz'}})).status,200,'negative tenant cache cleared');
+ assert.equal((await ceoPost('ceo/centers',{name:'Duplicate',subdomain:'empty-test'})).status,409);
+ for(const days of [3,7,10]){
+  const r=await ceoPost('ceo/centers/'+newCenter.center.id+'/trial',{days});assert.equal(r.status,200);
+  const trial=await r.json();assert.ok(Math.abs((new Date(trial.trialEndsAt).getTime()-Date.now())/86400000-days)<0.01,JSON.stringify({trial,days,now:new Date().toISOString()}));
+ }
+ const reservedDemo=randomUUID();await pg.query("INSERT INTO demo_requests(id,name,center_name,phone) VALUES($1,'Owner','CEO','998900000099')",[reservedDemo]);
+ const reservedResponse=await ceoPost('ceo/demo-requests/'+reservedDemo+'/convert-to-center',{trialDays:3});assert.equal(reservedResponse.status,200);const reservedCenter=await reservedResponse.json();assert.equal(reservedCenter.center.subdomain,'ceo-center');
+ const repeated=await ceoPost('ceo/demo-requests/'+reservedDemo+'/convert-to-center',{});const repeatedBody=await repeated.json();assert.equal(repeatedBody.alreadyConverted,true);assert.equal(repeatedBody.center.id,reservedCenter.center.id);
  const demoId=randomUUID();await pg.query("INSERT INTO demo_requests(id,name,center_name,phone) VALUES($1,'Test Owner','Conversion Test','998900000099')",[demoId]);
  const convert=await fetch(base+'/api/ceo/demo-requests/'+demoId+'/convert-to-center',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ceoToken},body:'{}'});const converted=await convert.json();assert.equal(convert.status,200,JSON.stringify(converted));assert.ok(converted.centerAdmin.password);assert.equal(typeof converted.telegramDelivered,'boolean');
  const newLogin=await request('tenant/login',{login:newCenter.centerAdmin.email,password:newCenter.centerAdmin.password},'empty-test.eduka.uz',false);assert.equal(newLogin.status,200,JSON.stringify(newLogin.body));const newCookie=newLogin.headers.get('set-cookie').split(';')[0];

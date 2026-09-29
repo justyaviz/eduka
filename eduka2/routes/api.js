@@ -1,3 +1,4 @@
+const provisioning = require('../utils/center-provisioning');
 
 const express = require("express");
 const bcrypt = require("bcryptjs");
@@ -446,13 +447,17 @@ router.post("/ceo/demo-requests/:id/convert-to-center", requireCeoAuth, async (r
     }
 
     const settings = await client.query(`SELECT value FROM platform_settings WHERE key = 'default_trial_days' LIMIT 1`);
-    const trialDays = Number(settings.rows[0]?.value || 7);
+    let trialDays;
+    try { trialDays = provisioning.trialDays(req.body.trialDays, [3,7,10].includes(Number(settings.rows[0]?.value)) ? Number(settings.rows[0].value) : 7); }
+    catch(error) { await client.query('ROLLBACK'); return res.status(400).json({ok:false,error:error.message}); }
 
     const tariffName = req.body.tariff || demo.payment_mode || "Start";
     const tariff = await client.query(`SELECT * FROM tariffs WHERE name=$1 LIMIT 1`, [tariffName]);
     const selectedTariff = tariff.rows[0] || (await client.query(`SELECT * FROM tariffs WHERE name='Start' LIMIT 1`)).rows[0];
 
-    const base = slugify(demo.center_name);
+    // Serialize slug allocation with manual center creation as well.
+    await client.query('LOCK TABLE centers IN SHARE ROW EXCLUSIVE MODE');
+    const base = provisioning.generatedSlug(demo.center_name);
     let subdomain = base;
     let index = 1;
 
@@ -484,7 +489,7 @@ router.post("/ceo/demo-requests/:id/convert-to-center", requireCeoAuth, async (r
     const center = centerResult.rows[0];
 
     
-    const adminEmail = `admin+${base}@eduka.uz`;
+    const adminEmail = `admin@${subdomain}.eduka.uz`;
     const adminPassword = require('node:crypto').randomBytes(18).toString('base64url');
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
@@ -526,6 +531,8 @@ await client.query(
 
     await client.query("COMMIT");
 
+    require('../hard-page-gate').clearCenterCache();
+    res.set('Cache-Control','no-store');
     const telegramResult = await sendTelegramMessage(
       `<b>✅ EDUKA — Yangi markaz yaratildi</b>\n\n` +
       `<b>Markaz:</b> ${telegramEscape(center.name)}\n` +
@@ -574,17 +581,18 @@ router.get("/ceo/centers", requireCeoAuth, async (req, res) => {
 router.post("/ceo/centers", requireCeoAuth, async (req, res) => {
  const db=await pool.connect();try {
  const b=req.body||{},name=String(b.name||'').trim();if(!name)return res.status(400).json({ok:false,error:'Markaz nomi kerak'});
- const slug=String(b.subdomain||slugify(name)).toLowerCase().replace(/\.eduka\.uz$/,'');
- if(!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug)||['www','api','ceo','admin','mail','app'].includes(slug))return res.status(400).json({ok:false,error:'Subdomen noto‘g‘ri yoki band'});
+ const slug=String(b.subdomain||provisioning.generatedSlug(name)).trim().toLowerCase().replace(/\.eduka\.uz$/,'');
+ if(!provisioning.validSlug(slug))return res.status(400).json({ok:false,error:'Subdomen noto‘g‘ri yoki band'});
  await db.query('BEGIN');await db.query('LOCK TABLE centers IN SHARE ROW EXCLUSIVE MODE');
  if((await db.query("SELECT id FROM centers WHERE lower(subdomain) IN ($1,$2)",[slug,slug+'.eduka.uz'])).rows.length){await db.query('ROLLBACK');return res.status(409).json({ok:false,error:'Subdomen band'})}
  const tariff=(await db.query('SELECT * FROM tariffs WHERE name=$1 AND is_active=TRUE',[b.tariff||'Start'])).rows[0];if(!tariff){await db.query('ROLLBACK');return res.status(400).json({ok:false,error:'Faol tarifni tanlang'})}
- const days=Math.max(1,Math.min(90,Number(b.trialDays)||7));
+ let days;try{days=provisioning.trialDays(b.trialDays)}catch(error){await db.query('ROLLBACK');return res.status(400).json({ok:false,error:error.message})}
+ if(b.ownerEmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.ownerEmail).trim())){await db.query('ROLLBACK');return res.status(400).json({ok:false,error:'Administrator emailini tekshiring'})}
  const center=(await db.query(`INSERT INTO centers(name,subdomain,owner_name,owner_phone,owner_email,tariff,status,students_count,branches_count,monthly_payment,trial_ends_at,next_payment_date)
  VALUES($1,$2,$3,$4,$5,$6,'Trial',0,0,$7,NOW()+$8*INTERVAL '1 day',NOW()+$8*INTERVAL '1 day') RETURNING *`,[name,slug,b.ownerName||name,b.ownerPhone||null,b.ownerEmail||null,tariff.name,tariff.monthly_price,days])).rows[0];
- const email=String(b.ownerEmail||('admin@'+slug+'.eduka.uz')).toLowerCase(),password=require('node:crypto').randomBytes(18).toString('base64url');
+ const email=String(b.ownerEmail||('admin@'+slug+'.eduka.uz')).trim().toLowerCase(),password=require('node:crypto').randomBytes(18).toString('base64url');
  await db.query("INSERT INTO center_users(center_id,full_name,email,password_hash,role,status) VALUES($1,$2,$3,$4,'director','active')",[center.id,b.ownerName||name,email,await bcrypt.hash(password,12)]);
- await db.query('COMMIT');res.set('Cache-Control','no-store');return res.status(201).json({ok:true,center:centerMap(center),centerAdmin:{email,password}});
+ await db.query('COMMIT');require('../hard-page-gate').clearCenterCache();res.set('Cache-Control','no-store');return res.status(201).json({ok:true,center:centerMap(center),centerAdmin:{email,password}});
  }catch(error){await db.query('ROLLBACK');return res.status(error.code==='23505'?409:500).json({ok:false,error:error.code==='23505'?'Subdomen yoki hisob band':'Markaz yaratilmadi'})}finally{db.release()}
 });
 
