@@ -1,5 +1,11 @@
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
-const cents=v=>Math.round(Number(v||0)*100);
+const {cents,delta,statement}=require('./crm-ledger');
+function range(query){
+ const from=String(query.from||''),to=String(query.to||'');
+ for(const v of [from,to])if(v&&(!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v))throw fail('Sana noto‘g‘ri');
+ if(from&&to&&from>to)throw fail('Sana oralig‘i noto‘g‘ri');
+ return {from,to};
+}
 function summarize(rows,from='',to=''){
  const totals={income:0,refunds:0,expenses:0,net:0};const cash=new Map();
  for(const r of rows){if(r.deleted||r.entity!=='transactions'||from&&r.data.date<from||to&&r.data.date>to)continue;
@@ -17,7 +23,7 @@ function register(router,{pool,initialized,allowed}){
   const result=await fn(req,db,center);await db.query('COMMIT');res.json(result);
  }catch(e){if(db)await db.query('ROLLBACK');next(e)}finally{db?.release()}});
  get('/receipts/:id',async(req,db,center)=>{
-  if(!/^[0-9a-f-]{36}$/i.test(req.params.id))throw fail('Chek topilmadi',404);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id))throw fail('Chek topilmadi',404);
   const record=(await db.query("SELECT id,data,deleted,created_at,updated_at,version FROM eduka_records WHERE center_id=$1 AND id=$2 AND entity='transactions'",[center,req.params.id])).rows[0];
   if(!record)throw fail('Chek topilmadi',404);
   const names=(await db.query('SELECT id,data FROM eduka_records WHERE center_id=$1 AND id=ANY($2::uuid[])',[center,[record.data.student,record.data.group,record.data.cash].filter(Boolean)])).rows;
@@ -26,16 +32,24 @@ function register(router,{pool,initialized,allowed}){
   return {record,student:label(record.data.student),group:label(record.data.group),cash:label(record.data.cash),cashier:actor,centerName:(await db.query('SELECT name FROM centers WHERE id=$1',[center])).rows[0].name};
  });
  get('/finance-summary',async(req,db,center)=>{
-  const from=String(req.query.from||''),to=String(req.query.to||'');
-  for(const v of [from,to])if(v&&(!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v))throw fail('Sana noto‘g‘ri');
-  if(from&&to&&from>to)throw fail('Sana oralig‘i noto‘g‘ri');
+  const {from,to}=range(req.query);
   const rows=(await db.query("SELECT id,entity,data,deleted FROM eduka_records WHERE center_id=$1 AND entity IN ('transactions','cash','students','charges','discounts')",[center])).rows;
   const report=summarize(rows,from,to);report.cash=report.cash.map(c=>({...c,name:rows.find(r=>r.id===c.id)?.data.name||'Kassa belgilanmagan'}));
   const ledger=new Map(rows.filter(r=>r.entity==='students'&&!r.deleted).map(r=>[r.id,cents(r.data.openingBalance)]));
-  for(const r of rows){if(r.deleted||!ledger.has(r.data.student))continue;const sign=r.entity==='transactions'?(r.data.direction==='Kirim'?1:-1):r.entity==='charges'?-1:r.entity==='discounts'?1:0;ledger.set(r.data.student,ledger.get(r.data.student)+sign*cents(r.data.amount))}
+  for(const r of rows){if(r.deleted||!ledger.has(r.data.student))continue;ledger.set(r.data.student,ledger.get(r.data.student)+delta(r))}
   const canonical=(await db.query('SELECT id,balance FROM students WHERE center_id=$1',[center])).rows;
-  const mismatches=canonical.filter(r=>ledger.has(r.id)&&ledger.get(r.id)!==cents(r.balance)).length;
-  return {...report,from,to,studentDebt:[...ledger.values()].reduce((s,v)=>s+Math.max(0,-v),0)/100,studentCredit:[...ledger.values()].reduce((s,v)=>s+Math.max(0,v),0)/100,balanceMismatches:mismatches};
+  const stored=new Map(canonical.map(r=>[r.id,cents(r.balance)]));
+  const balances=rows.filter(r=>ledger.has(r.id)).map(r=>({id:r.id,name:[r.data.name,r.data.surname].filter(Boolean).join(' '),balance:ledger.get(r.id)/100,storedBalance:stored.has(r.id)?stored.get(r.id)/100:null,difference:stored.has(r.id)?(ledger.get(r.id)-stored.get(r.id))/100:null})).sort((a,b)=>a.balance-b.balance||a.name.localeCompare(b.name));
+  const mismatches=balances.filter(r=>r.difference!==0).length;
+  return {...report,from,to,balances,studentDebt:[...ledger.values()].reduce((s,v)=>s+Math.max(0,-v),0)/100,studentCredit:[...ledger.values()].reduce((s,v)=>s+Math.max(0,v),0)/100,balanceMismatches:mismatches};
+ });
+ get('/student-ledger/:id',async(req,db,center)=>{
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id))throw fail('O‘quvchi topilmadi',404);
+  const student=(await db.query("SELECT id,data FROM eduka_records WHERE center_id=$1 AND id=$2 AND entity='students' AND deleted=0",[center,req.params.id])).rows[0];
+  if(!student)throw fail('O‘quvchi topilmadi',404);
+  const {from,to}=range(req.query);
+  const rows=(await db.query("SELECT id,entity,data,deleted,created_at FROM eduka_records WHERE center_id=$1 AND data->>'student'=$2 AND entity IN ('transactions','charges','discounts') AND deleted=0",[center,student.id])).rows;
+  return {student:{id:student.id,name:[student.data.name,student.data.surname].filter(Boolean).join(' ')},from,to,...statement(student,rows,from,to)};
  });
 }
 module.exports={register,summarize};

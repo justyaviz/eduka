@@ -77,6 +77,27 @@ async function main(){
  let finance=await request('crm/finance-summary?from=2026-09-01&to=2026-09-30');assert.equal(finance.status,200,JSON.stringify(finance.body));assert.equal(finance.body.balanceMismatches,0);assert.equal(finance.body.totals.net,Math.round((finance.body.totals.income-finance.body.totals.refunds-finance.body.totals.expenses)*100)/100);
  const futureFinance=await request('crm/finance-summary?from=2099-01-01');assert.equal(futureFinance.body.totals.net,0);assert.equal((await request('crm/finance-summary?from=2026-09-30&to=2026-09-01')).status,400);
  assert.equal((await request('crm/records',{entity:'transactions',id:receiptId,version:receiptPayment.body.record.version,action:'archive'})).status,200);assert.equal((await request('crm/receipts/'+receiptId)).body.record.deleted,1);assert.equal((await request('crm/finance-summary')).body.balanceMismatches,0);
+ // Finance phase 3: exact student statements, refunds, date opening and cancelled entries.
+ const ledgerStudent=(await create('students',{name:'Ledger Student',phone:'+998909994001'})).body.record;
+ const ledgerCharge=await create('charges',{student:ledgerStudent.id,name:'Tuition',amount:100.25,date:'2026-09-01'});assert.equal(ledgerCharge.status,200);
+ assert.equal((await create('transactions',{student:ledgerStudent.id,name:'Paid',amount:70.10,date:'2026-09-02',direction:'Kirim',cash:cash.id,paymentMethod:'Naqd'})).status,200);
+ assert.equal((await create('discounts',{student:ledgerStudent.id,name:'Discount',amount:10.05,date:'2026-09-03'})).status,200);
+ const ledgerRefund=await create('transactions',{student:ledgerStudent.id,name:'Refund',amount:5.20,date:'2026-09-04',direction:'Chiqim',cash:cash.id,paymentMethod:'Naqd'});assert.equal(ledgerRefund.status,200);
+ const statementPath='crm/student-ledger/'+ledgerStudent.id;
+ const ledgerFull=await request(statementPath);assert.equal(ledgerFull.status,200,JSON.stringify(ledgerFull.body));assert.equal(ledgerFull.body.opening,0);assert.equal(ledgerFull.body.closing,-25.30);assert.equal(ledgerFull.body.entries.length,4);
+ assert.deepEqual(ledgerFull.body.entries.map(e=>e.balance),[-100.25,-30.15,-20.10,-25.30]);
+ const ledgerPeriod=(await request(statementPath+'?from=2026-09-03&to=2026-09-04')).body;assert.equal(ledgerPeriod.opening,-30.15);assert.equal(ledgerPeriod.closing,-25.30);assert.equal(ledgerPeriod.entries.length,2);
+ const ledgerEmpty=(await request(statementPath+'?from=2099-01-01')).body;assert.equal(ledgerEmpty.opening,-25.30);assert.equal(ledgerEmpty.closing,-25.30);assert.equal(ledgerEmpty.entries.length,0);
+ assert.equal((await request(statementPath+'?from=2026-02-30')).status,400);
+ assert.equal((await request(statementPath+'?from=2026-10-01&to=2026-09-01')).status,400);
+ assert.equal((await request('crm/student-ledger/not-a-uuid')).status,404);
+ assert.equal((await request('crm/student-ledger/'+randomUUID())).status,404);
+ assert.equal((await request(statementPath,undefined,'beta.eduka.uz')).status,403);
+ let ledgerBalance=(await request('crm/finance-summary')).body.balances.find(b=>b.id===ledgerStudent.id);assert.equal(ledgerBalance.balance,-25.30);assert.equal(ledgerBalance.storedBalance,-25.30);assert.equal(ledgerBalance.difference,0);
+ assert.equal((await request('crm/records',{entity:'transactions',action:'archive',id:ledgerRefund.body.record.id,version:1})).status,200);
+ assert.equal((await request(statementPath)).body.closing,-20.10);assert.equal((await request(statementPath)).body.entries.length,3);
+ assert.equal((await request('crm/receipts/'+ledgerRefund.body.record.id)).body.record.deleted,1);
+ console.log('PASS: finance statements, date boundaries, decimal balances, refunds, cancellation and tenant authorization.');
  // A previously unknown subdomain must open immediately after provisioning.
  const missingBeforeCreate=await fetch(base+'/',{headers:{'X-Forwarded-Host':'empty-test.eduka.uz'}});assert.equal(missingBeforeCreate.status,404);
  const ceoPost=(route,body)=>fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ceoToken},body:JSON.stringify(body)});

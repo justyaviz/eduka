@@ -67,7 +67,7 @@ async function syncCanonical(db,r,center){
  }
  if(['students','transactions','charges','discounts'].includes(r.entity)){
   const ids=r.entity==='students'?[r.id]:[d.student].filter(Boolean);
-  for(const id of ids){const all=(await db.query("SELECT entity,data FROM eduka_records WHERE center_id=$1 AND deleted=0 AND (id=$2 OR data->>'student'=$3)",[center,id,id])).rows;let balance=num(all.find(x=>x.entity==='students')?.data.openingBalance);for(const x of all){const amount=num(x.data.amount);if(x.entity==='transactions')balance+=x.data.direction==='Kirim'?amount:-amount;if(x.entity==='charges')balance-=amount;if(x.entity==='discounts')balance+=amount}await db.query('UPDATE students SET balance=$3 WHERE id=$1 AND center_id=$2',[id,center,balance]);}
+  for(const id of ids){const all=(await db.query("SELECT entity,data FROM eduka_records WHERE center_id=$1 AND deleted=0 AND (id=$2 OR data->>'student'=$3)",[center,id,id])).rows;const {cents,delta}=require('./crm-ledger');let balance=cents(all.find(x=>x.entity==='students')?.data.openingBalance);for(const x of all)balance+=delta(x);await db.query('UPDATE students SET balance=$3 WHERE id=$1 AND center_id=$2',[id,center,balance/100]);}
  }
  if(['students','branches'].includes(r.entity))await db.query("UPDATE centers SET students_count=(SELECT COUNT(*) FROM students WHERE center_id=$1 AND status='active'),branches_count=(SELECT COUNT(*) FROM center_branches WHERE center_id=$1 AND status<>'deleted') WHERE id=$1",[center]);
 }
