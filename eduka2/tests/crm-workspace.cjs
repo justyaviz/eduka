@@ -226,6 +226,32 @@ async function main(){
  assert.equal((await roleRequest5({entity:'groups',action:'archive',id:roleGroup5.body.record.id,version:1})).status,403);
  const {overlap}=require('../utils/crm-study');assert.equal(overlap({time:'10:00',endTime:'11:00',days:'Toq kunlar'},{time:'10:30',endTime:'11:30',days:'Juft kunlar'}),false);
  assert.equal(calculatePayroll([...fixtures,{entity:'bonuses',data:{moderator:'t',date:'2026-09-01',amount:3000}},{entity:'penalties',data:{moderator:'t',date:'2026-09-01',amount:1000}},{entity:'bonuses',deleted:1,data:{moderator:'t',date:'2026-09-01',amount:99999}}],{id:'t',data:{salary:100000,lessonRate:10000,revenuePercent:10}},'2026-09').total,127000);
+ // Learning phase 2: prevent invalid edits, branch mismatches and out-of-period enrollment.
+ assert.equal((await request('crm/records',{entity:'settings',action:'update',id:studySettings.body.record.id,version:1,data:{section:'study',lessonDuration:90,maxCapacity:30}})).status,200);
+ const editStudy=(record,data)=>request('crm/records',{entity:record.entity,action:'update',id:record.id,version:record.version,data:{...record.data,...data}});
+ assert.equal((await create('rooms',{name:'Fractional room',capacity:1.5})).status,400);
+ const roomSmall=(await create('rooms',{name:'Small study room',capacity:1})).body.record;
+ const studyGroup=(await create('groups',{name:'Study capacity group',room:room5.id})).body.record;
+ const studyS1=(await create('students',{name:'Study One',phone:'+998909993001',group:studyGroup.id})).body.record;
+ const studyS2=(await create('students',{name:'Study Two',phone:'+998909993002',group:studyGroup.id})).body.record;
+ assert.ok(studyS1&&studyS2);
+ assert.equal((await editStudy(room5,{capacity:1})).status,409,'cannot shrink an occupied room');
+ assert.equal((await editStudy(studyGroup,{room:roomSmall.id})).status,409,'cannot move a group into insufficient room');
+ await pg.query('UPDATE tariffs SET branch_limit=10 WHERE name=(SELECT tariff FROM centers WHERE id=$1)',[center]);
+ const branchStudy=(await create('branches',{name:'Study east'})).body.record;
+ const branchOther=(await create('branches',{name:'Study west'})).body.record;
+ const branchRoom=(await create('rooms',{name:'East room',branch:branchStudy.id,capacity:5})).body.record;
+ assert.equal((await create('groups',{name:'Wrong branch group',branch:branchOther.id,room:branchRoom.id})).status,400);
+ const branchGroup=(await create('groups',{name:'Right branch group',branch:branchStudy.id,room:branchRoom.id})).body.record;
+ assert.ok(branchGroup);
+ assert.equal((await editStudy(branchRoom,{branch:branchOther.id})).status,409);
+ const datedGroup=(await create('groups',{name:'Dated study group',startDate:'2026-01-10',endDate:'2026-12-20'})).body.record;
+ for(const interval of [{startDate:'2026-01-09'},{startDate:'2026-12-21'},{startDate:'2026-09-01',endDate:'2026-12-21'}]){
+  assert.equal((await create('enrollments',{student:studyS1.id,group:datedGroup.id,status:'Faol',...interval})).status,400,'enrollment must fit group dates');
+ }
+ assert.equal((await create('enrollments',{student:studyS1.id,group:datedGroup.id,status:'Faol',startDate:'2026-09-01',endDate:'2026-12-20'})).status,200);
+ assert.equal((await editStudy(datedGroup,{endDate:'2026-08-31'})).status,409,'cannot end group before existing enrollment starts');
+ console.log('PASS: learning phase 2 room edits, branch consistency and enrollment period validation.');
  console.log('PASS: phase 5 schedule conflicts, atomic batch rollback, teacher scope, transfers, payroll adjustments and granular role permissions.');
  async function ceoAction(id,suffix,method,body,auth=ceoToken){const r=await fetch(base+'/api/ceo/centers/'+id+suffix,{method,headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()}}
  for(const days of [3,7,10]){assert.equal((await ceoAction(center,'/trial','POST',{days})).status,200);const session=(await request('crm/session')).body;assert.equal(session.center.status,'Trial');assert.equal(Math.ceil((new Date(session.center.expiresAt)-new Date(session.serverNow))/86400000),days)}

@@ -16,8 +16,29 @@ function member(rows,student,group,date){
  return s.data.group===group;
 }
 async function rules(db,c,entity,data,current){
- if(!['groups','attendance','assessments','enrollments','students'].includes(entity))return;
+ if(!['groups','rooms','attendance','assessments','enrollments','students'].includes(entity))return;
  const rows=(await db.query("SELECT * FROM eduka_records WHERE center_id=$1 AND entity IN ('groups','students','enrollments','rooms') AND deleted=0",[c])).rows;
+ const members=group=>{const ids=new Set(rows.filter(r=>r.entity==='students'&&r.data.group===group&&r.data.status!=='Arxiv').map(r=>r.id));rows.filter(r=>r.entity==='enrollments'&&r.data.group===group&&r.data.status!=='Yakunlangan').forEach(r=>{if(rows.some(s=>s.entity==='students'&&s.id===r.data.student&&s.data.status!=='Arxiv'))ids.add(r.data.student)});return ids};
+ if(entity==='rooms'){
+  if(data.capacity!==undefined&&data.capacity!==''&&(!Number.isInteger(data.capacity)||data.capacity<0))throw fail('Xona sig‘imi musbat butun son bo‘lsin (0 — cheklanmagan)');
+  for(const g of rows.filter(r=>r.entity==='groups'&&current&&r.data.room===current.id&&r.data.status!=='Arxiv')){
+   if(data.capacity>0&&members(g.id).size>data.capacity)throw fail('Xona sig‘imi «'+g.data.name+'» guruhidagi o‘quvchilar sonidan kam',409);
+   if(data.branch&&g.data.branch&&data.branch!==g.data.branch)throw fail('Xona va unga biriktirilgan guruh bir filialda bo‘lishi kerak',409);
+  }
+ }
+ if(entity==='groups'){
+  const room=rows.find(r=>r.entity==='rooms'&&r.id===data.room);
+  if(room?.data.branch&&data.branch&&room.data.branch!==data.branch)throw fail('Tanlangan xona boshqa filialga tegishli');
+  if(room?.data.capacity>0&&current&&members(current.id).size>room.data.capacity)throw fail('Tanlangan xona sig‘imi guruhdagi o‘quvchilar uchun yetmaydi',409);
+  for(const e of rows.filter(r=>r.entity==='enrollments'&&r.data.group===current?.id&&r.data.status!=='Yakunlangan')){
+   if(data.endDate&&e.data.startDate>data.endDate)throw fail('Guruh tugash sanasi mavjud biriktirishdan oldin',409);
+  }
+ }
+ if(entity==='enrollments'){
+  const g=rows.find(r=>r.entity==='groups'&&r.id===data.group);
+  if(g&&(g.data.startDate&&data.startDate<g.data.startDate||g.data.endDate&&(data.startDate>g.data.endDate||data.endDate&&data.endDate>g.data.endDate)))throw fail('Biriktirish sanasi guruhning o‘qish davriga mos emas');
+  if(data.status!=='Yakunlangan'&&!rows.some(r=>r.entity==='students'&&r.id===data.student&&r.data.status!=='Arxiv'))throw fail('Arxiv o‘quvchini guruhga biriktirib bo‘lmaydi');
+ }
  if(entity==='groups'&&(data.status||'Faol')==='Faol'){
   const conflict=rows.find(r=>r.entity==='groups'&&r.id!==current?.id&&(r.data.status||'Faol')==='Faol'&&((data.room&&data.room===r.data.room)||(data.teacher&&data.teacher===r.data.teacher))&&overlap(data,r.data));
   if(conflict)throw fail('Xona yoki o‘qituvchi vaqti «'+conflict.data.name+'» guruhi bilan to‘qnashmoqda',409);
@@ -25,8 +46,7 @@ async function rules(db,c,entity,data,current){
  if(data.group&&(entity==='enrollments'&&data.status!=='Yakunlangan'||entity==='students'&&data.status!=='Arxiv')){
   const g=rows.find(r=>r.id===data.group&&r.entity==='groups');if(g?.data.status==='Arxiv')throw fail('Arxiv guruhga biriktirib bo‘lmaydi');
   const cap=Number(rows.find(r=>r.id===g?.data.room&&r.entity==='rooms')?.data.capacity||0);
-  const ids=new Set(rows.filter(r=>r.entity==='students'&&r.data.group===data.group&&r.data.status!=='Arxiv').map(r=>r.id));
-  rows.filter(r=>r.entity==='enrollments'&&r.data.group===data.group&&r.data.status!=='Yakunlangan').forEach(r=>ids.add(r.data.student));ids.delete(entity==='students'?current?.id:data.student);
+  const ids=members(data.group);ids.delete(entity==='students'?current?.id:data.student);
   if(cap>0&&ids.size>=cap)throw fail('Xona sig‘imi to‘lgan');
  }
  if(['attendance','assessments'].includes(entity)&&data.group){
