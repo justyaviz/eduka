@@ -30,6 +30,11 @@ async function main(){
  assert.equal((await request('crm/records',null,'alpha.eduka.uz',false)).status,401);
  assert.equal((await request('crm/records',null,'beta.eduka.uz')).status,403);
  assert.equal((await request('crm/records',null,'eduka.uz')).status,403);
+ // Subscription endpoint exposes only this center's platform payments, never student payments.
+ const subPayment=randomUUID(),otherSubPayment=randomUUID();
+ await pg.query("INSERT INTO platform_payments(id,center_id,tariff,amount,status) VALUES($1,$2,'Start',250000,'To‘langan'),($3,$4,'Other',999999,'Kutilmoqda')",[subPayment,center,otherSubPayment,other]);
+ const subscription=await request('crm/subscription');assert.equal(subscription.status,200);assert.equal(subscription.body.center.name,'Alpha');assert.equal(subscription.body.payments.length,1);assert.equal(subscription.body.payments[0].id,subPayment);assert.equal(subscription.body.payme.ready,false);assert.ok(subscription.body.tariffs.length);
+ assert.equal((await request('crm/subscription',null,'beta.eduka.uz')).status,403);assert.equal((await request('crm/subscription',null,'alpha.eduka.uz',false)).status,401);
  const login=await request('tenant/login',{login:'director@example.test',password:'local-test-only'},'alpha.eduka.uz',false);assert.equal(login.status,200,JSON.stringify(login.body));assert.match(login.headers.get('set-cookie'),/HttpOnly/);assert.match(login.headers.get('set-cookie'),/SameSite=Strict/);
  let got=await request('crm/records');assert.equal(got.status,200,JSON.stringify(got.body));let old=got.body.records.find(r=>r.id===student);assert.equal(old.data.openingBalance,-150000);assert.equal(got.body.records.find(r=>r.id===payment).data.amount,100000);
  assert.equal((await request('crm/records')).body.records.length,got.body.records.length,'idempotent cutover');
@@ -139,6 +144,7 @@ async function main(){
  const access=await request('crm/staff-access',{employee,email:'new@example.test',password:'test-only-strong-password',role:'teacher',status:'active'});assert.equal(access.status,200,JSON.stringify(access.body));
  const staffLogin=await request('tenant/login',{login:'new@example.test',password:'test-only-strong-password'},'alpha.eduka.uz',false);assert.equal(staffLogin.status,200,JSON.stringify(staffLogin.body));
  const staffCookie=staffLogin.headers.get('set-cookie').split(';')[0];const restricted=await fetch(base+'/api/crm/staff-access',{headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:staffCookie}});assert.equal(restricted.status,403);
+ assert.equal((await fetch(base+'/api/crm/subscription',{headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:staffCookie}})).status,403);
  assert.ok(!JSON.stringify((await request('crm/records')).body).includes('test-only-strong-password'));
  const salary=await request('crm/payroll-run',{employee,month:'2026-09'});assert.equal(salary.status,200,JSON.stringify(salary.body));assert.equal(salary.body.record.data.total,100000);
  assert.equal((await request('crm/payroll-run',{employee,month:'2026-09'})).status,409);

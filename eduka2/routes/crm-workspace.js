@@ -42,6 +42,7 @@ router.use(async(req,res,next)=>{try{
  res.set('Cache-Control','no-store');next();
  }catch(e){next(e)}});
 require('../utils/crm-telegram').register(router,pool);
+require('../utils/crm-subscription').register(router,pool);
 router.get('/notification-status',async(req,res,next)=>{try{if(!['owner','director'].includes(req.crmRole))throw fail('Ruxsat yo‘q',403);res.json({telegramConfigured:!!(await require('../utils/crm-notifications').config(pool,req.centerUser.centerId)),messages:(await pool.query('SELECT id,channel,status,error,created_at,sent_at FROM eduka_notification_outbox WHERE center_id=$1 ORDER BY created_at DESC LIMIT 50',[req.centerUser.centerId])).rows})}catch(e){next(e)}});
 router.get('/support',async(req,res,next)=>{try{res.json({messages:(await pool.query('SELECT id,sender,body,created_at FROM eduka_support_messages WHERE center_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 100',[req.centerUser.centerId,req.crmUser.id])).rows.reverse()})}catch(e){next(e)}});
 router.post('/support',async(req,res,next)=>{try{const body=String(req.body.body||'').trim();if(!body||body.length>3000)throw fail('Xabar 1–3000 belgi bo‘lsin');const r=await pool.query("INSERT INTO eduka_support_messages(center_id,user_id,sender,body) VALUES($1,$2,'user',$3) RETURNING id",[req.centerUser.centerId,req.crmUser.id,body]);res.json({ok:true,id:r.rows[0].id})}catch(e){next(e)}});
