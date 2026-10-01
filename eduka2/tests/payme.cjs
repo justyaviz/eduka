@@ -22,7 +22,7 @@ module.exports=async function({pg,base}){
  assert.equal((await rpc('CheckPerformTransaction',p,'live-only-key')).error.code,-31050,'test invoice rejected by live key');
  assert.equal((await rpc('CheckPerformTransaction',p)).result.allow,true);
  const first=await rpc('CreateTransaction',p);assert.equal(first.result?.state,1,JSON.stringify(first));assert.deepEqual((await rpc('CreateTransaction',p)).result,first.result);
- assert.equal((await rpc('CreateTransaction',{...p,id:'100000000000000000000002'})).error.code,-31050);
+ assert.equal((await rpc('CreateTransaction',{...p,id:'100000000000000000000002'})).error.code,-31008);
  const before=(await pg.query('SELECT next_payment_date FROM centers WHERE id=$1',[center])).rows[0].next_payment_date;
  const done=await rpc('PerformTransaction',{id:p.id});assert.equal(done.result.state,2);assert.deepEqual((await rpc('PerformTransaction',{id:p.id})).result,done.result);
  assert.equal(String((await pg.query('SELECT next_payment_date FROM centers WHERE id=$1',[center])).rows[0].next_payment_date),String(before),'test never extends real subscription');

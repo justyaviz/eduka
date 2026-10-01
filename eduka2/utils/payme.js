@@ -80,7 +80,7 @@ async function dispatch(db,mode,method,p,now){
   const center=(await db.query('SELECT tariff,status FROM centers WHERE id=$1',[order.center_id])).rows[0];
   if(!center||center.tariff!==order.tariff||['Blocked','Suspended'].includes(center.status))fail(-31050,'Markaz yoki tarif o‘zgargan','order_id');
   const active=(await db.query('SELECT * FROM eduka_payme_transactions WHERE order_id=$1 AND state IN (1,2) FOR UPDATE',[order.id])).rows[0];
-  if(active){await expire(db,active,now);if(active.state>0)fail(-31050,'Buyurtmada faol tranzaksiya mavjud','order_id')}
+  if(active){await expire(db,active,now);if(active.state>0)fail(-31008,'Buyurtmada faol tranzaksiya mavjud','order_id')}
   if(method==='CheckPerformTransaction'){
    const result={allow:true};
    const code=process.env.PAYME_MXIK,pack=process.env.PAYME_PACKAGE_CODE,vat=process.env.PAYME_VAT_PERCENT;
