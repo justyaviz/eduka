@@ -79,7 +79,8 @@ async function requireCenterAuth(req, res, next) {
         });
       }
 
-      if (BLOCKED_CENTER_STATUSES.has(String(center.status || ''))) {
+      const billingPath=/^\/api\/crm\/(session|subscription(?:\/checkout|\/orders\/[a-f0-9-]+)?)$/.test(req.originalUrl.split('?')[0]);
+      if (BLOCKED_CENTER_STATUSES.has(String(center.status || '')) && !(center.status==='Expired'&&billingPath)) {
         return res.status(403).json({
           ok: false,
           code: 'CENTER_BLOCKED',

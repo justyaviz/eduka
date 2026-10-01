@@ -81,7 +81,7 @@ router.post('/login', async (req, res) => {
 
     const center = await findCenterByTenant(tenant);
     if (!center) return res.status(404).json({ ok: false, code: 'TENANT_NOT_FOUND', tenant, error: 'O‘quv markaz topilmadi' });
-    if (['Suspended', 'Expired', 'Blocked'].includes(center.status)) {
+    if (['Suspended', 'Blocked'].includes(center.status)) {
       return res.status(403).json({ ok: false, error: 'Markaz vaqtincha bloklangan' });
     }
 
