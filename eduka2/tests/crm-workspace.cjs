@@ -134,6 +134,8 @@ async function main(){
  // New operational flows use isolated data, never real customer accounts.
  const roleCreated=await create('roles',{name:'Test role'});assert.equal(roleCreated.status,200,JSON.stringify(roleCreated.body));
  const employeeCreated=await create('employees',{name:'Teacher',surname:'Test',phone:'+998900000001',role:roleCreated.body.record.id,salary:100000,lessonRate:10000,revenuePercent:10});assert.equal(employeeCreated.status,200,JSON.stringify(employeeCreated.body));const employee=employeeCreated.body.record.id;
+ assert.equal((await request('crm/staff-access',{employee:'invalid'})).status,400);
+ assert.equal((await request('crm/staff-access',{employee,email:'new@example.test',password:'test-only-strong-password',role:'invalid',status:'active'})).status,400);
  const access=await request('crm/staff-access',{employee,email:'new@example.test',password:'test-only-strong-password',role:'teacher',status:'active'});assert.equal(access.status,200,JSON.stringify(access.body));
  const staffLogin=await request('tenant/login',{login:'new@example.test',password:'test-only-strong-password'},'alpha.eduka.uz',false);assert.equal(staffLogin.status,200,JSON.stringify(staffLogin.body));
  const staffCookie=staffLogin.headers.get('set-cookie').split(';')[0];const restricted=await fetch(base+'/api/crm/staff-access',{headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:staffCookie}});assert.equal(restricted.status,403);
@@ -218,6 +220,23 @@ async function main(){
  assert.equal(await require('../utils/crm-telegram').config(adapter,center),null);
  assert.equal((await tenantAction('PUT',{chatId:'-1001234567890',enabled:true})).status,200);
  assert.equal((await require('../utils/crm-telegram').config(adapter,center)).token,fakeToken);
+ // Communication phase 4: tenant history and disabled/cancelled notifications.
+ await pg.query('DELETE FROM eduka_notification_outbox');
+ const worker=require('../utils/crm-notifications');
+ const notifyPayment=await create('transactions',{name:'Notification fixture',amount:1,date:'2026-09-30',direction:'Kirim',cash:cash.id,paymentMethod:'Naqd'});assert.equal(notifyPayment.status,200);
+ let beforeSend=telegramCalls;await worker.tick(adapter);assert.equal(telegramCalls,beforeSend+1);
+ const history=await request('crm/telegram/history');assert.equal(history.status,200);assert.equal(history.body.items[0].status,'sent');assert.equal(history.body.items[0].kind,'To‘lov');assert.ok(!JSON.stringify(history.body).includes(fakeToken));
+ const deniedHistory=await realFetch(base+'/api/crm/telegram/history',{headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:staffCookie}});assert.equal(deniedHistory.status,403);
+ assert.equal((await request('crm/telegram/history',undefined,'beta.eduka.uz')).status,403);
+ const cancelledNotice=await create('transactions',{name:'Cancelled notice',amount:2,date:'2026-09-30',direction:'Kirim',cash:cash.id,paymentMethod:'Naqd'});
+ assert.equal((await request('crm/records',{entity:'transactions',action:'archive',id:cancelledNotice.body.record.id,version:1})).status,200);
+ beforeSend=telegramCalls;await worker.tick(adapter);assert.equal(telegramCalls,beforeSend,'cancelled payment must not send');
+ const disabledNotice=await create('transactions',{name:'Disabled notice',amount:3,date:'2026-09-30',direction:'Kirim',cash:cash.id,paymentMethod:'Naqd'});assert.equal(disabledNotice.status,200);
+ assert.equal((await tenantAction('PUT',{chatId:'-1001234567890',enabled:true,payments:false,reminders:false})).status,200);
+ beforeSend=telegramCalls;await worker.tick(adapter);assert.equal(telegramCalls,beforeSend,'disabled category must not send queued item');
+ assert.equal((await pg.query("SELECT status FROM eduka_notification_outbox WHERE event_key=$1",['payment:'+disabledNotice.body.record.id])).rows[0].status,'failed');
+ assert.equal((await tenantAction('PUT',{chatId:'-1001234567890',enabled:true})).status,200);
+ console.log('PASS: Telegram history isolation, delivery status and cancelled/disabled queue guards.');
  }finally{global.fetch=realFetch}
  // Phase 5: schedule collisions, atomic attendance, transfers and action-specific roles.
  const room5=(await create('rooms',{name:'Phase5 room',capacity:2})).body.record;
@@ -274,6 +293,14 @@ async function main(){
  assert.equal((await editStudy(datedGroup,{endDate:'2026-08-31'})).status,409,'cannot end group before existing enrollment starts');
  console.log('PASS: learning phase 2 room edits, branch consistency and enrollment period validation.');
  console.log('PASS: phase 5 schedule conflicts, atomic batch rollback, teacher scope, transfers, payroll adjustments and granular role permissions.');
+ const staffRecord=(await pg.query('SELECT * FROM eduka_records WHERE id=$1',[employee])).rows[0];
+ const staffVersion=(await pg.query('SELECT auth_version FROM center_users WHERE id=$1',[employee])).rows[0].auth_version;
+ assert.equal((await request('crm/records',{entity:'employees',action:'archive',id:employee,version:staffRecord.version})).status,200);
+ const disabledStaff=(await pg.query('SELECT status,auth_version FROM center_users WHERE id=$1',[employee])).rows[0];assert.equal(disabledStaff.status,'inactive');assert.equal(disabledStaff.auth_version,staffVersion+1);
+ const oldStaffSession=await fetch(base+'/api/crm/session',{headers:{Host:'alpha.eduka.uz','X-Forwarded-Host':'alpha.eduka.uz',Cookie:roleCookie5}});assert.equal(oldStaffSession.status,401);
+ assert.equal((await request('crm/records',{entity:'employees',action:'restore',id:employee,version:staffRecord.version+1})).status,200);
+ assert.equal((await pg.query('SELECT status FROM center_users WHERE id=$1',[employee])).rows[0].status,'inactive');
+ console.log('PASS: employee archive revokes sessions; restoring card leaves login disabled.');
  async function ceoAction(id,suffix,method,body,auth=ceoToken){const r=await fetch(base+'/api/ceo/centers/'+id+suffix,{method,headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()}}
  for(const days of [3,7,10]){assert.equal((await ceoAction(center,'/trial','POST',{days})).status,200);const session=(await request('crm/session')).body;assert.equal(session.center.status,'Trial');assert.equal(Math.ceil((new Date(session.center.expiresAt)-new Date(session.serverNow))/86400000),days)}
  assert.equal((await ceoAction(center,'/trial','POST',{days:4})).status,400);

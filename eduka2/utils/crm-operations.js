@@ -24,6 +24,7 @@ function register(router,{pool,initialized,allowed}){
  const route=(method,path,fn)=>router[method](path,async(req,res,next)=>{try{res.json(await fn(req))}catch(e){next(e)}});
  route('get','/staff-access',async req=>{management(req);return {accounts:(await pool.query('SELECT id,full_name,email,role,status FROM center_users WHERE center_id=$1 ORDER BY full_name',[req.centerUser.centerId])).rows,roles:builtins}});
  route('post','/staff-access',async req=>{management(req);const b=req.body||{};return transaction(req,async(db,c)=>{
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.employee||''))throw fail('Xodimni tanlang');
  const employee=(await db.query("SELECT * FROM eduka_records WHERE center_id=$1 AND id=$2 AND entity='employees' AND deleted=0",[c,b.employee])).rows[0];if(!employee)throw fail('Xodim topilmadi',404);
  const old=(await db.query('SELECT id,role FROM center_users WHERE center_id=$1 AND id=$2',[c,employee.id])).rows[0];
  if(old&&(['owner','director'].includes(old.role)||old.id===req.centerUser.id))throw fail('Rahbar yoki o‘z hisobingizni bu oynada o‘zgartirib bo‘lmaydi',403);
@@ -31,6 +32,7 @@ function register(router,{pool,initialized,allowed}){
  const email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw fail('Email kiriting');
  if((!old||password)&& (password.length<12||Buffer.byteLength(password)>72))throw fail('Parol kamida 12 belgi, ko‘pi bilan 72 bayt bo‘lsin');
  if(!builtins.includes(b.role)){
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.role||''))throw fail('Rolni tanlang');
  const role=(await db.query("SELECT data FROM eduka_records WHERE center_id=$1 AND id=$2 AND entity='roles' AND deleted=0",[c,b.role])).rows[0];if(!role)throw fail('Rol topilmadi');
  const settings=(await db.query("SELECT value FROM center_settings WHERE center_id=$1 AND key='rbac.roles.v1'",[c])).rows[0];let roles=[];try{roles=JSON.parse(settings?.value||'[]')}catch{}
  roles=roles.filter(r=>r.id!==b.role);roles.push({id:b.role,name:role.data.name,permissions:rolePermissions(role.data)});

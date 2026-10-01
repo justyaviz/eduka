@@ -7,6 +7,12 @@ async function call(token,method,body){try{const response=await fetch('https://a
 async function config(db,center){const row=(await db.query('SELECT * FROM eduka_telegram_settings WHERE center_id=$1',[center])).rows[0];if(row)return row.enabled?{token:decrypt(row.token_ciphertext,center),chatId:row.chat_id,payments:row.payments,reminders:row.reminders}:null;let map={};try{map=JSON.parse(process.env.EDUKA_TELEGRAM_CENTERS||'{}')}catch{}const v=map[center];return v&&/^[0-9]+:[A-Za-z0-9_-]+$/.test(v.token||'')&&/^-?[0-9]+$/.test(String(v.chatId||''))?v:null}
 function register(router,pool){
  const owner=(req,res,next)=>['owner','director'].includes(req.crmRole)?next():res.status(403).json({error:'Faqat markaz rahbari sozlaydi'});
+ router.get('/telegram/history',owner,async(req,res,next)=>{try{
+  const page=Math.max(1,Math.min(100000,Number(req.query.page)||1));if(!Number.isInteger(page))throw fail('Sahifa noto‘g‘ri');
+  const center=req.centerUser.centerId;
+  const rows=(await pool.query('SELECT id,event_key,status,error,created_at,sent_at FROM eduka_notification_outbox WHERE center_id=$1 AND channel=$2 ORDER BY created_at DESC,id DESC LIMIT 26 OFFSET $3',[center,'telegram',(page-1)*25])).rows;
+  res.json({page,hasMore:rows.length>25,items:rows.slice(0,25).map(r=>({...r,kind:r.event_key.startsWith('payment:')?'To‘lov':r.event_key.startsWith('task:')?'Topshiriq':'Xabar',event_key:undefined}))});
+ }catch(e){next(e)}});
  router.get('/telegram',owner,async(req,res,next)=>{try{const row=(await pool.query('SELECT chat_id,bot_username,chat_title,enabled,payments,reminders FROM eduka_telegram_settings WHERE center_id=$1',[req.centerUser.centerId])).rows[0];res.json(row?{...row,configured:true}:{configured:false,enabled:true,payments:true,reminders:true})}catch(e){next(e)}});
  router.put('/telegram',owner,async(req,res,next)=>{try{
  const center=req.centerUser.centerId,b=req.body||{},chatId=String(b.chatId||'').trim();if(!/^-[1-9][0-9]{0,18}$/.test(chatId))throw fail('Guruh IDsi manfiy raqam bo‘lishi kerak, masalan -1001234567890');
