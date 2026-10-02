@@ -13,11 +13,14 @@ function calculatePayroll(rows,employee,month){
  rows=rows.filter(r=>!r.deleted);const d=employee.data;const groups=new Set(rows.filter(r=>r.entity==='groups'&&r.data.teacher===employee.id).map(r=>r.id));
  const inMonth=r=>String(r.data.date||'').startsWith(month+'-');
  const lessonCount=new Set(rows.filter(r=>r.entity==='attendance'&&groups.has(r.data.group)&&inMonth(r)&&['Keldi','Birinchi dars','Kechikdi'].includes(r.data.status)).map(r=>r.data.group+':'+r.data.date)).size;
- const revenue=rows.filter(r=>r.entity==='transactions'&&groups.has(r.data.group)&&r.data.student&&inMonth(r)).reduce((s,r)=>s+(r.data.direction==='Kirim'?1:-1)*Number(r.data.amount||0),0);
- const adjustment=entity=>rows.filter(r=>r.entity===entity&&r.data.moderator===employee.id&&inMonth(r)).reduce((s,r)=>s+Number(r.data.amount||0),0);
- const base=Number(d.salary||0),lessonRate=Number(d.lessonRate||0),percent=Number(d.revenuePercent||0),bonus=adjustment('bonuses'),penalty=adjustment('penalties');
- const lessonAmount=lessonCount*lessonRate,percentageAmount=Math.round(Math.max(0,revenue)*percent)/100;
- return {moderator:employee.id,month,base,lessonCount,lessonRate,lessonAmount,revenue,revenuePercent:percent,percentageAmount,bonus,penalty,advance:0,total:Math.max(0,Math.round((base+lessonAmount+percentageAmount+bonus-penalty)*100)/100),status:'Hisoblandi',calculation:'v1'};
+ const money=value=>{const n=Number(value||0);if(!Number.isFinite(n)||n<0||!Number.isSafeInteger(Math.round(n*100)))throw fail('Maosh uchun summa noto‘g‘ri');return Math.round(n*100)};
+ const revenueCents=rows.filter(r=>r.entity==='transactions'&&groups.has(r.data.group)&&r.data.student&&inMonth(r)&&['Kirim','Chiqim'].includes(r.data.direction)).reduce((s,r)=>s+(r.data.direction==='Kirim'?1:-1)*money(r.data.amount),0);
+ const adjustment=entity=>rows.filter(r=>r.entity===entity&&r.data.moderator===employee.id&&inMonth(r)).reduce((s,r)=>s+money(r.data.amount),0);
+ const baseCents=money(d.salary),rateCents=money(d.lessonRate),percent=Number(d.revenuePercent||0),bonusCents=adjustment('bonuses'),penaltyCents=adjustment('penalties');
+ if(!Number.isFinite(percent)||percent<0||percent>100)throw fail('O‘qituvchi foizi 0–100 oralig‘ida bo‘lsin');
+ const lessonCents=lessonCount*rateCents,percentageCents=Math.round(Math.max(0,revenueCents)*percent/100),totalCents=Math.max(0,baseCents+lessonCents+percentageCents+bonusCents-penaltyCents);
+ if(![revenueCents,lessonCents,percentageCents,totalCents].every(Number.isSafeInteger))throw fail('Maosh summasi hisoblash chegarasidan oshdi');
+ return {moderator:employee.id,month,base:baseCents/100,lessonCount,lessonRate:rateCents/100,lessonAmount:lessonCents/100,revenue:revenueCents/100,revenuePercent:percent,percentageAmount:percentageCents/100,bonus:bonusCents/100,penalty:penaltyCents/100,advance:0,total:totalCents/100,status:'Hisoblandi',calculation:'v1'};
 }
 function register(router,{pool,initialized,allowed}){
  async function transaction(req,fn){const db=await pool.connect();try{await db.query('BEGIN');await initialized(db,req.centerUser.centerId);const result=await fn(db,req.centerUser.centerId);await db.query('COMMIT');return result}catch(e){await db.query('ROLLBACK');throw e}finally{db.release()}}
@@ -50,7 +53,7 @@ function register(router,{pool,initialized,allowed}){
  return {record:await record(db,c,'salary',calculatePayroll(rows,e,month),undefined,req.crmUser.full_name)};})});
  route('post','/payroll-pay',async req=>{if(!allowed(req,'salary',true,'update')||!allowed(req,'transactions',true,'create'))throw fail('Ruxsat yo‘q',403);return transaction(req,async(db,c)=>{const r=(await db.query("SELECT * FROM eduka_records WHERE center_id=$1 AND id=$2 AND entity='salary' AND deleted=0",[c,req.body.id])).rows[0];if(!r)throw fail('Maosh topilmadi',404);if(r.data.paymentId)return {ok:true,paymentId:r.data.paymentId};if(!(Number(r.data.total)>0))throw fail('To‘lanadigan summa noldan katta bo‘lsin');if(r.data.calculation!=='v1')throw fail('Avval avtomatik maosh hisoblang');
  if(!(await db.query("SELECT id FROM eduka_records WHERE center_id=$1 AND id=$2 AND entity='cash' AND deleted=0",[c,req.body.cash])).rows.length)throw fail('Kassani tanlang');
- const payment=await record(db,c,'transactions',{name:r.data.month+' — maosh',amount:r.data.total,direction:'Chiqim',date:new Date().toISOString().slice(0,10),cash:req.body.cash,paymentMethod:'Naqd',payrollId:r.id},undefined,req.crmUser.full_name);
+ const payment=await record(db,c,'transactions',{name:r.data.month+' — maosh',amount:r.data.total,direction:'Chiqim',date:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tashkent',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),cash:req.body.cash,paymentMethod:'Naqd',payrollId:r.id},undefined,req.crmUser.full_name);
  await db.query("UPDATE eduka_records SET data=data||$3::jsonb,version=version+1,updated_at=NOW() WHERE center_id=$1 AND id=$2",[c,r.id,JSON.stringify({status:'To‘landi',paymentId:payment.id})]);return {ok:true,paymentId:payment.id};})});
 }
 module.exports={register,calculatePayroll,rolePermissions};

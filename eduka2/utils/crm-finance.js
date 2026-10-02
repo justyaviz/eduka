@@ -7,14 +7,18 @@ function range(query){
  return {from,to};
 }
 function summarize(rows,from='',to=''){
- const totals={income:0,refunds:0,expenses:0,net:0};const cash=new Map();
- for(const r of rows){if(r.deleted||r.entity!=='transactions'||from&&r.data.date<from||to&&r.data.date>to)continue;
+ const totals={income:0,refunds:0,expenses:0,net:0};const cash=new Map();let undatedCount=0,unclassifiedCount=0;
+ for(const r of rows){
+  if(r.deleted||r.entity!=='transactions')continue;
+  if(!['Kirim','Chiqim'].includes(r.data.direction)){unclassifiedCount++;continue;}
+  if((from||to)&&!/^\d{4}-\d{2}-\d{2}$/.test(r.data.date||'')){undatedCount++;continue;}
+  if(from&&r.data.date<from||to&&r.data.date>to)continue;
   const d=r.data,key=d.cash||'',c=cash.get(key)||{id:key,income:0,refunds:0,expenses:0,net:0};
   const field=d.direction==='Kirim'?'income':d.student?'refunds':'expenses';
   totals[field]+=cents(d.amount);c[field]+=cents(d.amount);cash.set(key,c);
  }
  const finish=x=>{x.net=x.income-x.refunds-x.expenses;for(const k of ['income','refunds','expenses','net'])x[k]/=100;return x};
- return {totals:finish(totals),cash:[...cash.values()].map(finish)};
+ return {totals:finish(totals),cash:[...cash.values()].map(finish),undatedCount,unclassifiedCount};
 }
 function register(router,{pool,initialized,allowed}){
  const get=(path,fn)=>router.get(path,async(req,res,next)=>{let db;try{

@@ -343,6 +343,7 @@ async function main(){
  for(const [status,data,code]of [[401,{message:'secret password rejected'},'ESKIZ_CREDENTIALS_REJECTED'],[403,null,'ESKIZ_ACCESS_DENIED'],[422,{errors:{email:['private email']}},'ESKIZ_AUTH_FIELDS'],[429,{},'ESKIZ_AUTH_LIMIT'],[503,{},'ESKIZ_UNAVAILABLE'],[200,null,'ESKIZ_AUTH_RESPONSE']]){const err=loginError({status,data});assert.equal(err.code,code);assert.ok(!err.message.includes('secret password'));assert.ok(!err.message.includes('private email'))}
  console.log('PASS: CEO SMS authentication, validation, encrypted token cache, 401 refresh, idempotency, timeout and provider rejection.');
  await require('./payme.cjs')({pg,base});
+ await require('./finance-access.cjs')({pg,base});
  await new Promise(r=>server.close(r));await pg.close();
  console.log('PASS: tenant isolation, empty onboarding, billing limits, pagination, staff access, payroll idempotency, coins/rewards, support replies, CEO authorization, ledger/refunds, native login, legacy import and private files.');
 }

@@ -14,11 +14,12 @@ const allRoles=['owner','director','admin','administrator'];
 const modules={orders:'leads',groups:'groups',enrollments:'groups',students:'students',parents:'students','student-files':'students','student-notes':'students',addresses:'students','student-contracts':'students',calls:'students','student-tasks':'reminders',tasks:'reminders',visits:'attendance',attendance:'attendance',assessments:'attendance',employees:'teachers',transactions:'finance',cash:'finance',charges:'finance',discounts:'finance',installments:'finance',salary:'finance',bonuses:'finance',penalties:'finance','payment-type':'finance','income-plans':'finance','planned-expenses':'finance',settings:'settings',roles:'roles',branches:'settings'};
 const defaults={manager:['dashboard.view','leads.*','students.*','groups.*','reminders.*','teachers.view','attendance.view'],teacher:['dashboard.view','groups.view','students.view','attendance.*','reminders.view'],cashier:['dashboard.view','students.view','finance.view','finance.payments','finance.collect'],accountant:['dashboard.view','finance.*','students.view','groups.view']};
 function allowed(req,entity,write=false,action){
+ if(req.crmRole==='cashier'&&['salary','bonuses','penalties'].includes(entity))return false;
  if(allRoles.includes(req.crmRole))return true;
  const module=modules[entity]||'settings';const list=req.crmPermissions;
  if(list.includes('*')||list.includes(module+'.*'))return true;
  if(!write)return list.includes(module+'.view');
- if(entity==='transactions'&&list.includes('finance.collect'))return true;
+ if(entity==='transactions'&&action==='create'&&list.includes('finance.collect'))return true;
  return list.includes(module+'.manage')||!!action&&list.includes(module+'.'+(action==='restore'?'archive':action));
 }
 function sameOrigin(req,res,next){
@@ -38,7 +39,7 @@ router.use(async(req,res,next)=>{try{
  const row=(await pool.query("SELECT value FROM center_settings WHERE center_id=$1 AND key='rbac.roles.v1'",[req.centerUser.centerId])).rows[0];
  let roles=[];try{roles=JSON.parse(row?.value||'[]')}catch{}
  const custom=(await pool.query("SELECT data FROM eduka_records WHERE center_id=$1 AND id::text=$2 AND entity='roles' AND deleted=0",[req.centerUser.centerId,req.crmRole])).rows[0];
- req.crmPermissions=custom?require('../utils/crm-operations').rolePermissions(custom.data):roles.find(r=>String(r.id).toLowerCase()===req.crmRole)?.permissions||defaults[req.crmRole]||[];
+ req.crmPermissions=custom?require('../utils/crm-operations').rolePermissions(custom.data):UUID.test(req.crmRole)?[]:roles.find(r=>String(r.id).toLowerCase()===req.crmRole)?.permissions||defaults[req.crmRole]||[];
  res.set('Cache-Control','no-store');next();
  }catch(e){next(e)}});
 require('../utils/crm-telegram').register(router,pool);
@@ -114,6 +115,7 @@ router.post('/records',async(req,res,next)=>{let db;try{
  if(b.action!=='create'&&!current)throw fail('Yozuv topilmadi',404);
  if(current&&b.version!==current.version)throw fail('Yozuv yangilangan. Sahifani yangilang.',409);
  const data=['archive','restore'].includes(b.action)?{...current.data}:{...b.data};
+ if(b.entity==='transactions'&&!allRoles.includes(req.crmRole)&&req.crmPermissions.includes('finance.collect')&&!req.crmPermissions.some(p=>['*','finance.*','finance.manage','finance.create'].includes(p))&&(b.action!=='create'||data.direction!=='Kirim'||!data.student))throw fail('Bu ruxsat faqat o‘quvchidan to‘lov qabul qilish uchun',403);
  if(b.action==='restore'&&b.entity==='students'&&data.status==='Arxiv')data.status='Faol';
  if(b.action==='update'&&current.deleted)throw fail('Avval yozuvni arxivdan tiklang',409);
  if(b.action==='restore'&&!current.deleted||b.action==='archive'&&current.deleted)throw fail('Yozuv holati o‘zgargan. Sahifani yangilang.',409);
